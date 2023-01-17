@@ -31,7 +31,7 @@ For commercial projects, please check the Unreal Engine Marketplace (plugin to b
 
 TLDR: Add heightmap line. Download. Convert. Import landscape and rename it. Adjust.
 
-* Install [7-Zip](https://www.7-zip.org/download.html) and make sure it is available in your PATH environment variable (used for the Viewfinder Panoramas maps).
+* Install [7-Zip](https://www.7-zip.org/download.html) and make sure it is available in your PATH environment variable (used for Viewfinder Panoramas).
 * Install [GDAL 3.6.2](https://gdal.org/download.html#binaries) using `conda` and add `C:\Path\To\conda\Library\bin` to your PATH. 
 * After loading the plugin, open the plugin window using the plugin button or in the "Tools" menu.
 * Some heightmaps lines examples are already there for you to try, or you can add a new heightmap line
