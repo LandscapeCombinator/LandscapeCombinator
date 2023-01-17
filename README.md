@@ -3,7 +3,7 @@
 
 ## Description
 
-Landscape Combinator is a simple Unreal Engine plugin that has three main features:
+Landscape Combinator is a simple Unreal Engine 5.1 plugin that has three main features:
 
 * downloading real-world heightmaps from various sources,
 * converting heightmaps to the format expected by Unreal Engine using [GDAL](https://gdal.org/),
