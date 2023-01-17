@@ -11,7 +11,6 @@ public class LandscapeCombinator : ModuleRules
 
 		PublicIncludePaths.Add(Path.Combine(PluginDirectory, "include"));
         PublicAdditionalLibraries.Add(Path.Combine(PluginDirectory, "lib", "gdal.lib"));
-        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "bin", "gdal.dll"));
 
         PublicDependencyModuleNames.AddRange(
 			new string[]
