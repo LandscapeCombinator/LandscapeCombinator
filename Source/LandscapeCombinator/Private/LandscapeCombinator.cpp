@@ -74,7 +74,7 @@ HMInterface* InterfaceFromKind(FString LandscapeName0, const FText& KindText0, F
 	else {
 		FMessageDialog::Open(EAppMsgType::Ok,
 			FText::Format(
-				LOCTEXT("InterfaceFromKindError", "Internal error: heightmap kind {0} is not supprted."),
+				LOCTEXT("InterfaceFromKindError", "Internal error: heightmap kind '{0}' is not supprted."),
 				KindText0
 			)
 		); 
@@ -84,9 +84,9 @@ HMInterface* InterfaceFromKind(FString LandscapeName0, const FText& KindText0, F
 
 FText DescriptionFromKind(const FText& KindText0)
 {
-	if (KindText0.EqualTo(ViewFinder15Text)) return LOCTEXT("ViewFinder15Descr", "Enter the comma-separated list of rectangles (e.g. 15-A, 15-B, 15-G, 15-H)");
-	else if (KindText0.EqualTo(ViewFinder3Text)) return LOCTEXT("ViewFinder3Descr", "Enter the comma-separated list of rectangles (e.g. M31, M32)");
-	else if (KindText0.EqualTo(ViewFinder1Text)) return LOCTEXT("ViewFinder1Descr", "Enter the comma-separated list of rectangles (e.g. M31, M32)");
+	if (KindText0.EqualTo(ViewFinder15Text)) return LOCTEXT("ViewFinder15Descr", "Enter the comma-separated list of rectangles (e.g. 15-A, 15-B, 15-G, 15-H) from http://viewfinderpanoramas.org/Coverage%20map%20viewfinderpanoramas_org15.htm");
+	else if (KindText0.EqualTo(ViewFinder3Text)) return LOCTEXT("ViewFinder3Descr", "Enter the comma-separated list of rectangles (e.g. M31, M32) from http://viewfinderpanoramas.org/Coverage%20map%20viewfinderpanoramas_org3.htm");
+	else if (KindText0.EqualTo(ViewFinder1Text)) return LOCTEXT("ViewFinder1Descr", "Enter the comma-separated list of rectangles (e.g. M31, M32) from http://viewfinderpanoramas.org/Coverage%20map%20viewfinderpanoramas_org1.htm");
 	else if (KindText0.EqualTo(RGEAltiText)) return LOCTEXT("RGEAltiDescr", "Enter MinLong,MaxLong,MinLat,MaxLat in EPSG 2154 coordinates");
 	else if (KindText0.EqualTo(ElevationAPIText)) return LOCTEXT("ElevationAPIDescr", "Enter MinLong,MaxLong,MinLat,MaxLat in EPSG 4326 coordinates");
 	else if (KindText0.EqualTo(LocalFileText)) return LOCTEXT("LocalFileDescr", "Enter your C:\\Path\\To\\MyHeightmap.tif in GeoTIFF format");
@@ -169,7 +169,7 @@ void FLandscapeCombinatorModule::AddHeightMapLine(FString LandscapeName, const F
 {
 	HMInterface *Interface = InterfaceFromKind(LandscapeName, KindText, Descr, Precision);
 
-	if (!Interface->Initialize()) {
+	if (!Interface || !Interface->Initialize()) {
 		FMessageDialog::Open(EAppMsgType::Ok,
 			FText::Format(
 				LOCTEXT("InitializationError", "There was an error while initializing {0}. Please refer to other error messages."),
