@@ -98,6 +98,9 @@ void FLandscapeCombinatorModule::StartupModule()
 {
 	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
 	
+	GDALAllRegister();
+	OGRRegisterAll();
+	
 	FLandscapeCombinatorStyle::Initialize();
 	FLandscapeCombinatorStyle::ReloadTextures();
 
@@ -447,7 +450,6 @@ void FLandscapeCombinatorModule::LoadHeightMaps()
 
 void FLandscapeCombinatorModule::PluginButtonClicked()
 {
-	GDALAllRegister();
 	FGlobalTabmanager::Get()->TryInvokeTab(LandscapeCombinatorTabName);
 }
 

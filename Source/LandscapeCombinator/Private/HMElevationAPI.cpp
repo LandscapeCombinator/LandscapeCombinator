@@ -132,8 +132,7 @@ bool HMElevationAPI::GetCoordinates(FVector4d &Coordinates) const
 
 bool HMElevationAPI::GetSpatialReference(OGRSpatialReference &InRs) const
 {
-	InRs.importFromEPSG(4326);
-	InRs.SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
+	InRs = HMInterface::SR4326;
 	return true;
 }
 

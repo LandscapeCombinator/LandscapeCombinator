@@ -63,8 +63,7 @@ bool HMRGEAlti::GetInsidePixels(FIntPoint &InsidePixels) const
 
 bool HMRGEAlti::GetSpatialReference(OGRSpatialReference &InRs) const
 {
-	InRs.importFromEPSG(2154);
-	InRs.SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
+	InRs = SR2154;
 	return true;
 }
 

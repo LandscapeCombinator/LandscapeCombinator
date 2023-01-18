@@ -1,6 +1,7 @@
 #include "HMInterface.h"
 #include "Misc/Paths.h"
 #include "Internationalization/Regex.h"
+#include "Interfaces/IPluginManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "Landscape.h"
 #include "LandscapeProxy.h"
@@ -47,6 +48,41 @@ bool HMInterface::Initialize()
 		);
 		return false;
 	}
+	
+	FString ShareFolder = FPaths:: ConvertRelativePathToFull(IPluginManager::Get().FindPlugin("LandscapeCombinator")->GetBaseDir()) / "ThirdParty" / "share";
+	FString GDALData = (ShareFolder / "gdal").Replace(TEXT("/"), TEXT("\\"));
+	FString PROJData = (ShareFolder / "proj").Replace(TEXT("/"), TEXT("\\"));
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("Setting GDAL_DATA to: %s"), *GDALData);
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("Setting PROJ_DATA to: %s"), *PROJData);
+	CPLSetConfigOption("GDAL_DATA", TCHAR_TO_UTF8(*GDALData));
+	CPLSetConfigOption("PROJ_DATA", TCHAR_TO_UTF8(*PROJData));
+	const char* const ProjPaths[] = { TCHAR_TO_UTF8(*PROJData), nullptr };
+	OSRSetPROJSearchPaths(ProjPaths);
+
+	OGRErr Err = SR4326.importFromEPSG(4326);
+	if (Err != OGRERR_NONE) {
+		FMessageDialog::Open(EAppMsgType::Ok,
+			FText::Format(
+				LOCTEXT("StartupModuleError1", "Could not initialize EPSG 4326: (Error {0}). Landscape Combinator will not work."),
+				FText::AsNumber(Err)
+			)
+		);
+		return false;
+	}
+	SR4326.SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
+
+	Err = SR2154.importFromEPSG(2154);
+	if (Err != OGRERR_NONE) {
+		FMessageDialog::Open(EAppMsgType::Ok,
+			FText::Format(
+				LOCTEXT("StartupModuleError1", "Could not initialize EPSG 2154: (Error {0}). Landscape Combinator will not work."),
+				FText::AsNumber(Err)
+			)
+		);
+		return false;
+	}
+	SR2154.SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
+
 
 	FString Intermediate = FPaths::ConvertRelativePathToFull(FPaths::EngineIntermediateDir());
 	LandscapeCombinatorDir = FPaths::Combine(Intermediate, "LandscapeCombinator");
@@ -154,9 +190,8 @@ bool HMInterface::GetMinMax(FVector2D &MinMax) const {
 
 		if (!Dataset) {
 			FMessageDialog::Open(EAppMsgType::Ok,
-				FText::Format(LOCTEXT("GetMinMaxError", "Could not open heightmap file '{0}' to compute min/max altitudes. {1}"),
-					FText::FromString(File),
-					GDALGetDriverByName("SRTMHGT") == NULL
+				FText::Format(LOCTEXT("GetMinMaxError", "Could not open heightmap file '{0}' to compute min/max altitudes."),
+					FText::FromString(File)
 				)
 			);
 			return false;
@@ -200,17 +235,17 @@ FReply HMInterface::ConvertHeightMaps() const
 		return FReply::Unhandled();
 	}
 
-	FVector2D Altitudes;
-	// We use HMInterface::GetMinMax instead of the overridden GetMinMax to access
-	// min/max as seen by gdalinfo, rather than the real-world min/max altitudes.
-	// Useful when the original files are PNG files rather than GeoTIFF.
-	if (!HMInterface::GetMinMax(Altitudes)) return FReply::Unhandled();
-
-	double MinAltitude = Altitudes[0];
-	double MaxAltitude = Altitudes[1];
-
 	
-	Concurrency::RunAsync([this, MinAltitude, MaxAltitude]() {
+	Concurrency::RunAsync([this]() {
+
+		FVector2D Altitudes;
+		// We use HMInterface::GetMinMax instead of the overridden GetMinMax to access
+		// min/max as seen by gdalinfo, rather than the real-world min/max altitudes.
+		// Useful when the original files are PNG files rather than GeoTIFF.
+		if (!HMInterface::GetMinMax(Altitudes)) return;
+
+		double MinAltitude = Altitudes[0];
+		double MaxAltitude = Altitudes[1];
 
 		for (int32 i = 0; i < OriginalFiles.Num(); i++) {
 			FString OriginalFile = OriginalFiles[i];
@@ -367,12 +402,11 @@ FReply HMInterface::AdjustLandscape(int WorldWidthKm, int WorldHeightKm) const
 	double ys[2] = { MaxCoordHeight0, MinCoordHeight0 };
 	OGRSpatialReference InRs, OutRs;
 	GetSpatialReference(InRs);
-	OutRs.importFromEPSG(4326);
-	OutRs.SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
+	OutRs = SR4326;
 
 	if (!OGRCreateCoordinateTransformation(&InRs, &OutRs)->Transform(2, xs, ys)) {
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("AjustLandscapeTransformError", "Internal error while transforming coordinates for Landscape {0}."),
+			LOCTEXT("AdjustLandscapeTransformError", "Internal error while transforming coordinates for Landscape {0}."),
 			FText::FromString(LandscapeName)
 		));
 		return FReply::Unhandled();
