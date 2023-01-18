@@ -63,8 +63,7 @@ bool HMViewFinder1or3::Initialize()
 
 bool HMViewFinder1or3::GetSpatialReference(OGRSpatialReference &InRs) const
 {
-	InRs.importFromEPSG(4326);
-	InRs.SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
+	InRs = SR4326;
 	return true;
 }
 

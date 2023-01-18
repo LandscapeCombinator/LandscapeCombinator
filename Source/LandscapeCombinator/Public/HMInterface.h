@@ -12,7 +12,10 @@
 class HMInterface
 {
 
-protected:
+protected:	
+	OGRSpatialReference SR2154;
+	OGRSpatialReference SR4326;
+
 	FString LandscapeName;
 	const FText& KindText;
 	FString Descr;

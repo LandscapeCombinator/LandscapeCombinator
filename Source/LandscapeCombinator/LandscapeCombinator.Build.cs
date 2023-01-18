@@ -9,8 +9,11 @@ public class LandscapeCombinator : ModuleRules
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		PublicIncludePaths.Add(Path.Combine(PluginDirectory, "include"));
-        PublicAdditionalLibraries.Add(Path.Combine(PluginDirectory, "lib", "gdal.lib"));
+		PublicIncludePaths.Add(Path.Combine(PluginDirectory, "ThirdParty", "include"));
+        PublicAdditionalLibraries.Add(Path.Combine(PluginDirectory, "ThirdParty", "lib", "gdal.lib"));
+		foreach (string DLLFile in Directory.GetFiles(Path.Combine(PluginDirectory, "ThirdParty", "bin")))
+			RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Binaries", "Win64", Path.GetFileName(DLLFile)), DLLFile);
+
 
         PublicDependencyModuleNames.AddRange(
 			new string[]
