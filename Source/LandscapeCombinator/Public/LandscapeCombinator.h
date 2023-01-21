@@ -31,8 +31,10 @@ private:
 	TSharedPtr<SVerticalBox> HeightMaps;
 	TSharedPtr<SEditableTextBox> WorldWidthBlock;
 	TSharedPtr<SEditableTextBox> WorldHeightBlock;
+	TSharedPtr<SEditableTextBox> ZScaleBlock;
 	
-	FString HeightMapListFile;
+	FString HeightMapListPluginFile;
+	FString HeightMapListProjectFile;
 
 	struct HeightMapDetails {
 		FString LandscapeName;
@@ -54,7 +56,6 @@ private:
 	TSharedRef<SHorizontalBox> HeightMapLineAdder();
 
 	void SaveHeightMaps();
-
 	void LoadHeightMaps();
 };
 

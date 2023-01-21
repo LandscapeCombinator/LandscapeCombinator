@@ -12,6 +12,9 @@ protected:
 	double MinLat;
 	double MaxLat;
 
+	int Width;
+	int Height;
+
 	bool Initialize() override;
 	bool GetInsidePixels(FIntPoint &InsidePixels) const override;
 	bool GetSpatialReference(OGRSpatialReference &InRs) const override;

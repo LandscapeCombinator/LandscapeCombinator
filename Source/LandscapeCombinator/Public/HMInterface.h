@@ -43,7 +43,7 @@ public:
 	FReply DownloadHeightMaps() const;
 	virtual FReply DownloadHeightMapsImpl() const = 0;
 	FReply ConvertHeightMaps() const;
-	FReply AdjustLandscape(int WorldWidthKm, int WorldHeigtKm) const;
+	FReply AdjustLandscape(int WorldWidthKm, int WorldHeigtKm, double ZScale, bool AdjustPosition) const;
 };
 
 #undef LOCTEXT_NAMESPACE

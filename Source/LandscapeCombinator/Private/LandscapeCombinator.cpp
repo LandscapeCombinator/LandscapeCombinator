@@ -35,7 +35,6 @@
 #include "WorldPartition/WorldPartitionActorLoaderInterface.h"
 #include "WorldPartition/WorldPartitionEditorLoaderAdapter.h"
 
- 
 #include "ToolMenus.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
@@ -101,6 +100,16 @@ void FLandscapeCombinatorModule::StartupModule()
 	GDALAllRegister();
 	OGRRegisterAll();
 	
+	FString ShareFolder = FPaths:: ConvertRelativePathToFull(IPluginManager::Get().FindPlugin("LandscapeCombinator")->GetBaseDir()) / "ThirdParty" / "share";
+	FString GDALData = (ShareFolder / "gdal").Replace(TEXT("/"), TEXT("\\"));
+	FString PROJData = (ShareFolder / "proj").Replace(TEXT("/"), TEXT("\\"));
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("Setting GDAL_DATA to: %s"), *GDALData);
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("Setting PROJ_DATA to: %s"), *PROJData);
+	CPLSetConfigOption("GDAL_DATA", TCHAR_TO_UTF8(*GDALData));
+	CPLSetConfigOption("PROJ_DATA", TCHAR_TO_UTF8(*PROJData));
+	const char* const ProjPaths[] = { TCHAR_TO_UTF8(*PROJData), nullptr };
+	OSRSetPROJSearchPaths(ProjPaths);
+	
 	FLandscapeCombinatorStyle::Initialize();
 	FLandscapeCombinatorStyle::ReloadTextures();
 
@@ -118,8 +127,9 @@ void FLandscapeCombinatorModule::StartupModule()
 	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(LandscapeCombinatorTabName, FOnSpawnTab::CreateRaw(this, &FLandscapeCombinatorModule::OnSpawnPluginTab))
 		.SetDisplayName(LOCTEXT("FLandscapeCombinatorTabTitle", "LandscapeCombinator"))
 		.SetMenuType(ETabSpawnerMenuType::Hidden);
-
-	HeightMapListFile = FPaths::Combine(IPluginManager::Get().FindPlugin("LandscapeCombinator")->GetBaseDir(), "HeightmapList");
+	
+	HeightMapListPluginFile  = FPaths::Combine(IPluginManager::Get().FindPlugin("LandscapeCombinator")->GetBaseDir(), "HeightmapList");
+	HeightMapListProjectFile = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir()) / "HeightMapList";
 }
 
 void FLandscapeCombinatorModule::ShutdownModule()
@@ -207,26 +217,39 @@ void FLandscapeCombinatorModule::AddHeightMapLine(FString LandscapeName, const F
 			.ToolTipText(LOCTEXT("Convert", "Convert Heightmaps to PNG"))
 		];
 
+	auto AdjustLambda = [this, Interface](bool AdjustPosition){
+				
+		int WorldWidthKm = FCString::Atoi(*WorldWidthBlock->GetText().ToString());
+		int WorldHeightKm = FCString::Atoi(*WorldHeightBlock->GetText().ToString());
+		double ZScale = FCString::Atod(*ZScaleBlock->GetText().ToString());
+
+		if (WorldWidthKm <= 0) {
+			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("PositiveWidth", "World Width must be greater than 0 km"));
+			return FReply::Unhandled();
+		}
+
+		if (WorldHeightKm <= 0) {
+			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("PositiveHeight", "World Height must be greater than 0 km"));
+			return FReply::Unhandled();
+		}
+
+		return Interface->AdjustLandscape(WorldWidthKm, WorldHeightKm, ZScale, true);
+	};
+
+	TSharedRef<SButton> AdjustScaleOnlyButton = SNew(SButton)
+		.OnClicked_Lambda([this, Interface, AdjustLambda]()->FReply {
+			return AdjustLambda(false);
+		}) [
+			SNew(SImage).Image(FLandscapeCombinatorStyle::Get().GetBrush("LandscapeCombinator.Scale"))
+			.ToolTipText(LOCTEXT("AdjustScaleOnly", "Adjust scale only"))
+		];
+
 	TSharedRef<SButton> AdjustButton = SNew(SButton)
-		.OnClicked_Lambda([this, Interface]()->FReply {
-		
-			int WorldWidthKm = FCString::Atoi(*WorldWidthBlock->GetText().ToString());
-			int WorldHeightKm = FCString::Atoi(*WorldHeightBlock->GetText().ToString());
-
-			if (WorldWidthKm <= 0) {
-				FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("PositiveWidth", "World Width must be greater than 0 km"));
-				return FReply::Unhandled();
-			}
-
-			if (WorldHeightKm <= 0) {
-				FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("PositiveWidth", "World Height must be greater than 0 km"));
-				return FReply::Unhandled();
-			}
-
-			return Interface->AdjustLandscape(WorldWidthKm, WorldHeightKm);
+		.OnClicked_Lambda([this, Interface, AdjustLambda]()->FReply {
+			return AdjustLambda(true);
 		}) [
 			SNew(SImage).Image(FLandscapeCombinatorStyle::Get().GetBrush("LandscapeCombinator.Adjust"))
-			.ToolTipText(LOCTEXT("Adjust", "Adjust scale and position of the landscape"))
+			.ToolTipText(LOCTEXT("Adjust", "Adjust scale and set landscape position relative to the world"))
 		];
 
 	TSharedRef<SButton> RemoveButton = SNew(SButton)
@@ -267,14 +290,15 @@ void FLandscapeCombinatorModule::AddHeightMapLine(FString LandscapeName, const F
 	Line->AddSlot().FillWidth(0.07)[ LandscapeNameBlock ];
 	Line->AddSlot().FillWidth(0.08)[ KindTextBlock ];
 	Line->AddSlot().FillWidth(0.43)[ DescrBlock ];
-	Line->AddSlot().HAlign(HAlign_Left).FillWidth(0.08)[ PrecisionBlock ];
+	Line->AddSlot().FillWidth(0.08)[ PrecisionBlock ];
 	Line->AddSlot().FillWidth(0.02)[ DownloadButton ];
 	Line->AddSlot().FillWidth(0.02)[ ScaleDownButton ];
+	Line->AddSlot().FillWidth(0.02)[ AdjustScaleOnlyButton ];
 	Line->AddSlot().FillWidth(0.02)[ AdjustButton ];
 	Line->AddSlot().FillWidth(0.02)[ RemoveButton ];
 	Line->AddSlot().FillWidth(0.02)[ DownButton ];
 	Line->AddSlot().FillWidth(0.02)[ UpButton ];
-	Line->AddSlot().FillWidth(0.19);
+	Line->AddSlot().FillWidth(0.17);
 
 	HeightMaps->AddSlot().AutoHeight().Padding(FMargin(0, 0, 0, 8))[ Line ];
 
@@ -339,9 +363,10 @@ TSharedRef<SDockTab> FLandscapeCombinatorModule::OnSpawnPluginTab(const FSpawnTa
 	SAssignNew(HeightMaps, SVerticalBox);
 	SAssignNew(WorldWidthBlock, SEditableTextBox).SelectAllTextWhenFocused(true).Text(FText::FromString("40000")).Font(RegularFont);
 	SAssignNew(WorldHeightBlock, SEditableTextBox).SelectAllTextWhenFocused(true).Text(FText::FromString("20000")).Font(RegularFont);
+	SAssignNew(ZScaleBlock, SEditableTextBox).SelectAllTextWhenFocused(true).Text(FText::FromString("1")).Font(RegularFont);
 
 	TSharedRef<STextBlock> WorldSizeBlock = SNew(STextBlock)
-		.Text(LOCTEXT("WorldSizeBlock", "For the `Adjust` button, please enter the whole planet expected width and height in km:"))
+		.Text(LOCTEXT("WorldSizeBlock", "For the `Adjust` button, please enter the whole planet expected width and height in km, as well as the scale for the height (1 if you want real-world height): "))
 		.Font(RegularFont);
 
 		
@@ -367,7 +392,7 @@ TSharedRef<SDockTab> FLandscapeCombinatorModule::OnSpawnPluginTab(const FSpawnTa
 			.IsReadOnly(true)
 			.Font(BoldFont)
 		]
-		+SHorizontalBox::Slot().FillWidth(0.08).HAlign(HAlign_Left)[
+		+SHorizontalBox::Slot().FillWidth(0.08)[
 			SNew(SEditableText)
 			.Text(LOCTEXT("Precision", "Precision (%)"))
 			.IsReadOnly(true)
@@ -398,7 +423,8 @@ TSharedRef<SDockTab> FLandscapeCombinatorModule::OnSpawnPluginTab(const FSpawnTa
 			SNew(SHorizontalBox)
 			+SHorizontalBox::Slot().Padding(FMargin(40, 0, 10, 0)).AutoWidth() [ WorldSizeBlock ]
 			+SHorizontalBox::Slot().Padding(FMargin(0, 0, 10, 0)).AutoWidth() [ WorldWidthBlock.ToSharedRef() ]
-			+SHorizontalBox::Slot().AutoWidth() [ WorldHeightBlock.ToSharedRef() ]
+			+SHorizontalBox::Slot().Padding(FMargin(0, 0, 10, 0)).AutoWidth() [ WorldHeightBlock.ToSharedRef() ]
+			+SHorizontalBox::Slot().AutoWidth() [ ZScaleBlock.ToSharedRef() ]
 		]
 	];
 	return Tab;
@@ -419,7 +445,9 @@ void FLandscapeCombinatorModule::SaveHeightMaps()
 		HeightMapList.Add(Details);
 	}
 
-	FArchive* FileWriter = IFileManager::Get().CreateFileWriter(*HeightMapListFile);
+	IPlatformFile::GetPlatformPhysical().CreateDirectory(*FPaths::ProjectSavedDir());
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("Saving heightmap list to '%s'"), *HeightMapListProjectFile);
+	FArchive* FileWriter = IFileManager::Get().CreateFileWriter(*HeightMapListProjectFile);
 	if (FileWriter)
 	{
 		*FileWriter << HeightMapList;
@@ -427,14 +455,15 @@ void FLandscapeCombinatorModule::SaveHeightMaps()
 	}
 	else
 	{
-		UE_LOG(LogLandscapeCombinator, Error, TEXT("Failed to save the heightmap list to '%s'"), *HeightMapListFile);
+		UE_LOG(LogLandscapeCombinator, Error, TEXT("Failed to save the heightmap list to '%s'"), *HeightMapListProjectFile);
 	}
 }
 
 void FLandscapeCombinatorModule::LoadHeightMaps()
 {
 	TArray<HeightMapDetails> HeightMapList;
-	FArchive* FileReader = IFileManager::Get().CreateFileReader(*HeightMapListFile);
+	FArchive* FileReader = IFileManager::Get().CreateFileReader(*HeightMapListProjectFile);
+	if (!FileReader) FileReader = IFileManager::Get().CreateFileReader(*HeightMapListPluginFile);
 
 	if (FileReader) {
 		*FileReader << HeightMapList;
@@ -444,6 +473,9 @@ void FLandscapeCombinatorModule::LoadHeightMaps()
 		}
 
 		FileReader->Close();
+	}
+	else {
+		UE_LOG(LogLandscapeCombinator, Error, TEXT("Failed to load the heightmap list"));
 	}
 
 }
