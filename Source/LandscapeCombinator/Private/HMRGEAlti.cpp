@@ -45,6 +45,43 @@ bool HMRGEAlti::Initialize() {
 		));
 		return false;
 	}
+
+	Width =  MaxLong - MinLong;
+	Height = MaxLat - MinLat;
+
+	if (Width < 0) {
+		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			LOCTEXT("RGEAltiInitErrorNegativeWidth", "The width of {0} is negative. Make sure you entered the coordinates as MinLong,MaxLong,MinLat,MaxLat."),
+			FText::FromString(LandscapeName)
+		));
+		return false;
+	}
+
+	if (Width > 10000) {
+		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			LOCTEXT("RGEAltiInitErrorLargeWidth", "The width of {0} is higher than 10000, which is not supported by RGE Alti 1m WMS."),
+			FText::FromString(LandscapeName)
+		));
+		return false;
+	}
+
+	if (Height < 0) {
+		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			LOCTEXT("RGEAltiInitErrorNegativeHeight", "The height of {0} is negative. Make sure you entered the coordinates as MinLong,MaxLong,MinLat,MaxLat."),
+			FText::FromString(LandscapeName)
+		));
+		return false;
+	}
+
+	if (Height > 10000) {
+		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			LOCTEXT("RGEAltiInitErrorLargeHeight", "The height of {0} is higher than 10000, which is not supported by RGE Alti 1m WMS."),
+			FText::FromString(LandscapeName)
+		));
+		return false;
+	}
+
+
 	FString FileName = Descr.Replace(TEXT(",") , TEXT("-"));
 	FString TifFile = FPaths::Combine(InterfaceDir, FString::Format(TEXT("{0}.tif"), { FileName }));
 	FString ScaledFile  = FPaths::Combine(ResultDir, FString::Format(TEXT("{0}{1}.png"), { LandscapeName, Precision }));
@@ -56,8 +93,8 @@ bool HMRGEAlti::Initialize() {
 
 bool HMRGEAlti::GetInsidePixels(FIntPoint &InsidePixels) const
 {
-	InsidePixels[0] = MaxLong - MinLong;
-	InsidePixels[1] = MaxLat - MinLat;
+	InsidePixels[0] = Width;
+	InsidePixels[1] = Height;
 	return true;
 }
 
@@ -68,15 +105,11 @@ bool HMRGEAlti::GetSpatialReference(OGRSpatialReference &InRs) const
 }
 
 FReply HMRGEAlti::DownloadHeightMapsImpl() const
-{		
-	FIntPoint InsidePixels;
-	GetInsidePixels(InsidePixels); // always returns true
-	int InsidePixelWidth = InsidePixels[0];
-	int InsidePixelHeight = InsidePixels[1];
+{
 
 	FString URL = FString::Format(
 		TEXT("https://wxs.ign.fr/altimetrie/geoportail/r/wms?LAYERS=RGEALTI-MNT_PYR-ZIP_FXX_LAMB93_WMS&FORMAT=image/geotiff&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&CRS=EPSG:2154&BBOX={0},{1},{2},{3}&WIDTH={4}&HEIGHT={5}&STYLES="),
-		{ MinLong, MinLat, MaxLong, MaxLat, InsidePixelWidth, InsidePixelHeight }
+		{ MinLong, MinLat, MaxLong, MaxLat, Width, Height }
 	);
 
 	Download::FromURL(URL, OriginalFiles[0]);

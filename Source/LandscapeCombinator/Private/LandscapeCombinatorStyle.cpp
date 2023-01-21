@@ -46,6 +46,7 @@ TSharedRef< FSlateStyleSet > FLandscapeCombinatorStyle::Create()
 	Style->Set("LandscapeCombinator.Download", new IMAGE_BRUSH_SVG(TEXT("Download"), Icon20x20));
 	Style->Set("LandscapeCombinator.Convert", new IMAGE_BRUSH_SVG(TEXT("Convert"), Icon20x20));
 	Style->Set("LandscapeCombinator.Adjust", new IMAGE_BRUSH_SVG(TEXT("Adjust"), Icon20x20));
+	Style->Set("LandscapeCombinator.Scale", new IMAGE_BRUSH_SVG(TEXT("Scale"), Icon20x20));
 	Style->Set("LandscapeCombinator.MoveUp", new IMAGE_BRUSH_SVG(TEXT("MoveUp"), Icon20x20));
 	Style->Set("LandscapeCombinator.MoveDown", new IMAGE_BRUSH_SVG(TEXT("MoveDown"), Icon20x20));
 	Style->Set("LandscapeCombinator.Delete", new IMAGE_BRUSH_SVG(TEXT("Delete"), Icon20x20));

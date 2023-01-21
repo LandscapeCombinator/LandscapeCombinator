@@ -48,16 +48,6 @@ bool HMInterface::Initialize()
 		);
 		return false;
 	}
-	
-	FString ShareFolder = FPaths:: ConvertRelativePathToFull(IPluginManager::Get().FindPlugin("LandscapeCombinator")->GetBaseDir()) / "ThirdParty" / "share";
-	FString GDALData = (ShareFolder / "gdal").Replace(TEXT("/"), TEXT("\\"));
-	FString PROJData = (ShareFolder / "proj").Replace(TEXT("/"), TEXT("\\"));
-	UE_LOG(LogLandscapeCombinator, Log, TEXT("Setting GDAL_DATA to: %s"), *GDALData);
-	UE_LOG(LogLandscapeCombinator, Log, TEXT("Setting PROJ_DATA to: %s"), *PROJData);
-	CPLSetConfigOption("GDAL_DATA", TCHAR_TO_UTF8(*GDALData));
-	CPLSetConfigOption("PROJ_DATA", TCHAR_TO_UTF8(*PROJData));
-	const char* const ProjPaths[] = { TCHAR_TO_UTF8(*PROJData), nullptr };
-	OSRSetPROJSearchPaths(ProjPaths);
 
 	OGRErr Err = SR4326.importFromEPSG(4326);
 	if (Err != OGRERR_NONE) {
@@ -379,7 +369,7 @@ FVector2D GetMinMaxZ(TArray<AActor*> LandscapeStreamingProxies, AActor *Landscap
 	return { MinZ, MaxZ };
 }
 
-FReply HMInterface::AdjustLandscape(int WorldWidthKm, int WorldHeightKm) const
+FReply HMInterface::AdjustLandscape(int WorldWidthKm, int WorldHeightKm, double ZScale, bool AdjustPosition) const
 {
 	UWorld* World = GEditor->GetEditorWorldContext().World();
 	TArray<AActor*> Landscapes;
@@ -477,42 +467,46 @@ FReply HMInterface::AdjustLandscape(int WorldWidthKm, int WorldHeightKm) const
 			FVector NewScale = FVector(
 				WorldWidthCm  * CoordWidth  / 360 / InsidePixelWidth,
 				WorldHeightCm * CoordHeight / 180 / InsidePixelHeight,
-				OldScale.Z * (MaxAltitude - MinAltitude) * 100 / (MaxZBeforeScaling - MinZBeforeScaling)
+				OldScale.Z * (MaxAltitude - MinAltitude) * ZScale * 100 / (MaxZBeforeScaling - MinZBeforeScaling)
 			);
 
 			Landscape->Modify();
 			Landscape->SetActorScale3D(NewScale);
 			Landscape->PostEditChange();
 
-			FVector2D MinMaxZAfterScaling = GetMinMaxZ(LandscapeStreamingProxies, Landscape);
-			double MinZAfterScaling = MinMaxZAfterScaling.X;
-			double MaxZAfterScaling = MinMaxZAfterScaling.Y;
+			if (AdjustPosition) {
+
+				FVector2D MinMaxZAfterScaling = GetMinMaxZ(LandscapeStreamingProxies, Landscape);
+				double MinZAfterScaling = MinMaxZAfterScaling.X;
+				double MaxZAfterScaling = MinMaxZAfterScaling.Y;
 			
-			double InsideLocationX = MinCoordWidth * WorldWidthCm / 360;
-			double InsideLocationY = - MaxCoordHeight * WorldHeightCm / 180;
+				double InsideLocationX = MinCoordWidth * WorldWidthCm / 360;
+				double InsideLocationY = - MaxCoordHeight * WorldHeightCm / 180;
 			
-			double NewLocationX = InsideLocationX - (OutsidePixelWidth - InsidePixelWidth)   * CmPxWidthRatio / 2;
-			double NewLocationY = InsideLocationY - (OutsidePixelHeight - InsidePixelHeight) * CmPxHeightRatio / 2;
-			double NewLocationZ = OldLocation.Z - MaxZAfterScaling + 100 * MaxAltitude;
-			FVector NewLocation = FVector(NewLocationX, NewLocationY, NewLocationZ);
-			UE_LOG(LogLandscapeCombinator, Log, TEXT("\nMinZAfterScaling: %f"), MinZAfterScaling);
-			UE_LOG(LogLandscapeCombinator, Log, TEXT("MaxZAfterScaling: %f"), MaxZAfterScaling);
+				double NewLocationX = InsideLocationX - (OutsidePixelWidth - InsidePixelWidth)   * CmPxWidthRatio / 2;
+				double NewLocationY = InsideLocationY - (OutsidePixelHeight - InsidePixelHeight) * CmPxHeightRatio / 2;
+				double NewLocationZ = OldLocation.Z - MaxZAfterScaling + 100 * MaxAltitude * ZScale;
+				FVector NewLocation = FVector(NewLocationX, NewLocationY, NewLocationZ);
+				UE_LOG(LogLandscapeCombinator, Log, TEXT("\nMinZAfterScaling: %f"), MinZAfterScaling);
+				UE_LOG(LogLandscapeCombinator, Log, TEXT("MaxZAfterScaling: %f"), MaxZAfterScaling);
 
-			UE_LOG(LogLandscapeCombinator, Log, TEXT("InsideLocationX: %f"), InsideLocationX);
-			UE_LOG(LogLandscapeCombinator, Log, TEXT("InsideLocationY: %f"), InsideLocationY);
+				UE_LOG(LogLandscapeCombinator, Log, TEXT("InsideLocationX: %f"), InsideLocationX);
+				UE_LOG(LogLandscapeCombinator, Log, TEXT("InsideLocationY: %f"), InsideLocationY);
 
-			UE_LOG(LogLandscapeCombinator, Log, TEXT("OldLocation.X: %f"), OldLocation.X);
-			UE_LOG(LogLandscapeCombinator, Log, TEXT("OldLocation.Y: %f"), OldLocation.Y);
-			UE_LOG(LogLandscapeCombinator, Log, TEXT("OldLocation.Z: %f"), OldLocation.Z);
+				UE_LOG(LogLandscapeCombinator, Log, TEXT("OldLocation.X: %f"), OldLocation.X);
+				UE_LOG(LogLandscapeCombinator, Log, TEXT("OldLocation.Y: %f"), OldLocation.Y);
+				UE_LOG(LogLandscapeCombinator, Log, TEXT("OldLocation.Z: %f"), OldLocation.Z);
 
-			UE_LOG(LogLandscapeCombinator, Log, TEXT("NewLocationX: %f"), NewLocationX);
-			UE_LOG(LogLandscapeCombinator, Log, TEXT("NewLocationY: %f"), NewLocationY);
-			UE_LOG(LogLandscapeCombinator, Log, TEXT("NewLocationZ: %f"), NewLocationZ);
+				UE_LOG(LogLandscapeCombinator, Log, TEXT("NewLocationX: %f"), NewLocationX);
+				UE_LOG(LogLandscapeCombinator, Log, TEXT("NewLocationY: %f"), NewLocationY);
+				UE_LOG(LogLandscapeCombinator, Log, TEXT("NewLocationZ: %f"), NewLocationZ);
 
 			
-			Landscape->Modify();
-			Landscape->SetActorLocation(NewLocation);
-			Landscape->PostEditChange();
+				Landscape->Modify();
+				Landscape->SetActorLocation(NewLocation);
+				Landscape->PostEditChange();
+
+			}
 		}
 	}
 	

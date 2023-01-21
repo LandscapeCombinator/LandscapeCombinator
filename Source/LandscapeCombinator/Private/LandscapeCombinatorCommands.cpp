@@ -6,7 +6,7 @@
 
 void FLandscapeCombinatorCommands::RegisterCommands()
 {
-	UI_COMMAND(OpenPluginWindow, "LandscapeCombinator", "Bring up LandscapeCombinator window", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(OpenPluginWindow, "LandscapeCombinator", "Landscape Combinator", EUserInterfaceActionType::Button, FInputChord());
 }
 
 #undef LOCTEXT_NAMESPACE
