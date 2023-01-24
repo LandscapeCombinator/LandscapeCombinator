@@ -48,9 +48,9 @@ bool HMElevationAPI::Initialize() {
 		return false;
 	}
 	
-	FString FileName = Descr.Replace(TEXT(",") , TEXT("-"));
+	FString FileName = Descr.Replace(TEXT(",") , TEXT("-")).Replace(TEXT(" "), TEXT(""));
 	FString PngFile = FPaths::Combine(InterfaceDir, FString::Format(TEXT("{0}.png"), { FileName }));
-	FString ScaledFile  = FPaths::Combine(ResultDir, FString::Format(TEXT("{0}{1}.png"), { LandscapeName, Precision }));
+	FString ScaledFile  = FPaths::Combine(ResultDir, FString::Format(TEXT("{0}-{1}.png"), { LandscapeName, Precision }));
 	
 	JSONFile = FString::Format(TEXT("{0}.json"), { PngFile.LeftChop(4) });
 	OriginalFiles.Add(PngFile);
@@ -58,24 +58,30 @@ bool HMElevationAPI::Initialize() {
 	return true;
 }
 
-FReply HMElevationAPI::DownloadHeightMapsImpl() const {
+FReply HMElevationAPI::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) const {
 
 	FString URL1 = FString::Format(
 		TEXT("https://api.elevationapi.com/api/model/3d/bbox/{0}?dataset=IGN_1m&textured=false&format=STL&zFactor=1&meshReduceFactor=0.001&onlyEstimateSize=false"),
 		{ Descr }
 	);
 
-	Download::FromURL(URL1, JSONFile, [this]() {
-		FString JSONContent;
-		FFileHelper::LoadFileToString(JSONContent, *JSONFile);
+	Download::FromURL(URL1, JSONFile, [this, OnComplete](bool bWasSuccessful1) {
+		if (bWasSuccessful1) {
+			FString JSONContent;
+			FFileHelper::LoadFileToString(JSONContent, *JSONFile);
 
-		FRegexPattern FilePathPattern("filePath\":\"([^\"]*)\"");
-		FRegexMatcher FilePathMatcher(FilePathPattern, JSONContent);
-		FilePathMatcher.FindNext();
-		FString HeightMapFileName = FilePathMatcher.GetCaptureGroup(1);
+			FRegexPattern FilePathPattern("filePath\":\"([^\"]*)\"");
+			FRegexMatcher FilePathMatcher(FilePathPattern, JSONContent);
+			FilePathMatcher.FindNext();
+			FString HeightMapFileName = FilePathMatcher.GetCaptureGroup(1);
 		
-		FString URL2 = FString::Format(TEXT("https://api.elevationapi.com{0}"), { HeightMapFileName });
-		Download::FromURL(URL2, OriginalFiles[0]);
+			FString URL2 = FString::Format(TEXT("https://api.elevationapi.com{0}"), { HeightMapFileName });
+
+			Download::FromURL(URL2, OriginalFiles[0], OnComplete);
+		}
+		else {
+			OnComplete(false);
+		}
 	});
 
 	return FReply::Handled();
@@ -130,10 +136,14 @@ bool HMElevationAPI::GetCoordinates(FVector4d &Coordinates) const
 	return true;
 }
 
-bool HMElevationAPI::GetSpatialReference(OGRSpatialReference &InRs) const
+bool HMElevationAPI::GetCoordinatesSpatialReference(OGRSpatialReference &InRs) const
 {
-	InRs = HMInterface::SR4326;
-	return true;
+	return GetSpatialReferenceFromEPSG(InRs, 4326);
+}
+
+bool HMElevationAPI::GetDataSpatialReference(OGRSpatialReference &InRs) const
+{
+	return GetSpatialReferenceFromEPSG(InRs, 2154);
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -1,5 +1,6 @@
 #include "HMInterfaceTiles.h"
 #include "Download.h"
+#include "Concurrency.h"
 
 HMInterfaceTiles::HMInterfaceTiles(FString LandscapeName0, const FText &KindText0, FString Descr0, int Precision0) :
 		HMInterface(LandscapeName0, KindText0, Descr0, Precision0) {
@@ -50,18 +51,30 @@ bool HMInterfaceTiles::GetInsidePixels(FIntPoint &InsidePixels) const
 }
 
 
-FReply HMInterfaceTiles::DownloadHeightMapsImpl() const
+FReply HMInterfaceTiles::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) const
 {
-	for (auto &File : Files) {
-		FString ZipFile = FPaths::Combine(InterfaceDir, FString::Format(TEXT("{0}.zip"), { File }));
-		FString ExtractionDir = FPaths::Combine(InterfaceDir, File);
-		FString URL = FString::Format(TEXT("{0}{1}.zip"), { BaseURL, File });
+	Concurrency::RunMany(
+		Files,
+		[this](FString File, TFunction<void(bool)> OnCompleteElement) {
+			FString ZipFile = FPaths::Combine(InterfaceDir, FString::Format(TEXT("{0}.zip"), { File }));
+			FString ExtractionDir = FPaths::Combine(InterfaceDir, File);
+			FString URL = FString::Format(TEXT("{0}{1}.zip"), { BaseURL, File });
 
-		Download::FromURL(URL, ZipFile, [ExtractionDir, ZipFile]() {
-			FString ExtractParams = FString::Format(TEXT("x -y \"{0}\" -o\"{1}\""), { ZipFile, ExtractionDir });
-			Console::ExecProcess(TEXT("7z"), *ExtractParams, nullptr);
-		});
-	}
+			Download::FromURL(URL, ZipFile, [ExtractionDir, ZipFile, OnCompleteElement](bool bWasSuccessful) {
+				if (bWasSuccessful)
+				{
+					FString ExtractParams = FString::Format(TEXT("x -y \"{0}\" -o\"{1}\""), { ZipFile, ExtractionDir });
+					bool bWasExtracted = Console::ExecProcess(TEXT("7z"), *ExtractParams, nullptr);
+					OnCompleteElement(bWasExtracted);
+				}
+				else
+				{
+					OnCompleteElement(false);
+				}
+			});
+		},
+		OnComplete
+	);
 
 	return FReply::Handled();
 }

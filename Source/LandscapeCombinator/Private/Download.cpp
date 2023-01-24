@@ -5,7 +5,7 @@
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
-void Download::FromURL(FString URL, FString File, TFunction<void()> OnComplete)
+void Download::FromURL(FString URL, FString File, TFunction<void(bool)> OnComplete)
 {
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("Downloading '%s' to '%s'"), *URL, *File);
 	TSharedRef<IHttpRequest> Request = FHttpModule::Get().CreateRequest();
@@ -25,12 +25,12 @@ void Download::FromURL(FString URL, FString File, TFunction<void()> OnComplete)
     Request->ProcessRequest();
 }
 
-void Download::FromURLExpecting(FString URL, FString File, int32 ExpectedSize, TFunction<void()> OnComplete)
+void Download::FromURLExpecting(FString URL, FString File, int32 ExpectedSize, TFunction<void(bool)> OnComplete)
 {
     IPlatformFile &PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
     if (PlatformFile.FileExists(*File) && ExpectedSize != 0 && PlatformFile.FileSize(*File) == ExpectedSize) {
         UE_LOG(LogLandscapeCombinator, Log, TEXT("File already exists, skipping download of '%s' to '%s' "), *URL, *File);
-        if (OnComplete) OnComplete();
+        if (OnComplete) OnComplete(true);
         return;
     }
 
@@ -43,12 +43,12 @@ void Download::FromURLExpecting(FString URL, FString File, int32 ExpectedSize, T
         if (FullSuccess)
         {
     	    UE_LOG(LogLandscapeCombinator, Log, TEXT("Finished downloading '%s' to '%s'"), *URL, *File);
-            if (OnComplete) OnComplete();
         }
         else
         {
 	        UE_LOG(LogLandscapeCombinator, Error, TEXT("Error while downloading '%s' to '%s'"), *URL, *File);
         }
+        OnComplete(FullSuccess);
     });
     Request->ProcessRequest();
 }
