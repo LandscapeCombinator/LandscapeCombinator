@@ -22,21 +22,26 @@ HMURL::HMURL(FString LandscapeName0, const FText &KindText0, FString Descr0, int
 bool HMURL::Initialize()
 {
 	if (!HMInterface::Initialize()) return false;
-
-	FString OriginalFile = FPaths::Combine(LandscapeCombinatorDir, FString::Format(TEXT("{0}{1}.tif"), { LandscapeName, Precision }));
-	FString ScaledFile = FPaths::Combine(LandscapeCombinatorDir, FString::Format(TEXT("{0}{1}.png"), { LandscapeName, Precision }));
+	
+	FString OriginalFile = FPaths::Combine(LandscapeCombinatorDir, FString::Format(TEXT("{0}-{1}.tif"), { LandscapeName, Precision }));
+	FString ScaledFile = FPaths::Combine(LandscapeCombinatorDir, FString::Format(TEXT("{0}-{1}.png"), { LandscapeName, Precision }));
 	OriginalFiles.Add(OriginalFile);
 	ScaledFiles.Add(ScaledFile);
 	return true;
 }
 
-bool HMURL::GetSpatialReference(OGRSpatialReference &InRs) const
+bool HMURL::GetDataSpatialReference(OGRSpatialReference &InRs) const
 {
-	return HMInterface::GetSpatialReference(InRs, OriginalFiles[0]);
+	return HMInterface::GetSpatialReference(InRs, Descr);
 }
 
-FReply HMURL::DownloadHeightMapsImpl() const
+bool HMURL::GetCoordinatesSpatialReference(OGRSpatialReference &InRs) const
 {
-	Download::FromURL(Descr, OriginalFiles[0]);
+	return HMInterface::GetSpatialReference(InRs, Descr);
+}
+
+FReply HMURL::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) const
+{
+	Download::FromURL(Descr, OriginalFiles[0], OnComplete);
 	return FReply::Handled();
 }

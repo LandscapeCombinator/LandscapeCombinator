@@ -11,39 +11,38 @@
 
 class HMInterface
 {
-
-protected:	
-	OGRSpatialReference SR2154;
-	OGRSpatialReference SR4326;
-
+public:
+	HMInterface(FString LandscapeName0, const FText &KindText0, FString Descr0, int Precision0);
+	virtual ~HMInterface() {};
+	
 	FString LandscapeName;
+	TArray<FString> OriginalFiles;
+	virtual bool Initialize();
+	FReply DownloadHeightMaps(TFunction<void(bool)> OnComplete) const;
+	virtual FReply DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) const = 0;
+	FReply ConvertHeightMaps() const;
+	FReply AdjustLandscape(int WorldWidthKm, int WorldHeigtKm, double ZScale, bool AdjustPosition) const;
+
+protected:
 	const FText& KindText;
 	FString Descr;
 	int32 Precision;
 	FString LandscapeCombinatorDir;
 	FString InterfaceDir;
 	FString ResultDir;
-
-	TArray<FString> OriginalFiles;
+	
 	TArray<FString> ScaledFiles;
 	
-	static bool GetSpatialReference(OGRSpatialReference &InRs, FString File);
 	static void CouldNotCreateDirectory(FString Dir);
+	static bool GetSpatialReference(OGRSpatialReference &InRs, FString File);
+	static bool GetSpatialReferenceFromEPSG(OGRSpatialReference &InRs, int EPSG);
+	static bool GetMinMax(FVector2D &MinMax, TArray<FString> Files);
 
 	virtual bool GetInsidePixels(FIntPoint& InsidePixels) const;
 	virtual bool GetMinMax(FVector2D &MinMax) const;
-	virtual bool GetCoordinates(FVector4d &Coordinates) const;
-	virtual bool GetSpatialReference(OGRSpatialReference &InRs) const = 0;
-
-public:
-	HMInterface(FString LandscapeName0, const FText &KindText0, FString Descr0, int Precision0);
-	virtual ~HMInterface() {};
-	
-	virtual bool Initialize();
-	FReply DownloadHeightMaps() const;
-	virtual FReply DownloadHeightMapsImpl() const = 0;
-	FReply ConvertHeightMaps() const;
-	FReply AdjustLandscape(int WorldWidthKm, int WorldHeigtKm, double ZScale, bool AdjustPosition) const;
+	virtual bool GetCoordinates(FVector4d &Coordinate) const;
+	virtual bool GetCoordinatesSpatialReference(OGRSpatialReference &InRs) const = 0;
+	virtual bool GetDataSpatialReference(OGRSpatialReference &InRs) const = 0;
 };
 
 #undef LOCTEXT_NAMESPACE

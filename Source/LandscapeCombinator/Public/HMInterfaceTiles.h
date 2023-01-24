@@ -31,7 +31,7 @@ protected:
 public:
 	HMInterfaceTiles(FString LandscapeName0, const FText &KindText0, FString Descr0, int Precision0);
 
-	FReply DownloadHeightMapsImpl() const override;
+	FReply DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) const override;
 
 
 };

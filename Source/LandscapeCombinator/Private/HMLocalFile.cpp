@@ -21,18 +21,24 @@ HMLocalFile::HMLocalFile(FString LandscapeName0, const FText &KindText0, FString
 bool HMLocalFile::Initialize() {
 	if (!HMInterface::Initialize()) return false;
 
-	FString ScaledFile = FPaths::Combine(ResultDir, FString::Format(TEXT("{0}{1}.png"), { LandscapeName, Precision }));
+	FString ScaledFile = FPaths::Combine(ResultDir, FString::Format(TEXT("{0}-{1}.png"), { LandscapeName, Precision }));
 	OriginalFiles.Add(Descr);
 	ScaledFiles.Add(ScaledFile);
 	return true;
 }
 
-bool HMLocalFile::GetSpatialReference(OGRSpatialReference &InRs) const
+bool HMLocalFile::GetDataSpatialReference(OGRSpatialReference &InRs) const
 {
-	return HMInterface::GetSpatialReference(InRs, Descr);
+	return HMInterface::GetSpatialReference(InRs, OriginalFiles[0]);
 }
 
-FReply HMLocalFile::DownloadHeightMapsImpl() const
+bool HMLocalFile::GetCoordinatesSpatialReference(OGRSpatialReference &InRs) const
 {
+	return HMInterface::GetSpatialReference(InRs, OriginalFiles[0]);
+}
+
+FReply HMLocalFile::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) const
+{
+	OnComplete(true);
 	return FReply::Handled();
 }

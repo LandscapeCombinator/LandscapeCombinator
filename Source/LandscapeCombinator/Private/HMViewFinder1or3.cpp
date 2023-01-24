@@ -61,10 +61,14 @@ bool HMViewFinder1or3::Initialize()
 	return true;
 }
 
-bool HMViewFinder1or3::GetSpatialReference(OGRSpatialReference &InRs) const
+bool HMViewFinder1or3::GetCoordinatesSpatialReference(OGRSpatialReference &InRs) const
 {
-	InRs = SR4326;
-	return true;
+	return GetSpatialReferenceFromEPSG(InRs, 4326);
+}
+
+bool HMViewFinder1or3::GetDataSpatialReference(OGRSpatialReference &InRs) const
+{
+	return GetSpatialReferenceFromEPSG(InRs, 4326);
 }
 
 int HMViewFinder1or3::TileToX(FString Tile) const {

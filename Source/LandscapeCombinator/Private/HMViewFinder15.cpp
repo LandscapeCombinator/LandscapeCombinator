@@ -64,10 +64,15 @@ bool HMViewFinder15::Initialize()
 	return true;
 }
 
-bool HMViewFinder15::GetSpatialReference(OGRSpatialReference &InRs) const
+
+bool HMViewFinder15::GetCoordinatesSpatialReference(OGRSpatialReference &InRs) const
 {
-	InRs = SR4326;
-	return true;
+	return GetSpatialReferenceFromEPSG(InRs, 4326);
+}
+
+bool HMViewFinder15::GetDataSpatialReference(OGRSpatialReference &InRs) const
+{
+	return GetSpatialReferenceFromEPSG(InRs, 4326);
 }
 
 int HMViewFinder15::TileToX(FString Tile) const {

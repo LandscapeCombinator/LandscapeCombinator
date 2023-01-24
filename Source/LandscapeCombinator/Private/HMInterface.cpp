@@ -49,31 +49,6 @@ bool HMInterface::Initialize()
 		return false;
 	}
 
-	OGRErr Err = SR4326.importFromEPSG(4326);
-	if (Err != OGRERR_NONE) {
-		FMessageDialog::Open(EAppMsgType::Ok,
-			FText::Format(
-				LOCTEXT("StartupModuleError1", "Could not initialize EPSG 4326: (Error {0}). Landscape Combinator will not work."),
-				FText::AsNumber(Err)
-			)
-		);
-		return false;
-	}
-	SR4326.SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
-
-	Err = SR2154.importFromEPSG(2154);
-	if (Err != OGRERR_NONE) {
-		FMessageDialog::Open(EAppMsgType::Ok,
-			FText::Format(
-				LOCTEXT("StartupModuleError1", "Could not initialize EPSG 2154: (Error {0}). Landscape Combinator will not work."),
-				FText::AsNumber(Err)
-			)
-		);
-		return false;
-	}
-	SR2154.SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
-
-
 	FString Intermediate = FPaths::ConvertRelativePathToFull(FPaths::EngineIntermediateDir());
 	LandscapeCombinatorDir = FPaths::Combine(Intermediate, "LandscapeCombinator");
 	if (!IPlatformFile::GetPlatformPhysical().CreateDirectory(*LandscapeCombinatorDir)) {
@@ -81,7 +56,7 @@ bool HMInterface::Initialize()
 		return false;
 	}
 
-	ResultDir = FPaths::Combine(LandscapeCombinatorDir, FString::Format(TEXT("{0}{1}"), { LandscapeName, Precision }));
+	ResultDir = FPaths::Combine(LandscapeCombinatorDir, FString::Format(TEXT("{0}-{1}"), { LandscapeName, Precision }));
 	if (!IPlatformFile::GetPlatformPhysical().CreateDirectory(*ResultDir)) {
 		CouldNotCreateDirectory(ResultDir);
 		return false;
@@ -170,11 +145,14 @@ bool HMInterface::GetInsidePixels(FIntPoint &InsidePixels) const
 }
 
 bool HMInterface::GetMinMax(FVector2D &MinMax) const {
+	return GetMinMax(MinMax, OriginalFiles);
+}
+
+bool HMInterface::GetMinMax(FVector2D &MinMax, TArray<FString> Files) {
 	MinMax[0] = DBL_MAX;
 	MinMax[1] = -DBL_MAX;
 
-	for (auto& File : OriginalFiles) {
-		
+	for (auto& File : Files) {
 
 		GDALDataset *Dataset = (GDALDataset *)GDALOpen(TCHAR_TO_UTF8(*File), GA_ReadOnly);
 
@@ -241,7 +219,7 @@ FReply HMInterface::ConvertHeightMaps() const
 			FString OriginalFile = OriginalFiles[i];
 			FString ScaledFile = ScaledFiles[i];
 			  
-			GDALDataset* SrcDataset = (GDALDataset*) GDALOpen(TCHAR_TO_UTF8(*OriginalFile), GA_ReadOnly);
+			GDALDatasetH SrcDataset = GDALOpen(TCHAR_TO_UTF8(*OriginalFile), GA_ReadOnly);
 
 			if (!SrcDataset) {
 				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
@@ -250,26 +228,24 @@ FReply HMInterface::ConvertHeightMaps() const
 				));
 				return;
 			}
-			
-			char** Argv = nullptr;
-			Argv = CSLAddString(Argv, "-scale");
-			Argv = CSLAddString(Argv, TCHAR_TO_UTF8(*FString::SanitizeFloat(MinAltitude)));
-			Argv = CSLAddString(Argv, TCHAR_TO_UTF8(*FString::SanitizeFloat(MaxAltitude)));
-			Argv = CSLAddString(Argv, "0");
-			Argv = CSLAddString(Argv, "65535");
-			Argv = CSLAddString(Argv, "-ot");
-			Argv = CSLAddString(Argv, "UInt16");
-			Argv = CSLAddString(Argv, "-of");
-			Argv = CSLAddString(Argv, "PNG");
-			Argv = CSLAddString(Argv, "-outsize");
-			Argv = CSLAddString(Argv, TCHAR_TO_UTF8(*FString::Format(TEXT("{0}%"), { Precision })));
-			Argv = CSLAddString(Argv, TCHAR_TO_UTF8(*FString::Format(TEXT("{0}%"), { Precision })));
-			Argv = CSLAddString(Argv, TCHAR_TO_UTF8(*OriginalFile));
-			Argv = CSLAddString(Argv, TCHAR_TO_UTF8(*ScaledFile));
 
-			CPLSetConfigOption("GDAL_PAM_ENABLED", "NO");
-			GDALTranslateOptions* Options = GDALTranslateOptionsNew(Argv, NULL);
-			CSLDestroy(Argv);
+			char** TranslateArgv = nullptr;
+			
+			TranslateArgv = CSLAddString(TranslateArgv, "-scale");
+			TranslateArgv = CSLAddString(TranslateArgv, TCHAR_TO_UTF8(*FString::SanitizeFloat(MinAltitude)));
+			TranslateArgv = CSLAddString(TranslateArgv, TCHAR_TO_UTF8(*FString::SanitizeFloat(MaxAltitude)));
+			TranslateArgv = CSLAddString(TranslateArgv, "0");
+			TranslateArgv = CSLAddString(TranslateArgv, "65535");
+			TranslateArgv = CSLAddString(TranslateArgv, "-outsize");
+			TranslateArgv = CSLAddString(TranslateArgv, TCHAR_TO_UTF8(*FString::Format(TEXT("{0}%"), { Precision })));
+			TranslateArgv = CSLAddString(TranslateArgv, TCHAR_TO_UTF8(*FString::Format(TEXT("{0}%"), { Precision })));
+			TranslateArgv = CSLAddString(TranslateArgv, "-ot");
+			TranslateArgv = CSLAddString(TranslateArgv, "UInt16");
+			TranslateArgv = CSLAddString(TranslateArgv, "-of");
+			TranslateArgv = CSLAddString(TranslateArgv, "PNG");
+
+			GDALTranslateOptions* Options = GDALTranslateOptionsNew(TranslateArgv, NULL);
+			CSLDestroy(TranslateArgv);
 
 			if (!Options) {
 				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
@@ -291,7 +267,6 @@ FReply HMInterface::ConvertHeightMaps() const
 			GDALDataset* DstDataset = (GDALDataset *) GDALTranslate(TCHAR_TO_UTF8(*ScaledFile), SrcDataset, Options, nullptr);
 			GDALClose(SrcDataset);
 			GDALTranslateOptionsFree(Options);
-
 
 			if (!DstDataset) {
 				UE_LOG(LogLandscapeCombinator, Error, TEXT("Error while translating: %s to %s"), *OriginalFile, *ScaledFile);
@@ -332,11 +307,29 @@ bool HMInterface::GetSpatialReference(OGRSpatialReference &InRs, FString File) {
 		));
 		return false;
     }
+	InRs.SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
 
 	return true;
 }
 
-FReply HMInterface::DownloadHeightMaps() const {
+bool HMInterface::GetSpatialReferenceFromEPSG(OGRSpatialReference& InRs, int EPSG)
+{
+	OGRErr Err = InRs.importFromEPSG(EPSG);
+	if (Err != OGRERR_NONE) {
+		FMessageDialog::Open(EAppMsgType::Ok,
+			FText::Format(
+				LOCTEXT("StartupModuleError1", "Could not create spatial reference from EPSG {0}: (Error {1})."),
+				FText::AsNumber(EPSG),
+				FText::AsNumber(Err)
+			)
+		);
+		return false;
+	}
+	InRs.SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
+	return true;
+}
+
+FReply HMInterface::DownloadHeightMaps(TFunction<void(bool)> OnComplete) const {
 	FMessageDialog::Open(EAppMsgType::Ok,
 		FText::Format(
 			LOCTEXT("DownloadingMessage",
@@ -347,7 +340,7 @@ FReply HMInterface::DownloadHeightMaps() const {
 			FText::FromString(LandscapeName)
 		)
 	);
-	return DownloadHeightMapsImpl();
+	return DownloadHeightMapsImpl(OnComplete);
 }
 
 
@@ -377,13 +370,13 @@ FReply HMInterface::AdjustLandscape(int WorldWidthKm, int WorldHeightKm, double 
 	UGameplayStatics::GetAllActorsOfClass(World, ALandscape::StaticClass(), Landscapes);
 	UGameplayStatics::GetAllActorsOfClass(World, ALandscapeStreamingProxy::StaticClass(), LandscapeStreamingProxies);
 
-	double WorldWidthCm  = ((double) WorldWidthKm) * 1000 * 100;
+	double WorldWidthCm  = ((double) WorldWidthKm)  * 1000 * 100;
 	double WorldHeightCm = ((double) WorldHeightKm) * 1000 * 100;
-	
-	// coordinates in the original reference system
-	FVector4d Coordinates;
-	if (!GetCoordinates(Coordinates)) return FReply::Unhandled();
 
+	// coordinates in the original reference system
+	FVector4d Coordinates;	
+	if (!GetCoordinates(Coordinates)) return FReply::Unhandled();
+	
 	double MinCoordWidth0 = Coordinates[0];
 	double MaxCoordWidth0 = Coordinates[1];
 	double MinCoordHeight0 = Coordinates[2];
@@ -391,8 +384,8 @@ FReply HMInterface::AdjustLandscape(int WorldWidthKm, int WorldHeightKm, double 
 	double xs[2] = { MinCoordWidth0,  MaxCoordWidth0  };
 	double ys[2] = { MaxCoordHeight0, MinCoordHeight0 };
 	OGRSpatialReference InRs, OutRs;
-	GetSpatialReference(InRs);
-	OutRs = SR4326;
+	
+	if (!GetCoordinatesSpatialReference(InRs) || !GetSpatialReferenceFromEPSG(OutRs, 4326)) return FReply::Unhandled();
 
 	if (!OGRCreateCoordinateTransformation(&InRs, &OutRs)->Transform(2, xs, ys)) {
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
@@ -401,13 +394,13 @@ FReply HMInterface::AdjustLandscape(int WorldWidthKm, int WorldHeightKm, double 
 		));
 		return FReply::Unhandled();
 	}
-
+		
 	// coordinates in EPSG 4326
 	double MinCoordWidth = xs[0];
 	double MaxCoordWidth = xs[1];
 	double MaxCoordHeight = ys[0];
 	double MinCoordHeight = ys[1];
-	
+
 	FVector2D Altitudes;
 	if (!GetMinMax(Altitudes)) return FReply::Unhandled();
 	double MinAltitude = Altitudes[0];

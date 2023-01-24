@@ -17,12 +17,13 @@ protected:
 
 	bool Initialize() override;
 	bool GetInsidePixels(FIntPoint &InsidePixels) const override;
-	bool GetSpatialReference(OGRSpatialReference &InRs) const override;
+	bool GetCoordinatesSpatialReference(OGRSpatialReference &InRs) const override;
+	bool GetDataSpatialReference(OGRSpatialReference &InRs) const override;
 
 public:
 	HMRGEAlti(FString LandscapeName0, const FText &KindText0, FString Descr0, int Precision0);
 
-	FReply DownloadHeightMapsImpl() const override;
+	FReply DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) const override;
 };
 
 #undef LOCTEXT_NAMESPACE

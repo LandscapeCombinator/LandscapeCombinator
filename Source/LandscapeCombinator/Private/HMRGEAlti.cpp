@@ -82,9 +82,9 @@ bool HMRGEAlti::Initialize() {
 	}
 
 
-	FString FileName = Descr.Replace(TEXT(",") , TEXT("-"));
+	FString FileName = Descr.Replace(TEXT(",") , TEXT("-")).Replace(TEXT(" "), TEXT(""));
 	FString TifFile = FPaths::Combine(InterfaceDir, FString::Format(TEXT("{0}.tif"), { FileName }));
-	FString ScaledFile  = FPaths::Combine(ResultDir, FString::Format(TEXT("{0}{1}.png"), { LandscapeName, Precision }));
+	FString ScaledFile  = FPaths::Combine(ResultDir, FString::Format(TEXT("{0}-{1}.png"), { LandscapeName, Precision }));
 
 	OriginalFiles.Add(TifFile);
 	ScaledFiles.Add(ScaledFile);
@@ -98,13 +98,17 @@ bool HMRGEAlti::GetInsidePixels(FIntPoint &InsidePixels) const
 	return true;
 }
 
-bool HMRGEAlti::GetSpatialReference(OGRSpatialReference &InRs) const
+bool HMRGEAlti::GetCoordinatesSpatialReference(OGRSpatialReference &InRs) const
 {
-	InRs = SR2154;
-	return true;
+	return GetSpatialReferenceFromEPSG(InRs, 2154);
 }
 
-FReply HMRGEAlti::DownloadHeightMapsImpl() const
+bool HMRGEAlti::GetDataSpatialReference(OGRSpatialReference &InRs) const
+{
+	return GetSpatialReferenceFromEPSG(InRs, 2154);
+}
+
+FReply HMRGEAlti::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) const
 {
 
 	FString URL = FString::Format(
@@ -112,7 +116,7 @@ FReply HMRGEAlti::DownloadHeightMapsImpl() const
 		{ MinLong, MinLat, MaxLong, MaxLat, Width, Height }
 	);
 
-	Download::FromURL(URL, OriginalFiles[0]);
+	Download::FromURL(URL, OriginalFiles[0], OnComplete);
 
 	return FReply::Handled();
 }
