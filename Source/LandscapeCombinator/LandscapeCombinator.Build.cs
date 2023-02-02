@@ -9,13 +9,14 @@ public class LandscapeCombinator : ModuleRules
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		PublicIncludePaths.Add(Path.Combine(PluginDirectory, "ThirdParty", "include"));
-        PublicAdditionalLibraries.Add(Path.Combine(PluginDirectory, "ThirdParty", "lib", "gdal.lib"));
-		foreach (string DLLFile in Directory.GetFiles(Path.Combine(PluginDirectory, "ThirdParty", "bin")))
+
+		// GDAL
+		PublicIncludePaths.Add(Path.Combine(PluginDirectory, "ThirdParty", "GDAL", "include"));
+		PublicAdditionalLibraries.Add(Path.Combine(PluginDirectory, "ThirdParty", "GDAL", "lib", "gdal.lib"));
+		foreach (string DLLFile in Directory.GetFiles(Path.Combine(PluginDirectory, "ThirdParty", "GDAL", "bin")))
 			RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Binaries", "Win64", Path.GetFileName(DLLFile)), DLLFile);
 
-
-        PublicDependencyModuleNames.AddRange(
+		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
 				"Core",
@@ -35,10 +36,13 @@ public class LandscapeCombinator : ModuleRules
 				"CoreUObject",
 				"Engine",
 				"Slate",
-                "SlateCore",
-                "Landscape",
-                "LandscapeEditor",
+				"SlateCore",
+				"Landscape",
+				"LandscapeEditor",
 				"HTTP",
+				"XmlParser",
+				"PropertyEditor",
+				"Foliage"
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);
