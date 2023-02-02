@@ -1,7 +1,7 @@
 {
 	"FileVersion": 3,
-	"Version": 1,
-	"VersionName": "0.1",
+	"Version": 2,
+	"VersionName": "0.2",
 	"FriendlyName": "LandscapeCombinator",
 	"Description": "",
 	"Category": "Other",
@@ -10,7 +10,7 @@
 	"DocsURL": "",
 	"MarketplaceURL": "",
 	"SupportURL": "",
-	"CanContainContent": false,
+	"CanContainContent": true,
 	"IsBetaVersion": true,
 	"IsExperimentalVersion": true,
 	"Installed": false,

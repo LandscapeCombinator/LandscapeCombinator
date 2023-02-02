@@ -3,24 +3,22 @@
 #include "LandscapeCombinator.h"
 #include "LandscapeCombinatorStyle.h"
 #include "LandscapeCombinatorCommands.h"
+#include "SlateTable.h"
+#include "GlobalSettings.h"
+#include "Utils/Logging.h"
+#include "Utils/Console.h"
+#include "Road/FRoadBuilder.h"
+#include "Elevation/HeightMapTable.h"
+#include "Road/RoadTable.h"
+
 #include "LevelEditor.h"
-
-#include "Logging.h"
-#include "Console.h"
-#include "HMViewFinder1.h"
-#include "HMViewFinder3.h"
-#include "HMViewFinder15.h"
-#include "HMRGEAlti.h"
-#include "HMElevationAPI.h"
-#include "HMLocalFile.h"
-#include "HMReprojected.h"
-#include "HMURL.h"
-
 #include "Widgets/Docking/SDockTab.h"
 #include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Input/SComboBox.h"
 #include "Widgets/Input/SEditableTextBox.h"
+
 #include "Kismet/GameplayStatics.h"
 #include "Engine/Engine.h"
 #include "Engine/Font.h"
@@ -28,6 +26,7 @@
 #include "Landscape.h"	
 #include "LandscapeStreamingProxy.h"
 #include "Misc/Paths.h"
+#include "PropertyCustomizationHelpers.h" 
 
 #include "WorldPartition/LoaderAdapter/LoaderAdapterShape.h"
 #include "WorldPartition/LoaderAdapter/LoaderAdapterActor.h"
@@ -36,68 +35,9 @@
 #include "WorldPartition/WorldPartitionActorLoaderInterface.h"
 #include "WorldPartition/WorldPartitionEditorLoaderAdapter.h"
 
-#include "ToolMenus.h"
-
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
 static const FName LandscapeCombinatorTabName("LandscapeCombinator");
-FText KindChoice = LOCTEXT("HMInterface", "Please choose a heightmap provider");
-FText EmptyDescr = LOCTEXT("HMDownloadDetails", "Coordinates for heightmap download");
-
-FText ViewFinder15Text = LOCTEXT("ViewFinder15", "Viewfinder Panoramas 15");
-FText ViewFinder3Text  = LOCTEXT("ViewFinder3", "Viewfinder Panoramas 3");
-FText ViewFinder1Text  = LOCTEXT("ViewFinder1", "Viewfinder Panoramas 1");
-FText RGEAltiText      = LOCTEXT("RGEAlti", "RGE Alti France");
-FText ElevationAPIText = LOCTEXT("ElevationAPI", "Elevation API IGN 1m");
-FText LocalFileText	   = LOCTEXT("LocalFileKind", "Local File");
-FText URLText          = LOCTEXT("URLKind", "Remote URL");
-
-TArray<TSharedPtr<FText>> Kinds =
-{
-	MakeShareable(&ViewFinder15Text),
-	MakeShareable(&ViewFinder3Text),
-	MakeShareable(&ViewFinder1Text),
-	MakeShareable(&RGEAltiText),
-	MakeShareable(&ElevationAPIText),
-	MakeShareable(&LocalFileText),
-	MakeShareable(&URLText)
-};
-
-HMInterface* InterfaceFromKind(FString LandscapeName0, const FText& KindText0, FString Descr0, int Precision0)
-{
-	if (KindText0.EqualTo(ViewFinder15Text)) return new HMViewFinder15(LandscapeName0, KindText0, Descr0, Precision0);
-	else if (KindText0.EqualTo(ViewFinder3Text)) return new HMViewFinder3(LandscapeName0, KindText0, Descr0, Precision0);
-	else if (KindText0.EqualTo(ViewFinder1Text)) return new HMViewFinder1(LandscapeName0, KindText0, Descr0, Precision0);
-	else if (KindText0.EqualTo(RGEAltiText)) return new HMRGEAlti(LandscapeName0, KindText0, Descr0, Precision0);
-	else if (KindText0.EqualTo(ElevationAPIText)) return new HMElevationAPI(LandscapeName0, KindText0, Descr0, Precision0);
-	else if (KindText0.EqualTo(LocalFileText)) return new HMLocalFile(LandscapeName0, KindText0, Descr0, Precision0);
-	else if (KindText0.EqualTo(URLText)) return new HMURL(LandscapeName0, KindText0, Descr0, Precision0);
-	else {
-		FMessageDialog::Open(EAppMsgType::Ok,
-			FText::Format(
-				LOCTEXT("InterfaceFromKindError", "Internal error: heightmap kind '{0}' is not supprted."),
-				KindText0
-			)
-		); 
-		return nullptr;
-	}
-}
-
-FText DescriptionFromKind(const FText& KindText0)
-{
-	if (KindText0.EqualTo(ViewFinder15Text)) return LOCTEXT("ViewFinder15Descr", "Enter the comma-separated list of rectangles (e.g. 15-A, 15-B, 15-G, 15-H) from http://viewfinderpanoramas.org/Coverage%20map%20viewfinderpanoramas_org15.htm");
-	else if (KindText0.EqualTo(ViewFinder3Text)) return LOCTEXT("ViewFinder3Descr", "Enter the comma-separated list of rectangles (e.g. M31, M32) from http://viewfinderpanoramas.org/Coverage%20map%20viewfinderpanoramas_org3.htm");
-	else if (KindText0.EqualTo(ViewFinder1Text)) return LOCTEXT("ViewFinder1Descr", "Enter the comma-separated list of rectangles (e.g. M31, M32) from http://viewfinderpanoramas.org/Coverage%20map%20viewfinderpanoramas_org1.htm");
-	else if (KindText0.EqualTo(RGEAltiText)) return LOCTEXT("RGEAltiDescr", "Enter MinLong,MaxLong,MinLat,MaxLat in EPSG 2154 coordinates");
-	else if (KindText0.EqualTo(ElevationAPIText)) return LOCTEXT("ElevationAPIDescr", "Enter MinLong,MaxLong,MinLat,MaxLat in EPSG 4326 coordinates");
-	else if (KindText0.EqualTo(LocalFileText)) return LOCTEXT("LocalFileDescr", "Enter your C:\\Path\\To\\MyHeightmap.tif in GeoTIFF format");
-	else if (KindText0.EqualTo(URLText)) return LOCTEXT("URLDescr", "Enter URL to a heightmap in GeoTIFF format");
-	else return FText();
-}
-
-bool KindSupportsReprojection(const FText& KindText0) {
-	return KindText0.EqualTo(RGEAltiText) || KindText0.EqualTo(ElevationAPIText) || KindText0.EqualTo(LocalFileText) || KindText0.EqualTo(URLText);
-}
 
 void FLandscapeCombinatorModule::StartupModule()
 {
@@ -105,7 +45,7 @@ void FLandscapeCombinatorModule::StartupModule()
 	GDALAllRegister();
 	OGRRegisterAll();
 	
-	FString ShareFolder = FPaths:: ConvertRelativePathToFull(IPluginManager::Get().FindPlugin("LandscapeCombinator")->GetBaseDir()) / "ThirdParty" / "share";
+	FString ShareFolder = FPaths:: ConvertRelativePathToFull(IPluginManager::Get().FindPlugin("LandscapeCombinator")->GetBaseDir()) / "ThirdParty" / "GDAL" / "share";
 	FString GDALData = (ShareFolder / "gdal").Replace(TEXT("/"), TEXT("\\"));
 	FString PROJData = (ShareFolder / "proj").Replace(TEXT("/"), TEXT("\\"));
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("Setting GDAL_DATA to: %s"), *GDALData);
@@ -133,10 +73,6 @@ void FLandscapeCombinatorModule::StartupModule()
 	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(LandscapeCombinatorTabName, FOnSpawnTab::CreateRaw(this, &FLandscapeCombinatorModule::OnSpawnPluginTab))
 		.SetDisplayName(LOCTEXT("FLandscapeCombinatorTabTitle", "LandscapeCombinator"))
 		.SetMenuType(ETabSpawnerMenuType::Hidden);
-	
-	HeightMapListProjectFileV0 = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir()) / "HeightMapList";
-	HeightMapListPluginFileV1  = FPaths::Combine(IPluginManager::Get().FindPlugin("LandscapeCombinator")->GetBaseDir(), "HeightmapListV1");
-	HeightMapListProjectFileV1 = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir()) / "HeightMapListV1";
 }
 
 void FLandscapeCombinatorModule::ShutdownModule()
@@ -166,387 +102,75 @@ FReply FLandscapeCombinatorModule::LoadLandscapes()
 	UWorldPartitionEditorLoaderAdapter* EditorLoaderAdapter = World->GetWorldPartition()->CreateEditorLoaderAdapter<FLoaderAdapterShape>(World, RegionBox, TEXT("Loaded Region"));
 	EditorLoaderAdapter->GetLoaderAdapter()->SetUserCreated(true);
 	EditorLoaderAdapter->GetLoaderAdapter()->Load();
-	UE_LOG(LogLandscapeCombinator, Display, TEXT("Finished loading"));
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("Finished loading"));
 
 	return FReply::Handled();
 }
 
-int32 GetIndex(TSharedPtr<SVerticalBox> HeightMaps, TSharedRef<SHorizontalBox> Line) {
-	for (int i = 0; i < HeightMaps->NumSlots(); i++) {
-		if (HeightMaps->GetSlot(i).GetWidget() == Line) {
-			return i;
-		}
-	}
-	return 0;
-}
-
-
-FSlateFontInfo RegularFont = FSlateFontInfo(FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Regular.ttf"), 12);
-FSlateFontInfo TitleFont   = FSlateFontInfo(FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Regular.ttf"), 28);
-FSlateFontInfo BoldFont	   = FSlateFontInfo(FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Bold.ttf"), 12);
-
-void FLandscapeCombinatorModule::AddHeightMapLine(FString LandscapeName, const FText& KindText, FString Descr, int Precision, bool bReproject, bool bSave)
-{
-	HMInterface *Interface = InterfaceFromKind(LandscapeName, KindText, Descr, Precision);
-
-	if (!Interface || !Interface->Initialize()) {
-		FMessageDialog::Open(EAppMsgType::Ok,
-			FText::Format(
-				LOCTEXT("InitializationError", "There was an error while initializing {0}. Please refer to other error messages."),
-				FText::FromString(LandscapeName))
-		); 
-		return;
-	}
-
-	if (bReproject) {
-		Interface = new HMReprojected(LandscapeName, KindText, Descr, Precision, Interface);
-		if (!Interface || !Interface->Initialize()) {
-			FMessageDialog::Open(EAppMsgType::Ok,
-				FText::Format(
-					LOCTEXT("InitializationError", "There was an error while initializing {0}. Please refer to other error messages."),
-					FText::FromString(LandscapeName))
-			); 
-			return;
-		}
-	}
-
-	TSharedRef<SHorizontalBox> Line = SNew(SHorizontalBox);
-	TSharedRef<SEditableText> LandscapeNameBlock = SNew(SEditableText).Text(FText::FromString(LandscapeName)).IsReadOnly(true).Font(RegularFont);
-	TSharedRef<SEditableText> KindTextBlock = SNew(SEditableText).Text(KindText).IsReadOnly(true).Font(RegularFont);
-	TSharedRef<SEditableText> DescrBlock = SNew(SEditableText).Text(FText::FromString(Descr)).IsReadOnly(true).Font(RegularFont);
-	TSharedRef<SEditableText> PrecisionBlock = SNew(SEditableText).Text(FText::FromString(FString::Format(TEXT("{0}%"), { Precision }))).IsReadOnly(true).Font(RegularFont);
-	TSharedRef<SEditableText> ReprojectBlock = SNew(SEditableText).Text(FText::FromString(bReproject ? "Yes" : "No")).IsReadOnly(true).Font(RegularFont);
-
-	TSharedRef<SButton> DownloadButton = SNew(SButton)
-		.OnClicked_Lambda([Interface]()->FReply {
-			return Interface->DownloadHeightMaps([Interface](bool bWasSuccessful) {
-				if (bWasSuccessful)
-				{
-					FMessageDialog::Open(EAppMsgType::Ok,
-						FText::Format(
-							LOCTEXT("DownloadSuccess", "Download for Landscape {0} was successful. You can now press the `Convert` button."),
-							FText::FromString(Interface->LandscapeName))
-					); 
-				}
-				else
-				{
-					FMessageDialog::Open(EAppMsgType::Ok,
-						FText::Format(
-							LOCTEXT("DownloadSuccess", "There was an error while downloading heightmaps for Landscape {0}. Please check the Output Log."),
-							FText::FromString(Interface->LandscapeName))
-					); 
-
-				}
-			});
-		}) [
-			SNew(SImage)
-			.Image(FLandscapeCombinatorStyle::Get().GetBrush("LandscapeCombinator.Download"))
-			.ToolTipText(LOCTEXT("Download", "Download Heightmaps"))
-		];
-
-	if (KindText.EqualTo(LocalFileText)) DownloadButton->SetEnabled(false);
-
-	TSharedRef<SButton> ConvertButton = SNew(SButton)
-		.OnClicked_Lambda([Interface]()->FReply {
-			return Interface->ConvertHeightMaps();
-		}) [
-			SNew(SImage)
-			.Image(FLandscapeCombinatorStyle::Get().GetBrush("LandscapeCombinator.Convert"))
-			.ToolTipText(LOCTEXT("Convert", "Convert Heightmaps to PNG"))
-		];
-
-	auto AdjustLambda = [this, Interface](bool AdjustPosition){
-				
-		int WorldWidthKm = FCString::Atoi(*WorldWidthBlock->GetText().ToString());
-		int WorldHeightKm = FCString::Atoi(*WorldHeightBlock->GetText().ToString());
-		double ZScale = FCString::Atod(*ZScaleBlock->GetText().ToString());
-
-		if (WorldWidthKm <= 0) {
-			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("PositiveWidth", "World Width must be greater than 0 km"));
-			return FReply::Unhandled();
-		}
-
-		if (WorldHeightKm <= 0) {
-			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("PositiveHeight", "World Height must be greater than 0 km"));
-			return FReply::Unhandled();
-		}
-
-		return Interface->AdjustLandscape(WorldWidthKm, WorldHeightKm, ZScale, true);
-	};
-
-	TSharedRef<SButton> AdjustScaleOnlyButton = SNew(SButton)
-		.OnClicked_Lambda([this, Interface, AdjustLambda]()->FReply {
-			return AdjustLambda(false);
-		}) [
-			SNew(SImage).Image(FLandscapeCombinatorStyle::Get().GetBrush("LandscapeCombinator.Scale"))
-			.ToolTipText(LOCTEXT("AdjustScaleOnly", "Adjust scale only"))
-		];
-
-	TSharedRef<SButton> AdjustButton = SNew(SButton)
-		.OnClicked_Lambda([this, Interface, AdjustLambda]()->FReply {
-			return AdjustLambda(true);
-		}) [
-			SNew(SImage).Image(FLandscapeCombinatorStyle::Get().GetBrush("LandscapeCombinator.Adjust"))
-			.ToolTipText(LOCTEXT("Adjust", "Adjust scale and set landscape position relative to the world"))
-		];
-
-	TSharedRef<SButton> RemoveButton = SNew(SButton)
-		.OnClicked_Lambda([this, Line]()->FReply {
-			HeightMaps->RemoveSlot(Line);
-			SaveHeightMaps();
-			return FReply::Handled();
-		}) [
-			SNew(SImage).Image(FLandscapeCombinatorStyle::Get().GetBrush("LandscapeCombinator.Delete"))
-			.ToolTipText(LOCTEXT("RemoveLine", "Remove Heightmap Line"))
-		];
-		
-	TSharedRef<SButton> UpButton = SNew(SButton)
-		.OnClicked_Lambda([this, Line]()->FReply {
-			int32 i = GetIndex(HeightMaps, Line);
-			HeightMaps->RemoveSlot(Line);
-			HeightMaps->InsertSlot(FMath::Max(0, i - 1)).AutoHeight().Padding(FMargin(0, 0, 0, 8))[ Line ];
-			SaveHeightMaps();
-			return FReply::Handled();
-		}) [
-			SNew(SImage).Image(FLandscapeCombinatorStyle::Get().GetBrush("LandscapeCombinator.MoveUp"))
-			.ToolTipText(LOCTEXT("MoveDown", "Move Up"))
-		];
-	TSharedRef<SButton> DownButton = SNew(SButton)
-		.OnClicked_Lambda([this, Line]()->FReply {
-			int32 i = GetIndex(HeightMaps, Line);
-			HeightMaps->RemoveSlot(Line);
-			HeightMaps->InsertSlot(FMath::Min(HeightMaps->NumSlots(), i + 1)).AutoHeight().Padding(FMargin(0, 0, 0, 8))[ Line ];
-			SaveHeightMaps();
-			return FReply::Handled();
-		}) [
-			SNew(SImage)
-			.Image(FLandscapeCombinatorStyle::Get().GetBrush("LandscapeCombinator.MoveDown"))
-			.ToolTipText(LOCTEXT("MoveDown", "Move Down"))
-		];
-	
-	Line->AddSlot().FillWidth(0.03);
-	Line->AddSlot().FillWidth(0.07)[ LandscapeNameBlock ];
-	Line->AddSlot().FillWidth(0.08)[ KindTextBlock ];
-	Line->AddSlot().FillWidth(0.43)[ DescrBlock ];
-	Line->AddSlot().FillWidth(0.08)[ PrecisionBlock ];
-	Line->AddSlot().FillWidth(0.08)[ ReprojectBlock ];
-	Line->AddSlot().FillWidth(0.02)[ DownloadButton ];
-	Line->AddSlot().FillWidth(0.02)[ ConvertButton ];
-	Line->AddSlot().FillWidth(0.02)[ AdjustScaleOnlyButton ];
-	Line->AddSlot().FillWidth(0.02)[ AdjustButton ];
-	Line->AddSlot().FillWidth(0.02)[ RemoveButton ];
-	Line->AddSlot().FillWidth(0.02)[ DownButton ];
-	Line->AddSlot().FillWidth(0.02)[ UpButton ];
-	Line->AddSlot().FillWidth(0.09);
-
-	HeightMaps->AddSlot().AutoHeight().Padding(FMargin(0, 0, 0, 8))[ Line ];
-
-	if (bSave) SaveHeightMaps();
-}
-
-TSharedRef<SHorizontalBox> FLandscapeCombinatorModule::HeightMapLineAdder()
-{	
-	TSharedRef<SHorizontalBox> Line = SNew(SHorizontalBox);
-	TSharedRef<SEditableText> AddMessageBlock = SNew(SEditableText).Text(LOCTEXT("AddMessageBlock", "Add a new heightmap line")).Font(RegularFont).IsReadOnly(true);
-	TSharedRef<STextBlock> KindTextBlock = SNew(STextBlock).Text(RGEAltiText).Font(RegularFont);
-	TSharedRef<SEditableTextBox> DescrBlock = SNew(SEditableTextBox).Text(DescriptionFromKind(RGEAltiText)).SelectAllTextWhenFocused(true).Font(RegularFont);
-
-	TSharedRef<SCheckBox> ReprojectionCheckBox = SNew(SCheckBox).ToolTipText(LOCTEXT("Reproject", "Reproject to EPSG:4326 (leave unchecked if unsure)")).IsChecked(false);
-
-	TSharedRef<SComboBox<TSharedPtr<FText>>> KindSelector = SNew(SComboBox<TSharedPtr<FText>>)
-		.OptionsSource(&Kinds)
-		.OnSelectionChanged_Lambda([this, KindTextBlock, DescrBlock, ReprojectionCheckBox](TSharedPtr<FText> KindText, ESelectInfo::Type) {
-			KindTextBlock->SetText(*KindText);
-			DescrBlock->SetText(DescriptionFromKind(*KindText));
-			ReprojectionCheckBox->SetIsChecked(ECheckBoxState::Unchecked);
-			ReprojectionCheckBox->SetEnabled(KindSupportsReprojection(*KindText));
-		})
-		.OnGenerateWidget_Lambda([](TSharedPtr<FText> Text){
-			return SNew(STextBlock).Text(*Text);
-		}) [
-			KindTextBlock
-		];
-
-	TSharedRef<SEditableTextBox> LandscapeNameBlock = SNew(SEditableTextBox).Text(LOCTEXT("LandscapeName", "Landscape Name")).SelectAllTextWhenFocused(true).Font(RegularFont);
-
-	TSharedRef<SEditableTextBox> PrecisionBlock = SNew(SEditableTextBox).Text(LOCTEXT("Precision", "Precision in %")).SelectAllTextWhenFocused(true).Font(RegularFont);
-
-	TSharedRef<SButton> AddButton = SNew(SButton)
-		.OnClicked_Lambda([this, KindTextBlock, DescrBlock, Line, LandscapeNameBlock, PrecisionBlock, ReprojectionCheckBox]()->FReply {
-			FText KindText = KindTextBlock->GetText();
-			FString LandscapeName = LandscapeNameBlock->GetText().ToString().TrimStartAndEnd();
-			FString Descr = DescrBlock->GetText().ToString().TrimStartAndEnd();
-			int Precision = FCString::Atoi(*PrecisionBlock->GetText().ToString().TrimStartAndEnd());
-
-			if (Precision <= 0 || Precision > 100) {
-				FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("PrecisionInRange", "Precision must be an integer between 1 and 100"));
-				return FReply::Unhandled();
-			}
-
-			AddHeightMapLine(LandscapeName, KindText, Descr, Precision, ReprojectionCheckBox->GetCheckedState() == ECheckBoxState::Checked, true);
-			return FReply::Handled();
-		}) [
-			SNew(SImage)
-			.Image(FLandscapeCombinatorStyle::Get().GetBrush("LandscapeCombinator.Add"))
-			.ToolTipText(LOCTEXT("AddLine", "Add Heightmap Line"))
-		];
-		
-	Line->AddSlot().AutoWidth().Padding(FMargin(40, 0, 10, 0))[ AddMessageBlock ];
-	Line->AddSlot().AutoWidth().Padding(FMargin(0, 0, 10, 0))[ LandscapeNameBlock ];
-	Line->AddSlot().AutoWidth().Padding(FMargin(0, 0, 10, 0))[ KindSelector ];
-	Line->AddSlot().AutoWidth().Padding(FMargin(0, 0, 10, 0))[ DescrBlock ];
-	Line->AddSlot().AutoWidth().Padding(FMargin(0, 0, 10, 0))[ PrecisionBlock ];
-	Line->AddSlot().AutoWidth().Padding(FMargin(0, 0, 10, 0))[ ReprojectionCheckBox ];
-	Line->AddSlot().AutoWidth().Padding(FMargin(0, 0, 10, 0))[ AddButton ];
-
-	return Line;
-}
-
 TSharedRef<SDockTab> FLandscapeCombinatorModule::OnSpawnPluginTab(const FSpawnTabArgs& SpawnTabArgs)
 {
-	SAssignNew(HeightMaps, SVerticalBox);
-	SAssignNew(WorldWidthBlock, SEditableTextBox).SelectAllTextWhenFocused(true).Text(FText::FromString("40000")).Font(RegularFont);
-	SAssignNew(WorldHeightBlock, SEditableTextBox).SelectAllTextWhenFocused(true).Text(FText::FromString("20000")).Font(RegularFont);
-	SAssignNew(ZScaleBlock, SEditableTextBox).SelectAllTextWhenFocused(true).Text(FText::FromString("1")).Font(RegularFont);
-
-	TSharedRef<STextBlock> WorldSizeBlock = SNew(STextBlock)
-		.Text(LOCTEXT("WorldSizeBlock", "For the `Adjust` button, please enter the whole planet expected width and height in km, as well as the scale for the height (1 if you want real-world height): "))
-		.Font(RegularFont);
-
-	HeightMaps->AddSlot().AutoHeight().Padding(FMargin(0, 0, 0, 8))[
-		SNew(SHorizontalBox)
-		+SHorizontalBox::Slot().FillWidth(0.03)
-		+SHorizontalBox::Slot().FillWidth(0.07)[
-			SNew(SEditableText)
-			.Text(LOCTEXT("LandscapeName", "Landscape Name"))
-			.IsReadOnly(true)
-			.Font(BoldFont)
-		]
-		+SHorizontalBox::Slot().FillWidth(0.08)[
-			SNew(SEditableText)
-			.Text(LOCTEXT("HMProvider", "Heightmap Provider"))
-			.IsReadOnly(true)
-			.Font(BoldFont)
-		]
-		+SHorizontalBox::Slot().FillWidth(0.43)[
-			SNew(SEditableText)
-			.Text(LOCTEXT("HMDetails", "Heightmap Details"))
-			.IsReadOnly(true)
-			.Font(BoldFont)
-		]
-		+SHorizontalBox::Slot().FillWidth(0.08)[
-			SNew(SEditableText)
-			.Text(LOCTEXT("Precision", "Precision (%)"))
-			.IsReadOnly(true)
-			.Font(BoldFont)
-		]
-		+SHorizontalBox::Slot().FillWidth(0.08)[
-			SNew(SEditableText)
-			.Text(LOCTEXT("Reproject", "Reproject to EPSG:4326"))
-			.IsReadOnly(true)
-			.Font(BoldFont)
-		]
-		+SHorizontalBox::Slot().FillWidth(0.23)
-	];
-	LoadHeightMaps();
+	HeightMapTable *HMTable = new HeightMapTable();
+	RoadTable *RTable = new RoadTable(HMTable);
 	
 	TSharedRef<SDockTab> Tab = SNew(SDockTab).TabRole(ETabRole::NomadTab)[
-		SNew(SVerticalBox)
-		+SVerticalBox::Slot()
-			.AutoHeight()
-			.HAlign(HAlign_Center)
-			.Padding(FMargin(0, 30, 0, 50))
-			[
-				SNew(STextBlock)
-				.Text(FText::FromString("Landscape Combinator"))
-				.Font(TitleFont)
-			]
-		+SVerticalBox::Slot().AutoHeight().Padding(FMargin(0, 0, 0, 40)) [
-			HeightMaps.ToSharedRef()
-		]
-		+SVerticalBox::Slot().AutoHeight() [
-			HeightMapLineAdder()
-		].Padding(FMargin(0, 0, 0, 40))
-		+SVerticalBox::Slot().AutoHeight() [
-			SNew(SHorizontalBox)
-			+SHorizontalBox::Slot().Padding(FMargin(40, 0, 10, 0)).AutoWidth() [ WorldSizeBlock ]
-			+SHorizontalBox::Slot().Padding(FMargin(0, 0, 10, 0)).AutoWidth() [ WorldWidthBlock.ToSharedRef() ]
-			+SHorizontalBox::Slot().Padding(FMargin(0, 0, 10, 0)).AutoWidth() [ WorldHeightBlock.ToSharedRef() ]
-			+SHorizontalBox::Slot().AutoWidth() [ ZScaleBlock.ToSharedRef() ]
+		SNew(SScrollBox)
+		+SScrollBox::Slot().Padding(FMargin(30, 0, 0, 0))
+		[
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+				.AutoHeight()
+				.HAlign(HAlign_Center)
+				.Padding(FMargin(0, 30, 0, 50))
+				[
+					SNew(STextBlock)
+					.Text(FText::FromString("Landscape Combinator"))
+					.Font(FLandscapeCombinatorStyle::TitleFont())
+				]
+			+SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(FMargin(0, 0, 0, 30))
+				[
+					SNew(STextBlock)
+					.Text(FText::FromString("1. Global World Settings"))
+					.Font(FLandscapeCombinatorStyle::SubtitleFont())
+				]
+			+SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(FMargin(50, 0, 0, 30))
+				[
+					GlobalSettings::GlobalSettingsTable()
+				]
+			+SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(FMargin(0, 0, 0, 30))
+				[
+					SNew(STextBlock)
+					.Text(FText::FromString("2. Landscape Elevation"))
+					.Font(FLandscapeCombinatorStyle::SubtitleFont())
+				]
+			+SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(FMargin(50, 0, 80, 40))
+				[
+					HMTable->MakeTable()
+				]
+			+SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(FMargin(0, 0, 0, 30))
+				[
+					SNew(STextBlock)
+					.Text(FText::FromString("3. Roads (or Landscape Splines)"))
+					.Font(FLandscapeCombinatorStyle::SubtitleFont())
+				]
+			+SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(FMargin(50, 0, 80, 40))
+				[
+					RTable->MakeTable()
+				]
 		]
 	];
 	return Tab;
-}
-
-void FLandscapeCombinatorModule::SaveHeightMaps()
-{
-	TArray<HeightMapDetailsV1> HeightMapList;
-	
-	for (int i = 1; i < HeightMaps->NumSlots(); i++) {
-		TSharedRef<SHorizontalBox> Line = StaticCastSharedRef<SHorizontalBox>(HeightMaps->GetSlot(i).GetWidget());
-		HeightMapDetailsV1 Details = {
-			StaticCastSharedRef<SEditableText>(Line->GetSlot(1).GetWidget())->GetText().ToString(),
-			StaticCastSharedRef<SEditableText>(Line->GetSlot(2).GetWidget())->GetText().ToString(),
-			StaticCastSharedRef<SEditableText>(Line->GetSlot(3).GetWidget())->GetText().ToString(),
-			FCString::Atoi(*StaticCastSharedRef<SEditableText>(Line->GetSlot(4).GetWidget())->GetText().ToString()),
-			StaticCastSharedRef<SEditableText>(Line->GetSlot(5).GetWidget())->GetText().ToString().Equals("Yes")
-		};
-		HeightMapList.Add(Details);
-	}
-
-	IPlatformFile::GetPlatformPhysical().CreateDirectory(*FPaths::ProjectSavedDir());
-	UE_LOG(LogLandscapeCombinator, Log, TEXT("Saving heightmap list to '%s'"), *HeightMapListProjectFileV1);
-	FArchive* FileWriter = IFileManager::Get().CreateFileWriter(*HeightMapListProjectFileV1);
-	if (FileWriter)
-	{
-		*FileWriter << HeightMapList;
-		FileWriter->Close();
-	}
-	else
-	{
-		UE_LOG(LogLandscapeCombinator, Error, TEXT("Failed to save the heightmap list to '%s'"), *HeightMapListProjectFileV1);
-	}
-}
-
-void FLandscapeCombinatorModule::LoadHeightMaps()
-{
-	FArchive* FileReader = IFileManager::Get().CreateFileReader(*HeightMapListProjectFileV1);
-	if (FileReader) {
-		UE_LOG(LogLandscapeCombinator, Log, TEXT("Loading heightmap list from %s"), *HeightMapListProjectFileV1);
-	} else {
-		FileReader = IFileManager::Get().CreateFileReader(*HeightMapListPluginFileV1);
-		if (FileReader)
-			UE_LOG(LogLandscapeCombinator, Log, TEXT("Loading heightmap list from %s"), *HeightMapListPluginFileV1);
-	}
-
-	if (FileReader) {
-		TArray<HeightMapDetailsV1> HeightMapList;
-		*FileReader << HeightMapList;
-
-		for (auto &Details : HeightMapList) {
-			AddHeightMapLine(Details.LandscapeName, FText::FromString(Details.KindText), Details.Descr, Details.Precision, Details.Reproject, false);
-		}
-
-		FileReader->Close();
-	}
-	else {
-		FileReader = IFileManager::Get().CreateFileReader(*HeightMapListProjectFileV0);
-		if (FileReader) {
-			UE_LOG(LogLandscapeCombinator, Log, TEXT("Loading heightmap list from %s"), *HeightMapListProjectFileV0);
-			TArray<HeightMapDetailsV0> HeightMapList;
-			*FileReader << HeightMapList;
-
-			for (auto &Details : HeightMapList) {
-				AddHeightMapLine(Details.LandscapeName, FText::FromString(Details.KindText), Details.Descr, Details.Precision, false, false);
-			}
-
-			FileReader->Close();
-		}
-		else {
-			UE_LOG(LogLandscapeCombinator, Error, TEXT("Failed to load the heightmap list"));
-		}
-	}
-
 }
 
 void FLandscapeCombinatorModule::PluginButtonClicked()
