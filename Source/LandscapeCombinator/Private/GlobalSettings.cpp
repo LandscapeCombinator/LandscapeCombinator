@@ -13,14 +13,13 @@ namespace GlobalSettings
 	{
 		FString GlobalSettingsProjectFileV1 = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir()) / "GlobalSettingsV1";
 		WorldParametersV1 GlobalParams;
-		if (!GetWorldParameters(GlobalParams)) 
+		if (!GetWorldParameters(GlobalParams)) return;
 
 		IPlatformFile::GetPlatformPhysical().CreateDirectory(*FPaths::ProjectSavedDir());
 		UE_LOG(LogLandscapeCombinator, Log, TEXT("Saving global params to '%s'"), *GlobalSettingsProjectFileV1);
 		FArchive* FileWriter = IFileManager::Get().CreateFileWriter(*GlobalSettingsProjectFileV1);
 		if (FileWriter)
 		{
-			UE_LOG(LogLandscapeCombinator, Log, TEXT("saving '%d'"), GlobalParams.WorldWidthKm);
 			*FileWriter << GlobalParams;
 			if (FileWriter->Close()) return;
 		}
@@ -182,6 +181,35 @@ namespace GlobalSettings
 		Params.WorldOriginY = WorldOriginY;
 		return true;
 	};
+
+	FVector EPSG4326ToUnrealCoordinates(FVector2D Coordinates4326, double WorldWidthCm, double WorldHeightCm, double WorldOriginX, double WorldOriginY)
+	{
+		return
+		{
+			(Coordinates4326[0] - WorldOriginX) / 360 * WorldWidthCm,
+			(WorldOriginY - Coordinates4326[1]) / 180 * WorldHeightCm,
+			0
+		};
+	}
+
+	FVector2D UnrealCoordinatesToEPSG326(FVector WorldCoordinates, double WorldWidthCm, double WorldHeightCm, double WorldOriginX, double WorldOriginY)
+	{
+		return
+		{
+			UnrealCoordinatesToEPSG326X(WorldCoordinates[0], WorldWidthCm, WorldHeightCm, WorldOriginX, WorldOriginY),
+			UnrealCoordinatesToEPSG326Y(WorldCoordinates[1], WorldWidthCm, WorldHeightCm, WorldOriginX, WorldOriginY)
+		};
+	}
+
+	double UnrealCoordinatesToEPSG326X(double X, double WorldWidthCm, double WorldHeightCm, double WorldOriginX, double WorldOriginY)
+	{
+		return X / WorldWidthCm * 360 + WorldOriginX;
+	}
+
+	double UnrealCoordinatesToEPSG326Y(double Y, double WorldWidthCm, double WorldHeightCm, double WorldOriginX, double WorldOriginY)
+	{
+		return WorldOriginY - Y / WorldHeightCm * 180;
+	}
 
 }
 

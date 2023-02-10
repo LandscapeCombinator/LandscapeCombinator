@@ -7,9 +7,13 @@
 #include "GlobalSettings.h"
 #include "Utils/Logging.h"
 #include "Utils/Console.h"
-#include "Road/FRoadBuilder.h"
-#include "Elevation/HeightMapTable.h"
+#include "Utils/Time.h"
+#include "Road/RoadBuilder.h"
 #include "Road/RoadTable.h"
+#include "Elevation/HeightMapTable.h"
+#include "Foliage/OGRProceduralFoliageVolume.h"
+#include "Foliage/OGRProceduralFoliageVolumeDetails.h"
+#include "EngineCode/ActorFactoryOGRProceduralFoliage.h"
 
 #include "LevelEditor.h"
 #include "Widgets/Docking/SDockTab.h"
@@ -19,6 +23,8 @@
 #include "Widgets/Input/SComboBox.h"
 #include "Widgets/Input/SEditableTextBox.h"
 
+#include "Engine/World.h"
+#include "TimerManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/Engine.h"
 #include "Engine/Font.h"
@@ -41,24 +47,31 @@ static const FName LandscapeCombinatorTabName("LandscapeCombinator");
 
 void FLandscapeCombinatorModule::StartupModule()
 {
-	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
+	// GDAL
 	GDALAllRegister();
 	OGRRegisterAll();
-	
 	FString ShareFolder = FPaths:: ConvertRelativePathToFull(IPluginManager::Get().FindPlugin("LandscapeCombinator")->GetBaseDir()) / "ThirdParty" / "GDAL" / "share";
 	FString GDALData = (ShareFolder / "gdal").Replace(TEXT("/"), TEXT("\\"));
 	FString PROJData = (ShareFolder / "proj").Replace(TEXT("/"), TEXT("\\"));
+	FString OSMConf = (ShareFolder / "gdal" / "osmconf.ini").Replace(TEXT("/"), TEXT("\\"));
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("Setting GDAL_DATA to: %s"), *GDALData);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("Setting PROJ_DATA to: %s"), *PROJData);
 	CPLSetConfigOption("GDAL_DATA", TCHAR_TO_UTF8(*GDALData));
 	CPLSetConfigOption("PROJ_DATA", TCHAR_TO_UTF8(*PROJData));
 	CPLSetConfigOption("GDAL_PAM_ENABLED", "NO");
+	CPLSetConfigOption("OSM_CONFIG_FILE", TCHAR_TO_UTF8(*OSMConf));
 	const char* const ProjPaths[] = { TCHAR_TO_UTF8(*PROJData), nullptr };
 	OSRSetPROJSearchPaths(ProjPaths);
-	
+
+
+	// Details Customization
+	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
+	PropertyModule.RegisterCustomClassLayout(FName("OGRProceduralFoliageVolume"), FOnGetDetailCustomizationInstance::CreateStatic(&FOGRProceduralFoliageVolumeDetails::MakeInstance));
+
+
+	// Plugin
 	FLandscapeCombinatorStyle::Initialize();
 	FLandscapeCombinatorStyle::ReloadTextures();
-
 	FLandscapeCombinatorCommands::Register();
 	
 	PluginCommands = MakeShareable(new FUICommandList);
@@ -109,9 +122,18 @@ FReply FLandscapeCombinatorModule::LoadLandscapes()
 
 TSharedRef<SDockTab> FLandscapeCombinatorModule::OnSpawnPluginTab(const FSpawnTabArgs& SpawnTabArgs)
 {
-	HeightMapTable *HMTable = new HeightMapTable();
-	RoadTable *RTable = new RoadTable(HMTable);
-	
+	//FWorldContext* WorldContext = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport);
+	//FTimerHandle* TimerHandle = new FTimerHandle();
+	//WorldContext->World()->GetTimerManager().SetTimer(*TimerHandle, []() { Time::DumpTable(); }, 20.0f, true);
+
+	auto OGRProceduralFoliageVolumeFactory = NewObject<UActorFactoryOGRProceduralFoliage>();
+	GEditor->ActorFactories.Add(OGRProceduralFoliageVolumeFactory);
+
+	GlobalSettings::HMTable = new HeightMapTable();
+	RoadTable* RTable = new RoadTable(GlobalSettings::HMTable);
+
+	GlobalSettings::HMTable->LoadFrom(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir()) / "HeightMapListV1 - Copie");
+
 	TSharedRef<SDockTab> Tab = SNew(SDockTab).TabRole(ETabRole::NomadTab)[
 		SNew(SScrollBox)
 		+SScrollBox::Slot().Padding(FMargin(30, 0, 0, 0))
@@ -152,9 +174,9 @@ TSharedRef<SDockTab> FLandscapeCombinatorModule::OnSpawnPluginTab(const FSpawnTa
 				.AutoHeight()
 				.Padding(FMargin(50, 0, 80, 40))
 				[
-					HMTable->MakeTable()
+					GlobalSettings::HMTable->MakeTable()
 				]
-			+SVerticalBox::Slot()
+			+ SVerticalBox::Slot()
 				.AutoHeight()
 				.Padding(FMargin(0, 0, 0, 30))
 				[
@@ -162,11 +184,49 @@ TSharedRef<SDockTab> FLandscapeCombinatorModule::OnSpawnPluginTab(const FSpawnTa
 					.Text(FText::FromString("3. Roads (or Landscape Splines)"))
 					.Font(FLandscapeCombinatorStyle::SubtitleFont())
 				]
-			+SVerticalBox::Slot()
+			+ SVerticalBox::Slot()
 				.AutoHeight()
 				.Padding(FMargin(50, 0, 80, 40))
 				[
 					RTable->MakeTable()
+				]
+			+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(FMargin(0, 0, 0, 30))
+				[
+					SNew(STextBlock)
+					.Text(FText::FromString("4. Foliage"))
+				.Font(FLandscapeCombinatorStyle::SubtitleFont())
+				]
+			+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(FMargin(50, 0, 80, 40))
+				[
+					SNew(SEditableText)
+					.Text(LOCTEXT("LandscapeFoliageExplanation",
+						"Please check the README file on https://github.com/LandscapeCombinator/LandscapeCombinator#procedural-foliage to add foliage."
+					))
+					.IsReadOnly(true)
+					.Font(FLandscapeCombinatorStyle::RegularFont())
+				]
+			+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(FMargin(0, 0, 0, 30))
+				[
+					SNew(STextBlock)
+					.Text(FText::FromString("5. Buildings"))
+				.Font(FLandscapeCombinatorStyle::SubtitleFont())
+				]
+			+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(FMargin(50, 0, 80, 40))
+				[
+					SNew(SEditableText)
+					.Text(LOCTEXT("Buildings teaser",
+						"Soon?"
+					))
+					.IsReadOnly(true)
+					.Font(FLandscapeCombinatorStyle::RegularFont())
 				]
 		]
 	];

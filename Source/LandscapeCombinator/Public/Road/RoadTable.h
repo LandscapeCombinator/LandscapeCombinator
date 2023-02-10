@@ -2,7 +2,7 @@
 
 #include "SlateTable.h"
 #include "Elevation/HeightMapTable.h"
-#include "Road/FRoadBuilder.h"
+#include "Road/RoadBuilder.h"
 
 class RoadTable : public SlateTable {
 public:

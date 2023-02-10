@@ -55,6 +55,7 @@ public:
 	void AddHeightMapRow(FString LandscapeLabel, const FText& KindText, FString Descr, int Precision, bool bReproject, bool bSave);
 
 	void Save() override;
+	void LoadFrom(FString FilePath);
 	void Load() override;
 	TSharedRef<SWidget> Header() override;
 	TSharedRef<SWidget> Footer() override;
