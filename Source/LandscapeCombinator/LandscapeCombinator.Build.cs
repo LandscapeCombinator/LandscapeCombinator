@@ -42,7 +42,8 @@ public class LandscapeCombinator : ModuleRules
 				"HTTP",
 				"XmlParser",
 				"PropertyEditor",
-				"Foliage"
+				"Foliage",
+				"FoliageEdit",
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

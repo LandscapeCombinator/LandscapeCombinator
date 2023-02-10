@@ -2,6 +2,7 @@
 #include "Utils/Logging.h"
 #include "Utils/Console.h"
 #include "Utils/Concurrency.h"
+#include "EngineCode/EngineCode.h"
 
 #include "Misc/Paths.h"
 #include "Internationalization/Regex.h"
@@ -11,7 +12,6 @@
 #include "LandscapeProxy.h"
 #include "LandscapeStreamingProxy.h"
 #include "LandscapeEditorObject.h"
-#include "EngineLandscapeCreation.h"
 #include "Async/Async.h"
 #include "Editor/LandscapeEditor/Private/LandscapeEditorDetailCustomization_NewLandscape.h"
 #include "EditorModes.h"
@@ -343,7 +343,7 @@ FReply HMInterface::ImportHeightMaps()
 	}
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("Heightmap file: %s"), *HeightmapFile);
 	UISettings->OnImportHeightmapFilenameChanged();
-	ALandscape *CreatedLandscape = EngineLandscapeCreation::OnCreateButtonClicked();
+	ALandscape *CreatedLandscape = EngineCode::OnCreateButtonClicked();
 
 	
 	GLevelEditorModeTools().ActivateMode(FBuiltinEditorModes::EM_Default);
@@ -423,7 +423,8 @@ FReply HMInterface::CreateLandscape(int WorldWidthKm, int WorldHeightKm, double 
 bool HMInterface::GetSpatialReference(OGRSpatialReference &InRs, FString File) {
 
 	GDALDataset* Dataset = (GDALDataset *) GDALOpen(TCHAR_TO_UTF8(*File), GA_ReadOnly);
-	if (!Dataset) {
+	if (!Dataset)
+	{
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 			LOCTEXT("GetSpatialReferenceError", "Unable to open file {0} to read its spatial reference."),
 			FText::FromString(File)
@@ -436,7 +437,8 @@ bool HMInterface::GetSpatialReference(OGRSpatialReference &InRs, FString File) {
 
 bool HMInterface::GetSpatialReference(OGRSpatialReference& InRs, GDALDataset* Dataset)
 {
-	if (!Dataset) {
+	if (!Dataset)
+	{
 		FMessageDialog::Open(EAppMsgType::Ok,
 			LOCTEXT("GetSpatialReferenceError", "Unable to get spatial reference from dataset (null pointer).")
 		);
@@ -462,7 +464,8 @@ bool HMInterface::GetSpatialReference(OGRSpatialReference& InRs, GDALDataset* Da
 bool HMInterface::GetSpatialReferenceFromEPSG(OGRSpatialReference& InRs, int EPSG)
 {
 	OGRErr Err = InRs.importFromEPSG(EPSG);
-	if (Err != OGRERR_NONE) {
+	if (Err != OGRERR_NONE)
+	{
 		FMessageDialog::Open(EAppMsgType::Ok,
 			FText::Format(
 				LOCTEXT("StartupModuleError1", "Could not create spatial reference from EPSG {0}: (Error {1})."),
@@ -508,7 +511,8 @@ bool HMInterface::GetMinMaxZ(FVector2D &MinMaxZ) {
 		UE_LOG(LogLandscapeCombinator, Log, TEXT("GetMinMaxZ: Landscape %s has no extent, so we will look for LandscapeStreamingProxy's."), *LandscapeLabel);
 		double MaxZ = -DBL_MAX;
 		double MinZ = DBL_MAX;
-		for (auto& LandscapeStreamingProxy : LandscapeStreamingProxies) {
+		for (auto& LandscapeStreamingProxy : LandscapeStreamingProxies)
+		{
 			FVector LandscapeProxyOrigin;
 			FVector LandscapeProxyExtent;
 			LandscapeStreamingProxy->GetActorBounds(false, LandscapeProxyOrigin, LandscapeProxyExtent);
@@ -516,7 +520,8 @@ bool HMInterface::GetMinMaxZ(FVector2D &MinMaxZ) {
 			MinZ = FMath::Min(MinZ, LandscapeProxyOrigin.Z - LandscapeProxyExtent.Z);
 		}
 
-		if (MaxZ != -DBL_MAX && MinZ != DBL_MAX) {
+		if (MaxZ != -DBL_MAX && MinZ != DBL_MAX)
+		{
 			MinMaxZ.X = MinZ;
 			MinMaxZ.Y = MaxZ;
 			return true;
@@ -538,8 +543,10 @@ bool HMInterface::SetLandscapeFromLabel()
 	UGameplayStatics::GetAllActorsOfClass(World, ALandscape::StaticClass(), Landscapes);
 
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("Searching for Landscape %s among %d landscapes"), *LandscapeLabel, Landscapes.Num());
-	for (auto& Landscape0 : Landscapes) {
-		if (Landscape0->GetActorLabel().Equals(LandscapeLabel)) {
+	for (auto& Landscape0 : Landscapes)
+	{
+		if (Landscape0->GetActorLabel().Equals(LandscapeLabel))
+		{
 			Landscape = Cast<ALandscape>(Landscape0);
 			SetLandscapeStreamingProxies();
 
@@ -573,8 +580,10 @@ void HMInterface::SetLandscapeStreamingProxies()
 
 FReply HMInterface::AdjustLandscape(int WorldWidthKm, int WorldHeightKm, double ZScale, double WorldOriginX, double WorldOriginY)
 {
-	if (!Landscape) {
-		if (!SetLandscapeFromLabel()) {
+	if (!Landscape)
+	{
+		if (!SetLandscapeFromLabel())
+		{
 			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 				LOCTEXT("AdjustLandscapeTransformError", "Could not find Landscape {0}"),
 				FText::FromString(LandscapeLabel)
@@ -734,8 +743,8 @@ FCollisionQueryParams HMInterface::CustomCollisionQueryParams(UWorld* World)
 
 double HMInterface::GetZ(UWorld* World, FCollisionQueryParams CollisionQueryParams, double x, double y)
 {
-	FVector StartLocation{ x, y, -100000 }; // -1 km
-	FVector EndLocation{ x, y, 2000000 };   // 20 km
+	FVector StartLocation = FVector(x, y, -HALF_WORLD_MAX);
+	FVector EndLocation = FVector(x, y, HALF_WORLD_MAX);
 
 	FHitResult HitResult;
 	World->LineTraceSingleByObjectType(

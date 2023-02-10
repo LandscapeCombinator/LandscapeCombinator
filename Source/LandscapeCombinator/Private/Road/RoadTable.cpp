@@ -1,8 +1,9 @@
 #include "Road/RoadTable.h"
-#include "Road/FRoadBuilder.h"
-#include "Road/FRoadBuilderOverpass.h"
-#include "Road/FRoadBuilderSelector.h"
-#include "Road/FRoadBuilderAll.h"
+#include "Road/RoadBuilder.h"
+#include "Road/RoadBuilderShortQuery.h"
+#include "Road/RoadBuilderOverpass.h"
+#include "Road/RoadBuilderSelector.h"
+#include "Road/RoadBuilderAll.h"
 #include "Utils/Logging.h"
 #include "Utils/Concurrency.h"
 #include "LandscapeCombinatorStyle.h"
@@ -15,10 +16,11 @@
 
 using namespace GlobalSettings;
 
-FText AllRoadsText      = LOCTEXT("AllRoads", "All Roads");
-FText RoadSelectorText	= LOCTEXT("RoadSelection", "Road Selection");
-FText RoadLocalFileText = LOCTEXT("LocalFileKind", "Local File");
-FText OverpassApiText   = LOCTEXT("OverpassKind", "Overpass API ");
+FText AllRoadsText				= LOCTEXT("AllRoads", "All Roads");
+FText RoadSelectorText			= LOCTEXT("RoadSelection", "Road Selection");
+FText RoadLocalFileText			= LOCTEXT("LocalFileKind", "Local File");
+FText OverpassApiText			= LOCTEXT("OverpassKind", "Overpass Compact URL ");
+FText OverpassShortQueryText	= LOCTEXT("OverpassShortQuery", "Overpass Short Query");
 
 TArray<TSharedPtr<FText>> RoadSources =
 {
@@ -26,6 +28,7 @@ TArray<TSharedPtr<FText>> RoadSources =
 	MakeShareable(&RoadSelectorText),
 	MakeShareable(&RoadLocalFileText),
 	MakeShareable(&OverpassApiText),
+	MakeShareable(&OverpassShortQueryText),
 };
 
 RoadTable::RoadTable(HeightMapTable* HMTable0) : SlateTable()
@@ -57,6 +60,7 @@ bool SerializeArray(FArchive& Ar, TArray<FRoadBuilder*>& RoadBuilders)
 		{
 			if (Source == ESourceKind::LocalFile) RoadBuilders[i] = new FRoadBuilder();
 			else if (Source == ESourceKind::OverpassAPI) RoadBuilders[i] = new FRoadBuilderOverpass();
+			else if (Source == ESourceKind::OverpassShortQuery) RoadBuilders[i] = new FRoadBuilderShortQuery();
 			else if (Source == ESourceKind::RoadSelector) RoadBuilders[i] = new FRoadBuilderSelector();
 			else if (Source == ESourceKind::AllRoads) RoadBuilders[i] = new FRoadBuilderAll();
 			else {
@@ -67,11 +71,9 @@ bool SerializeArray(FArchive& Ar, TArray<FRoadBuilder*>& RoadBuilders)
 		
 		if (Source == ESourceKind::LocalFile) Ar << *(RoadBuilders[i]);
 		else if (Source == ESourceKind::OverpassAPI) Ar << *static_cast<FRoadBuilderOverpass*>(RoadBuilders[i]);
+		else if (Source == ESourceKind::OverpassShortQuery) Ar << *static_cast<FRoadBuilderShortQuery*>(RoadBuilders[i]);
 		else if (Source == ESourceKind::RoadSelector) Ar << *static_cast<FRoadBuilderSelector*>(RoadBuilders[i]);
-		else if (Source == ESourceKind::AllRoads)
-		{
-			Ar << *static_cast<FRoadBuilderAll*>(RoadBuilders[i]);
-		}
+		else if (Source == ESourceKind::AllRoads) Ar << *static_cast<FRoadBuilderAll*>(RoadBuilders[i]);
 		else
 		{
 			UE_LOG(LogLandscapeCombinator, Error, TEXT("Error while serializing road list, found unknown source kind %d"), Source);
@@ -217,12 +219,18 @@ TSharedRef<SWidget> RoadTable::Footer()
 	TSharedRef<STextBlock> SourceBlock = SNew(STextBlock).Text(AllRoadsText).Font(FLandscapeCombinatorStyle::RegularFont());
 	TSharedRef<SEditableTextBox> LayerNameBlock = SNew(SEditableTextBox).Text(LOCTEXT("LandscapeLayer", "Landscape Layer Name (to paint the roads)")).SelectAllTextWhenFocused(true).Font(FLandscapeCombinatorStyle::RegularFont());
 	TSharedRef<SEditableTextBox> RoadWidthBlock = SNew(SEditableTextBox).Text(LOCTEXT("RoadWidth", "Road width (m)")).SelectAllTextWhenFocused(true).Font(FLandscapeCombinatorStyle::RegularFont());
-
+	
 	TSharedRef<SEditableTextBox> OverpassBlock =
-		SNew(SEditableTextBox).Text(LOCTEXT("OverpassQuery", "Overpass Query."))
+		SNew(SEditableTextBox).Text(LOCTEXT("OverpassQuery", "Overpass Query Compact URL."))
 		.SelectAllTextWhenFocused(true)
 		.Font(FLandscapeCombinatorStyle::RegularFont())
 		.Visibility_Lambda([SourceBlock]() { return SourceBlock->GetText().EqualTo(OverpassApiText) ? EVisibility::Visible : EVisibility::Collapsed; })
+	;
+	TSharedRef<SEditableTextBox> OverpassShortBlock =
+		SNew(SEditableTextBox).Text(LOCTEXT("OverpasShort", "\"way\"=\"highway\""))
+		.SelectAllTextWhenFocused(true)
+		.Font(FLandscapeCombinatorStyle::RegularFont())
+		.Visibility_Lambda([SourceBlock]() { return SourceBlock->GetText().EqualTo(OverpassShortQueryText) ? EVisibility::Visible : EVisibility::Collapsed; })
 	;
 	TSharedRef<SEditableTextBox> XmlPathBlock =
 		SNew(SEditableTextBox).Text(LOCTEXT("XMLPath", "Path to the XML file containing OSM data."))
@@ -304,6 +312,11 @@ TSharedRef<SWidget> RoadTable::Footer()
 				FString OverpassQuery = OverpassBlock->GetText().ToString().TrimStartAndEnd();
 				RoadBuilder = new FRoadBuilderOverpass(HMTable, LandscapeLabel, LayerName, RoadWidth, OverpassQuery);
 			}
+			else if (SourceText.EqualTo(OverpassShortQueryText))
+			{
+				FString OverpassShortQuery = OverpassShortBlock->GetText().ToString().TrimStartAndEnd();
+				RoadBuilder = new FRoadBuilderShortQuery(HMTable, LandscapeLabel, LayerName, RoadWidth, OverpassShortQuery);
+			}
 			else if (SourceText.EqualTo(RoadSelectorText))
 			{
 				bool bMotorway = MotorwayCheckBox->IsChecked();
@@ -337,6 +350,7 @@ TSharedRef<SWidget> RoadTable::Footer()
 	Result->AddSlot().AutoWidth().Padding(FMargin(0, 0, 30, 0))[ RoadSelectorChoices ];
 	Result->AddSlot().AutoWidth().Padding(FMargin(0, 0, 30, 0))[ XmlPathBlock ];
 	Result->AddSlot().AutoWidth().Padding(FMargin(0, 0, 30, 0))[ OverpassBlock ];
+	Result->AddSlot().AutoWidth().Padding(FMargin(0, 0, 30, 0))[ OverpassShortBlock ];
 	//Result->AddSlot().AutoWidth().Padding(FMargin(0, 0, 20, 0))[ LayerNameBlock ];
 	//Result->AddSlot().AutoWidth().Padding(FMargin(0, 0, 20, 0))[ RoadWidthBlock ];
 	Result->AddSlot().AutoWidth().Padding(FMargin(0, 0, 0, 0))[ AddButton ];

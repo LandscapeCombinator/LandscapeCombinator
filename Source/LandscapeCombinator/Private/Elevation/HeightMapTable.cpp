@@ -240,12 +240,40 @@ void HeightMapTable::Save()
 	}
 }
 
+void HeightMapTable::LoadFrom(FString FilePath)
+{
+	FArchive* FileReader = IFileManager::Get().CreateFileReader(*FilePath);
+	if (FileReader)
+	{
+		UE_LOG(LogLandscapeCombinator, Log, TEXT("Loading heightmap list from %s"), *HeightMapListProjectFileV1);
+	}
+
+	if (FileReader)
+	{
+		TArray<HeightMapDetailsV1> HeightMapList;
+		*FileReader << HeightMapList;
+
+		for (auto &Details : HeightMapList)
+		{
+			AddHeightMapRow(Details.LandscapeLabel, FText::FromString(Details.KindText), Details.Descr, Details.Precision, Details.Reproject, false);
+		}
+
+		FileReader->Close();
+	}
+	else
+	{
+		UE_LOG(LogLandscapeCombinator, Error, TEXT("Failed to load the heightmap list"));
+	}
+}
+
 void HeightMapTable::Load()
 {
 	FArchive* FileReader = IFileManager::Get().CreateFileReader(*HeightMapListProjectFileV1);
-	if (FileReader) {
+	if (FileReader)
+	{
 		UE_LOG(LogLandscapeCombinator, Log, TEXT("Loading heightmap list from %s"), *HeightMapListProjectFileV1);
-	} else {
+	} else
+	{
 		FileReader = IFileManager::Get().CreateFileReader(*HeightMapListPluginFileV1);
 		if (FileReader)
 			UE_LOG(LogLandscapeCombinator, Log, TEXT("Loading heightmap list from %s"), *HeightMapListPluginFileV1);
@@ -255,26 +283,31 @@ void HeightMapTable::Load()
 		TArray<HeightMapDetailsV1> HeightMapList;
 		*FileReader << HeightMapList;
 
-		for (auto &Details : HeightMapList) {
+		for (auto &Details : HeightMapList)
+		{
 			AddHeightMapRow(Details.LandscapeLabel, FText::FromString(Details.KindText), Details.Descr, Details.Precision, Details.Reproject, false);
 		}
 
 		FileReader->Close();
 	}
-	else {
+	else
+	{
 		FileReader = IFileManager::Get().CreateFileReader(*HeightMapListProjectFileV0);
-		if (FileReader) {
+		if (FileReader)
+		{
 			UE_LOG(LogLandscapeCombinator, Log, TEXT("Loading heightmap list from %s"), *HeightMapListProjectFileV0);
 			TArray<HeightMapDetailsV0> HeightMapList;
 			*FileReader << HeightMapList;
 
-			for (auto &Details : HeightMapList) {
+			for (auto &Details : HeightMapList)
+			{
 				AddHeightMapRow(Details.LandscapeLabel, FText::FromString(Details.KindText), Details.Descr, Details.Precision, false, false);
 			}
 
 			FileReader->Close();
 		}
-		else {
+		else
+		{
 			UE_LOG(LogLandscapeCombinator, Error, TEXT("Failed to load the heightmap list"));
 		}
 	}
