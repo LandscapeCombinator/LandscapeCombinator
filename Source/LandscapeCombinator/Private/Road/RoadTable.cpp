@@ -33,7 +33,7 @@ TArray<TSharedPtr<FText>> RoadSources =
 
 RoadTable::RoadTable(HeightMapTable* HMTable0) : SlateTable()
 {
-	ColumnsSizes = { 0.07, 0.41, 0.07, 0.07, 0.08, 0.44 };
+	ColumnsSizes = { 0.07, 0.41, 0.08, 0.44 };
 	HMTable = HMTable0;
 	RoadListPluginFileV1  = FPaths::Combine(IPluginManager::Get().FindPlugin("LandscapeCombinator")->GetBaseDir(), "RoadListV1");
 	RoadListProjectFileV1 = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir()) / "RoadListV1";
@@ -49,25 +49,38 @@ bool SerializeArray(FArchive& Ar, TArray<FRoadBuilder*>& RoadBuilders)
 		UE_LOG(LogLandscapeCombinator, Log, TEXT("Loading an array with %d road builders"), Size);
 		RoadBuilders.SetNum(Size);
 	}
+	else
+	{
+		UE_LOG(LogLandscapeCombinator, Log, TEXT("Writing an array with %d road builders"), Size);
+	}
 	for (int32 i = 0; i < Size; i++)
 	{
 		int Source;
-		if (!Ar.IsLoading()) Source = RoadBuilders[i]->SourceKind;
+		if (Ar.IsSaving())
+		{
+			Source = RoadBuilders[i]->SourceKind;
+			UE_LOG(LogLandscapeCombinator, Log, TEXT("Saving road builder %d with source %d"), i, Source);
+		}
 
 		Ar << Source;
 
+
+
 		if (Ar.IsLoading())
 		{
+			UE_LOG(LogLandscapeCombinator, Log, TEXT("Loading road builder %d with source %d"), i, Source);
 			if (Source == ESourceKind::LocalFile) RoadBuilders[i] = new FRoadBuilder();
 			else if (Source == ESourceKind::OverpassAPI) RoadBuilders[i] = new FRoadBuilderOverpass();
 			else if (Source == ESourceKind::OverpassShortQuery) RoadBuilders[i] = new FRoadBuilderShortQuery();
 			else if (Source == ESourceKind::RoadSelector) RoadBuilders[i] = new FRoadBuilderSelector();
 			else if (Source == ESourceKind::AllRoads) RoadBuilders[i] = new FRoadBuilderAll();
-			else {
-				UE_LOG(LogLandscapeCombinator, Error, TEXT("Error while loading road list, found unknown source kind %d"), Source);
+			else
+			{
+				UE_LOG(LogLandscapeCombinator, Error, TEXT("Error while loading road list %d, found unknown source kind %d"), i, Source);
 				return false;
 			}
 		}
+
 		
 		if (Source == ESourceKind::LocalFile) Ar << *(RoadBuilders[i]);
 		else if (Source == ESourceKind::OverpassAPI) Ar << *static_cast<FRoadBuilderOverpass*>(RoadBuilders[i]);
@@ -76,7 +89,7 @@ bool SerializeArray(FArchive& Ar, TArray<FRoadBuilder*>& RoadBuilders)
 		else if (Source == ESourceKind::AllRoads) Ar << *static_cast<FRoadBuilderAll*>(RoadBuilders[i]);
 		else
 		{
-			UE_LOG(LogLandscapeCombinator, Error, TEXT("Error while serializing road list, found unknown source kind %d"), Source);
+			UE_LOG(LogLandscapeCombinator, Error, TEXT("Error while serializing road list %d, found unknown source kind %d"), i, Source);
 			return false;
 		}
 	}
@@ -152,28 +165,14 @@ TSharedRef<SWidget> RoadTable::Header()
 		.IsReadOnly(true)
 		.Font(FLandscapeCombinatorStyle::BoldFont())
 	]
-	//+SHorizontalBox::Slot().FillWidth(ColumnsSizes[2])
-	//[
-	//	SNew(SEditableText)
-	//	.Text(LOCTEXT("LandscapeLayer", "Landscape Layer"))
-	//	.IsReadOnly(true)
-	//	.Font(FLandscapeCombinatorStyle::BoldFont())
-	//]
-	//+SHorizontalBox::Slot().FillWidth(ColumnsSizes[3])
-	//[
-	//	SNew(SEditableText)
-	//	.Text(LOCTEXT("RoadWidth", "Road Width (m)"))
-	//	.IsReadOnly(true)
-	//	.Font(FLandscapeCombinatorStyle::BoldFont())
-	//]
-	+SHorizontalBox::Slot().FillWidth(ColumnsSizes[4])
+	+SHorizontalBox::Slot().FillWidth(ColumnsSizes[2])
 	[
 		SNew(SEditableText)
 		.Text(LOCTEXT("Create", "Create Roads"))
 		.IsReadOnly(true)
 		.Font(FLandscapeCombinatorStyle::BoldFont())
 	]
-	+SHorizontalBox::Slot().FillWidth(ColumnsSizes[5])
+	+SHorizontalBox::Slot().FillWidth(ColumnsSizes[3])
 	;
 }
 
@@ -184,8 +183,6 @@ void RoadTable::AddRoadRow(FRoadBuilder* RoadBuilder, bool bSave)
 	RoadBuilders.Add(RoadBuilder);
 	TSharedRef<SEditableText> LandscapeLabelBlock = SNew(SEditableText).Text(FText::FromString(RoadBuilder->LandscapeLabel)).IsReadOnly(true).Font(FLandscapeCombinatorStyle::RegularFont());
 	TSharedRef<SEditableText> DetailsBlock = SNew(SEditableText).Text(FText::FromString(RoadBuilder->DetailsString())).IsReadOnly(true).Font(FLandscapeCombinatorStyle::RegularFont());
-	TSharedRef<SEditableText> LayerNameBlock = SNew(SEditableText).Text(FText::FromString(RoadBuilder->LayerName)).IsReadOnly(true).Font(FLandscapeCombinatorStyle::RegularFont());
-	TSharedRef<SEditableText> RoadWidthBlock = SNew(SEditableText).Text(FText::AsNumber(RoadBuilder->RoadWidth)).IsReadOnly(true).Font(FLandscapeCombinatorStyle::RegularFont());
 
 	TSharedRef<SButton> CreateRoadsButton = SNew(SButton)
 		.OnClicked_Lambda([this, RoadBuilder]()->FReply {
@@ -200,13 +197,11 @@ void RoadTable::AddRoadRow(FRoadBuilder* RoadBuilder, bool bSave)
 	
 	Row->AddSlot().FillWidth(ColumnsSizes[0])[ LandscapeLabelBlock ];
 	Row->AddSlot().FillWidth(ColumnsSizes[1])[ DetailsBlock ];
-	//Row->AddSlot().FillWidth(ColumnsSizes[2])[ LayerNameBlock ];
-	//Row->AddSlot().FillWidth(ColumnsSizes[3])[ RoadWidthBlock ];
-	Row->AddSlot().FillWidth(ColumnsSizes[4])[
+	Row->AddSlot().FillWidth(ColumnsSizes[2])[
 		SNew(SHorizontalBox)
 		+SHorizontalBox::Slot().AutoWidth() [ CreateRoadsButton ]
 	];
-	AddRow(Row, true, bSave, ColumnsSizes[5]);
+	AddRow(Row, true, bSave, ColumnsSizes[3]);
 }
 
 TSharedRef<SWidget> RoadTable::Footer()
@@ -227,7 +222,7 @@ TSharedRef<SWidget> RoadTable::Footer()
 		.Visibility_Lambda([SourceBlock]() { return SourceBlock->GetText().EqualTo(OverpassApiText) ? EVisibility::Visible : EVisibility::Collapsed; })
 	;
 	TSharedRef<SEditableTextBox> OverpassShortBlock =
-		SNew(SEditableTextBox).Text(LOCTEXT("OverpasShort", "\"way\"=\"highway\""))
+		SNew(SEditableTextBox).Text(LOCTEXT("OverpasShort", "way[\"highway\"];"))
 		.SelectAllTextWhenFocused(true)
 		.Font(FLandscapeCombinatorStyle::RegularFont())
 		.Visibility_Lambda([SourceBlock]() { return SourceBlock->GetText().EqualTo(OverpassShortQueryText) ? EVisibility::Visible : EVisibility::Collapsed; })
@@ -299,23 +294,22 @@ TSharedRef<SWidget> RoadTable::Footer()
 			FString LandscapeLabel = LandscapeBlock->GetText().ToString();
 			FString LayerName = LayerNameBlock->GetText().ToString().TrimStartAndEnd();
 			FText SourceText = SourceBlock->GetText();
-			float RoadWidth = FCString::Atof(*RoadWidthBlock->GetText().ToString());
 
 			FRoadBuilder* RoadBuilder = nullptr;
 			if (SourceText.EqualTo(RoadLocalFileText))
 			{
 				FString XmlPath = XmlPathBlock->GetText().ToString().TrimStartAndEnd();
-				RoadBuilder = new FRoadBuilder(HMTable, LandscapeLabel, LayerName, XmlPath, RoadWidth);
+				RoadBuilder = new FRoadBuilder(HMTable, LandscapeLabel, XmlPath);
 			}
 			else if (SourceText.EqualTo(OverpassApiText))
 			{
 				FString OverpassQuery = OverpassBlock->GetText().ToString().TrimStartAndEnd();
-				RoadBuilder = new FRoadBuilderOverpass(HMTable, LandscapeLabel, LayerName, RoadWidth, OverpassQuery);
+				RoadBuilder = new FRoadBuilderOverpass(HMTable, LandscapeLabel, OverpassQuery);
 			}
 			else if (SourceText.EqualTo(OverpassShortQueryText))
 			{
 				FString OverpassShortQuery = OverpassShortBlock->GetText().ToString().TrimStartAndEnd();
-				RoadBuilder = new FRoadBuilderShortQuery(HMTable, LandscapeLabel, LayerName, RoadWidth, OverpassShortQuery);
+				RoadBuilder = new FRoadBuilderShortQuery(HMTable, LandscapeLabel, OverpassShortQuery);
 			}
 			else if (SourceText.EqualTo(RoadSelectorText))
 			{
@@ -326,11 +320,11 @@ TSharedRef<SWidget> RoadTable::Footer()
 				bool bTertiary = TertiaryCheckBox->IsChecked();
 				bool bUnclassified = UnclassifiedCheckBox->IsChecked();
 				bool bResidential = ResidentialCheckBox->IsChecked();
-				RoadBuilder = new FRoadBuilderSelector(HMTable, LandscapeLabel, LayerName, RoadWidth, bMotorway, bTrunk, bPrimary, bSecondary, bTertiary, bUnclassified, bResidential);
+				RoadBuilder = new FRoadBuilderSelector(HMTable, LandscapeLabel, bMotorway, bTrunk, bPrimary, bSecondary, bTertiary, bUnclassified, bResidential);
 			}
 			else if (SourceText.EqualTo(AllRoadsText))
 			{
-				RoadBuilder = new FRoadBuilderAll(HMTable, LandscapeLabel, LayerName, RoadWidth);
+				RoadBuilder = new FRoadBuilderAll(HMTable, LandscapeLabel);
 			}
 			else check(false)
 
@@ -343,17 +337,15 @@ TSharedRef<SWidget> RoadTable::Footer()
 			.ToolTipText(LOCTEXT("AddRoadRow", "Add Road Row"))
 		];
 		
-	Result->AddSlot().AutoWidth().Padding(FMargin(0, 0, 10, 0))[ LandscapeChoiceBlock ];
-	Result->AddSlot().AutoWidth().Padding(FMargin(0, 0, 30, 0))[ LandscapeSelector ];
-	Result->AddSlot().AutoWidth().Padding(FMargin(0, 0, 10, 0))[ SourceChoiceBlock ];
-	Result->AddSlot().AutoWidth().Padding(FMargin(0, 0, 10, 0))[ SourceSelector ];
-	Result->AddSlot().AutoWidth().Padding(FMargin(0, 0, 30, 0))[ RoadSelectorChoices ];
-	Result->AddSlot().AutoWidth().Padding(FMargin(0, 0, 30, 0))[ XmlPathBlock ];
-	Result->AddSlot().AutoWidth().Padding(FMargin(0, 0, 30, 0))[ OverpassBlock ];
-	Result->AddSlot().AutoWidth().Padding(FMargin(0, 0, 30, 0))[ OverpassShortBlock ];
-	//Result->AddSlot().AutoWidth().Padding(FMargin(0, 0, 20, 0))[ LayerNameBlock ];
-	//Result->AddSlot().AutoWidth().Padding(FMargin(0, 0, 20, 0))[ RoadWidthBlock ];
-	Result->AddSlot().AutoWidth().Padding(FMargin(0, 0, 0, 0))[ AddButton ];
+	Result->AddSlot().MaxWidth(140).Padding(FMargin(0, 0, 20, 0)) [ LandscapeChoiceBlock ];
+	Result->AddSlot().MaxWidth(140).Padding(FMargin(0, 0, 20, 0)) [ LandscapeSelector ];
+	Result->AddSlot().MaxWidth(140).Padding(FMargin(0, 0, 20, 0)) [ SourceChoiceBlock ];
+	Result->AddSlot().MaxWidth(200).Padding(FMargin(0, 0, 20, 0)) [ SourceSelector ];
+	Result->AddSlot().AutoWidth().Padding(FMargin(0, 0, 20, 0))[RoadSelectorChoices];
+	Result->AddSlot().MaxWidth(1000).Padding(FMargin(0, 0, 20, 0)) [ XmlPathBlock ];
+	Result->AddSlot().MaxWidth(1000).Padding(FMargin(0, 0, 20, 0)) [ OverpassBlock ];
+	Result->AddSlot().MaxWidth(1000).Padding(FMargin(0, 0, 20, 0)) [ OverpassShortBlock ];
+	Result->AddSlot().MaxWidth(50).Padding(FMargin(0, 0, 20, 0)) [ AddButton ];
 
 	return Result;
 }

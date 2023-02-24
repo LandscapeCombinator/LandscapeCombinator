@@ -5,6 +5,7 @@
 #include "LandscapeCombinatorCommands.h"
 #include "SlateTable.h"
 #include "GlobalSettings.h"
+#include "Utils/Download.h"
 #include "Utils/Logging.h"
 #include "Utils/Console.h"
 #include "Utils/Time.h"
@@ -122,17 +123,13 @@ FReply FLandscapeCombinatorModule::LoadLandscapes()
 
 TSharedRef<SDockTab> FLandscapeCombinatorModule::OnSpawnPluginTab(const FSpawnTabArgs& SpawnTabArgs)
 {
-	//FWorldContext* WorldContext = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport);
-	//FTimerHandle* TimerHandle = new FTimerHandle();
-	//WorldContext->World()->GetTimerManager().SetTimer(*TimerHandle, []() { Time::DumpTable(); }, 20.0f, true);
+	Download::LoadExpectedSizeCache();
 
 	auto OGRProceduralFoliageVolumeFactory = NewObject<UActorFactoryOGRProceduralFoliage>();
 	GEditor->ActorFactories.Add(OGRProceduralFoliageVolumeFactory);
 
 	GlobalSettings::HMTable = new HeightMapTable();
 	RoadTable* RTable = new RoadTable(GlobalSettings::HMTable);
-
-	GlobalSettings::HMTable->LoadFrom(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir()) / "HeightMapListV1 - Copie");
 
 	TSharedRef<SDockTab> Tab = SNew(SDockTab).TabRole(ETabRole::NomadTab)[
 		SNew(SScrollBox)

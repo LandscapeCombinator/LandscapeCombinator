@@ -2,7 +2,8 @@
 
 #include "Road/RoadBuilderOverpass.h"
 
-class FRoadBuilderShortQuery : public FRoadBuilderOverpass {
+class FRoadBuilderShortQuery : public FRoadBuilderOverpass
+{
 public:
 
 	FString OverpassShortQuery;
@@ -11,11 +12,9 @@ public:
 	FRoadBuilderShortQuery(
 		HeightMapTable* HMTable0,
 		FString LandscapeLabel0,
-		FString LayerName0,
-		float RoadWidth0,
 		FString OverpassShortQuery0
 	) :
-		FRoadBuilderOverpass(HMTable0, LandscapeLabel0, LayerName0, RoadWidth0, "")
+		FRoadBuilderOverpass(HMTable0, LandscapeLabel0, "")
 	{
 		SourceKind = ESourceKind::OverpassShortQuery;
 		OverpassShortQuery = OverpassShortQuery0;
