@@ -8,8 +8,8 @@ public:
 	FString OverpassQuery;
 	
 	FRoadBuilderOverpass() {}
-	FRoadBuilderOverpass(HeightMapTable* HMTable0, FString LandscapeLabel0, FString LayerName0, float RoadWidth0, FString OverpassQuery0) :
-		FRoadBuilder(HMTable0, LandscapeLabel0, LayerName0, "", RoadWidth0)
+	FRoadBuilderOverpass(HeightMapTable* HMTable0, FString LandscapeLabel0, FString OverpassQuery0) :
+		FRoadBuilder(HMTable0, LandscapeLabel0, "")
 	{
 		OverpassQuery = OverpassQuery0;
 		SourceKind = ESourceKind::OverpassAPI;

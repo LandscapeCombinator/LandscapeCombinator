@@ -25,7 +25,7 @@ FString FRoadBuilder::DetailsString()
 
 void FRoadBuilder::AddRoads(int WorldWidthKm, int WorldHeightKm, double ZScale, double WorldOriginX, double WorldOriginY)
 {
-	FMessageDialog::Open(EAppMsgType::Ok,
+	EAppReturnType::Type UserResponse = FMessageDialog::Open(EAppMsgType::OkCancel,
 		FText::Format(
 			LOCTEXT("LandscapeNotFound",
 				"Landscape splines will now be added to Landscape {0}. You can monitor the progress in the Output Log. "
@@ -37,6 +37,12 @@ void FRoadBuilder::AddRoads(int WorldWidthKm, int WorldHeightKm, double ZScale, 
 			FText::FromString(LandscapeLabel)
 		)
 	);
+
+	if (UserResponse == EAppReturnType::Cancel) 
+	{
+		UE_LOG(LogLandscapeCombinator, Log, TEXT("User cancelled adding roads."));
+		return;
+	}
 
 	UWorld* World = GEditor->GetEditorWorldContext().World();
 	double WorldWidthCm  = ((double) WorldWidthKm)  * 1000 * 100;
@@ -248,8 +254,7 @@ void FRoadBuilder::AddRoads(int WorldWidthKm, int WorldHeightKm, double ZScale, 
 
 			FVector LocalLocation = LandscapeSplinesComponent->GetComponentToWorld().InverseTransformPosition(Location);
 			ULandscapeSplineControlPoint* ControlPoint = EngineCode::AddControlPoint(LandscapeSplinesComponent, LocalLocation);
-			//ControlPoint->LayerName = "Road";
-			//ControlPoint->Width = RoadWidth * 50; // half-width in cm
+			ControlPoint->LayerName = "Road";
 			ControlPoint->Width = 250; // half-width in cm
 			ControlPoint->SideFalloff = 200;
 			Points.Add(Ref, ControlPoint);
@@ -292,7 +297,7 @@ void FRoadBuilder::AddRoads(int WorldWidthKm, int WorldHeightKm, double ZScale, 
 				if (Points.Contains(Ref1) && Points.Contains(Ref2))
 				{
 					ULandscapeSplineSegment* Segment = EngineCode::AddSegment(Points[Ref1], Points[Ref2], true, true);
-					//Segment->LayerName = "Road";
+					Segment->LayerName = "Road";
 					RefNode1 = RefNode2;
 					RefNode2 = RefNode3;
 				}

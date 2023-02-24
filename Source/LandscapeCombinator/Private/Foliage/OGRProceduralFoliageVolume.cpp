@@ -95,13 +95,6 @@ void AOGRProceduralFoliageVolume::ResimulateWithFilterFromFile(const FString& Pa
 
 	if (!Dataset)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
-			FText::Format(
-				LOCTEXT("ResimulateWithFilterError", "Could not open OSM file '{0}'.\n{1}"),
-				FText::FromString(Path),
-				FText::FromString(CPLGetLastErrorMsg())
-			)
-		);
 		return;
 	}
 
@@ -109,6 +102,11 @@ void AOGRProceduralFoliageVolume::ResimulateWithFilterFromFile(const FString& Pa
 
 
 	OGRGeometry *UnionGeometry = OGRGeometryFactory::createGeometry(OGRwkbGeometryType::wkbMultiPolygon);
+	if (!UnionGeometry)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("UnionGeometryError", "Internal error while creating OGR Geometry. Please try again."));
+		return;
+	}
 	
 	int n = Dataset->GetLayerCount();
 	for (int i = 0; i < n; i++)
@@ -118,8 +116,7 @@ void AOGRProceduralFoliageVolume::ResimulateWithFilterFromFile(const FString& Pa
 		if (!Layer) continue;
 
 		for (auto& Feature : Layer)
-		{
-						
+		{			
 			OGRGeometry* Geometry = Time::Time<OGRGeometry*>(FString("GetGeometryRef"), [&]() { return Feature->GetGeometryRef(); });
 			if (!Geometry) continue;
 			UnionGeometry = UnionGeometry->Union(Geometry);
@@ -175,6 +172,20 @@ void AOGRProceduralFoliageVolume::ResimulateWithFilterFromFile(const FString& Pa
 
 void AOGRProceduralFoliageVolume::ResimulateWithFilter()
 {
+	if (FoliageSourceType == EFoliageSourceType::OverpassShortQuery || FoliageSourceType == EFoliageSourceType::Forests)
+	{
+		EAppReturnType::Type UserResponse = FMessageDialog::Open(EAppMsgType::OkCancel,
+			LOCTEXT("ResimulateWithFilterMessage",
+				"We will do an Overpass Query to find the regions in which to place Procedural Foliage.\n"
+				"You can monitor the download progress in the Output Log in the LogLandscapeCombinator category."
+			)
+		);
+		if (UserResponse == EAppReturnType::Cancel)
+		{
+			return;
+		}
+	}
+
 	if (FoliageSourceType == EFoliageSourceType::LocalVectorFile)
 	{
 		ResimulateWithFilterFromFile(OSMPath);
@@ -187,8 +198,6 @@ void AOGRProceduralFoliageVolume::ResimulateWithFilter()
 	{
 		ResimulateWithFilterFromShortQuery("nwr[\"natural\"=\"wood\"];nwr[\"landuse\"=\"forest\"];");
 	}
-
-
 }
 
 #undef LOCTEXT_NAMESPACE

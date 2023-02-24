@@ -245,7 +245,7 @@ void HeightMapTable::LoadFrom(FString FilePath)
 	FArchive* FileReader = IFileManager::Get().CreateFileReader(*FilePath);
 	if (FileReader)
 	{
-		UE_LOG(LogLandscapeCombinator, Log, TEXT("Loading heightmap list from %s"), *HeightMapListProjectFileV1);
+		UE_LOG(LogLandscapeCombinator, Log, TEXT("Loading heightmap list from %s"), *FilePath);
 	}
 
 	if (FileReader)
@@ -262,7 +262,7 @@ void HeightMapTable::LoadFrom(FString FilePath)
 	}
 	else
 	{
-		UE_LOG(LogLandscapeCombinator, Error, TEXT("Failed to load the heightmap list"));
+		UE_LOG(LogLandscapeCombinator, Error, TEXT("Failed to load the heightmap list from %s"), *FilePath);
 	}
 }
 
@@ -279,7 +279,8 @@ void HeightMapTable::Load()
 			UE_LOG(LogLandscapeCombinator, Log, TEXT("Loading heightmap list from %s"), *HeightMapListPluginFileV1);
 	}
 
-	if (FileReader) {
+	if (FileReader)
+	{
 		TArray<HeightMapDetailsV1> HeightMapList;
 		*FileReader << HeightMapList;
 
@@ -308,7 +309,7 @@ void HeightMapTable::Load()
 		}
 		else
 		{
-			UE_LOG(LogLandscapeCombinator, Error, TEXT("Failed to load the heightmap list"));
+			UE_LOG(LogLandscapeCombinator, Error, TEXT("Failed to load heightmap list"));
 		}
 	}
 }
@@ -424,7 +425,7 @@ void HeightMapTable::AddHeightMapRow(FString LandscapeLabel, const FText& KindTe
 				return FReply::Unhandled();
 		}) [
 			SNew(SImage).Image(FLandscapeCombinatorStyle::Get().GetBrush("LandscapeCombinator.Adjust"))
-			.ToolTipText(LOCTEXT("Adjust", "Adjust scale and set landscape position relative to the world"))
+			.ToolTipText(LOCTEXT("Adjust", "Adjust scale and set landscape position relative to the world.\n(Only click this if you already imported the landscape and changed the global settings afterwards.)"))
 		];
 
 	TSharedRef<SButton> ImportButton = SNew(SButton)
@@ -455,10 +456,10 @@ void HeightMapTable::AddHeightMapRow(FString LandscapeLabel, const FText& KindTe
 	//Row->AddSlot().FillWidth(0.02)[ DownloadButton ];
 	//Row->AddSlot().FillWidth(0.02)[ ConvertButton ];
 	//Row->AddSlot().FillWidth(0.02)[ ImportButton ];
-	//Row->AddSlot().FillWidth(0.02)[ AdjustButton ];
 	Row->AddSlot().FillWidth(ColumnsSizes[5])[
 		SNew(SHorizontalBox)
 		+SHorizontalBox::Slot().AutoWidth() [ CreateLandscapeButton ]
+		+SHorizontalBox::Slot().AutoWidth() [ AdjustButton ]
 	];
 
 	AddRow(Row, true, bSave, ColumnsSizes[6]);

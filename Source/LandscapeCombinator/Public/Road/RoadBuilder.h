@@ -1,8 +1,11 @@
 #pragma once
 
 #include "Elevation/HeightMapTable.h"
+#include "Utils/Logging.h"
 
-enum ESourceKind {
+#define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
+
+enum ESourceKind: uint8 {
 	AllRoads,
 	RoadSelector,
 	OverpassShortQuery,
@@ -15,18 +18,14 @@ public:
 	HeightMapTable* HMTable;
 	ESourceKind SourceKind;
 	FString LandscapeLabel;
-	FString LayerName;
 	FString XmlFilePath;
-	float RoadWidth;
 	
 	FRoadBuilder() {}
-	FRoadBuilder(HeightMapTable* HMTable0, FString LandscapeLabel0, FString LayerName0, FString XmlFilePath0, float RoadWidth0)
+	FRoadBuilder(HeightMapTable* HMTable0, FString LandscapeLabel0, FString XmlFilePath0)
 	{
 		HMTable = HMTable0;
 		LandscapeLabel = LandscapeLabel0;
-		LayerName = LayerName0;
 		XmlFilePath = XmlFilePath0;
-		RoadWidth = RoadWidth0;
 		SourceKind = ESourceKind::LocalFile;
 	}
 	virtual ~FRoadBuilder() {};
@@ -38,10 +37,11 @@ public:
 	{
 		int Source = RoadBuilder.SourceKind;
 		Ar << Source;
+		RoadBuilder.SourceKind = (ESourceKind) Source; // loading
 		Ar << RoadBuilder.LandscapeLabel;
-		Ar << RoadBuilder.LayerName;
 		Ar << RoadBuilder.XmlFilePath;
-		Ar << RoadBuilder.RoadWidth;
 		return Ar;
 	}
 };
+
+#undef LOCTEXT_NAMESPACE

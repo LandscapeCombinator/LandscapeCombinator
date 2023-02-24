@@ -365,7 +365,7 @@ FReply HMInterface::ImportHeightMaps()
 
 FReply HMInterface::CreateLandscape(int WorldWidthKm, int WorldHeightKm, double ZScale, double WorldOriginX, double WorldOriginY, TFunction<void(bool)> OnComplete)
 {
-	FMessageDialog::Open(EAppMsgType::Ok,
+	EAppReturnType::Type UserResponse = FMessageDialog::Open(EAppMsgType::OkCancel,
 		FText::Format(
 			LOCTEXT("CreateLandscapeMessage",
 				"Landscape {0} will now be created. Heightmaps need to be downloaded and converted to PNG. "
@@ -376,9 +376,17 @@ FReply HMInterface::CreateLandscape(int WorldWidthKm, int WorldHeightKm, double 
 		)
 	);
 
-	DownloadHeightMaps([this, OnComplete, WorldWidthKm, WorldHeightKm, ZScale, WorldOriginX, WorldOriginY](bool bWasSuccessfulDownload) {
+	if (UserResponse == EAppReturnType::Cancel) 
+	{
+		UE_LOG(LogLandscapeCombinator, Log, TEXT("User cancelled landscape creation."));
+		if (OnComplete) OnComplete(false);
+		return FReply::Handled();
+	}
 
-		if (!bWasSuccessfulDownload) {
+	DownloadHeightMaps([this, OnComplete, WorldWidthKm, WorldHeightKm, ZScale, WorldOriginX, WorldOriginY](bool bWasSuccessfulDownload)
+	{
+		if (!bWasSuccessfulDownload)
+		{
 			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 				LOCTEXT("DownloadError", "There was an error while downloading heightmap files for Landscape {0}."),
 				FText::FromString(LandscapeLabel)
@@ -386,8 +394,10 @@ FReply HMInterface::CreateLandscape(int WorldWidthKm, int WorldHeightKm, double 
 			if (OnComplete) OnComplete(false);
 			return;
 		}
-		ConvertHeightMaps([this, OnComplete, WorldWidthKm, WorldHeightKm, ZScale, WorldOriginX, WorldOriginY](bool bWasSuccessfulConvert) {
-			if (!bWasSuccessfulConvert) {
+		ConvertHeightMaps([this, OnComplete, WorldWidthKm, WorldHeightKm, ZScale, WorldOriginX, WorldOriginY](bool bWasSuccessfulConvert)
+		{
+			if (!bWasSuccessfulConvert)
+			{
 				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 					LOCTEXT("ConvertError", "There was an error while converting heightmap files for Landscape {0}."),
 					FText::FromString(LandscapeLabel)
@@ -397,7 +407,8 @@ FReply HMInterface::CreateLandscape(int WorldWidthKm, int WorldHeightKm, double 
 			}
 
 			// importing Landscapes only works in GameThread
-			AsyncTask(ENamedThreads::GameThread, [=]() {
+			AsyncTask(ENamedThreads::GameThread, [=]()
+			{
 				if (ImportHeightMaps().IsEventHandled())
 				{
 					AdjustLandscape(WorldWidthKm, WorldHeightKm, ZScale, WorldOriginX, WorldOriginY);

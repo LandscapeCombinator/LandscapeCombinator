@@ -1,5 +1,6 @@
 #include "Road/RoadBuilderOverpass.h"
 #include "Utils/Download.h"
+#include "Utils/Logging.h"
 
 #include "Async/Async.h"
 #include "Internationalization/TextLocalizationResource.h"
@@ -13,6 +14,16 @@ FString FRoadBuilderOverpass::DetailsString()
 
 void FRoadBuilderOverpass::AddRoads(int WorldWidthKm, int WorldHeightKm, double ZScale, double WorldOriginX, double WorldOriginY)
 {
+	EAppReturnType::Type UserResponse = FMessageDialog::Open(EAppMsgType::OkCancel,
+		LOCTEXT("ResimulateWithFilterMessage",
+			"We will do an Overpass Query to find the points where to place landscape splines.\n"
+			"You can monitor the download progress in the Output Log in the LogLandscapeCombinator category."
+		)
+	);
+	if (UserResponse == EAppReturnType::Cancel)
+	{
+		return;
+	}
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("Adding roads with Overpass query: '%s'"), *OverpassQuery);
 	FString IntermediateDir = FPaths::ConvertRelativePathToFull(FPaths::EngineIntermediateDir());
 	FString LandscapeCombinatorDir = FPaths::Combine(IntermediateDir, "LandscapeCombinator");

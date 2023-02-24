@@ -16,8 +16,6 @@ public:
 	FRoadBuilderSelector(
 		HeightMapTable* HMTable0,
 		FString LandscapeLabel0,
-		FString LayerName0,
-		float RoadWidth0, 
 		bool bMotorway0,
 		bool bTrunk0,
 		bool bPrimary0,
@@ -26,7 +24,7 @@ public:
 		bool bUnclassified0,
 		bool bResidential0
 	) :
-		FRoadBuilderShortQuery(HMTable0, LandscapeLabel0, LayerName0, RoadWidth0, "")
+		FRoadBuilderShortQuery(HMTable0, LandscapeLabel0, "")
 	{
 		SourceKind = ESourceKind::RoadSelector;
 		bMotorway = bMotorway0;
