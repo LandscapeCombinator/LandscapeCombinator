@@ -1,3 +1,5 @@
+// Copyright LandscapeCombinator. All Rights Reserved.
+
 #include "Utils/Concurrency.h"
 #include "Utils/Logging.h"
 

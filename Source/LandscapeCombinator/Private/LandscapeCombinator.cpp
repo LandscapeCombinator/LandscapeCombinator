@@ -44,7 +44,7 @@
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
-static const FName LandscapeCombinatorTabName("LandscapeCombinator");
+const FName FLandscapeCombinatorModule::LandscapeCombinatorTabName("LandscapeCombinator");
 
 void FLandscapeCombinatorModule::StartupModule()
 {

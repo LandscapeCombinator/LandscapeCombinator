@@ -1,3 +1,5 @@
+// Copyright LandscapeCombinator. All Rights Reserved.
+
 #include "Elevation/HMReprojected.h"
 #include "Utils/Logging.h"
 

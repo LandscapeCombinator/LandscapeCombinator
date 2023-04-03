@@ -1,3 +1,5 @@
+// Copyright LandscapeCombinator. All Rights Reserved.
+
 #pragma once
 
 #include "HMViewFinder1or3.h"

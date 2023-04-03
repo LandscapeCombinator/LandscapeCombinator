@@ -1,3 +1,5 @@
+// Copyright LandscapeCombinator. All Rights Reserved.
+
 #include "Foliage/OGRProceduralFoliageVolume.h"
 #include "GlobalSettings.h"
 #include "Utils/Logging.h"
@@ -116,10 +118,17 @@ void AOGRProceduralFoliageVolume::ResimulateWithFilterFromFile(const FString& Pa
 		if (!Layer) continue;
 
 		for (auto& Feature : Layer)
-		{			
-			OGRGeometry* Geometry = Time::Time<OGRGeometry*>(FString("GetGeometryRef"), [&]() { return Feature->GetGeometryRef(); });
+		{
+			if (!Feature) continue;
+			OGRGeometry* Geometry = Feature->GetGeometryRef();
 			if (!Geometry) continue;
-			UnionGeometry = UnionGeometry->Union(Geometry);
+
+			OGRGeometry* NewUnion = UnionGeometry->Union(Geometry);
+			if (NewUnion) UnionGeometry = NewUnion;
+			else
+			{
+				UE_LOG(LogLandscapeCombinator, Warning, TEXT("There was an error while taking union of geometries in OGR"))
+			}
 		}
 
 	}

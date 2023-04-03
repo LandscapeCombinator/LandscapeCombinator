@@ -1,3 +1,5 @@
+// Copyright LandscapeCombinator. All Rights Reserved.
+
 #include "SlateTable.h"
 #include "LandscapeCombinatorStyle.h"
 

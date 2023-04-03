@@ -1,7 +1,12 @@
+// Copyright LandscapeCombinator. All Rights Reserved.
+
 #include "GlobalSettings.h"
 #include "LandscapeCombinatorStyle.h"
 #include "Interfaces/IPluginManager.h"
 #include "Utils/Logging.h"
+
+#include "LandscapeCombinator.h"
+
 #include "Internationalization/Regex.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
@@ -147,17 +152,23 @@ namespace GlobalSettings
 
 	bool GetWorldParameters(WorldParametersV1& Params)
 	{
+		if (!FGlobalTabmanager::Get()->FindExistingLiveTab(FLandscapeCombinatorModule::LandscapeCombinatorTabName))
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("TabNotOpen", "Please make sure the Landscape Combinator tab is open and try again."));
+			return false;
+		}
+
 		int WorldWidthKm = FCString::Atoi(*WorldWidthBlock->GetText().ToString());
 		int WorldHeightKm = FCString::Atoi(*WorldHeightBlock->GetText().ToString());
 		double ZScale = FCString::Atod(*ZScaleBlock->GetText().ToString().Replace(TEXT(" "), TEXT("")));
 
 		if (WorldWidthKm <= 0) {
-			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("PositiveWidth", "World Width must be greater than 0 km"));
+			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("PositiveWidth", "World Width must be greater than 0 km."));
 			return false;
 		}
 
 		if (WorldHeightKm <= 0) {
-			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("PositiveHeight", "World Height must be greater than 0 km"));
+			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("PositiveHeight", "World Height must be greater than 0 km."));
 			return false;
 		}
 
@@ -165,12 +176,12 @@ namespace GlobalSettings
 		double WorldOriginY = FCString::Atod(*WorldOriginYBlock->GetText().ToString().Replace(TEXT(" "), TEXT("")));
 		
 		if (WorldOriginX < -180 || WorldOriginX > 180) {
-			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("WorldOriginX", "World Origin X must be between -180 and 180 (EPSG 4326 coordinates)"));
+			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("WorldOriginX", "World Origin X must be between -180 and 180 (EPSG 4326 coordinates)."));
 			return false;
 		}
 		
 		if (WorldOriginY < -90 || WorldOriginY > 90) {
-			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("WorldOriginY", "World Origin Y must be between -90 and 90 (EPSG 4326 coordinates)"));
+			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("WorldOriginY", "World Origin Y must be between -90 and 90 (EPSG 4326 coordinates)."));
 			return false;
 		}
 		

@@ -1,2 +1,3 @@
-#include "Elevation/HMViewFinder1.h"
+// Copyright LandscapeCombinator. All Rights Reserved.
 
+#include "Elevation/HMViewFinder1.h"
