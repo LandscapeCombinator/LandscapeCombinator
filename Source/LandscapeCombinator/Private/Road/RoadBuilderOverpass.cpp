@@ -1,3 +1,5 @@
+// Copyright LandscapeCombinator. All Rights Reserved.
+
 #include "Road/RoadBuilderOverpass.h"
 #include "Utils/Download.h"
 #include "Utils/Logging.h"

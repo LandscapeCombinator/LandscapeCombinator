@@ -1,3 +1,5 @@
+// Copyright LandscapeCombinator. All Rights Reserved.
+
 #include "Foliage/OGRProceduralFoliageVolumeDetails.h"
 #include "Foliage/OGRProceduralFoliageVolume.h"
 #include "Utils/Logging.h"

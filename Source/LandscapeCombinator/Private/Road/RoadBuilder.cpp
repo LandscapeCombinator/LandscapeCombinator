@@ -1,3 +1,5 @@
+// Copyright LandscapeCombinator. All Rights Reserved.
+
 #include "Road/RoadBuilder.h"
 #include "Elevation/HeightMapTable.h"
 #include "Utils/Logging.h"
@@ -14,9 +16,7 @@
 #include "Misc/CString.h"
  	
 
-
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
-
 
 FString FRoadBuilder::DetailsString()
 {

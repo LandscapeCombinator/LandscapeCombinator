@@ -15,6 +15,8 @@ class FLandscapeCombinatorModule : public IModuleInterface
 {
 public:
 
+	static const FName LandscapeCombinatorTabName;
+
 	/** IModuleInterface implementation */
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;

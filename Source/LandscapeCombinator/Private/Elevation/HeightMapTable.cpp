@@ -1,3 +1,5 @@
+// Copyright LandscapeCombinator. All Rights Reserved.
+
 #include "Elevation/HeightMapTable.h"
 #include "Elevation/HMInterface.h"
 #include "Elevation/HMViewFinder1.h"

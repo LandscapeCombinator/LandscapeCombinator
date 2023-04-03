@@ -1,3 +1,5 @@
+// Copyright LandscapeCombinator. All Rights Reserved.
+
 #pragma once
 
 #include "Road/RoadBuilderOverpass.h"

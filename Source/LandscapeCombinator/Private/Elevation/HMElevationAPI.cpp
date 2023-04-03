@@ -1,3 +1,5 @@
+// Copyright LandscapeCombinator. All Rights Reserved.
+
 #include "Elevation/HMElevationAPI.h"
 
 #include "Utils/Concurrency.h"

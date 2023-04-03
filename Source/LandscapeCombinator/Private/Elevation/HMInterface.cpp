@@ -1,3 +1,5 @@
+// Copyright LandscapeCombinator. All Rights Reserved.
+
 #include "Elevation/HMInterface.h"
 #include "Utils/Logging.h"
 #include "Utils/Console.h"

@@ -1,3 +1,5 @@
+// Copyright LandscapeCombinator. All Rights Reserved.
+
 #include "Road/RoadTable.h"
 #include "Road/RoadBuilder.h"
 #include "Road/RoadBuilderShortQuery.h"

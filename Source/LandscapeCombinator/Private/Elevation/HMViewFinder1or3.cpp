@@ -1,3 +1,5 @@
+// Copyright LandscapeCombinator. All Rights Reserved.
+
 #include "Elevation/HMViewFinder1or3.h"
 #include "Utils/Concurrency.h"
 #include "Utils/Console.h"

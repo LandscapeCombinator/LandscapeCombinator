@@ -1,3 +1,5 @@
+// Copyright LandscapeCombinator. All Rights Reserved.
+
 #include "Road/RoadBuilderAll.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
