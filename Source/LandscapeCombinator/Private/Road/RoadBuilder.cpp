@@ -129,6 +129,14 @@ void FRoadBuilder::AddRoads(int WorldWidthKm, int WorldHeightKm, double ZScale, 
 	int32 Precision = 100;
 	bool Stop = true;
 
+	if (NumNodes == 0)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			LOCTEXT("NoData", "Your Overpass query returned 0 nodes. It's possible your query took too long to execute. Please try again with a smaller area or with a query that returns less data.")
+		);
+		return;
+	}
+
 	do
 	{
 		Stop = true; // will remain true if user closes the window with the close button, but becomes true with the OK button

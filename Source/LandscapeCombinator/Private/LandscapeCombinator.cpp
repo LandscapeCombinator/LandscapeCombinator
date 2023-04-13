@@ -12,9 +12,6 @@
 #include "Road/RoadBuilder.h"
 #include "Road/RoadTable.h"
 #include "Elevation/HeightMapTable.h"
-#include "Foliage/OGRProceduralFoliageVolume.h"
-#include "Foliage/OGRProceduralFoliageVolumeDetails.h"
-#include "EngineCode/ActorFactoryOGRProceduralFoliage.h"
 
 #include "LevelEditor.h"
 #include "Widgets/Docking/SDockTab.h"
@@ -63,12 +60,6 @@ void FLandscapeCombinatorModule::StartupModule()
 	CPLSetConfigOption("OSM_CONFIG_FILE", TCHAR_TO_UTF8(*OSMConf));
 	const char* const ProjPaths[] = { TCHAR_TO_UTF8(*PROJData), nullptr };
 	OSRSetPROJSearchPaths(ProjPaths);
-
-
-	// Details Customization
-	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
-	PropertyModule.RegisterCustomClassLayout(FName("OGRProceduralFoliageVolume"), FOnGetDetailCustomizationInstance::CreateStatic(&FOGRProceduralFoliageVolumeDetails::MakeInstance));
-
 
 	// Plugin
 	FLandscapeCombinatorStyle::Initialize();
@@ -124,9 +115,6 @@ FReply FLandscapeCombinatorModule::LoadLandscapes()
 TSharedRef<SDockTab> FLandscapeCombinatorModule::OnSpawnPluginTab(const FSpawnTabArgs& SpawnTabArgs)
 {
 	Download::LoadExpectedSizeCache();
-
-	auto OGRProceduralFoliageVolumeFactory = NewObject<UActorFactoryOGRProceduralFoliage>();
-	GEditor->ActorFactories.Add(OGRProceduralFoliageVolumeFactory);
 
 	GlobalSettings::HMTable = new HeightMapTable();
 	RoadTable* RTable = new RoadTable(GlobalSettings::HMTable);

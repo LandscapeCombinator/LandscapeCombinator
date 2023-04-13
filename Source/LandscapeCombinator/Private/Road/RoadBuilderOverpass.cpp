@@ -6,6 +6,7 @@
 
 #include "Async/Async.h"
 #include "Internationalization/TextLocalizationResource.h"
+#include "GenericPlatform/GenericPlatformHttp.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
@@ -27,6 +28,7 @@ void FRoadBuilderOverpass::AddRoads(int WorldWidthKm, int WorldHeightKm, double 
 		return;
 	}
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("Adding roads with Overpass query: '%s'"), *OverpassQuery);
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("Decoded URL: '%s'"), *(FGenericPlatformHttp::UrlDecode(OverpassQuery)));
 	FString IntermediateDir = FPaths::ConvertRelativePathToFull(FPaths::EngineIntermediateDir());
 	FString LandscapeCombinatorDir = FPaths::Combine(IntermediateDir, "LandscapeCombinator");
 	FString DownloadDir = FPaths::Combine(LandscapeCombinatorDir, "Download");

@@ -11,7 +11,7 @@ public:
 		HeightMapTable* HMTable0,
 		FString LandscapeLabel0
 	) :
-		FRoadBuilderShortQuery(HMTable0, LandscapeLabel0, "way[\"highway\"];")
+		FRoadBuilderShortQuery(HMTable0, LandscapeLabel0, "way[\"highway\"][\"highway\"!~\"path\"][\"highway\"!~\"track\"];")
 	{
 		SourceKind = ESourceKind::AllRoads;
 	}
