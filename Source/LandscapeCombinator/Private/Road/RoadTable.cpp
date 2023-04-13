@@ -224,7 +224,7 @@ TSharedRef<SWidget> RoadTable::Footer()
 		.Visibility_Lambda([SourceBlock]() { return SourceBlock->GetText().EqualTo(OverpassApiText) ? EVisibility::Visible : EVisibility::Collapsed; })
 	;
 	TSharedRef<SEditableTextBox> OverpassShortBlock =
-		SNew(SEditableTextBox).Text(LOCTEXT("OverpasShort", "way[\"highway\"];"))
+		SNew(SEditableTextBox).Text(LOCTEXT("OverpasShort", "way[\"highway\"][\"highway\"!~\"path\"][\"highway\"!~\"track\"];"))
 		.SelectAllTextWhenFocused(true)
 		.Font(FLandscapeCombinatorStyle::RegularFont())
 		.Visibility_Lambda([SourceBlock]() { return SourceBlock->GetText().EqualTo(OverpassShortQueryText) ? EVisibility::Visible : EVisibility::Collapsed; })

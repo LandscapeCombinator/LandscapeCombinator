@@ -44,6 +44,7 @@ public class LandscapeCombinator : ModuleRules
 				"PropertyEditor",
 				"Foliage",
 				"FoliageEdit",
+				"PCG",
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

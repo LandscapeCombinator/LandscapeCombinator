@@ -6,7 +6,7 @@
 
 ## Description
 
-Landscape Combinator is an Unreal Engine 5.1 plugin that enables you to create landscapes from
+Landscape Combinator is an Unreal Engine 5.2 plugin that enables you to create landscapes from
 real-world data in a few simple steps:
 
 * Create landscapes from real-world heightmaps (with a basic landscape material to visualize them),
@@ -42,7 +42,7 @@ For commercial projects, please check the Unreal Engine Marketplace (plugin to b
   Make sure there are no errors in the Output Log (in the LogLandscapeCombinator category).
   You should see your landscape appear in your editor.
 * Go to the `Landscape Mode` of Unreal Engine in order to paint the landscape. You can use the basic landscape material
-  `MI_Landscape` provided by the plugin, which as an auto layer called `Mix` (with adjustable snow, grass, and cliff materials).
+  `MI_Landscape` provided by the plugin, which as an auto layer called `Mix` (with adjustable snow, grass, cliff, and road materials).
 
 
 ### Technical Notes
@@ -50,10 +50,9 @@ For commercial projects, please check the Unreal Engine Marketplace (plugin to b
 The plugin places landscapes in a planar world using EPSG 4326 coordinates.
 If your original data does not use EPSG 4326, you can choose to reproject it to EPSG 4326 (with a checkbox).
 The reprojection is done thanks to [GDAL](https://gdal.org/) and can introduce some artefacts such as staircases in your landscape.
-If someone knows how to avoid this, please tell me!
 
 If you choose not to reproject, the landscapes will be nicer, but you will loose coordinate precision within your landscape
-if you choose to add landscape splines or procedural foliage from OSM data (see next sections) which use EPSG 4326 coordinates.
+when you add landscape splines or procedural foliage from OSM data (see next sections) which use EPSG 4326 coordinates.
 
 Finally, if you want to find the location of a real-world place in your landscape inside the editor,
 find the [EPSG 4326 coordinates (Long, Lat)](https://epsg.io/map#srs=4326) (I found the site works better on Chrome than on Firefox)
@@ -79,16 +78,13 @@ y = (WorldOriginY - Lat) * WorldHeight (in km) * 1000 * 100 / 180 // note the si
 ## Procedural Foliage
 
 There are (at least) two kinds of foliage that you may add. Foliage that you want almost everywhere, such as grass or rocks,
-can be added using the Landscape Grass Types defined in the landscape material `MI_Landscape`. Other foliage such as trees
-can be spawned only in some areas (using real-world data or any kind of vector file supported by [GDAL](https://gdal.org/).
+can be added using the Landscape Grass Types defined in the landscape material `MI_Landscape` (with 5.2 it might be simpler
+to do everything using PCG).
 
-* Press the `Add` button in the Unreal Engine toolbar, and from `Volumes`, drop an `OGRProceduralFoliageVolume` on your level.
-* Scale the volume where you want foliage to spawn (if the volume is too large, spawning will be slow).
-* Add a `Procedural Foliage Spawner` to your volume (and add static mesh foliages to your newly created PFS).
-* In the `Procedural Foliage` section of your volume's Details panel, there is the usual `Resimulate` button that spawns foliage everywhere in the volume.
-  Make sure to click the `Load Unloaded Areas` if you see that the `Resimulate` button is greyed out. 
-* The plugin adds a section `OGR Procedural Foliage` and a button `Resimulate With Filter` to spawn foliage only where there are forests in the real world (data from OpenStreetMap).
-  There, you can also choose to filter based on any kind of area defined in an OpenStreetMap local file (or more generally, a vector file), or given by an Overpass Query.
+Other foliage such as trees can be spawned only in some areas (using real-world data or any kind of vector file supported
+by [GDAL](https://gdal.org/). This is done thanks to a new PCG node called "OGRFilter" that filters out PCG points based
+on real-world geometries of forests or other areas.
+
 
 ## Future Work
 

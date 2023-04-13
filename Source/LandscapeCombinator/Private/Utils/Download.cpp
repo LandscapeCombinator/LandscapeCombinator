@@ -205,7 +205,7 @@ namespace Download {
 	void LoadExpectedSizeCache()
 	{
 		FString CacheFile = ExpectedSizeCacheFile();
-		UE_LOG(LogLandscapeCombinator, Log, TEXT("Loading expected size cache from '%s'"), *CacheFile);
+		//UE_LOG(LogLandscapeCombinator, Log, TEXT("Loading expected size cache from '%s'"), *CacheFile);
 		
 		FArchive* FileReader = IFileManager::Get().CreateFileReader(*CacheFile);
 		if (FileReader)
@@ -218,7 +218,7 @@ namespace Download {
 	void SaveExpectedSizeCache()
 	{
 		FString CacheFile = ExpectedSizeCacheFile();
-		UE_LOG(LogLandscapeCombinator, Log, TEXT("Saving expected size cache to '%s'"), *CacheFile);
+		//UE_LOG(LogLandscapeCombinator, Log, TEXT("Saving expected size cache to '%s'"), *CacheFile);
 		FArchive* FileWriter = IFileManager::Get().CreateFileWriter(*CacheFile);
 		if (FileWriter)
 		{
