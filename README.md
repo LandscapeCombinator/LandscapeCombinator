@@ -16,7 +16,7 @@ real-world data in a few simple steps:
 When creating a landscape for a real-world location, the plugin will adjust its position and scale
 correctly in a planar world. You can thus create several real-world landscapes of various quality and
 have them placed and scaled correctly with respect to one another. In that case, the fact that
-you have have multiple landscapes will be visible at the borders, unless you adjust the borders
+you have multiple landscapes will be visible at the borders, unless you adjust the borders
 manually or hide them with static meshes (such as forests).
 
 
