@@ -14,10 +14,7 @@ namespace Time
 		T Result = Code();
 		double After = FPlatformTime::Seconds();
 		
-		if (After - Before > 1)
-		{
-			UE_LOG(LogLandscapeCombinator, Log, TEXT("%s finished in %f"), *Label, After - Before);
-		}
+		UE_LOG(LogLandscapeCombinator, Log, TEXT("%s finished in %f"), *Label, After - Before);
 
 		if (TimeSpent.Contains(Label))
 		{
