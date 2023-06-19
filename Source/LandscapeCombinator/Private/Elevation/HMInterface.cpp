@@ -367,6 +367,20 @@ FReply HMInterface::ImportHeightMaps()
 
 FReply HMInterface::CreateLandscape(int WorldWidthKm, int WorldHeightKm, double ZScale, double WorldOriginX, double WorldOriginY, TFunction<void(bool)> OnComplete)
 {
+	if (GetLandscapeFromLabel())
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			FText::Format(
+				LOCTEXT("CreateLandscapeError", "There already exists a landscape labeled {0} in your level."),
+				FText::FromString(LandscapeLabel)
+			)
+		);
+
+		if (OnComplete) OnComplete(false);
+
+		return FReply::Handled();
+	}
+
 	EAppReturnType::Type UserResponse = FMessageDialog::Open(EAppMsgType::OkCancel,
 		FText::Format(
 			LOCTEXT("CreateLandscapeMessage",
@@ -382,6 +396,7 @@ FReply HMInterface::CreateLandscape(int WorldWidthKm, int WorldHeightKm, double 
 	{
 		UE_LOG(LogLandscapeCombinator, Log, TEXT("User cancelled landscape creation."));
 		if (OnComplete) OnComplete(false);
+
 		return FReply::Handled();
 	}
 
@@ -549,7 +564,7 @@ bool HMInterface::GetMinMaxZ(FVector2D &MinMaxZ) {
 	}
 }
 
-bool HMInterface::SetLandscapeFromLabel()
+ALandscape* HMInterface::GetLandscapeFromLabel()
 {
 	UWorld* World = GEditor->GetEditorWorldContext().World();
 	TArray<AActor*> Landscapes;
@@ -560,14 +575,26 @@ bool HMInterface::SetLandscapeFromLabel()
 	{
 		if (Landscape0->GetActorLabel().Equals(LandscapeLabel))
 		{
-			Landscape = Cast<ALandscape>(Landscape0);
-			SetLandscapeStreamingProxies();
-
-			return true;
+			return Cast<ALandscape>(Landscape0); 
 		}
 	}
 
-	return false;
+	return NULL;
+}
+
+bool HMInterface::SetLandscapeFromLabel()
+{
+	ALandscape* Landscape0 = GetLandscapeFromLabel();
+	if (Landscape0)
+	{
+		Landscape = Landscape0;
+		SetLandscapeStreamingProxies();
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 void HMInterface::SetLandscape(ALandscape *Landscape0)
