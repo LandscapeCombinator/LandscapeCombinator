@@ -322,8 +322,9 @@ void HeightMapTable::AddHeightMapRow(FString LandscapeLabel, const FText& KindTe
 	{
 		FMessageDialog::Open(EAppMsgType::Ok,
 			FText::Format(
-				LOCTEXT("AddHeightMapLineError", "There already exists a landscape labeled {0}."),
-				FText::FromString(LandscapeLabel))
+				LOCTEXT("AddHeightMapLineError", "There already exists a landscape labeled {0} in the heightmaps table."),
+				FText::FromString(LandscapeLabel)
+			)
 		); 
 		return;
 	}
@@ -335,7 +336,8 @@ void HeightMapTable::AddHeightMapRow(FString LandscapeLabel, const FText& KindTe
 		FMessageDialog::Open(EAppMsgType::Ok,
 			FText::Format(
 				LOCTEXT("InitializationError", "There was an error while initializing {0}. Please refer to other error messages."),
-				FText::FromString(LandscapeLabel))
+				FText::FromString(LandscapeLabel)
+			)
 		); 
 		return;
 	}
@@ -346,7 +348,8 @@ void HeightMapTable::AddHeightMapRow(FString LandscapeLabel, const FText& KindTe
 			FMessageDialog::Open(EAppMsgType::Ok,
 				FText::Format(
 					LOCTEXT("InitializationError", "There was an error while initializing {0}. Please refer to other error messages."),
-					FText::FromString(LandscapeLabel))
+					FText::FromString(LandscapeLabel)
+				)
 			); 
 			return;
 		}

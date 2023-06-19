@@ -61,6 +61,9 @@ protected:
 	virtual bool GetCoordinates(FVector4d &Coordinate) const;
 	virtual bool GetCoordinatesSpatialReference(OGRSpatialReference &InRs) const = 0;
 	virtual bool GetDataSpatialReference(OGRSpatialReference &InRs) const = 0;
+
+private:
+	ALandscape* GetLandscapeFromLabel();
 };
 
 #undef LOCTEXT_NAMESPACE
