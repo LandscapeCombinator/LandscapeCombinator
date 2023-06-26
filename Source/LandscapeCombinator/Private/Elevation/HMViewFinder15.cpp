@@ -1,4 +1,4 @@
-// Copyright LandscapeCombinator. All Rights Reserved.
+// Copyright 2023 LandscapeCombinator. All Rights Reserved.
 
 #include "Elevation/HMViewFinder15.h"
 #include "Utils/Console.h"

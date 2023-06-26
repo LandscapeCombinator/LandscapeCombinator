@@ -1,4 +1,4 @@
-// Copyright LandscapeCombinator. All Rights Reserved.
+// Copyright 2023 LandscapeCombinator. All Rights Reserved.
 
 #include "Road/RoadTable.h"
 #include "Road/RoadBuilder.h"
