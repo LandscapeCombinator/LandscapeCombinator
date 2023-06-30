@@ -1,4 +1,6 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+
+// File originally written from the Unreal Engine template for plugins
 
 #include "LandscapeCombinator.h"
 #include "LandscapeCombinatorStyle.h"
@@ -82,9 +84,6 @@ void FLandscapeCombinatorModule::StartupModule()
 
 void FLandscapeCombinatorModule::ShutdownModule()
 {
-	// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
-	// we call this function before unloading the module.
-
 	UToolMenus::UnRegisterStartupCallback(this);
 
 	UToolMenus::UnregisterOwner(this);

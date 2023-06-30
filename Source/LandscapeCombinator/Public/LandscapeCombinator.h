@@ -1,4 +1,6 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+
+// File originally written from the Unreal Engine template for plugins
 
 #pragma once
 
