@@ -4,7 +4,6 @@
 #include "Utils/Logging.h"
 #include "Utils/Console.h"
 #include "Utils/Concurrency.h"
-#include "EngineCode/EngineCode.h"
 
 #include "Misc/Paths.h"
 #include "Internationalization/Regex.h"
@@ -323,32 +322,127 @@ FReply HMInterface::ConvertHeightMaps(TFunction<void(bool)> OnComplete) const
 	return FReply::Handled();
 }
 
-FReply HMInterface::ImportHeightMaps()
+ALandscape* HMInterface::SpawnLandscape()
 {
+	FString ScaledFilesString = FString::Join(ScaledFiles,TEXT(" "));
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("Importing heightmaps for Landscape %s from %s"), *LandscapeLabel, *ScaledFilesString);
+
 	FString HeightmapFile = ScaledFiles[0];
-	UE_LOG(LogLandscapeCombinator, Log, TEXT("Importing heightmaps for Landscape %s from %s"), *LandscapeLabel, *HeightmapFile);
+
 	GLevelEditorModeTools().ActivateMode(FBuiltinEditorModes::EM_Landscape);
 	FEdModeLandscape* LandscapeEdMode = (FEdModeLandscape*)GLevelEditorModeTools().GetActiveMode(FBuiltinEditorModes::EM_Landscape);
-	LandscapeEdMode->NewLandscapePreviewMode = ENewLandscapePreviewMode::ImportLandscape;
+	ULandscapeEditorObject* UISettings = LandscapeEdMode->UISettings;
+	ULandscapeSubsystem*  LandscapeSubsystem = LandscapeEdMode->GetWorld()->GetSubsystem<ULandscapeSubsystem>();
+	bool bIsGridBased = LandscapeSubsystem->IsGridBased();
 
-	ULandscapeEditorObject *UISettings = LandscapeEdMode->UISettings;
-	UISettings->LastImportPath = FPaths::GetPath(HeightmapFile);
-	FIntPoint OutCoord;
-	FString OutBaseFilePattern;
-	if (FLandscapeImportHelper::ExtractCoordinates(FPaths::GetBaseFilename(HeightmapFile), OutCoord, OutBaseFilePattern))
+	if (ScaledFiles.Num() > 1 && !bIsGridBased)
 	{
-		UISettings->ImportLandscape_HeightmapFilename = FString::Format(TEXT("{0}/{1}{2}"), { FPaths::GetPath(HeightmapFile), OutBaseFilePattern, FPaths::GetExtension(HeightmapFile, true) });
+		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			LOCTEXT("GetHeightmapImportDescriptorError", "You must enable World Partition to be able to import multiple heightmap files."),
+			FText::FromString(HeightmapFile)
+		));
+		return NULL;
 	}
-	else
-	{
-		UISettings->ImportLandscape_HeightmapFilename = HeightmapFile;
-	}
-	UE_LOG(LogLandscapeCombinator, Log, TEXT("Heightmap file: %s"), *HeightmapFile);
-	UISettings->OnImportHeightmapFilenameChanged();
-	ALandscape *CreatedLandscape = EngineCode::OnCreateButtonClicked();
 
+	if (bIsGridBased && ScaledFiles.Num() > 1)
+	{
+		FRegexPattern XYPattern(TEXT("(.*)_x\\d+_y\\d+(\\.[^.]+)"));
+		FRegexMatcher XYMatcher(XYPattern, HeightmapFile);
+
+		if (!XYMatcher.FindNext()) {
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+				LOCTEXT("MultipleFileImportError", "Heightmap file name %s doesn't match the format: Filename_x0_y0.png."),
+				FText::FromString(HeightmapFile)
+			));
+			return false;
+		}
+
+		HeightmapFile = XYMatcher.GetCaptureGroup(1) + XYMatcher.GetCaptureGroup(2);
+		UE_LOG(LogLandscapeCombinator, Log, TEXT("Detected multiple files, so we will use the base name %s to import"), *XYMatcher.GetCaptureGroup(1));
+	}
+
+	/* Load the data from the PNG files */
+
+	FLandscapeImportDescriptor LandscapeImportDescriptor;
+	FText LandscapeImportErrorMessage;
+
+	ELandscapeImportResult DescriptorResult = FLandscapeImportHelper::GetHeightmapImportDescriptor(
+		HeightmapFile,
+		!bIsGridBased,
+		false,
+		LandscapeImportDescriptor,
+		LandscapeImportErrorMessage
+	);
+
+	if (DescriptorResult == ELandscapeImportResult::Error)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			LOCTEXT("GetHeightmapImportDescriptorError", "Internal Unreal Engine while getting import descriptor for file {0}: {1}."),
+			FText::FromString(HeightmapFile),
+			LandscapeImportErrorMessage
+		));
+		return NULL;
+	}
+
+	int TotalWidth  = LandscapeImportDescriptor.ImportResolutions[0].Width;
+	int TotalHeight = LandscapeImportDescriptor.ImportResolutions[0].Height;
+	
+	TArray<uint16> Data;
+	ELandscapeImportResult ImportResult = FLandscapeImportHelper::GetHeightmapImportData(LandscapeImportDescriptor, 0, Data, LandscapeImportErrorMessage);
+
+	if (ImportResult == ELandscapeImportResult::Error)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			LOCTEXT("GetHeightmapImportDataError", "Internal Unreal Engine while importing {0}: {1}."),
+			FText::FromString(HeightmapFile),
+			LandscapeImportErrorMessage
+		));
+		return NULL;
+	}
+	
+
+	/* Expand the data to match components */
+
+	int QuadsPerSubsection = 63;
+	int SectionsPerComponent = 1;
+	FIntPoint ComponentCount(8, 8);
+
+	FLandscapeImportHelper::ChooseBestComponentSizeForImport(TotalWidth, TotalHeight, QuadsPerSubsection, SectionsPerComponent, ComponentCount);
+	
+	int SizeX = ComponentCount.X * QuadsPerSubsection * SectionsPerComponent + 1;
+	int SizeY = ComponentCount.Y * QuadsPerSubsection * SectionsPerComponent + 1;
+
+	TArray<uint16> ExpandedData;
+	FLandscapeImportResolution RequiredResolution(SizeX, SizeY);
+	FLandscapeImportResolution ImportResolution(TotalWidth, TotalHeight);
+
+	FLandscapeImportHelper::TransformHeightmapImportData(Data, ExpandedData, ImportResolution, RequiredResolution, ELandscapeImportTransformType::ExpandCentered);
+	
+
+	/* Import the landscape */
+
+	TMap<FGuid, TArray<uint16>> ImportHeightData = { { FGuid(), ExpandedData } };
+	TMap<FGuid, TArray<FLandscapeImportLayerInfo>> ImportMaterialLayerType = { { FGuid(), TArray<FLandscapeImportLayerInfo>() }};
+	
+	ALandscape* NewLandscape = LandscapeEdMode->GetWorld()->SpawnActor<ALandscape>(FVector::ZeroVector, FRotator::ZeroRotator);
+	NewLandscape->SetActorScale3D(FVector(100, 100, 100));
+	NewLandscape->Import(FGuid::NewGuid(), 0, 0, SizeX - 1, SizeY - 1, SectionsPerComponent, QuadsPerSubsection, ImportHeightData, NULL, ImportMaterialLayerType, ELandscapeImportAlphamapType::Additive);
 	
 	GLevelEditorModeTools().ActivateMode(FBuiltinEditorModes::EM_Default);
+	
+
+	/* Create Landscape Streaming Proxies */
+
+	ULandscapeInfo* LandscapeInfo = NewLandscape->GetLandscapeInfo();
+	LandscapeSubsystem->ChangeGridSize(LandscapeInfo, UISettings->WorldPartitionGridSize);
+
+	return NewLandscape;
+}
+
+FReply HMInterface::ImportHeightMaps()
+{
+
+	ALandscape *CreatedLandscape = SpawnLandscape();
 
 	if (CreatedLandscape)
 	{
