@@ -30,6 +30,7 @@ public:
 	FReply ConvertHeightMaps(TFunction<void(bool)> OnComplete) const;
 	FReply ImportHeightMaps();
 	FReply CreateLandscape(int WorldWidthKm, int WorldHeightKm, double ZScale, double WorldOriginX, double WorldOriginY, TFunction<void(bool)> OnComplete);
+	ALandscape* SpawnLandscape();
 	bool SetLandscapeFromLabel();
 	void SetLandscape(ALandscape* Landscape0);
 	void SetLandscapeStreamingProxies();

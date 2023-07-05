@@ -3,7 +3,6 @@
 #include "Road/RoadBuilder.h"
 #include "Elevation/HeightMapTable.h"
 #include "Utils/Logging.h"
-#include "EngineCode/EngineCode.h"
 #include "LandscapeCombinatorStyle.h"
 
 #include "Landscape.h"
@@ -250,7 +249,6 @@ void FRoadBuilder::AddRoads(int WorldWidthKm, int WorldHeightKm, double ZScale, 
 
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("Computed coordinates of %d points in %f seconds"), NumNodes, Time1 - Time0);
 
-
 	auto AddPoint = [&Points, &PointCoordinates, Interface, World, LandscapeSplinesComponent, this](FString Ref) {
 		if (Points.Contains(Ref)) return;
 		else if (!PointCoordinates.Contains(Ref)) return;
@@ -261,13 +259,17 @@ void FRoadBuilder::AddRoads(int WorldWidthKm, int WorldHeightKm, double ZScale, 
 			FVector Location = FVector(x, y, z);
 
 			FVector LocalLocation = LandscapeSplinesComponent->GetComponentToWorld().InverseTransformPosition(Location);
-			ULandscapeSplineControlPoint* ControlPoint = EngineCode::AddControlPoint(LandscapeSplinesComponent, LocalLocation);
+			ULandscapeSplineControlPoint* ControlPoint = NewObject<ULandscapeSplineControlPoint>(LandscapeSplinesComponent, NAME_None, RF_Transactional);
+			ControlPoint->Location = LocalLocation;
+			LandscapeSplinesComponent->GetControlPoints().Add(ControlPoint);
 			ControlPoint->LayerName = "Road";
-			ControlPoint->Width = 250; // half-width in cm
+			ControlPoint->Width = 300; // half-width in cm
 			ControlPoint->SideFalloff = 200;
 			Points.Add(Ref, ControlPoint);
 		}
 	};
+	
+	LandscapeSplinesComponent->Modify();
 
 	while (Node && Node->GetTag().Equals("way"))
 	{
@@ -304,8 +306,41 @@ void FRoadBuilder::AddRoads(int WorldWidthKm, int WorldHeightKm, double ZScale, 
 				AddPoint(Ref2);
 				if (Points.Contains(Ref1) && Points.Contains(Ref2))
 				{
-					ULandscapeSplineSegment* Segment = EngineCode::AddSegment(Points[Ref1], Points[Ref2], true, true);
-					Segment->LayerName = "Road";
+					ULandscapeSplineControlPoint *Point1 = Points[Ref1];
+					ULandscapeSplineControlPoint *Point2 = Points[Ref2];
+					
+					Point1->Modify();
+					Point2->Modify();
+
+					ULandscapeSplineSegment* NewSegment = NewObject<ULandscapeSplineSegment>(LandscapeSplinesComponent, NAME_None, RF_Transactional);
+					LandscapeSplinesComponent->GetSegments().Add(NewSegment);
+		
+					NewSegment->LayerName = "Road";
+					NewSegment->Connections[0].ControlPoint = Point1;
+					NewSegment->Connections[1].ControlPoint = Point2;
+
+					NewSegment->Connections[0].SocketName = Point1->GetBestConnectionTo(Point2->Location);
+					NewSegment->Connections[1].SocketName = Point2->GetBestConnectionTo(Point1->Location);
+
+					FVector Location1, Location2;
+					FRotator Rotation1, Rotation2;
+					Point1->GetConnectionLocationAndRotation(NewSegment->Connections[0].SocketName, Location1, Rotation1);
+					Point2->GetConnectionLocationAndRotation(NewSegment->Connections[1].SocketName, Location2, Rotation2);
+
+					float TangentLen = (Location2 - Location1).Size();
+					NewSegment->Connections[0].TangentLen = TangentLen;
+					NewSegment->Connections[1].TangentLen = TangentLen;
+					NewSegment->AutoFlipTangents();
+
+					Point1->ConnectedSegments.Add(FLandscapeSplineConnection(NewSegment, 0));
+					Point2->ConnectedSegments.Add(FLandscapeSplineConnection(NewSegment, 1));
+
+					Point1->AutoCalcRotation();
+					Point2->AutoCalcRotation();
+
+					Point1->UpdateSplinePoints();
+					Point2->UpdateSplinePoints();
+
 					RefNode1 = RefNode2;
 					RefNode2 = RefNode3;
 				}
@@ -332,7 +367,7 @@ void FRoadBuilder::AddRoads(int WorldWidthKm, int WorldHeightKm, double ZScale, 
 
 	double Time3 = FPlatformTime::Seconds();
 
-	UE_LOG(LogLandscapeCombinator, Log, TEXT("Landscape spline post edit change took %f seconds."), Time3 - Time2);
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("Landscape spline component `PostEditChange` took %f seconds."), Time3 - Time2);
 }
 
 #undef LOCTEXT_NAMESPACE
