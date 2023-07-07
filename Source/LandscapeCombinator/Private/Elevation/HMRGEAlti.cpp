@@ -78,7 +78,8 @@ bool HMRGEAlti::Initialize() {
 		Height = MaxLat - MinLat;
 	}
 
-	if (Width <= 0) {
+	if (Width <= 0)
+	{
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 			LOCTEXT("RGEAltiInitErrorNegativeWidth", "The width of {0} is not positive. Make sure you entered the coordinates as MinLong,MaxLong,MinLat,MaxLat."),
 			FText::FromString(LandscapeLabel)
@@ -86,7 +87,8 @@ bool HMRGEAlti::Initialize() {
 		return false;
 	}
 
-	if (Width > 10000) {
+	if (Width > 10000)
+	{
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 			LOCTEXT("RGEAltiInitErrorLargeWidth", "The width of {0} is higher than 10000px, which is not supported by RGE Alti 1m WMS."),
 			FText::FromString(LandscapeLabel)
@@ -94,7 +96,8 @@ bool HMRGEAlti::Initialize() {
 		return false;
 	}
 
-	if (Height <= 0) {
+	if (Height <= 0)
+	{
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 			LOCTEXT("RGEAltiInitErrorNegativeHeight", "The height of {0} is not positive. Make sure you entered the coordinates as MinLong,MaxLong,MinLat,MaxLat."),
 			FText::FromString(LandscapeLabel)
@@ -102,7 +105,8 @@ bool HMRGEAlti::Initialize() {
 		return false;
 	}
 
-	if (Height > 10000) {
+	if (Height > 10000)
+	{
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 			LOCTEXT("RGEAltiInitErrorLargeHeight", "The height of {0} is higher than 10000px, which is not supported by RGE Alti 1m WMS."),
 			FText::FromString(LandscapeLabel)
