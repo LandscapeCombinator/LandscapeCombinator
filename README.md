@@ -28,9 +28,13 @@ the Plugins folder of your project, and then click `Yes` when Unreal Engine asks
 whether you want to compile the module.
 
 If you plan to use [Viewfinder Panoramas](http://viewfinderpanoramas.org/) heightmaps, please install
-[7-Zip](https://www.7-zip.org/download.html) and make sure it is available in your PATH environment variable.
+[7-Zip](https://www.7-zip.org/download.html) and add it to your Windows PATH environment variable as follows.
+Press the Windows button on your keyboard or on the bottom left of your screen, and write PATH with your keyboard.
+Click on "Edit the system environment variables", then press the "Environment Variables" button. Click on "PATH" in
+the "System Variables" list, and press the "Edit" button at the bottom. Click on "New", and paste the path to your
+7-Zip installation (which is typically C:\Program Files\7-Zip).
 
-For commercial projects, please check the Unreal Engine Marketplace (plugin to be published soon).
+For commercial projects, please check the Unreal Engine Marketplace.
 
 
 ## Creating Landscapes
