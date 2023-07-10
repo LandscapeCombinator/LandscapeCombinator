@@ -12,15 +12,16 @@
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
 HMViewFinder1or3::HMViewFinder1or3(FString LandscapeLabel0, const FText &KindText0, FString Descr0, int Precision0) :
-	HMInterfaceTiles(LandscapeLabel0, KindText0, Descr0, Precision0) {
-
+	HMViewFinder(LandscapeLabel0, KindText0, Descr0, Precision0)
+{
 }
 
 bool HMViewFinder1or3::Initialize()
 {
-	if (!HMInterface::Initialize()) return false;
+	if (!HMViewFinder::Initialize()) return false;
 
-	if (!Console::Has7Z()) {
+	if (!Console::Has7Z())
+	{
 		FMessageDialog::Open(EAppMsgType::Ok,
 			LOCTEXT(
 				"MissingRequirement",
@@ -30,14 +31,17 @@ bool HMViewFinder1or3::Initialize()
 		return false;
 	}
 
-    for (auto &File : Files) {
-		FString ArchiveFolder = FPaths::Combine(InterfaceDir, File);
+    for (auto &MegaTile0 : MegaTiles)
+	{
+		FString MegaTile = MegaTile0.TrimStartAndEnd();
+		FString ArchiveFolder = FPaths::Combine(InterfaceDir, MegaTile);
 		FString AllExt = FString("*");
 		FString SubFoldersPath = FPaths::Combine(ArchiveFolder, AllExt);
 		TArray<FString> SubFolders;
 		FFileManagerGeneric::Get().FindFiles(SubFolders, *SubFoldersPath, false, true);
 
-		for (auto &SubFolder : SubFolders) {
+		for (auto &SubFolder : SubFolders)
+		{
 
 			FString HGTExt = FString("*.hgt");
 			FString HGT = FPaths::Combine(ArchiveFolder, SubFolder, HGTExt);
@@ -45,7 +49,8 @@ bool HMViewFinder1or3::Initialize()
 			TArray<FString> SomeTiles;
 			FFileManagerGeneric::Get().FindFiles(SomeTiles, *HGT, true, false);
 
-			for (auto &Tile : SomeTiles) {
+			for (auto &Tile : SomeTiles)
+			{
 				FString TileFile = FPaths::Combine(ArchiveFolder, SubFolder, Tile);
 				Tiles.Add(Tile);
 				OriginalFiles.Add(TileFile);
@@ -56,7 +61,8 @@ bool HMViewFinder1or3::Initialize()
 	InitializeMinMaxTiles(); // must be called after `Tiles` has been filled
 
 
-	for (auto &Tile : Tiles) {
+	for (auto &Tile : Tiles)
+	{
 		FString ScaledFile = FPaths::Combine(ResultDir, FString::Format(TEXT("{0}.png"), { RenameWithPrecision(Tile) }));
 		ScaledFiles.Add(ScaledFile);
 	}
@@ -74,7 +80,8 @@ bool HMViewFinder1or3::GetDataSpatialReference(OGRSpatialReference &InRs) const
 	return GetSpatialReferenceFromEPSG(InRs, 4326);
 }
 
-int HMViewFinder1or3::TileToX(FString Tile) const {
+int HMViewFinder1or3::TileToX(FString Tile) const
+{
 	FRegexPattern Pattern(TEXT("([WE])(\\d\\d\\d)"));
 	FRegexMatcher Matcher(Pattern, Tile);
 	Matcher.FindNext();
@@ -86,7 +93,8 @@ int HMViewFinder1or3::TileToX(FString Tile) const {
 		return 180 + FCString::Atoi(*Degrees);
 }
 
-int HMViewFinder1or3::TileToY(FString Tile) const {
+int HMViewFinder1or3::TileToY(FString Tile) const
+{
 	FRegexPattern Pattern(TEXT("([NS])(\\d\\d)"));
 	FRegexMatcher Matcher(Pattern, Tile);
 	Matcher.FindNext();

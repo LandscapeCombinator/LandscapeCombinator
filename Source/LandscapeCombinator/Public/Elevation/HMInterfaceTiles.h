@@ -17,9 +17,7 @@ protected:
 	int LastTileY;
 	int TileWidth;
 	int TileHeight;
-	FString BaseURL;
 	TArray<FString> Tiles;
-	TArray<FString> Files;
 	
 	virtual bool Initialize() = 0;
 	virtual int TileToX(FString Tile) const = 0;
@@ -32,8 +30,6 @@ protected:
 
 public:
 	HMInterfaceTiles(FString LandscapeLabel0, const FText &KindText0, FString Descr0, int Precision0);
-
-	FReply DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) const override;
 
 
 };

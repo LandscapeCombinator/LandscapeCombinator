@@ -14,7 +14,8 @@ namespace Concurrency {
 		return;
 	}
 
-	void RunMany(TArray<FString> Elements, TFunction<void( FString Element, TFunction<void(bool)> )> Action, TFunction<void(bool)> OnComplete)
+	template<typename T>
+	void RunMany(TArray<T> Elements, TFunction<void( T Element, TFunction<void(bool)> )> Action, TFunction<void(bool)> OnComplete)
 	{
 		int32 NumberOfTasks = Elements.Num();
 		std::atomic<int32> *SuccessfulTasks = new std::atomic<int>(0);
@@ -30,7 +31,7 @@ namespace Concurrency {
 			}
 		};
 
-		for (const FString& Element : Elements) {
+		for (const T& Element : Elements) {
 			Async(EAsyncExecution::Thread,
 				[Element, Action, OnCompleteAction]() {
 					Action(Element, OnCompleteAction);
@@ -39,6 +40,17 @@ namespace Concurrency {
 		}
 
 		return;
+	}
+
+	void RunMany(int n, TFunction<void( int i, TFunction<void(bool)> )> Action, TFunction<void(bool)> OnComplete)
+	{
+		TArray<int> Elements;
+		Elements.Reserve(n);
+		for (int i = 0; i < n; i++)
+		{
+			Elements.Add(i);
+		}
+		RunMany(Elements, Action, OnComplete);
 	}
 
 	void RunOne(TFunction<bool(void)> Action, TFunction<void(bool)> OnComplete)

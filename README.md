@@ -102,7 +102,16 @@ For now we only support downloading heightmaps from the following sources. Pleas
 before using their heightmaps in your projects.
 
 * [RGE ALTI® 1m France](https://geoservices.ign.fr/rgealti)
+
 * [Elevation API IGN1m](https://elevationapi.com/) (this should be the same data as RGE ALTI® 1m)
+
+* [swissAlti3D](https://www.swisstopo.admin.ch/en/geodata/height/alti3d.html)
+	To use swissAlti3D, please go to their web page, and on the bottom, choose "Selection by Rectangle".
+	Click on "New Rectangle", and select the rectangle area that you want. Choose the resolution
+	that you want (0.5m is the highest precision, or 2m), and click on "Search".
+	Then, click on "Export all links" and download the CSV file. In the Landscape Combinator
+	plugin, you then provide the path to the CSV file on your computer.
+
 * [Viewfinder Panoramas](http://viewfinderpanoramas.org/)
 
 

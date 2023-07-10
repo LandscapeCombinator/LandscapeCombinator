@@ -23,7 +23,7 @@ bool HMURL::Initialize()
 {
 	if (!HMInterface::Initialize()) return false;
 	
-	FString OriginalFile = FPaths::Combine(InterfaceDir, FString::Format(TEXT("{0}-{1}.tif"), { LandscapeLabel, Precision }));
+	FString OriginalFile = FPaths::Combine(InterfaceDir, FString::Format(TEXT("{0}.tif"), { LandscapeLabel }));
 	FString ScaledFile = FPaths::Combine(ResultDir, FString::Format(TEXT("{0}-{1}.png"), { LandscapeLabel, Precision }));
 	OriginalFiles.Add(OriginalFile);
 	ScaledFiles.Add(ScaledFile);
