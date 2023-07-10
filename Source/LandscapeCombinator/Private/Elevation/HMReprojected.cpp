@@ -3,6 +3,8 @@
 #include "Elevation/HMReprojected.h"
 #include "Utils/Logging.h"
 
+#include "Internationalization/Regex.h"
+
 #pragma warning(disable: 4668)
 #include "gdal.h"
 #include "gdal_priv.h"
@@ -11,6 +13,13 @@
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
+
+HMReprojected::HMReprojected(FString LandscapeLabel0, const FText& KindText0, FString Descr0, int Precision0, HMInterface* Target0) :
+	HMInterface(LandscapeLabel0, KindText0, Descr0, Precision0)
+{
+	Target = Target0;
+}
+
 bool HMReprojected::Initialize()
 {
 	if (!HMInterface::Initialize()) return false;
@@ -18,28 +27,61 @@ bool HMReprojected::Initialize()
 	int32 NumFiles = Target->OriginalFiles.Num();
 	if (NumFiles != 1) {
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("DownloadReprojectError", "Reprojection to 4326 is supported for heightmaps with one file only (found {0} heightmap files)."),
+			LOCTEXT("DownloadReprojectError", "Reprojection is supported for heightmaps with one file only (found {0} heightmap files)."),
 			FText::AsNumber(NumFiles)
 		));
 
 		return false;
 	}
 
-	FString OriginalFile = Target->OriginalFiles[0];
-	FString ReprojectedFile = FPaths::Combine(FPaths::GetPath(OriginalFile), FString::Format(TEXT("{0}-4326.tif"), { FPaths::GetBaseFilename(OriginalFile) } ));
-	FString ScaledFile = FPaths::Combine(ResultDir, FString::Format(TEXT("{0}-{1}.png"), { LandscapeLabel, Precision }));
+	if (NumFiles == 1)
+	{
+		FString OriginalFile = Target->OriginalFiles[0];
+		FString ReprojectedFile = FPaths::Combine(FPaths::GetPath(OriginalFile), FString::Format(TEXT("{0}-4326.tif"), { FPaths::GetBaseFilename(OriginalFile) } ));
+		FString ScaledFile = FPaths::Combine(ResultDir, FString::Format(TEXT("{0}-{1}.png"), { LandscapeLabel, Precision }));
 	
-	OriginalFiles.Add(ReprojectedFile);
-	ScaledFiles.Add(ScaledFile);
+		OriginalFiles.Add(ReprojectedFile);
+		ScaledFiles.Add(ScaledFile);
+	}
+	else
+	{
+		check(false);
+		for (int i = 0; i < NumFiles; i++)
+		{
+			FString TargetOriginalFile = Target->OriginalFiles[i];
+			FString ReprojectedFile = FPaths::Combine(FPaths::GetPath(TargetOriginalFile), FString::Format(TEXT("{0}-4326.tif"), { FPaths::GetBaseFilename(TargetOriginalFile) } ));
+
+			FString TargetScaledFile = Target->ScaledFiles[i];
+
+			
+			FRegexPattern XYPattern(TEXT("(.*)_(x\\d+_y\\d+\\.png)"));
+			FRegexMatcher XYMatcher(XYPattern, TargetScaledFile);
+
+			if (!XYMatcher.FindNext()) {
+				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+					LOCTEXT("MultipleFileImportError", "Internal Landscape Combinator error. {0} should match the format: Filename_x0_y0.png."),
+					FText::FromString(TargetScaledFile)
+				));
+				return false;
+			}
+
+			FString ScaledFile = XYMatcher.GetCaptureGroup(1) + "_4326_" + XYMatcher.GetCaptureGroup(2);
+			OriginalFiles.Add(ReprojectedFile);
+			ScaledFiles.Add(ScaledFile);
+		}
+	}
 
 	return true;
 }
 
-
-HMReprojected::HMReprojected(FString LandscapeLabel0, const FText& KindText0, FString Descr0, int Precision0, HMInterface* Target0) :
-	HMLocalFile(LandscapeLabel0, KindText0, Descr0, Precision0)
+bool HMReprojected::GetDataSpatialReference(OGRSpatialReference &InRs) const
 {
-	Target = Target0;
+	return HMInterface::GetSpatialReference(InRs, OriginalFiles[0]);
+}
+
+bool HMReprojected::GetCoordinatesSpatialReference(OGRSpatialReference &InRs) const
+{
+	return HMInterface::GetSpatialReference(InRs, OriginalFiles[0]);
 }
 
 FReply HMReprojected::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) const

@@ -23,6 +23,7 @@ public:
 	ALandscape* Landscape;
 	TArray<ALandscapeStreamingProxy*> LandscapeStreamingProxies;
 	TArray<FString> OriginalFiles;
+	TArray<FString> ScaledFiles;
 	virtual bool Initialize();
 	FReply DownloadHeightMaps(TFunction<void(bool)> OnComplete) const;
 	bool GetMinMaxZ(FVector2D& MinMaxZ);
@@ -54,8 +55,6 @@ protected:
 	FString LandscapeCombinatorDir;
 	FString InterfaceDir;
 	FString ResultDir;
-	
-	TArray<FString> ScaledFiles;
 
 	virtual bool GetInsidePixels(FIntPoint& InsidePixels) const;
 	virtual bool GetMinMax(FVector2D &MinMax) const;

@@ -4,6 +4,10 @@
 
 namespace Concurrency {
 	void RunAsync(TFunction<void()> Action);
-	void RunMany(TArray<FString> Elements, TFunction<void( FString Element, TFunction<void(bool)> )> Action, TFunction<void(bool)> OnComplete);
+
+	template<typename T>
+	void RunMany(TArray<T> Elements, TFunction<void( T Element, TFunction<void(bool)> )> Action, TFunction<void(bool)> OnComplete);
+
+	void RunMany(int n, TFunction<void( int i, TFunction<void(bool)> )> Action, TFunction<void(bool)> OnComplete);
 	void RunOne(TFunction<bool(void)> Action, TFunction<void(bool)> OnComplete);
 };
