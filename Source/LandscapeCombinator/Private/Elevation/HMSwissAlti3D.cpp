@@ -1,6 +1,6 @@
 // Copyright 2023 LandscapeCombinator. All Rights Reserved.
 
-#include "Elevation/HMSwissAlti3D.h"
+#include "Elevation/HMSwissALTI3D.h"
 #include "Utils/Concurrency.h"
 #include "Utils/Console.h"
 #include "Utils/Download.h"
@@ -12,12 +12,12 @@
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
-HMSwissAlti3D::HMSwissAlti3D(FString LandscapeLabel0, const FText &KindText0, FString Descr0, int Precision0) :
+HMSwissALTI3D::HMSwissALTI3D(FString LandscapeLabel0, const FText &KindText0, FString Descr0, int Precision0) :
 	HMInterfaceTiles(LandscapeLabel0, KindText0, Descr0, Precision0) {
 
 }
 
-bool HMSwissAlti3D::Initialize()
+bool HMSwissALTI3D::Initialize()
 {
 	if (!HMInterface::Initialize()) return false;
 
@@ -64,17 +64,17 @@ bool HMSwissAlti3D::Initialize()
 	return true;
 }
 
-bool HMSwissAlti3D::GetCoordinatesSpatialReference(OGRSpatialReference &InRs) const
+bool HMSwissALTI3D::GetCoordinatesSpatialReference(OGRSpatialReference &InRs) const
 {
 	return GetSpatialReferenceFromEPSG(InRs, 2056);
 }
 
-bool HMSwissAlti3D::GetDataSpatialReference(OGRSpatialReference &InRs) const
+bool HMSwissALTI3D::GetDataSpatialReference(OGRSpatialReference &InRs) const
 {
 	return GetSpatialReferenceFromEPSG(InRs, 2056);
 }
 
-int HMSwissAlti3D::TileToX(FString Tile) const
+int HMSwissALTI3D::TileToX(FString Tile) const
 {
 	FRegexPattern Pattern(TEXT("swissalti3d_\\d+_(\\d+)-\\d+/"));
 	FRegexMatcher Matcher(Pattern, Tile);
@@ -83,7 +83,7 @@ int HMSwissAlti3D::TileToX(FString Tile) const
 	return FCString::Atoi(*X);
 }
 
-int HMSwissAlti3D::TileToY(FString Tile) const
+int HMSwissALTI3D::TileToY(FString Tile) const
 {
 	FRegexPattern Pattern(TEXT("swissalti3d_\\d+_\\d+-(\\d+)/"));
 	FRegexMatcher Matcher(Pattern, Tile);
@@ -92,7 +92,7 @@ int HMSwissAlti3D::TileToY(FString Tile) const
 	return 1300 - FCString::Atoi(*Y);
 }
 
-FReply HMSwissAlti3D::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) const
+FReply HMSwissALTI3D::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) const
 {
 	check(Tiles.Num() == OriginalFiles.Num());
 	Concurrency::RunMany(

@@ -6,7 +6,7 @@
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
-class HMSwissAlti3D : public HMInterfaceTiles
+class HMSwissALTI3D : public HMInterfaceTiles
 {
 protected:
 	bool Initialize() override;
@@ -17,7 +17,7 @@ protected:
 	bool GetDataSpatialReference(OGRSpatialReference &InRs) const override;
 
 public:
-	HMSwissAlti3D(FString LandscapeLabel0, const FText &KindText0, FString Descr0, int Precision0);
+	HMSwissALTI3D(FString LandscapeLabel0, const FText &KindText0, FString Descr0, int Precision0);
 
 	FReply DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) const override;
 };

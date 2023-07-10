@@ -5,7 +5,7 @@
 #include "Elevation/HMViewFinder1.h"
 #include "Elevation/HMViewFinder3.h"
 #include "Elevation/HMViewFinder15.h"
-#include "Elevation/HMSwissAlti3D.h"
+#include "Elevation/HMSwissALTI3D.h"
 #include "Elevation/HMRGEAlti.h"
 #include "Elevation/HMElevationAPI.h"
 #include "Elevation/HMLocalFile.h"
@@ -28,7 +28,7 @@ FText EmptyDescr = LOCTEXT("HMDownloadDetails", "Coordinates for heightmap downl
 FText ViewFinder15Text	= LOCTEXT("ViewFinder15", "Viewfinder Panoramas 15");
 FText ViewFinder3Text	= LOCTEXT("ViewFinder3", "Viewfinder Panoramas 3");
 FText ViewFinder1Text	= LOCTEXT("ViewFinder1", "Viewfinder Panoramas 1");
-FText SwissAlti3DText	= LOCTEXT("swissAlti3D2", "swissAlti3D");
+FText SwissALTI3DText	= LOCTEXT("swissALTI3D", "swissALTI3D");
 FText RGEAltiText		= LOCTEXT("RGEAlti", "RGE Alti France");
 FText ElevationAPIText	= LOCTEXT("ElevationAPI", "Elevation API IGN 1m");
 FText LocalFileText		= LOCTEXT("LocalFileKind", "Local File");
@@ -39,7 +39,7 @@ TArray<TSharedPtr<FText>> Kinds =
 	MakeShareable(&ViewFinder15Text),
 	MakeShareable(&ViewFinder3Text),
 	MakeShareable(&ViewFinder1Text),
-	MakeShareable(&SwissAlti3DText),
+	MakeShareable(&SwissALTI3DText),
 	MakeShareable(&RGEAltiText),
 	MakeShareable(&ElevationAPIText),
 	MakeShareable(&LocalFileText),
@@ -184,7 +184,7 @@ HMInterface* HeightMapTable::InterfaceFromKind(FString LandscapeLabel0, const FT
 	if (KindText0.EqualTo(ViewFinder15Text)) return new HMViewFinder15(LandscapeLabel0, KindText0, Descr0, Precision0);
 	else if (KindText0.EqualTo(ViewFinder3Text)) return new HMViewFinder3(LandscapeLabel0, KindText0, Descr0, Precision0);
 	else if (KindText0.EqualTo(ViewFinder1Text)) return new HMViewFinder1(LandscapeLabel0, KindText0, Descr0, Precision0);
-	else if (KindText0.EqualTo(SwissAlti3DText)) return new HMSwissAlti3D(LandscapeLabel0, KindText0, Descr0, Precision0);
+	else if (KindText0.EqualTo(SwissALTI3DText)) return new HMSwissALTI3D(LandscapeLabel0, KindText0, Descr0, Precision0);
 	else if (KindText0.EqualTo(RGEAltiText)) return new HMRGEAlti(LandscapeLabel0, KindText0, Descr0, Precision0);
 	else if (KindText0.EqualTo(ElevationAPIText)) return new HMElevationAPI(LandscapeLabel0, KindText0, Descr0, Precision0);
 	else if (KindText0.EqualTo(LocalFileText)) return new HMLocalFile(LandscapeLabel0, KindText0, Descr0, Precision0);
@@ -205,7 +205,7 @@ FText HeightMapTable::DescriptionFromKind(const FText& KindText0)
 	if (KindText0.EqualTo(ViewFinder15Text)) return LOCTEXT("ViewFinder15Descr", "Enter the comma-separated list of rectangles (e.g. 15-A, 15-B, 15-G, 15-H) from http://viewfinderpanoramas.org/Coverage%20map%20viewfinderpanoramas_org15.htm");
 	else if (KindText0.EqualTo(ViewFinder3Text)) return LOCTEXT("ViewFinder3Descr", "Enter the comma-separated list of rectangles (e.g. M31, M32) from http://viewfinderpanoramas.org/Coverage%20map%20viewfinderpanoramas_org3.htm");
 	else if (KindText0.EqualTo(ViewFinder1Text)) return LOCTEXT("ViewFinder1Descr", "Enter the comma-separated list of rectangles (e.g. M31, M32) from http://viewfinderpanoramas.org/Coverage%20map%20viewfinderpanoramas_org1.htm");
-	else if (KindText0.EqualTo(SwissAlti3DText)) return LOCTEXT("SwissAlti3DDescr", "Enter C:\\Path\\To\\ListOfLinks.csv (see README for more details)");
+	else if (KindText0.EqualTo(SwissALTI3DText)) return LOCTEXT("SwissALTI3DDescr", "Enter C:\\Path\\To\\ListOfLinks.csv (see README for more details)");
 	else if (KindText0.EqualTo(RGEAltiText)) return LOCTEXT("RGEAltiDescr", "Enter MinLong,MaxLong,MinLat,MaxLat (and optionally ,Width,Height) in EPSG 2154 coordinates");
 	else if (KindText0.EqualTo(ElevationAPIText)) return LOCTEXT("ElevationAPIDescr", "Enter MinLong,MaxLong,MinLat,MaxLat in EPSG 4326 coordinates");
 	else if (KindText0.EqualTo(LocalFileText)) return LOCTEXT("LocalFileDescr", "Enter your C:\\Path\\To\\MyHeightmap.tif in GeoTIFF format");
