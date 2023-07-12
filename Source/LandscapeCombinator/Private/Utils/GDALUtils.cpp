@@ -4,6 +4,7 @@
 #include "Utils/Logging.h"
 
 #include "Misc/Paths.h"
+#include "Misc/ScopedSlowTask.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
@@ -123,6 +124,8 @@ bool GDALUtils::GetMinMax(FVector2D &MinMax, TArray<FString> Files) {
 
 bool GDALUtils::Translate(FString &SourceFile, FString &TargetFile, int MinAltitude, int MaxAltitude, int Precision)
 {
+	FScopedSlowTask TranslateTask(1, LOCTEXT("TranslateTask", "Landscape Combiantor: GDAL translating file"));
+	TranslateTask.MakeDialog();
 	GDALDatasetH SourceDataset = GDALOpen(TCHAR_TO_UTF8(*SourceFile), GA_ReadOnly);
 
 	if (!SourceDataset)
@@ -186,6 +189,7 @@ bool GDALUtils::Translate(FString &SourceFile, FString &TargetFile, int MinAltit
 		
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("Finished translating: %s to %s"), *SourceFile, *TargetFile);
 	GDALClose(DstDataset);
+	TranslateTask.EnterProgressFrame(1.0f);
 
 	return true;
 }
@@ -238,6 +242,9 @@ bool GDALUtils::Warp(TArray<FString> SourceFiles, FString& TargetFile, OGRSpatia
 
 bool GDALUtils::Warp(FString& SourceFile, FString& TargetFile, OGRSpatialReference &OutRs, int NoData)
 {
+	FScopedSlowTask WarpTask(1, LOCTEXT("WarpTask", "Reprojecting File"));
+	WarpTask.MakeDialog();
+
 	GDALDatasetH SrcDataset = GDALOpen(TCHAR_TO_UTF8(*SourceFile), GA_ReadOnly);
 
 	if (!SrcDataset)
@@ -338,7 +345,6 @@ bool GDALUtils::Warp(FString& SourceFile, FString& TargetFile, OGRSpatialReferen
 
 		return false;
 	}
-				
 	GDALClose(WarpedDataset);
 
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("Finished reprojecting using gdalwarp --config GDAL_PAM_ENABLED NO -r bilinear -t_srs EPSG:4326 -te %s %s %s %s \"%s\" \"%s\""),
@@ -349,6 +355,7 @@ bool GDALUtils::Warp(FString& SourceFile, FString& TargetFile, OGRSpatialReferen
 		*SourceFile,
 		*TargetFile
 	);
+	WarpTask.EnterProgressFrame(1.0f);
 
 	return true;
 }
