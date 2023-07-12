@@ -19,7 +19,7 @@ protected:
 	int TileHeight;
 	TArray<FString> Tiles;
 	
-	virtual bool Initialize() = 0;
+	bool Initialize() override;
 	virtual int TileToX(FString Tile) const = 0;
 	virtual int TileToY(FString Tile) const = 0;
 	FString Rename(FString Tile) const;

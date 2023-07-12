@@ -214,7 +214,8 @@ FText HeightMapTable::DescriptionFromKind(const FText& KindText0)
 }
 
 bool HeightMapTable::KindSupportsReprojection(const FText& KindText0) {
-	return KindText0.EqualTo(RGEAltiText) || KindText0.EqualTo(ElevationAPIText) || KindText0.EqualTo(LocalFileText) || KindText0.EqualTo(URLText);
+	return KindText0.EqualTo(RGEAltiText) || KindText0.EqualTo(ElevationAPIText) || KindText0.EqualTo(LocalFileText)
+		|| KindText0.EqualTo(URLText) || KindText0.EqualTo(SwissALTI3DText);
 }
 
 void HeightMapTable::Save()
@@ -430,9 +431,14 @@ void HeightMapTable::AddHeightMapRow(FString LandscapeLabel, const FText& KindTe
 		.OnClicked_Lambda([this, Interface]()->FReply {
 			WorldParametersV1 Params;
 			if (GetWorldParameters(Params))
+			{
+				const FScopedTransaction Transaction(LOCTEXT("AdjustingLandscape", "Adjusting Landscape Scale and Position"));
 				return Interface->AdjustLandscape(Params.WorldWidthKm, Params.WorldHeightKm, Params.ZScale, Params.WorldOriginX, Params.WorldOriginY);
+			}
 			else
+			{
 				return FReply::Unhandled();
+			}
 		}) [
 			SNew(SImage).Image(FLandscapeCombinatorStyle::Get().GetBrush("LandscapeCombinator.Adjust"))
 			.ToolTipText(LOCTEXT("Adjust", "Adjust scale and set landscape position relative to the world.\n(Only click this if you already imported the landscape and changed the global settings afterwards.)"))
@@ -457,6 +463,18 @@ void HeightMapTable::AddHeightMapRow(FString LandscapeLabel, const FText& KindTe
 			SNew(SImage).Image(FLandscapeCombinatorStyle::Get().GetBrush("LandscapeCombinator.Landscape"))
 			.ToolTipText(LOCTEXT("CreateLandscape", "Download height maps, convert them, and create landscape"))
 		];
+
+	TSharedRef<SButton> DigButton = SNew(SButton)
+		.OnClicked_Lambda([this, Interface]()->FReply {
+			WorldParametersV1 Params;
+			if (GetWorldParameters(Params))
+				return Interface->DigOtherLandscapes(Params.WorldWidthKm, Params.WorldHeightKm, Params.ZScale, Params.WorldOriginX, Params.WorldOriginY);
+			else
+				return FReply::Unhandled();
+		}) [
+			SNew(SImage).Image(FLandscapeCombinatorStyle::Get().GetBrush("LandscapeCombinator.Dig"))
+			.ToolTipText(LOCTEXT("Dig", "Dig a hole in all other landscapes that overlap with this one"))
+		];
 	
 	Row->AddSlot().FillWidth(ColumnsSizes[0])[ LandscapeLabelBlock ];
 	Row->AddSlot().FillWidth(ColumnsSizes[1])[ KindTextBlock ];
@@ -470,7 +488,10 @@ void HeightMapTable::AddHeightMapRow(FString LandscapeLabel, const FText& KindTe
 		SNew(SHorizontalBox)
 		+SHorizontalBox::Slot().AutoWidth() [ CreateLandscapeButton ]
 		+SHorizontalBox::Slot().AutoWidth() [ AdjustButton ]
+		+SHorizontalBox::Slot().AutoWidth() [ DigButton ]
 	];
 
 	AddRow(Row, true, bSave, ColumnsSizes[6]);
 }
+
+#undef LOCTEXT_NAMESPACE

@@ -47,7 +47,8 @@ For commercial projects, please check the Unreal Engine Marketplace.
   You should see your landscape appear in your editor.
 * Go to the `Landscape Mode` of Unreal Engine in order to paint the landscape. You can use the basic landscape material
   `MI_Landscape` provided by the plugin, which as an auto layer called `Mix` (with adjustable snow, grass, cliff, and road materials).
-
+* If you have created several landscapes that overlap, for instance a large one with few details, and a small one with many details,
+  you can press the `Dig` button on the small landscape to make a hole in the large landscape in the rectangle where they overlap.
 
 ### Technical Notes
 

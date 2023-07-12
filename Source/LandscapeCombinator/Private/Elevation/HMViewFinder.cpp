@@ -4,6 +4,7 @@
 #include "Utils/Concurrency.h"
 #include "Utils/Console.h"
 #include "Utils/Download.h"
+#include "Utils/Logging.h"
 
 #include "HAL/FileManagerGeneric.h"
 #include "Internationalization/Regex.h"
@@ -16,6 +17,7 @@ HMViewFinder::HMViewFinder(FString LandscapeLabel0, const FText &KindText0, FStr
 {
 	TArray<FString> MegaTiles0;
 	Descr.ParseIntoArray(MegaTiles0, TEXT(","), true);
+
 	for (auto& MegaTile : MegaTiles0)
 	{
 		MegaTiles.Add(MegaTile.TrimStartAndEnd());
@@ -24,7 +26,7 @@ HMViewFinder::HMViewFinder(FString LandscapeLabel0, const FText &KindText0, FStr
 
 bool HMViewFinder::Initialize()
 {
-	return true;
+	return HMInterfaceTiles::Initialize();
 }
 
 bool HMViewFinder::GetCoordinatesSpatialReference(OGRSpatialReference &InRs) const

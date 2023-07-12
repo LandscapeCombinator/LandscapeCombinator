@@ -32,12 +32,12 @@ bool HMURL::Initialize()
 
 bool HMURL::GetDataSpatialReference(OGRSpatialReference &InRs) const
 {
-	return HMInterface::GetSpatialReference(InRs, Descr);
+	return GDALUtils::GetSpatialReference(InRs, Descr);
 }
 
 bool HMURL::GetCoordinatesSpatialReference(OGRSpatialReference &InRs) const
 {
-	return HMInterface::GetSpatialReference(InRs, Descr);
+	return GDALUtils::GetSpatialReference(InRs, Descr);
 }
 
 FReply HMURL::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) const

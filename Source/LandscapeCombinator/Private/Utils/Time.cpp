@@ -5,35 +5,32 @@
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
-namespace Time
+template<typename T>
+T Time::Time(FString Label, TFunction<T()> Code)
 {
-	template<typename T>
-	T Time(FString Label, TFunction<T()> Code)
-	{
-		double Before = FPlatformTime::Seconds();
-		T Result = Code();
-		double After = FPlatformTime::Seconds();
+	double Before = FPlatformTime::Seconds();
+	T Result = Code();
+	double After = FPlatformTime::Seconds();
 		
-		UE_LOG(LogLandscapeCombinator, Log, TEXT("%s finished in %f"), *Label, After - Before);
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("%s finished in %f"), *Label, After - Before);
 
-		if (TimeSpent.Contains(Label))
-		{
-			TimeSpent[Label] += (After - Before);
-		}
-		else
-		{
-			TimeSpent.Add(Label, After - Before);
-		}
-		return Result;
-	}
-
-	void DumpTable()
+	if (TimeSpent.Contains(Label))
 	{
-		UE_LOG(LogLandscapeCombinator, Log, TEXT("Timers"));
-		for (auto& Pair : TimeSpent)
-		{
-			UE_LOG(LogLandscapeCombinator, Log, TEXT("%s: %f s"), *(Pair.Key), Pair.Value);
-		}
+		TimeSpent[Label] += (After - Before);
+	}
+	else
+	{
+		TimeSpent.Add(Label, After - Before);
+	}
+	return Result;
+}
+
+void Time::DumpTable()
+{
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("Timers"));
+	for (auto& Pair : TimeSpent)
+	{
+		UE_LOG(LogLandscapeCombinator, Log, TEXT("%s: %f s"), *(Pair.Key), Pair.Value);
 	}
 }
 

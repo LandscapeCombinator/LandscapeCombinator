@@ -56,6 +56,7 @@ TSharedRef< FSlateStyleSet > FLandscapeCombinatorStyle::Create()
 	Style->Set("LandscapeCombinator.Landscape", new IMAGE_BRUSH_SVG(TEXT("Landscape"), Icon20x20));
 	Style->Set("LandscapeCombinator.AddRoad", new IMAGE_BRUSH_SVG(TEXT("AddRoad"), Icon20x20));
 	Style->Set("LandscapeCombinator.Import", new IMAGE_BRUSH_SVG(TEXT("Import"), Icon20x20));
+	Style->Set("LandscapeCombinator.Dig", new IMAGE_BRUSH_SVG(TEXT("Dig"), Icon20x20));
 
 	return Style;
 }

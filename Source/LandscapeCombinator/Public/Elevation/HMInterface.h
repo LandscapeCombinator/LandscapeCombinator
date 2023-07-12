@@ -31,22 +31,14 @@ public:
 	FReply ConvertHeightMaps(TFunction<void(bool)> OnComplete) const;
 	FReply ImportHeightMaps();
 	FReply CreateLandscape(int WorldWidthKm, int WorldHeightKm, double ZScale, double WorldOriginX, double WorldOriginY, TFunction<void(bool)> OnComplete);
-	ALandscape* SpawnLandscape();
 	bool SetLandscapeFromLabel();
 	void SetLandscape(ALandscape* Landscape0);
 	void SetLandscapeStreamingProxies();
 	FReply AdjustLandscape(int WorldWidthKm, int WorldHeightKm, double ZScale, double WorldOriginX, double WorldOriginY);
+	FReply DigOtherLandscapes(int WorldWidthKm, int WorldHeightKm, double ZScale, double WorldOriginX, double WorldOriginY);
 	bool GetCoordinates4326(FVector4d &Coordinates);
 	FCollisionQueryParams CustomCollisionQueryParams(UWorld* World);
 	double GetZ(UWorld* World, FCollisionQueryParams CollisionQueryParams, double x, double y);
-	
-	
-	static void CouldNotCreateDirectory(FString Dir);
-	static bool GetSpatialReference(OGRSpatialReference &InRs, FString File);
-	static bool GetSpatialReference(OGRSpatialReference &InRs, GDALDataset* Dataset);
-	static bool GetSpatialReferenceFromEPSG(OGRSpatialReference &InRs, int EPSG);
-	static bool GetCoordinates(FVector4d& Coordinates, GDALDataset* Dataset);
-	static bool GetMinMax(FVector2D &MinMax, TArray<FString> Files);
 
 protected:
 	const FText& KindText;
@@ -64,6 +56,8 @@ protected:
 
 private:
 	ALandscape* GetLandscapeFromLabel();
+	
+	static void CouldNotCreateDirectory(FString Dir);
 };
 
 #undef LOCTEXT_NAMESPACE
