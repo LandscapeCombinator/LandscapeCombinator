@@ -1,9 +1,11 @@
 // Copyright 2023 LandscapeCombinator. All Rights Reserved.
 
 #include "Elevation/HMInterface.h"
+#include "Elevation/LandscapeUtils.h"
 #include "Utils/Logging.h"
 #include "Utils/Console.h"
 #include "Utils/Concurrency.h"
+#include "Utils/GDALUtils.h"
 
 #include "Misc/Paths.h"
 #include "Internationalization/Regex.h"
@@ -22,16 +24,9 @@
 #include "LandscapeSubsystem.h"
 #include "LandscapeDataAccess.h"
 
-#pragma warning(disable: 4668)
-#include "gdal.h"
-#include "gdal_priv.h"
-#include "gdal_utils.h"
-#pragma warning(default: 4668)
-
-
-
-
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
+
+using namespace GDALUtils;
 
 HMInterface::HMInterface(FString LandscapeLabel0, const FText &KindText0, FString Descr0, int Precision0) :
 	LandscapeLabel(LandscapeLabel0), KindText(KindText0), Descr(Descr0), Precision(Precision0)
@@ -94,26 +89,6 @@ bool HMInterface::Initialize()
 	return true;
 }
 
-bool HMInterface::GetCoordinates(FVector4d& Coordinates, GDALDataset* Dataset)
-{
-	if (!Dataset) return false;
-
-	double AdfTransform[6];
-	if (Dataset->GetGeoTransform(AdfTransform) != CE_None)
-		return false;
-		
-	double LeftCoord    = AdfTransform[0];
-	double RightCoord   = AdfTransform[0] + Dataset->GetRasterXSize()*AdfTransform[1];
-	double TopCoord     = AdfTransform[3];
-	double BottomCoord  = AdfTransform[3] + Dataset->GetRasterYSize()*AdfTransform[5];
-	
-	Coordinates[0] = LeftCoord;
-	Coordinates[1] = RightCoord;
-	Coordinates[2] = BottomCoord;
-	Coordinates[3] = TopCoord;
-	return true;
-}
-
 bool HMInterface::GetCoordinates(FVector4d &Coordinates) const {
 	double MinCoordWidth = DBL_MAX;
 	double MaxCoordWidth = -DBL_MAX;
@@ -134,7 +109,7 @@ bool HMInterface::GetCoordinates(FVector4d &Coordinates) const {
 		}
 
 		FVector4d FileCoordinates;
-		if (!GetCoordinates(FileCoordinates, Dataset))
+		if (!GDALUtils::GetCoordinates(FileCoordinates, Dataset))
 		{
 			FMessageDialog::Open(EAppMsgType::Ok,
 				FText::Format(
@@ -178,42 +153,7 @@ bool HMInterface::GetInsidePixels(FIntPoint &InsidePixels) const
 }
 
 bool HMInterface::GetMinMax(FVector2D &MinMax) const {
-	return GetMinMax(MinMax, OriginalFiles);
-}
-
-bool HMInterface::GetMinMax(FVector2D &MinMax, TArray<FString> Files) {
-	MinMax[0] = DBL_MAX;
-	MinMax[1] = -DBL_MAX;
-
-	for (auto& File : Files) {
-
-		GDALDataset *Dataset = (GDALDataset *)GDALOpen(TCHAR_TO_UTF8(*File), GA_ReadOnly);
-
-		if (!Dataset) {
-			FMessageDialog::Open(EAppMsgType::Ok,
-				FText::Format(LOCTEXT("GetMinMaxError", "Could not open heightmap file '{0}' to compute min/max altitudes."),
-					FText::FromString(File)
-				)
-			);
-			return false;
-		}
-		
-		double AdfMinMax[2];
-
-		if (GDALComputeRasterMinMax(Dataset->GetRasterBand(1), false, AdfMinMax) != CE_None) {
-			FMessageDialog::Open(EAppMsgType::Ok,
-				FText::Format(LOCTEXT("GetMinMaxError2", "Could compute min/max altitudes of file '{0}'."),
-					FText::FromString(File)
-				)
-			);
-			return false;
-		}
-
-		MinMax[0] = FMath::Min(MinMax[0], AdfMinMax[0]);
-		MinMax[1] = FMath::Max(MinMax[1], AdfMinMax[1]);
-	}
-
-	return true;
+	return GDALUtils::GetMinMax(MinMax, OriginalFiles);
 }
 
 FReply HMInterface::ConvertHeightMaps(TFunction<void(bool)> OnComplete) const
@@ -231,7 +171,8 @@ FReply HMInterface::ConvertHeightMaps(TFunction<void(bool)> OnComplete) const
 	//	)
 	//);
 
-	if (!IPlatformFile::GetPlatformPhysical().CreateDirectory(*ResultDir)) {
+	if (!IPlatformFile::GetPlatformPhysical().CreateDirectory(*ResultDir))
+	{
 		CouldNotCreateDirectory(ResultDir);
 		return FReply::Unhandled();
 	}
@@ -251,67 +192,11 @@ FReply HMInterface::ConvertHeightMaps(TFunction<void(bool)> OnComplete) const
 		for (int32 i = 0; i < OriginalFiles.Num(); i++) {
 			FString OriginalFile = OriginalFiles[i];
 			FString ScaledFile = ScaledFiles[i];
-			  
-			GDALDatasetH SrcDataset = GDALOpen(TCHAR_TO_UTF8(*OriginalFile), GA_ReadOnly);
 
-			if (!SrcDataset) {
-				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-					LOCTEXT("ConvertGDALOpenError", "Could not open file {0}."),
-					FText::FromString(OriginalFile)
-				));
+			if (!GDALUtils::Translate(OriginalFile, ScaledFile, MinAltitude, MaxAltitude, Precision))
+			{
 				return false;
 			}
-
-			char** TranslateArgv = nullptr;
-			
-			TranslateArgv = CSLAddString(TranslateArgv, "-scale");
-			TranslateArgv = CSLAddString(TranslateArgv, TCHAR_TO_UTF8(*FString::SanitizeFloat(MinAltitude)));
-			TranslateArgv = CSLAddString(TranslateArgv, TCHAR_TO_UTF8(*FString::SanitizeFloat(MaxAltitude)));
-			TranslateArgv = CSLAddString(TranslateArgv, "0");
-			TranslateArgv = CSLAddString(TranslateArgv, "65535");
-			TranslateArgv = CSLAddString(TranslateArgv, "-outsize");
-			TranslateArgv = CSLAddString(TranslateArgv, TCHAR_TO_UTF8(*FString::Format(TEXT("{0}%"), { Precision })));
-			TranslateArgv = CSLAddString(TranslateArgv, TCHAR_TO_UTF8(*FString::Format(TEXT("{0}%"), { Precision })));
-			TranslateArgv = CSLAddString(TranslateArgv, "-ot");
-			TranslateArgv = CSLAddString(TranslateArgv, "UInt16");
-			TranslateArgv = CSLAddString(TranslateArgv, "-of");
-			TranslateArgv = CSLAddString(TranslateArgv, "PNG");
-
-			GDALTranslateOptions* Options = GDALTranslateOptionsNew(TranslateArgv, NULL);
-			CSLDestroy(TranslateArgv);
-
-			if (!Options) {
-				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-					LOCTEXT("ConvertParseOptionsError", "Internal GDAL error while parsing GDALTranslate options for file {0}."),
-					FText::FromString(OriginalFile)
-				));
-				GDALClose(SrcDataset);
-				return false;
-			}
-
-			UE_LOG(LogLandscapeCombinator, Log, TEXT("Translating using gdal_translate --config GDAL_PAM_ENABLED NO -scale %s %s 0 65535 -ot UInt16 -of PNG -outsize %d%% %d%% \"%s\" \"%s\""),
-				*FString::SanitizeFloat(MinAltitude),
-				*FString::SanitizeFloat(MaxAltitude),
-				Precision, Precision,
-				*OriginalFile,
-				*ScaledFile
-			);
-
-			GDALDataset* DstDataset = (GDALDataset *) GDALTranslate(TCHAR_TO_UTF8(*ScaledFile), SrcDataset, Options, nullptr);
-			GDALClose(SrcDataset);
-			GDALTranslateOptionsFree(Options);
-
-			if (!DstDataset) {
-				UE_LOG(LogLandscapeCombinator, Error, TEXT("Error while translating: %s to %s"), *OriginalFile, *ScaledFile);
-				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-					LOCTEXT("ConvertGDALTranslateError", "Internal GDALTranslate error while converting dataset from file {0} to PNG."),
-					FText::FromString(OriginalFile)
-				));
-				return false;
-			}
-		
-			UE_LOG(LogLandscapeCombinator, Log, TEXT("Finished translating: %s to %s"), *OriginalFile, *ScaledFile);
-			GDALClose(DstDataset);
 		}
 		return true;
 	},
@@ -322,127 +207,9 @@ FReply HMInterface::ConvertHeightMaps(TFunction<void(bool)> OnComplete) const
 	return FReply::Handled();
 }
 
-ALandscape* HMInterface::SpawnLandscape()
-{
-	FString ScaledFilesString = FString::Join(ScaledFiles,TEXT(" "));
-	UE_LOG(LogLandscapeCombinator, Log, TEXT("Importing heightmaps for Landscape %s from %s"), *LandscapeLabel, *ScaledFilesString);
-
-	FString HeightmapFile = ScaledFiles[0];
-
-	GLevelEditorModeTools().ActivateMode(FBuiltinEditorModes::EM_Landscape);
-	FEdModeLandscape* LandscapeEdMode = (FEdModeLandscape*)GLevelEditorModeTools().GetActiveMode(FBuiltinEditorModes::EM_Landscape);
-	ULandscapeEditorObject* UISettings = LandscapeEdMode->UISettings;
-	ULandscapeSubsystem*  LandscapeSubsystem = LandscapeEdMode->GetWorld()->GetSubsystem<ULandscapeSubsystem>();
-	bool bIsGridBased = LandscapeSubsystem->IsGridBased();
-
-	if (ScaledFiles.Num() > 1 && !bIsGridBased)
-	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("GetHeightmapImportDescriptorError", "You must enable World Partition to be able to import multiple heightmap files."),
-			FText::FromString(HeightmapFile)
-		));
-		return NULL;
-	}
-
-	if (bIsGridBased && ScaledFiles.Num() > 1)
-	{
-		FRegexPattern XYPattern(TEXT("(.*)_x\\d+_y\\d+(\\.[^.]+)"));
-		FRegexMatcher XYMatcher(XYPattern, HeightmapFile);
-
-		if (!XYMatcher.FindNext()) {
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-				LOCTEXT("MultipleFileImportError", "Heightmap file name %s doesn't match the format: Filename_x0_y0.png."),
-				FText::FromString(HeightmapFile)
-			));
-			return false;
-		}
-
-		HeightmapFile = XYMatcher.GetCaptureGroup(1) + XYMatcher.GetCaptureGroup(2);
-		UE_LOG(LogLandscapeCombinator, Log, TEXT("Detected multiple files, so we will use the base name %s to import"), *XYMatcher.GetCaptureGroup(1));
-	}
-
-	/* Load the data from the PNG files */
-
-	FLandscapeImportDescriptor LandscapeImportDescriptor;
-	FText LandscapeImportErrorMessage;
-
-	ELandscapeImportResult DescriptorResult = FLandscapeImportHelper::GetHeightmapImportDescriptor(
-		HeightmapFile,
-		!bIsGridBased,
-		false,
-		LandscapeImportDescriptor,
-		LandscapeImportErrorMessage
-	);
-
-	if (DescriptorResult == ELandscapeImportResult::Error)
-	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("GetHeightmapImportDescriptorError", "Internal Unreal Engine while getting import descriptor for file {0}: {1}."),
-			FText::FromString(HeightmapFile),
-			LandscapeImportErrorMessage
-		));
-		return NULL;
-	}
-
-	int TotalWidth  = LandscapeImportDescriptor.ImportResolutions[0].Width;
-	int TotalHeight = LandscapeImportDescriptor.ImportResolutions[0].Height;
-	
-	TArray<uint16> Data;
-	ELandscapeImportResult ImportResult = FLandscapeImportHelper::GetHeightmapImportData(LandscapeImportDescriptor, 0, Data, LandscapeImportErrorMessage);
-
-	if (ImportResult == ELandscapeImportResult::Error)
-	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("GetHeightmapImportDataError", "Internal Unreal Engine while importing {0}: {1}."),
-			FText::FromString(HeightmapFile),
-			LandscapeImportErrorMessage
-		));
-		return NULL;
-	}
-	
-
-	/* Expand the data to match components */
-
-	int QuadsPerSubsection = 63;
-	int SectionsPerComponent = 1;
-	FIntPoint ComponentCount(8, 8);
-
-	FLandscapeImportHelper::ChooseBestComponentSizeForImport(TotalWidth, TotalHeight, QuadsPerSubsection, SectionsPerComponent, ComponentCount);
-	
-	int SizeX = ComponentCount.X * QuadsPerSubsection * SectionsPerComponent + 1;
-	int SizeY = ComponentCount.Y * QuadsPerSubsection * SectionsPerComponent + 1;
-
-	TArray<uint16> ExpandedData;
-	FLandscapeImportResolution RequiredResolution(SizeX, SizeY);
-	FLandscapeImportResolution ImportResolution(TotalWidth, TotalHeight);
-
-	FLandscapeImportHelper::TransformHeightmapImportData(Data, ExpandedData, ImportResolution, RequiredResolution, ELandscapeImportTransformType::ExpandCentered);
-	
-
-	/* Import the landscape */
-
-	TMap<FGuid, TArray<uint16>> ImportHeightData = { { FGuid(), ExpandedData } };
-	TMap<FGuid, TArray<FLandscapeImportLayerInfo>> ImportMaterialLayerType = { { FGuid(), TArray<FLandscapeImportLayerInfo>() }};
-	
-	ALandscape* NewLandscape = LandscapeEdMode->GetWorld()->SpawnActor<ALandscape>(FVector::ZeroVector, FRotator::ZeroRotator);
-	NewLandscape->SetActorScale3D(FVector(100, 100, 100));
-	NewLandscape->Import(FGuid::NewGuid(), 0, 0, SizeX - 1, SizeY - 1, SectionsPerComponent, QuadsPerSubsection, ImportHeightData, NULL, ImportMaterialLayerType, ELandscapeImportAlphamapType::Additive);
-	
-	GLevelEditorModeTools().ActivateMode(FBuiltinEditorModes::EM_Default);
-	
-
-	/* Create Landscape Streaming Proxies */
-
-	ULandscapeInfo* LandscapeInfo = NewLandscape->GetLandscapeInfo();
-	LandscapeSubsystem->ChangeGridSize(LandscapeInfo, UISettings->WorldPartitionGridSize);
-
-	return NewLandscape;
-}
-
 FReply HMInterface::ImportHeightMaps()
 {
-
-	ALandscape *CreatedLandscape = SpawnLandscape();
+	ALandscape *CreatedLandscape = LandscapeUtils::SpawnLandscape(ScaledFiles, LandscapeLabel);
 
 	if (CreatedLandscape)
 	{
@@ -522,8 +289,8 @@ FReply HMInterface::CreateLandscape(int WorldWidthKm, int WorldHeightKm, double 
 			{
 				if (ImportHeightMaps().IsEventHandled())
 				{
-					AdjustLandscape(WorldWidthKm, WorldHeightKm, ZScale, WorldOriginX, WorldOriginY);
-					if (OnComplete) OnComplete(true);
+					bool bAdjustSuccess = AdjustLandscape(WorldWidthKm, WorldHeightKm, ZScale, WorldOriginX, WorldOriginY).IsEventHandled();
+					if (OnComplete) OnComplete(bAdjustSuccess);
 					return;
 				}
 				else
@@ -542,65 +309,6 @@ FReply HMInterface::CreateLandscape(int WorldWidthKm, int WorldHeightKm, double 
 	return FReply::Handled();
 }
 
-bool HMInterface::GetSpatialReference(OGRSpatialReference &InRs, FString File) {
-
-	GDALDataset* Dataset = (GDALDataset *) GDALOpen(TCHAR_TO_UTF8(*File), GA_ReadOnly);
-	if (!Dataset)
-	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("GetSpatialReferenceError", "Unable to open file {0} to read its spatial reference."),
-			FText::FromString(File)
-		));
-		return false;
-	}
-
-	return GetSpatialReference(InRs, Dataset);
-}
-
-bool HMInterface::GetSpatialReference(OGRSpatialReference& InRs, GDALDataset* Dataset)
-{
-	if (!Dataset)
-	{
-		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("GetSpatialReferenceError", "Unable to get spatial reference from dataset (null pointer).")
-		);
-		return false;
-	}
-
-    const char* ProjectionRef = Dataset->GetProjectionRef();
-	OGRErr Err = InRs.importFromWkt(ProjectionRef);
-
-    if (Err != OGRERR_NONE)
-    {
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("GetSpatialReferenceError2", "Unable to get spatial reference from dataset (error {0})."),
-			FText::AsNumber(Err)
-		));
-		return false;
-    }
-	InRs.SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
-
-	return true;
-}
-
-bool HMInterface::GetSpatialReferenceFromEPSG(OGRSpatialReference& InRs, int EPSG)
-{
-	OGRErr Err = InRs.importFromEPSG(EPSG);
-	if (Err != OGRERR_NONE)
-	{
-		FMessageDialog::Open(EAppMsgType::Ok,
-			FText::Format(
-				LOCTEXT("StartupModuleError1", "Could not create spatial reference from EPSG {0}: (Error {1})."),
-				FText::AsNumber(EPSG),
-				FText::AsNumber(Err)
-			)
-		);
-		return false;
-	}
-	InRs.SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
-	return true;
-}
-
 FReply HMInterface::DownloadHeightMaps(TFunction<void(bool)> OnComplete) const {
 	//FMessageDialog::Open(EAppMsgType::Ok,
 	//	FText::Format(
@@ -615,47 +323,10 @@ FReply HMInterface::DownloadHeightMaps(TFunction<void(bool)> OnComplete) const {
 	return DownloadHeightMapsImpl(OnComplete);
 }
 
-bool HMInterface::GetMinMaxZ(FVector2D &MinMaxZ) {
-
-	FVector LandscapeOrigin;
-	FVector LandscapeExtent;
-	Landscape->GetActorBounds(false, LandscapeOrigin, LandscapeExtent, true);
-
-	if (LandscapeExtent != FVector(0,0,0))
-	{
-		UE_LOG(LogLandscapeCombinator, Log, TEXT("GetMinMaxZ: Landscape %s has an extent."), *LandscapeLabel);
-		MinMaxZ.X = LandscapeOrigin.Z - LandscapeExtent.Z;
-		MinMaxZ.Y = LandscapeOrigin.Z + LandscapeExtent.Z;
-		return true;
-	}
-	else
-	{
-		UE_LOG(LogLandscapeCombinator, Log, TEXT("GetMinMaxZ: Landscape %s has no extent, so we will look for LandscapeStreamingProxy's."), *LandscapeLabel);
-		double MaxZ = -DBL_MAX;
-		double MinZ = DBL_MAX;
-		for (auto& LandscapeStreamingProxy : LandscapeStreamingProxies)
-		{
-			FVector LandscapeProxyOrigin;
-			FVector LandscapeProxyExtent;
-			LandscapeStreamingProxy->GetActorBounds(false, LandscapeProxyOrigin, LandscapeProxyExtent);
-			MaxZ = FMath::Max(MaxZ, LandscapeProxyOrigin.Z + LandscapeProxyExtent.Z);
-			MinZ = FMath::Min(MinZ, LandscapeProxyOrigin.Z - LandscapeProxyExtent.Z);
-		}
-
-		if (MaxZ != -DBL_MAX && MinZ != DBL_MAX)
-		{
-			MinMaxZ.X = MinZ;
-			MinMaxZ.Y = MaxZ;
-			return true;
-		}
-		else {
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-				LOCTEXT("GetMinMaxZError", "Could not compute Min and Max Z values for Landscape {0}."),
-				FText::FromString(LandscapeLabel)
-			));
-			return false;
-		}
-	}
+bool HMInterface::GetMinMaxZ(FVector2D &MinMaxZ)
+{
+	FVector2D UnusedMinMaxX, UnusedMinMaxY;
+	return LandscapeUtils::GetLandscapeBounds(Landscape, LandscapeStreamingProxies, UnusedMinMaxX, UnusedMinMaxY, MinMaxZ);
 }
 
 ALandscape* HMInterface::GetLandscapeFromLabel()
@@ -664,7 +335,6 @@ ALandscape* HMInterface::GetLandscapeFromLabel()
 	TArray<AActor*> Landscapes;
 	UGameplayStatics::GetAllActorsOfClass(World, ALandscape::StaticClass(), Landscapes);
 
-	UE_LOG(LogLandscapeCombinator, Log, TEXT("Searching for Landscape %s among %d landscapes"), *LandscapeLabel, Landscapes.Num());
 	for (auto& Landscape0 : Landscapes)
 	{
 		if (Landscape0->GetActorLabel().Equals(LandscapeLabel))
@@ -699,17 +369,7 @@ void HMInterface::SetLandscape(ALandscape *Landscape0)
 
 void HMInterface::SetLandscapeStreamingProxies()
 {
-	UWorld* World = GEditor->GetEditorWorldContext().World();
-
-	TArray<AActor*> LandscapeStreamingProxiesTemp;
-	UGameplayStatics::GetAllActorsOfClass(World, ALandscapeStreamingProxy::StaticClass(), LandscapeStreamingProxiesTemp);
-		
-	for (auto& LandscapeStreamingProxy0 : LandscapeStreamingProxiesTemp)
-	{
-		ALandscapeStreamingProxy* LandscapeStreamingProxy = Cast<ALandscapeStreamingProxy>(LandscapeStreamingProxy0);
-		if (LandscapeStreamingProxy->GetLandscapeActor() == Landscape)
-			LandscapeStreamingProxies.Add(LandscapeStreamingProxy);
-	}
+	LandscapeStreamingProxies = LandscapeUtils::GetLandscapeStreamingProxies(Landscape);
 }
 
 FReply HMInterface::AdjustLandscape(int WorldWidthKm, int WorldHeightKm, double ZScale, double WorldOriginX, double WorldOriginY)
@@ -828,8 +488,133 @@ FReply HMInterface::AdjustLandscape(int WorldWidthKm, int WorldHeightKm, double 
 	return FReply::Handled();
 }
 
+FReply HMInterface::DigOtherLandscapes(int WorldWidthKm, int WorldHeightKm, double ZScale, double WorldOriginX, double WorldOriginY)
+{
+	FGlobalTabmanager::Get()->TryInvokeTab(FTabId("LevelEditor"));
+
+	UWorld* World = GEditor->GetEditorWorldContext().World();
+	TArray<AActor*> OtherLandscapes;
+	UGameplayStatics::GetAllActorsOfClass(World, ALandscape::StaticClass(), OtherLandscapes);
+
+	FVector2d MinMaxX, MinMaxY, MinMaxZ;
+	if (!LandscapeUtils::GetLandscapeBounds(Landscape, LandscapeStreamingProxies, MinMaxX, MinMaxY, MinMaxZ))
+	{
+		return FReply::Unhandled();
+	}
+
+	double ExtentX = MinMaxX[1] - MinMaxX[0];
+	double ExtentY = MinMaxY[1] - MinMaxY[0];
+	
+	FHeightmapAccessor<false> HeightmapAccessor(Landscape->GetLandscapeInfo());
+
+	int32 SizeX = Landscape->ComputeComponentCounts().X * Landscape->ComponentSizeQuads + 1;
+	int32 SizeY = Landscape->ComputeComponentCounts().Y * Landscape->ComponentSizeQuads + 1;
+	uint16* HeightmapData = (uint16*) malloc(SizeX * SizeY * (sizeof uint16));
+	HeightmapAccessor.GetDataFast(0, 0, SizeX - 1, SizeY - 1, HeightmapData);
+
+	FVector GlobalTopLeft = FVector(MinMaxX[0], MinMaxY[0], 0);
+	FVector GlobalBottomRight = FVector(MinMaxX[1], MinMaxY[1], 0);
+
+	const FScopedTransaction Transaction(LOCTEXT("DigOtherLandscapes", "Digging Other Landscapes"));
+
+	for (auto& OtherLandscape0 : OtherLandscapes)
+	{
+		ALandscape *OtherLandscape = Cast<ALandscape>(OtherLandscape0);
+		if (OtherLandscape == Landscape) continue;
+
+		TArray<ALandscapeStreamingProxy*> OtherLandscapeStreamingProxies = LandscapeUtils::GetLandscapeStreamingProxies(OtherLandscape);
+
+		FVector2d OtherMinMaxX, OtherMinMaxY, OtherMinMaxZ;
+		if (!LandscapeUtils::GetLandscapeBounds(OtherLandscape, OtherLandscapeStreamingProxies, OtherMinMaxX, OtherMinMaxY, OtherMinMaxZ))
+		{
+			return FReply::Unhandled();
+		}
+
+		if (
+			MinMaxX[0] <= OtherMinMaxX[1] && OtherMinMaxX[0] <= MinMaxX[1] &&
+			MinMaxY[0] <= OtherMinMaxY[1] && OtherMinMaxY[0] <= MinMaxY[1]
+		)
+		{
+			FTransform OtherToGlobal = OtherLandscape->GetTransform();
+			FTransform GlobalToOther = OtherToGlobal.Inverse();
+			FVector OtherTopLeft = GlobalToOther.TransformPosition(GlobalTopLeft);
+			FVector OtherBottomRight = GlobalToOther.TransformPosition(GlobalBottomRight);
+			
+			FHeightmapAccessor<false> OtherHeightmapAccessor(OtherLandscape->GetLandscapeInfo());
+
+			// We are only interested in the heightmap data from `OtherLandscape` in the rectangle delimited by
+			// the `TopLeft` and `BottomRight` corners 
+			
+			int32 OtherTotalSizeX = OtherLandscape->ComputeComponentCounts().X * OtherLandscape->ComponentSizeQuads + 1;
+			int32 OtherTotalSizeY = OtherLandscape->ComputeComponentCounts().Y * OtherLandscape->ComponentSizeQuads + 1;
+			int32 OtherX1 = FMath::Min(OtherTotalSizeX, FMath::Max(0, OtherTopLeft.X + 2));
+			int32 OtherX2 = FMath::Min(OtherTotalSizeX, FMath::Max(0, OtherBottomRight.X - 2));
+			int32 OtherY1 = FMath::Min(OtherTotalSizeY, FMath::Max(0, OtherTopLeft.Y + 2));
+			int32 OtherY2 = FMath::Min(OtherTotalSizeY, FMath::Max(0, OtherBottomRight.Y - 2));
+			int32 OtherSizeX = OtherX2 - OtherX1 + 1;
+			int32 OtherSizeY = OtherY2 - OtherY1 + 1;
+
+			if (OtherSizeX <= 0 || OtherSizeY <= 0)
+			{
+				UE_LOG(LogLandscapeCombinator, Log, TEXT("Could not dig into Landscape %s"), *OtherLandscape->GetActorLabel());
+				continue;
+			}
+
+			UE_LOG(LogLandscapeCombinator, Log, TEXT("Digging into Landscape %s (MinX: %d, MaxX: %d, MinY: %d, MaxY: %d)"),
+				*OtherLandscape->GetActorLabel(), OtherX1, OtherX2, OtherY1, OtherY2
+			);
+
+			uint16* OtherOldHeightmapData = (uint16*) malloc(OtherSizeX * OtherSizeY * (sizeof uint16));
+			uint16* OtherNewHeightmapData = (uint16*) malloc(OtherSizeX * OtherSizeY * (sizeof uint16));
+			OtherHeightmapAccessor.GetDataFast(OtherX1, OtherY1, OtherX2, OtherY2, OtherOldHeightmapData);
+
+			for (int X = 0; X < OtherSizeX; X++)
+			{
+				for (int Y = 0; Y < OtherSizeY; Y++)
+				{
+					int ThisX = X * SizeX / OtherSizeX;
+					int ThisY = Y * SizeY / OtherSizeY;
+
+					// if this landscape has non-zero data at this position
+					if (ThisX >= 0 && ThisY >= 0 && ThisX < SizeX && ThisY < SizeY && HeightmapData[ThisX + ThisY * SizeX] > 0)
+					{
+						UE_LOG(LogLandscapeCombinator, Log, TEXT("Deleting data %d %d"), X, Y);
+						// we delete the data from the other landscape
+						OtherNewHeightmapData[X + Y * OtherSizeX] = 0;
+					}
+					else
+					{
+						UE_LOG(LogLandscapeCombinator, Log, TEXT("Keeping data %d %d"), X, Y);
+						// otherwise, we keep the old data
+						OtherNewHeightmapData[X + Y * OtherSizeX] = OtherOldHeightmapData[X + Y * OtherSizeX];
+					}
+					
+				}
+			}
+
+			OtherHeightmapAccessor.SetData(OtherX1, OtherY1, OtherX2, OtherY2, OtherNewHeightmapData);
+
+			UE_LOG(LogLandscapeCombinator, Log, TEXT("Finished digging into Landscape %s (MinX: %d, MaxX: %d, MinY: %d, MaxY: %d)"),
+				*OtherLandscape->GetActorLabel(), OtherX1, OtherX2, OtherY1, OtherY2
+			);
+		}
+		else
+		{
+			
+			UE_LOG(LogLandscapeCombinator, Log, TEXT("Skipping digging into Landscape %s, which does not overlap with Landscape %s"),
+				*OtherLandscape->GetActorLabel(),
+				*Landscape->GetActorLabel()
+			);
+		}
+
+	}
+
+	return FReply::Handled();
+}
+
 bool HMInterface::GetCoordinates4326(FVector4d& Coordinates)
-{	FVector4d OriginalCoordinates;	
+{
+	FVector4d OriginalCoordinates;	
 	if (!GetCoordinates(OriginalCoordinates)) return false;
 	
 	double MinCoordWidth0 = OriginalCoordinates[0];

@@ -4,6 +4,7 @@
 #include "Utils/Logging.h"
 #include "Utils/Console.h"
 #include "Utils/Concurrency.h"
+#include "Utils/GDALUtils.h"
 
 #include "Async/Async.h"
 #include "LandscapeStreamingProxy.h"
@@ -33,12 +34,12 @@ bool HMLocalFile::Initialize()
 
 bool HMLocalFile::GetDataSpatialReference(OGRSpatialReference &InRs) const
 {
-	return HMInterface::GetSpatialReference(InRs, OriginalFiles[0]);
+	return GDALUtils::GetSpatialReference(InRs, OriginalFiles[0]);
 }
 
 bool HMLocalFile::GetCoordinatesSpatialReference(OGRSpatialReference &InRs) const
 {
-	return HMInterface::GetSpatialReference(InRs, OriginalFiles[0]);
+	return GDALUtils::GetSpatialReference(InRs, OriginalFiles[0]);
 }
 
 FReply HMLocalFile::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) const

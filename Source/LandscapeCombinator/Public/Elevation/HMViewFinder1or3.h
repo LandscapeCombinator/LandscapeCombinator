@@ -9,8 +9,6 @@
 class HMViewFinder1or3 : public HMViewFinder
 {
 protected:
-	TArray<FString> MegaTiles;
-
 	bool Initialize() override;
 	int TileToX(FString Tile) const override;
 	int TileToY(FString Tile) const override;

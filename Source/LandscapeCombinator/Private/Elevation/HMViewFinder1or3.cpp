@@ -4,6 +4,7 @@
 #include "Utils/Concurrency.h"
 #include "Utils/Console.h"
 #include "Utils/Download.h"
+#include "Utils/Logging.h"
 
 #include "HAL/FileManagerGeneric.h"
 #include "Internationalization/Regex.h"
@@ -14,6 +15,7 @@
 HMViewFinder1or3::HMViewFinder1or3(FString LandscapeLabel0, const FText &KindText0, FString Descr0, int Precision0) :
 	HMViewFinder(LandscapeLabel0, KindText0, Descr0, Precision0)
 {
+	UE_LOG(LogLandscapeCombinator, Error, TEXT("constructing HMViewFinder1or3 %s %d"), *LandscapeLabel, MegaTiles.Num());
 }
 
 bool HMViewFinder1or3::Initialize()

@@ -5,6 +5,7 @@
 #include "Utils/Concurrency.h"
 #include "Utils/Console.h"
 #include "Utils/Download.h"
+#include "Utils/GDALUtils.h"
 
 #include "Async/Async.h"
 #include "LandscapeStreamingProxy.h"
@@ -20,6 +21,8 @@
 #include <atomic>
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
+
+using namespace GDALUtils;
 
 HMElevationAPI::HMElevationAPI(FString LandscapeLabel0, const FText &KindText0, FString Descr0, int Precision0) :
 		HMInterface(LandscapeLabel0, KindText0, Descr0, Precision0)
