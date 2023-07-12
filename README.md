@@ -15,9 +15,9 @@ real-world data in a few simple steps:
 
 When creating a landscape for a real-world location, the plugin will adjust its position and scale
 correctly in a planar world. You can thus create several real-world landscapes of various quality and
-have them placed and scaled correctly with respect to one another. In that case, the fact that
-you have multiple landscapes will be visible at the borders, unless you adjust the borders
-manually or hide them with static meshes (such as forests).
+have them placed and scaled correctly with respect to one another. In the places where the landscapes
+overlap, you can use a button to automatically flatten/erase data from the low quality landscape
+(with the `Dig` button explained below).
 
 
 ## Installation
@@ -43,8 +43,10 @@ For commercial projects, please check the Unreal Engine Marketplace.
 * Some heightmaps lines examples are already there for you to try, or you can add a new heightmap line
   using the heightmap provider of your choosing. Heightmap lines are saved automatically in the HeightMapListV1 file in the Saved directory of your project.
 * Press the `Create Landscape` button for the landscape(s) of your chosing.
-  Make sure there are no errors in the Output Log (in the LogLandscapeCombinator category).
-  You should see your landscape appear in your editor.
+  It might look like as if nothing is happening, because it can take a while to download and convert the heightmaps.
+  Please monitor the progress in the Output Log (in the LogLandscapeCombinator category) and make sure there are
+  no errors.
+  After a while, you should see your landscape appear in your editor.
 * Go to the `Landscape Mode` of Unreal Engine in order to paint the landscape. You can use the basic landscape material
   `MI_Landscape` provided by the plugin, which as an auto layer called `Mix` (with adjustable snow, grass, cliff, and road materials).
 * If you have created several landscapes that overlap, for instance a large one with few details, and a small one with many details,
