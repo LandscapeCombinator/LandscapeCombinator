@@ -2,9 +2,11 @@
 
 #include "Utils/Download.h"
 #include "Utils/Logging.h"
+#include "LandscapeCombinatorStyle.h"
 
 #include "Http.h"
 #include "Misc/FileHelper.h"
+#include "Widgets/Notifications/SProgressBar.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
@@ -147,6 +149,14 @@ void Download::FromURL(FString URL, FString File, TFunction<void(bool)> OnComple
 
 void Download::FromURLExpecting(FString URL, FString File, int32 ExpectedSize, TFunction<void(bool)> OnComplete)
 {
+	double *Downloaded = new double();
+
+
+	TSharedPtr<SWindow> Window = SNew(SWindow)
+		.SizingRule(ESizingRule::Autosized)
+		.AutoCenter(EAutoCenter::PrimaryWorkArea)
+		.Title(LOCTEXT("DownloadProgress", "Download Progress"));
+
 	IPlatformFile &PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 	if (PlatformFile.FileExists(*File) && ExpectedSize != 0 && PlatformFile.FileSize(*File) == ExpectedSize)
 	{
@@ -155,12 +165,16 @@ void Download::FromURLExpecting(FString URL, FString File, int32 ExpectedSize, T
 		return;
 	}
 
-	TSharedRef<IHttpRequest> Request = FHttpModule::Get().CreateRequest();
+	TSharedPtr<IHttpRequest> Request = FHttpModule::Get().CreateRequest().ToSharedPtr();
 	Request->SetURL(URL);
 	Request->SetVerb("GET");
 	Request->SetHeader("User-Agent", "X-UnrealEngine-Agent");
-	Request->OnProcessRequestComplete().BindLambda([URL, File, OnComplete](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
+	Request->OnRequestProgress().BindLambda([Downloaded](FHttpRequestPtr Request, int32 Sent, int32 Received) {
+		*Downloaded = Received;
+	});
+	Request->OnProcessRequestComplete().BindLambda([URL, File, OnComplete, Window](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
 	{
+		Window->RequestDestroyWindow();
 		IPlatformFile &PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 		bool DownloadSuccess = bWasSuccessful && Response.IsValid() && EHttpResponseCodes::IsOk(Response->GetResponseCode());
 		bool SavedFile = false;
@@ -180,11 +194,62 @@ void Download::FromURLExpecting(FString URL, FString File, int32 ExpectedSize, T
 		else
 		{
 			UE_LOG(LogLandscapeCombinator, Error, TEXT("Error while downloading '%s' to '%s'"), *URL, *File);
-			UE_LOG(LogLandscapeCombinator, Error, TEXT("Request was not successful. Error %d."), Response->GetResponseCode());
+			if (Response.IsValid())
+			{
+				UE_LOG(LogLandscapeCombinator, Error, TEXT("Request was not successful. Error %d."), Response->GetResponseCode());
+			}
 		}
 		if (OnComplete) OnComplete(DownloadSuccess && SavedFile);
 	});
+
+
 	Request->ProcessRequest();
+
+	Window->SetContent(
+		SNew(SBox).Padding(FMargin(30, 30, 30, 30))
+		[
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot().AutoHeight()
+			[
+				SNew(STextBlock).Text(
+					FText::Format(
+						LOCTEXT("DowloadingURL", "Dowloading {0} to {1}."),
+						FText::FromString(URL.Left(20)),
+						FText::FromString(File)
+					)
+				).Font(FLandscapeCombinatorStyle::RegularFont())
+			]
+			+SVerticalBox::Slot().AutoHeight().Padding(FMargin(0, 0, 0, 20))
+			[
+				SNew(SProgressBar)
+				.Percent_Lambda([Downloaded, ExpectedSize, Request]() {
+					if (ExpectedSize) return *Downloaded / ExpectedSize;
+					return *Downloaded / MAX_int32;
+				})
+				.RefreshRate(0.1)
+			]
+			+SVerticalBox::Slot().AutoHeight().HAlign(EHorizontalAlignment::HAlign_Center)
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot().AutoWidth().HAlign(EHorizontalAlignment::HAlign_Center)
+				[
+					SNew(SButton)
+					.OnClicked_Lambda([Window, Request]()->FReply {
+						Request->CancelRequest();
+						Window->RequestDestroyWindow();
+						return FReply::Handled();
+					})
+					[
+						SNew(STextBlock).Font(FLandscapeCombinatorStyle::RegularFont()).Text(FText::FromString(" Cancel "))
+					]
+				]
+			]
+		]
+	);
+	Window->SetOnWindowClosed(FOnWindowClosed::CreateLambda([Request](const TSharedRef<SWindow>& Window) {
+		Request->CancelRequest();
+	}));
+	FSlateApplication::Get().AddWindow(Window.ToSharedRef());
 }
 
 void Download::AddExpectedSize(FString URL, int32 ExpectedSize)
