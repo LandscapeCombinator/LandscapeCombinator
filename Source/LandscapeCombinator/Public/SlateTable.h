@@ -12,14 +12,16 @@ public:
 	TSharedPtr<SVerticalBox> Rows;
 	virtual void Save() = 0;
 	virtual void Load() = 0;
-	void AddRow(TSharedRef<SHorizontalBox> Row, bool bControlButtons, bool bSave, float Fill);
+	void AddRow(TSharedRef<SHorizontalBox> Row, bool bControlButtons, bool bSave);
 	virtual TSharedRef<SWidget> MakeTable();
 
 protected:
-	TArray<float> ColumnsSizes;
+	int ButtonWidth = 35;
 	virtual TSharedRef<SWidget> Header() = 0;
 	virtual TSharedRef<SWidget> Footer() = 0;
 	virtual void OnRemove(TSharedRef<SHorizontalBox> Line);
+	TSharedRef<SBox> ButtonBox(TSharedRef<SButton> Button);
+	EVisibility VisibleFrom(int Threshold) const;
 
 private:
 	int32 GetIndex(TSharedRef<SHorizontalBox> Row);

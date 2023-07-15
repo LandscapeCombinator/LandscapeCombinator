@@ -48,7 +48,7 @@ bool HMReprojected::GetCoordinatesSpatialReference(OGRSpatialReference &InRs) co
 	return GDALUtils::GetSpatialReference(InRs, OriginalFiles[0]);
 }
 
-FReply HMReprojected::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) const
+FReply HMReprojected::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete)
 {
 	Target->DownloadHeightMapsImpl([this, OnComplete](bool bWasSuccessful) {
 		if (bWasSuccessful)

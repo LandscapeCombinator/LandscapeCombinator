@@ -40,7 +40,7 @@ bool HMURL::GetCoordinatesSpatialReference(OGRSpatialReference &InRs) const
 	return GDALUtils::GetSpatialReference(InRs, Descr);
 }
 
-FReply HMURL::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) const
+FReply HMURL::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete)
 {
 	Download::FromURL(Descr, OriginalFiles[0], OnComplete);
 	return FReply::Handled();

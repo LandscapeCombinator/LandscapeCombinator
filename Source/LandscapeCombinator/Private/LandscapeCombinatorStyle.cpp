@@ -58,6 +58,11 @@ TSharedRef< FSlateStyleSet > FLandscapeCombinatorStyle::Create()
 	Style->Set("LandscapeCombinator.Import", new IMAGE_BRUSH_SVG(TEXT("Import"), Icon20x20));
 	Style->Set("LandscapeCombinator.Dig", new IMAGE_BRUSH_SVG(TEXT("Dig"), Icon20x20));
 
+	FButtonStyle ButtonStyle = FAppStyle::Get().GetWidgetStyle<FButtonStyle>(TEXT("Button"));
+	ButtonStyle.SetNormalPadding(FMargin(5, 2, 5, 2));
+	ButtonStyle.SetPressedPadding(FMargin(5, 2, 5, 2));
+	Style->Set("LandscapeCombinator.Button", ButtonStyle);
+
 	return Style;
 }
 

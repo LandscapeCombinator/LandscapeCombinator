@@ -19,7 +19,7 @@ protected:
 public:
 	HMSwissALTI3D(FString LandscapeLabel0, const FText &KindText0, FString Descr0, int Precision0);
 
-	FReply DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) const override;
+	FReply DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) override;
 };
 
 #undef LOCTEXT_NAMESPACE

@@ -35,7 +35,6 @@ TArray<TSharedPtr<FText>> RoadSources =
 
 RoadTable::RoadTable(HeightMapTable* HMTable0) : SlateTable()
 {
-	ColumnsSizes = { 0.07, 0.41, 0.08, 0.44 };
 	HMTable = HMTable0;
 	RoadListPluginFileV1  = FPaths::Combine(IPluginManager::Get().FindPlugin("LandscapeCombinator")->GetBaseDir(), "RoadListV1");
 	RoadListProjectFileV1 = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir()) / "RoadListV1";
@@ -153,28 +152,28 @@ void RoadTable::Load()
 TSharedRef<SWidget> RoadTable::Header()
 {
 	return SNew(SHorizontalBox)
-	+SHorizontalBox::Slot().FillWidth(ColumnsSizes[0])
+	+SHorizontalBox::Slot()
 	[
 		SNew(SEditableText)
 		.Text(LOCTEXT("TargetLandscape", "Target Landscape"))
 		.IsReadOnly(true)
 		.Font(FLandscapeCombinatorStyle::BoldFont())
 	]
-	+SHorizontalBox::Slot().FillWidth(ColumnsSizes[1])
+	+SHorizontalBox::Slot()
 	[
 		SNew(SEditableText)
 		.Text(LOCTEXT("Details", "Details"))
 		.IsReadOnly(true)
 		.Font(FLandscapeCombinatorStyle::BoldFont())
 	]
-	+SHorizontalBox::Slot().FillWidth(ColumnsSizes[2])
+	+SHorizontalBox::Slot()
 	[
 		SNew(SEditableText)
 		.Text(LOCTEXT("Create", "Create Roads"))
 		.IsReadOnly(true)
 		.Font(FLandscapeCombinatorStyle::BoldFont())
 	]
-	+SHorizontalBox::Slot().FillWidth(ColumnsSizes[3])
+	+SHorizontalBox::Slot()
 	;
 }
 
@@ -197,13 +196,13 @@ void RoadTable::AddRoadRow(FRoadBuilder* RoadBuilder, bool bSave)
 			.ToolTipText(LOCTEXT("AddRoads", "Add Roads to the target landscape"))
 		];
 	
-	Row->AddSlot().FillWidth(ColumnsSizes[0])[ LandscapeLabelBlock ];
-	Row->AddSlot().FillWidth(ColumnsSizes[1])[ DetailsBlock ];
-	Row->AddSlot().FillWidth(ColumnsSizes[2])[
+	Row->AddSlot()[ LandscapeLabelBlock ];
+	Row->AddSlot()[ DetailsBlock ];
+	Row->AddSlot()[
 		SNew(SHorizontalBox)
-		+SHorizontalBox::Slot().AutoWidth() [ CreateRoadsButton ]
+		+SHorizontalBox::Slot().AutoWidth() [ ButtonBox(CreateRoadsButton) ]
 	];
-	AddRow(Row, true, bSave, ColumnsSizes[3]);
+	AddRow(Row, true, bSave);
 }
 
 TSharedRef<SWidget> RoadTable::Footer()
@@ -347,7 +346,7 @@ TSharedRef<SWidget> RoadTable::Footer()
 	Result->AddSlot().MaxWidth(1000).Padding(FMargin(0, 0, 20, 0)) [ XmlPathBlock ];
 	Result->AddSlot().MaxWidth(1000).Padding(FMargin(0, 0, 20, 0)) [ OverpassBlock ];
 	Result->AddSlot().MaxWidth(1000).Padding(FMargin(0, 0, 20, 0)) [ OverpassShortBlock ];
-	Result->AddSlot().MaxWidth(50).Padding(FMargin(0, 0, 20, 0)) [ AddButton ];
+	Result->AddSlot().AutoWidth().Padding(FMargin(0, 0, 20, 0))[ButtonBox(AddButton)];
 
 	return Result;
 }

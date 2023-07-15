@@ -309,7 +309,8 @@ FReply HMInterface::CreateLandscape(int WorldWidthKm, int WorldHeightKm, double 
 	return FReply::Handled();
 }
 
-FReply HMInterface::DownloadHeightMaps(TFunction<void(bool)> OnComplete) const {
+FReply HMInterface::DownloadHeightMaps(TFunction<void(bool)> OnComplete)
+{
 	//FMessageDialog::Open(EAppMsgType::Ok,
 	//	FText::Format(
 	//		LOCTEXT("DownloadingMessage",
@@ -348,6 +349,8 @@ ALandscape* HMInterface::GetLandscapeFromLabel()
 
 bool HMInterface::SetLandscapeFromLabel()
 {
+	Landscape = NULL;
+	LandscapeStreamingProxies.Empty();
 	ALandscape* Landscape0 = GetLandscapeFromLabel();
 	if (Landscape0)
 	{
@@ -374,16 +377,13 @@ void HMInterface::SetLandscapeStreamingProxies()
 
 FReply HMInterface::AdjustLandscape(int WorldWidthKm, int WorldHeightKm, double ZScale, double WorldOriginX, double WorldOriginY)
 {
-	if (!Landscape)
+	if (!SetLandscapeFromLabel())
 	{
-		if (!SetLandscapeFromLabel())
-		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-				LOCTEXT("AdjustLandscapeTransformError", "Could not find Landscape {0}"),
-				FText::FromString(LandscapeLabel)
-			));
-			return FReply::Unhandled();
-		}
+		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			LOCTEXT("LandscapeNotFoundError", "Could not find Landscape {0}"),
+			FText::FromString(LandscapeLabel)
+		));
+		return FReply::Unhandled();
 	}
 
 	double WorldWidthCm  = ((double) WorldWidthKm)  * 1000 * 100;
@@ -490,14 +490,23 @@ FReply HMInterface::AdjustLandscape(int WorldWidthKm, int WorldHeightKm, double 
 
 FReply HMInterface::DigOtherLandscapes(int WorldWidthKm, int WorldHeightKm, double ZScale, double WorldOriginX, double WorldOriginY)
 {
+	if (!SetLandscapeFromLabel())
+	{
+		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			LOCTEXT("LandscapeNotFoundError", "Could not find Landscape {0}"),
+			FText::FromString(LandscapeLabel)
+		));
+		return FReply::Unhandled();
+	}
+
 	FGlobalTabmanager::Get()->TryInvokeTab(FTabId("LevelEditor"));
 
 	UWorld* World = GEditor->GetEditorWorldContext().World();
 	TArray<AActor*> OtherLandscapes;
 	UGameplayStatics::GetAllActorsOfClass(World, ALandscape::StaticClass(), OtherLandscapes);
 
-	FVector2d MinMaxX, MinMaxY, MinMaxZ;
-	if (!LandscapeUtils::GetLandscapeBounds(Landscape, LandscapeStreamingProxies, MinMaxX, MinMaxY, MinMaxZ))
+	FVector2d MinMaxX, MinMaxY, UnusedMinMaxZ;
+	if (!LandscapeUtils::GetLandscapeBounds(Landscape, LandscapeStreamingProxies, MinMaxX, MinMaxY, UnusedMinMaxZ))
 	{
 		return FReply::Unhandled();
 	}
@@ -512,8 +521,12 @@ FReply HMInterface::DigOtherLandscapes(int WorldWidthKm, int WorldHeightKm, doub
 	uint16* HeightmapData = (uint16*) malloc(SizeX * SizeY * (sizeof uint16));
 	HeightmapAccessor.GetDataFast(0, 0, SizeX - 1, SizeY - 1, HeightmapData);
 
+
 	FVector GlobalTopLeft = FVector(MinMaxX[0], MinMaxY[0], 0);
 	FVector GlobalBottomRight = FVector(MinMaxX[1], MinMaxY[1], 0);
+
+	FTransform ThisToGlobal = Landscape->GetTransform();
+	FTransform GlobalToThis = ThisToGlobal.Inverse();
 
 	const FScopedTransaction Transaction(LOCTEXT("DigOtherLandscapes", "Digging Other Landscapes"));
 
@@ -524,8 +537,8 @@ FReply HMInterface::DigOtherLandscapes(int WorldWidthKm, int WorldHeightKm, doub
 
 		TArray<ALandscapeStreamingProxy*> OtherLandscapeStreamingProxies = LandscapeUtils::GetLandscapeStreamingProxies(OtherLandscape);
 
-		FVector2d OtherMinMaxX, OtherMinMaxY, OtherMinMaxZ;
-		if (!LandscapeUtils::GetLandscapeBounds(OtherLandscape, OtherLandscapeStreamingProxies, OtherMinMaxX, OtherMinMaxY, OtherMinMaxZ))
+		FVector2d OtherMinMaxX, OtherMinMaxY, UnusedOtherMinMaxZ;
+		if (!LandscapeUtils::GetLandscapeBounds(OtherLandscape, OtherLandscapeStreamingProxies, OtherMinMaxX, OtherMinMaxY, UnusedOtherMinMaxZ))
 		{
 			return FReply::Unhandled();
 		}
@@ -547,10 +560,10 @@ FReply HMInterface::DigOtherLandscapes(int WorldWidthKm, int WorldHeightKm, doub
 			
 			int32 OtherTotalSizeX = OtherLandscape->ComputeComponentCounts().X * OtherLandscape->ComponentSizeQuads + 1;
 			int32 OtherTotalSizeY = OtherLandscape->ComputeComponentCounts().Y * OtherLandscape->ComponentSizeQuads + 1;
-			int32 OtherX1 = FMath::Min(OtherTotalSizeX, FMath::Max(0, OtherTopLeft.X + 2));
-			int32 OtherX2 = FMath::Min(OtherTotalSizeX, FMath::Max(0, OtherBottomRight.X - 2));
-			int32 OtherY1 = FMath::Min(OtherTotalSizeY, FMath::Max(0, OtherTopLeft.Y + 2));
-			int32 OtherY2 = FMath::Min(OtherTotalSizeY, FMath::Max(0, OtherBottomRight.Y - 2));
+			int32 OtherX1 = FMath::Min(OtherTotalSizeX - 1, FMath::Max(0, OtherTopLeft.X + 2));
+			int32 OtherX2 = FMath::Min(OtherTotalSizeX - 1, FMath::Max(0, OtherBottomRight.X - 2));
+			int32 OtherY1 = FMath::Min(OtherTotalSizeY - 1, FMath::Max(0, OtherTopLeft.Y + 2));
+			int32 OtherY2 = FMath::Min(OtherTotalSizeY - 1, FMath::Max(0, OtherBottomRight.Y - 2));
 			int32 OtherSizeX = OtherX2 - OtherX1 + 1;
 			int32 OtherSizeY = OtherY2 - OtherY1 + 1;
 
@@ -572,19 +585,21 @@ FReply HMInterface::DigOtherLandscapes(int WorldWidthKm, int WorldHeightKm, doub
 			{
 				for (int Y = 0; Y < OtherSizeY; Y++)
 				{
-					int ThisX = X * SizeX / OtherSizeX;
-					int ThisY = Y * SizeY / OtherSizeY;
+					FVector OtherPosition = FVector(OtherX1 + X, OtherY1 + Y, 0);
+					FVector GlobalPosition = OtherToGlobal.TransformPosition(OtherPosition);
+					FVector ThisPosition = GlobalToThis.TransformPosition(GlobalPosition);
+
+					int ThisX = ThisPosition.X;
+					int ThisY = ThisPosition.Y;
 
 					// if this landscape has non-zero data at this position
 					if (ThisX >= 0 && ThisY >= 0 && ThisX < SizeX && ThisY < SizeY && HeightmapData[ThisX + ThisY * SizeX] > 0)
 					{
-						UE_LOG(LogLandscapeCombinator, Log, TEXT("Deleting data %d %d"), X, Y);
 						// we delete the data from the other landscape
 						OtherNewHeightmapData[X + Y * OtherSizeX] = 0;
 					}
 					else
 					{
-						UE_LOG(LogLandscapeCombinator, Log, TEXT("Keeping data %d %d"), X, Y);
 						// otherwise, we keep the old data
 						OtherNewHeightmapData[X + Y * OtherSizeX] = OtherOldHeightmapData[X + Y * OtherSizeX];
 					}
@@ -600,7 +615,6 @@ FReply HMInterface::DigOtherLandscapes(int WorldWidthKm, int WorldHeightKm, doub
 		}
 		else
 		{
-			
 			UE_LOG(LogLandscapeCombinator, Log, TEXT("Skipping digging into Landscape %s, which does not overlap with Landscape %s"),
 				*OtherLandscape->GetActorLabel(),
 				*Landscape->GetActorLabel()

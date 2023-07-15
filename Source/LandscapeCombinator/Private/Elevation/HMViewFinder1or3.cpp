@@ -15,7 +15,6 @@
 HMViewFinder1or3::HMViewFinder1or3(FString LandscapeLabel0, const FText &KindText0, FString Descr0, int Precision0) :
 	HMViewFinder(LandscapeLabel0, KindText0, Descr0, Precision0)
 {
-	UE_LOG(LogLandscapeCombinator, Error, TEXT("constructing HMViewFinder1or3 %s %d"), *LandscapeLabel, MegaTiles.Num());
 }
 
 bool HMViewFinder1or3::Initialize()
@@ -33,42 +32,6 @@ bool HMViewFinder1or3::Initialize()
 		return false;
 	}
 
-    for (auto &MegaTile0 : MegaTiles)
-	{
-		FString MegaTile = MegaTile0.TrimStartAndEnd();
-		FString ArchiveFolder = FPaths::Combine(InterfaceDir, MegaTile);
-		FString AllExt = FString("*");
-		FString SubFoldersPath = FPaths::Combine(ArchiveFolder, AllExt);
-		TArray<FString> SubFolders;
-		FFileManagerGeneric::Get().FindFiles(SubFolders, *SubFoldersPath, false, true);
-
-		for (auto &SubFolder : SubFolders)
-		{
-
-			FString HGTExt = FString("*.hgt");
-			FString HGT = FPaths::Combine(ArchiveFolder, SubFolder, HGTExt);
-
-			TArray<FString> SomeTiles;
-			FFileManagerGeneric::Get().FindFiles(SomeTiles, *HGT, true, false);
-
-			for (auto &Tile : SomeTiles)
-			{
-				FString TileFile = FPaths::Combine(ArchiveFolder, SubFolder, Tile);
-				Tiles.Add(Tile);
-				OriginalFiles.Add(TileFile);
-			}
-		}
-	}
-
-	InitializeMinMaxTiles(); // must be called after `Tiles` has been filled
-
-
-	for (auto &Tile : Tiles)
-	{
-		FString ScaledFile = FPaths::Combine(ResultDir, FString::Format(TEXT("{0}.png"), { RenameWithPrecision(Tile) }));
-		ScaledFiles.Add(ScaledFile);
-	}
-
 	return true;
 }
 
@@ -80,6 +43,56 @@ bool HMViewFinder1or3::GetCoordinatesSpatialReference(OGRSpatialReference &InRs)
 bool HMViewFinder1or3::GetDataSpatialReference(OGRSpatialReference &InRs) const
 {
 	return GetSpatialReferenceFromEPSG(InRs, 4326);
+}
+
+FReply HMViewFinder1or3::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete)
+{
+	HMViewFinder::DownloadHeightMapsImpl([OnComplete, this](bool bWasSuccessful) {
+		if (!bWasSuccessful)
+		{
+			OnComplete(false);
+			return;
+		}
+		for (auto& MegaTile0 : MegaTiles)
+		{
+			FString MegaTile = MegaTile0.TrimStartAndEnd();
+			FString ArchiveFolder = FPaths::Combine(InterfaceDir, MegaTile);
+			FString AllExt = FString("*");
+			FString SubFoldersPath = FPaths::Combine(ArchiveFolder, AllExt);
+			TArray<FString> SubFolders;
+			FFileManagerGeneric::Get().FindFiles(SubFolders, *SubFoldersPath, false, true);
+
+			for (auto& SubFolder : SubFolders)
+			{
+
+				FString HGTExt = FString("*.hgt");
+				FString HGT = FPaths::Combine(ArchiveFolder, SubFolder, HGTExt);
+
+				TArray<FString> SomeTiles;
+				FFileManagerGeneric::Get().FindFiles(SomeTiles, *HGT, true, false);
+
+				for (auto& Tile : SomeTiles)
+				{
+					FString TileFile = FPaths::Combine(ArchiveFolder, SubFolder, Tile);
+					Tiles.Add(Tile);
+					OriginalFiles.Add(TileFile);
+				}
+			}
+		}
+
+		HMInterfaceTiles::InitializeMinMaxTiles(); // must be called after `Tiles` has been filled
+
+
+		for (auto& Tile : Tiles)
+		{
+			FString ScaledFile = FPaths::Combine(ResultDir, FString::Format(TEXT("{0}.png"), { RenameWithPrecision(Tile) }));
+			ScaledFiles.Add(ScaledFile);
+		}
+
+		OnComplete(true);
+		return;
+	});
+	return FReply::Handled();
 }
 
 int HMViewFinder1or3::TileToX(FString Tile) const

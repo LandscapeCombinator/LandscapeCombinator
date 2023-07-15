@@ -18,7 +18,7 @@ protected:
 
 public:
 	HMViewFinder1or3(FString LandscapeLabel0, const FText &KindText0, FString Descr0, int Precision0);
-
+	FReply DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) override;
 };
 
 #undef LOCTEXT_NAMESPACE

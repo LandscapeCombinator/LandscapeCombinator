@@ -17,6 +17,7 @@
 #include "LandscapeCombinatorStyle.h"
 #include "GlobalSettings.h"
 #include "Interfaces/IPluginManager.h"
+#include "Editor.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
@@ -51,49 +52,51 @@ HeightMapTable::HeightMapTable() : SlateTable()
 	HeightMapListProjectFileV0 = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir()) / "HeightMapList";
 	HeightMapListPluginFileV1  = FPaths::Combine(IPluginManager::Get().FindPlugin("LandscapeCombinator")->GetBaseDir(), "HeightMapListV1");
 	HeightMapListProjectFileV1 = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir()) / "HeightMapListV1";
-	ColumnsSizes = { 0.07, 0.08, 0.43, 0.06, 0.08, 0.08, 0.2 }; // total: 100
 }
 
 TSharedRef<SWidget> HeightMapTable::Header()
 {
 	return SNew(SHorizontalBox)
-	+SHorizontalBox::Slot().FillWidth(ColumnsSizes[0])[
+	+SHorizontalBox::Slot().FillWidth(1).Padding(FMargin(0, 0, 20, 0))[
 		SNew(SEditableText)
 		.Text(LOCTEXT("LandscapeLabel", "Landscape Label"))
 		.IsReadOnly(true)
 		.Font(FLandscapeCombinatorStyle::BoldFont())
 	]
-	+SHorizontalBox::Slot().FillWidth(ColumnsSizes[1])[
+	+SHorizontalBox::Slot().FillWidth(1).Padding(FMargin(0, 0, 20, 0))[
 		SNew(SEditableText)
 		.Text(LOCTEXT("HMProvider", "Heightmap Provider"))
 		.IsReadOnly(true)
 		.Font(FLandscapeCombinatorStyle::BoldFont())
+		.Visibility_Raw(this, &HeightMapTable::VisibleFrom, 1000)
 	]
-	+SHorizontalBox::Slot().FillWidth(ColumnsSizes[2])[
+	+SHorizontalBox::Slot().FillWidth(3).Padding(FMargin(0, 0, 20, 0))[
 		SNew(SEditableText)
 		.Text(LOCTEXT("HMDetails", "Heightmap Details"))
 		.IsReadOnly(true)
 		.Font(FLandscapeCombinatorStyle::BoldFont())
+		.Visibility_Raw(this, &HeightMapTable::VisibleFrom, 1500)
 	]
-	+SHorizontalBox::Slot().FillWidth(ColumnsSizes[3])[
+	+SHorizontalBox::Slot().FillWidth(0.5)[
 		SNew(SEditableText)
-		.Text(LOCTEXT("Precision", "Precision (%)"))
+		.Text(LOCTEXT("Precision", "Precision"))
+		.IsReadOnly(true)
+		.Font(FLandscapeCombinatorStyle::BoldFont())
+		.Visibility_Raw(this, &HeightMapTable::VisibleFrom, 1300)
+	]
+	+SHorizontalBox::Slot().FillWidth(0.5)[
+		SNew(SEditableText)
+		.Text(LOCTEXT("Reproject", "Reproject"))
+		.IsReadOnly(true)
+		.Font(FLandscapeCombinatorStyle::BoldFont())
+		.Visibility_Raw(this, &HeightMapTable::VisibleFrom, 1300)
+	]
+	+SHorizontalBox::Slot().FillWidth(2)[
+		SNew(SEditableText)
+		.Text(LOCTEXT("LandscapeControls", "Landscape Controls"))
 		.IsReadOnly(true)
 		.Font(FLandscapeCombinatorStyle::BoldFont())
 	]
-	+SHorizontalBox::Slot().FillWidth(ColumnsSizes[4])[
-		SNew(SEditableText)
-		.Text(LOCTEXT("Reproject", "Reproject to EPSG:4326"))
-		.IsReadOnly(true)
-		.Font(FLandscapeCombinatorStyle::BoldFont())
-	]
-	+SHorizontalBox::Slot().FillWidth(ColumnsSizes[5])[
-		SNew(SEditableText)
-		.Text(LOCTEXT("Create", "Create Landscape"))
-		.IsReadOnly(true)
-		.Font(FLandscapeCombinatorStyle::BoldFont())
-	]
-	+SHorizontalBox::Slot().FillWidth(ColumnsSizes[6])
 	;
 }
 
@@ -155,15 +158,15 @@ TSharedRef<SWidget> HeightMapTable::Footer()
 			.Image(FLandscapeCombinatorStyle::Get().GetBrush("LandscapeCombinator.Add"))
 			.ToolTipText(LOCTEXT("AddLine", "Add Heightmap Row"))
 		];
+
 		
-	Row->AddSlot().FillWidth(0.10).Padding(FMargin(0, 0, 10, 0))[ AddMessageBlock ];
-	Row->AddSlot().FillWidth(0.08).Padding(FMargin(0, 0, 10, 0))[ LandscapeLabelBlock ];
-	Row->AddSlot().FillWidth(0.10).Padding(FMargin(0, 0, 10, 0))[ KindSelector ];
-	Row->AddSlot().FillWidth(0.40).Padding(FMargin(0, 0, 10, 0))[ DescrBlock ];
-	Row->AddSlot().FillWidth(0.06).Padding(FMargin(0, 0, 10, 0))[ PrecisionBlock ];
-	Row->AddSlot().FillWidth(0.01).Padding(FMargin(0, 0, 10, 0))[ ReprojectionCheckBox ];
-	Row->AddSlot().FillWidth(0.02).Padding(FMargin(0, 0, 10, 0))[ AddButton ];
-	Row->AddSlot().FillWidth(0.18);
+	Row->AddSlot().Padding(FMargin(0, 0, 10, 0))[ AddMessageBlock ];
+	Row->AddSlot().Padding(FMargin(0, 0, 10, 0))[ LandscapeLabelBlock ];
+	Row->AddSlot().Padding(FMargin(0, 0, 10, 0))[ KindSelector ];
+	Row->AddSlot().Padding(FMargin(0, 0, 10, 0))[ DescrBlock ];
+	Row->AddSlot().Padding(FMargin(0, 0, 10, 0))[ PrecisionBlock ];
+	Row->AddSlot().Padding(FMargin(0, 0, 10, 0))[ ReprojectionCheckBox ];
+	Row->AddSlot().AutoWidth().Padding(FMargin(0, 0, 10, 0))[ ButtonBox(AddButton) ];
 
 	return Row;
 }
@@ -189,7 +192,8 @@ HMInterface* HeightMapTable::InterfaceFromKind(FString LandscapeLabel0, const FT
 	else if (KindText0.EqualTo(ElevationAPIText)) return new HMElevationAPI(LandscapeLabel0, KindText0, Descr0, Precision0);
 	else if (KindText0.EqualTo(LocalFileText)) return new HMLocalFile(LandscapeLabel0, KindText0, Descr0, Precision0);
 	else if (KindText0.EqualTo(URLText)) return new HMURL(LandscapeLabel0, KindText0, Descr0, Precision0);
-	else {
+	else
+	{
 		FMessageDialog::Open(EAppMsgType::Ok,
 			FText::Format(
 				LOCTEXT("InterfaceFromKindError", "Internal error: heightmap kind '{0}' is not supprted."),
@@ -213,7 +217,8 @@ FText HeightMapTable::DescriptionFromKind(const FText& KindText0)
 	else return FText();
 }
 
-bool HeightMapTable::KindSupportsReprojection(const FText& KindText0) {
+bool HeightMapTable::KindSupportsReprojection(const FText& KindText0)
+{
 	return KindText0.EqualTo(RGEAltiText) || KindText0.EqualTo(ElevationAPIText) || KindText0.EqualTo(LocalFileText)
 		|| KindText0.EqualTo(URLText) || KindText0.EqualTo(SwissALTI3DText);
 }
@@ -366,10 +371,26 @@ void HeightMapTable::AddHeightMapRow(FString LandscapeLabel, const FText& KindTe
 
 	TSharedRef<SHorizontalBox> Row = SNew(SHorizontalBox);
 	TSharedRef<SEditableText> LandscapeLabelBlock = SNew(SEditableText).Text(FText::FromString(LandscapeLabel)).IsReadOnly(true).Font(FLandscapeCombinatorStyle::RegularFont());
-	TSharedRef<SEditableText> KindTextBlock = SNew(SEditableText).Text(KindText).IsReadOnly(true).Font(FLandscapeCombinatorStyle::RegularFont());
-	TSharedRef<SEditableText> DescrBlock = SNew(SEditableText).Text(FText::FromString(Descr)).IsReadOnly(true).Font(FLandscapeCombinatorStyle::RegularFont());
-	TSharedRef<SEditableText> PrecisionBlock = SNew(SEditableText).Text(FText::FromString(FString::Format(TEXT("{0}%"), { Precision }))).IsReadOnly(true).Font(FLandscapeCombinatorStyle::RegularFont());
-	TSharedRef<SEditableText> ReprojectBlock = SNew(SEditableText).Text(FText::FromString(bReproject ? "Yes" : "No")).IsReadOnly(true).Font(FLandscapeCombinatorStyle::RegularFont());
+
+	TSharedRef<SEditableText> KindTextBlock =
+		SNew(SEditableText)
+		.Text(KindText).IsReadOnly(true).Font(FLandscapeCombinatorStyle::RegularFont())
+		.Visibility_Raw(this, &HeightMapTable::VisibleFrom, 1000);
+
+	TSharedRef<SEditableText> DescrBlock =
+		SNew(SEditableText)
+		.Text(FText::FromString(Descr)).IsReadOnly(true).Font(FLandscapeCombinatorStyle::RegularFont())
+		.Visibility_Raw(this, &HeightMapTable::VisibleFrom, 1500);
+
+	TSharedRef<SEditableText> PrecisionBlock = SNew(SEditableText)
+		.Text(FText::FromString(FString::Format(TEXT("{0}%"), { Precision })))
+		.IsReadOnly(true).Font(FLandscapeCombinatorStyle::RegularFont())
+		.Visibility_Raw(this, &HeightMapTable::VisibleFrom, 1300);
+
+	TSharedRef<SEditableText> ReprojectBlock =
+		SNew(SEditableText)
+		.Text(FText::FromString(bReproject ? "Yes" : "No")).IsReadOnly(true).Font(FLandscapeCombinatorStyle::RegularFont())
+		.Visibility_Raw(this, &HeightMapTable::VisibleFrom, 1300);
 
 	TSharedRef<SButton> DownloadButton = SNew(SButton)
 		.OnClicked_Lambda([Interface]()->FReply {
@@ -475,23 +496,20 @@ void HeightMapTable::AddHeightMapRow(FString LandscapeLabel, const FText& KindTe
 			SNew(SImage).Image(FLandscapeCombinatorStyle::Get().GetBrush("LandscapeCombinator.Dig"))
 			.ToolTipText(LOCTEXT("Dig", "Dig a hole in all other landscapes that overlap with this one"))
 		];
-	
-	Row->AddSlot().FillWidth(ColumnsSizes[0])[ LandscapeLabelBlock ];
-	Row->AddSlot().FillWidth(ColumnsSizes[1])[ KindTextBlock ];
-	Row->AddSlot().FillWidth(ColumnsSizes[2])[ DescrBlock ];
-	Row->AddSlot().FillWidth(ColumnsSizes[3])[ PrecisionBlock ];
-	Row->AddSlot().FillWidth(ColumnsSizes[4])[ ReprojectBlock ];
-	//Row->AddSlot().FillWidth(0.02)[ DownloadButton ];
-	//Row->AddSlot().FillWidth(0.02)[ ConvertButton ];
-	//Row->AddSlot().FillWidth(0.02)[ ImportButton ];
-	Row->AddSlot().FillWidth(ColumnsSizes[5])[
+
+	Row->AddSlot().FillWidth(1).Padding(FMargin(0, 0, 20, 0))[ LandscapeLabelBlock ];
+	Row->AddSlot().FillWidth(1).Padding(FMargin(0, 0, 20, 0))[ KindTextBlock ];
+	Row->AddSlot().FillWidth(3).Padding(FMargin(0, 0, 20, 0))[ DescrBlock ];
+	Row->AddSlot().FillWidth(0.5)[ PrecisionBlock ];
+	Row->AddSlot().FillWidth(0.5)[ ReprojectBlock ];
+	Row->AddSlot().FillWidth(1)[
 		SNew(SHorizontalBox)
-		+SHorizontalBox::Slot().AutoWidth() [ CreateLandscapeButton ]
-		+SHorizontalBox::Slot().AutoWidth() [ AdjustButton ]
-		+SHorizontalBox::Slot().AutoWidth() [ DigButton ]
+		+SHorizontalBox::Slot().AutoWidth() [ ButtonBox(CreateLandscapeButton) ]
+		+SHorizontalBox::Slot().AutoWidth() [ ButtonBox(AdjustButton) ]
+		+SHorizontalBox::Slot().AutoWidth() [ ButtonBox(DigButton) ]
 	];
 
-	AddRow(Row, true, bSave, ColumnsSizes[6]);
+	AddRow(Row, true, bSave);
 }
 
 #undef LOCTEXT_NAMESPACE

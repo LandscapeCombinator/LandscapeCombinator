@@ -25,9 +25,9 @@ public:
 	TArray<FString> OriginalFiles;
 	TArray<FString> ScaledFiles;
 	virtual bool Initialize();
-	FReply DownloadHeightMaps(TFunction<void(bool)> OnComplete) const;
+	virtual FReply DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) = 0;
+	FReply DownloadHeightMaps(TFunction<void(bool)> OnComplete);
 	bool GetMinMaxZ(FVector2D& MinMaxZ);
-	virtual FReply DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) const = 0;
 	FReply ConvertHeightMaps(TFunction<void(bool)> OnComplete) const;
 	FReply ImportHeightMaps();
 	FReply CreateLandscape(int WorldWidthKm, int WorldHeightKm, double ZScale, double WorldOriginX, double WorldOriginY, TFunction<void(bool)> OnComplete);

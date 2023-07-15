@@ -39,7 +39,7 @@ bool Download::SynchronousFromURL(FString URL, FString File)
 		int32 ExpectedSize = 0;
 		
 		bool *bTriggered = new bool(false);
-		Request->OnProcessRequestComplete().BindLambda([URL, File, &ExpectedSize, &bIsComplete, &bTriggered](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful) {
+		Request->OnProcessRequestComplete().BindLambda([URL, File, &ExpectedSize, &bIsComplete, bTriggered](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful) {
 			if (*bTriggered) return;
 			*bTriggered = true;
 			if (bWasSuccessful && Response.IsValid() && EHttpResponseCodes::IsOk(Response->GetResponseCode()))
@@ -79,7 +79,7 @@ bool Download::SynchronousFromURLExpecting(FString URL, FString File, int32 Expe
 	Request->SetVerb("GET");
 	Request->SetHeader("User-Agent", "X-UnrealEngine-Agent");
 	bool *bTriggered = new bool(false);
-	Request->OnProcessRequestComplete().BindLambda([URL, File, &bDownloadResult, &bIsComplete, &bTriggered](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
+	Request->OnProcessRequestComplete().BindLambda([URL, File, &bDownloadResult, &bIsComplete, bTriggered](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
 	{
 		if (*bTriggered) return;
 		*bTriggered = true;
@@ -142,7 +142,7 @@ void Download::FromURL(FString URL, FString File, TFunction<void(bool)> OnComple
 		Request->SetVerb("HEAD");
 		Request->SetHeader("User-Agent", "X-UnrealEngine-Agent");
 		bool *bTriggered = new bool(false);
-		Request->OnProcessRequestComplete().BindLambda([URL, File, OnComplete, &bTriggered](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful) {
+		Request->OnProcessRequestComplete().BindLambda([URL, File, OnComplete, bTriggered](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful) {
 			if (*bTriggered) return;
 			*bTriggered = true;
 
