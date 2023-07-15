@@ -19,6 +19,15 @@
 
 ALandscape* LandscapeUtils::SpawnLandscape(TArray<FString> Heightmaps, FString LandscapeLabel)
 {
+	if (Heightmaps.IsEmpty())
+	{
+		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			LOCTEXT("SpawnLandscapeError", "Internal Landscape Combinator error while spawning landscape {0}. No heightmap found."),
+			FText::FromString(LandscapeLabel)
+		));
+		return NULL;
+	}
+
 	FString HeightmapsString = FString::Join(Heightmaps,TEXT(" "));
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("Importing heightmaps for Landscape %s from %s"), *LandscapeLabel, *HeightmapsString);
 
@@ -35,10 +44,9 @@ ALandscape* LandscapeUtils::SpawnLandscape(TArray<FString> Heightmaps, FString L
 
 	if (Heightmaps.Num() > 1 && !bIsGridBased)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("GetHeightmapImportDescriptorError", "You must enable World Partition to be able to import multiple heightmap files."),
-			FText::FromString(HeightmapFile)
-		));
+		FMessageDialog::Open(EAppMsgType::Ok,
+			LOCTEXT("GetHeightmapImportDescriptorError", "You must enable World Partition to be able to import multiple heightmap files.")
+		);
 		return NULL;
 	}
 
@@ -47,7 +55,8 @@ ALandscape* LandscapeUtils::SpawnLandscape(TArray<FString> Heightmaps, FString L
 		FRegexPattern XYPattern(TEXT("(.*)_x\\d+_y\\d+(\\.[^.]+)"));
 		FRegexMatcher XYMatcher(XYPattern, HeightmapFile);
 
-		if (!XYMatcher.FindNext()) {
+		if (!XYMatcher.FindNext())
+		{
 			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 				LOCTEXT("MultipleFileImportError", "Heightmap file name %s doesn't match the format: Filename_x0_y0.png."),
 				FText::FromString(HeightmapFile)

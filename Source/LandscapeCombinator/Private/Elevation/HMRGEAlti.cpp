@@ -141,7 +141,7 @@ bool HMRGEAlti::GetDataSpatialReference(OGRSpatialReference &InRs) const
 	return GetSpatialReferenceFromEPSG(InRs, 2154);
 }
 
-FReply HMRGEAlti::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) const
+FReply HMRGEAlti::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete)
 {
 
 	FString URL = FString::Format(

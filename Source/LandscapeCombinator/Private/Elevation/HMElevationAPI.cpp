@@ -71,7 +71,7 @@ bool HMElevationAPI::Initialize() {
 	return true;
 }
 
-FReply HMElevationAPI::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) const {
+FReply HMElevationAPI::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) {
 
 	FString URL1 = FString::Format(
 		TEXT("https://api.elevationapi.com/api/model/3d/bbox/{0},{1},{2},{3}?dataset=IGN_1m&textured=false&format=STL&zFactor=1&meshReduceFactor=0.001&onlyEstimateSize=false"),

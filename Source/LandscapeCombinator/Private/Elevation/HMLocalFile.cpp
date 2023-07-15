@@ -42,7 +42,7 @@ bool HMLocalFile::GetCoordinatesSpatialReference(OGRSpatialReference &InRs) cons
 	return GDALUtils::GetSpatialReference(InRs, OriginalFiles[0]);
 }
 
-FReply HMLocalFile::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) const
+FReply HMLocalFile::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete)
 {
 	OnComplete(true);
 	return FReply::Handled();

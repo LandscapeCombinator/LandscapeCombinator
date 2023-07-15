@@ -92,7 +92,7 @@ int HMSwissALTI3D::TileToY(FString Tile) const
 	return 1300 - FCString::Atoi(*Y);
 }
 
-FReply HMSwissALTI3D::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) const
+FReply HMSwissALTI3D::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete)
 {
 	check(Tiles.Num() == OriginalFiles.Num());
 	Concurrency::RunMany(

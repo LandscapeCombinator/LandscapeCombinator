@@ -74,7 +74,7 @@ namespace GlobalSettings
 	{
 		SAssignNew(WorldWidthBlock, SEditableTextBox)
 			.SelectAllTextWhenFocused(true)
-			.Text(FText::FromString("40000"))
+			.Text(FText::FromString("30000"))
 			.Font(FLandscapeCombinatorStyle::RegularFont())
 			.OnTextCommitted_Lambda(&Save)
 		;
@@ -146,18 +146,11 @@ namespace GlobalSettings
 						+SHorizontalBox::Slot().FillWidth(0.33) [ WorldOriginYBlock.ToSharedRef() ]
 					]
 				]
-				+SHorizontalBox::Slot().FillWidth(0.55)
 		;
 	}
 
 	bool GetWorldParameters(WorldParametersV1& Params)
 	{
-		if (!FGlobalTabmanager::Get()->FindExistingLiveTab(FLandscapeCombinatorModule::LandscapeCombinatorTabName))
-		{
-			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("TabNotOpen", "Please make sure the Landscape Combinator tab is open and try again."));
-			return false;
-		}
-
 		int WorldWidthKm = FCString::Atoi(*WorldWidthBlock->GetText().ToString());
 		int WorldHeightKm = FCString::Atoi(*WorldHeightBlock->GetText().ToString());
 		double ZScale = FCString::Atod(*ZScaleBlock->GetText().ToString().Replace(TEXT(" "), TEXT("")));

@@ -27,7 +27,7 @@ int32 SlateTable::GetIndex(TSharedRef<SHorizontalBox> Row)
 }
 
 
-void SlateTable::AddRow(TSharedRef<SHorizontalBox> Row, bool bControlButtons, bool bSave, float Fill)
+void SlateTable::AddRow(TSharedRef<SHorizontalBox> Row, bool bControlButtons, bool bSave)
 {
 
 	if (bControlButtons)
@@ -55,7 +55,8 @@ void SlateTable::AddRow(TSharedRef<SHorizontalBox> Row, bool bControlButtons, bo
 				.ToolTipText(LOCTEXT("MoveDown", "Move Up"))
 			];
 
-		TSharedRef<SButton> DownButton = SNew(SButton)
+		TSharedRef<SButton> DownButton = 
+			SNew(SButton)
 			.OnClicked_Lambda([this, Row]()->FReply {
 				int32 i = GetIndex(Row);
 				Rows->RemoveSlot(Row);
@@ -64,19 +65,32 @@ void SlateTable::AddRow(TSharedRef<SHorizontalBox> Row, bool bControlButtons, bo
 				return FReply::Handled();
 			}) [
 				SNew(SImage)
+				.ColorAndOpacity(FColor(100, 0, 0))
 				.Image(FLandscapeCombinatorStyle::Get().GetBrush("LandscapeCombinator.MoveDown"))
 				.ToolTipText(LOCTEXT("MoveDown", "Move Down"))
 			];
 
-		Row->AddSlot().FillWidth(0.02)[ RemoveButton ];
-		Row->AddSlot().FillWidth(0.02)[ DownButton ];
-		Row->AddSlot().FillWidth(0.02)[ UpButton ];
-		Row->AddSlot().FillWidth(Fill - 0.06);
+		TSharedRef<SHorizontalBox> ControlButtons = SNew(SHorizontalBox)
+			+SHorizontalBox::Slot().AutoWidth()[ ButtonBox(RemoveButton) ]
+			+SHorizontalBox::Slot().AutoWidth()[ ButtonBox(DownButton) ]
+			+SHorizontalBox::Slot().AutoWidth()[ ButtonBox(UpButton) ];
+
+		Row->AddSlot().FillWidth(1)[ ControlButtons ];
 	}
 
 	Rows->AddSlot().AutoHeight().Padding(FMargin(0, 0, 0, 8))[ Row ];
 
 	if (bSave) Save();
+}
+
+TSharedRef<SBox> SlateTable::ButtonBox(TSharedRef<SButton> Button)
+{
+	const FButtonStyle* ButtonStyle = &FLandscapeCombinatorStyle::Get().GetWidgetStyle<FButtonStyle>("LandscapeCombinator.Button");
+	Button->SetButtonStyle(ButtonStyle);
+	return SNew(SBox)
+			.Padding(0)
+			.WidthOverride(ButtonWidth)
+			[ Button ];
 }
 
 TSharedRef<SWidget> SlateTable::MakeTable()
@@ -88,6 +102,18 @@ TSharedRef<SWidget> SlateTable::MakeTable()
 	+SVerticalBox::Slot().AutoHeight().Padding(FMargin(0, 0, 0, 15)) [ Rows.ToSharedRef() ]
 	+SVerticalBox::Slot().AutoHeight() [ Footer() ]
 	;
+}
+
+EVisibility SlateTable::VisibleFrom(int Threshold) const
+{
+	if (Rows->GetPaintSpaceGeometry().GetAbsoluteSize().X > Threshold)
+	{
+		return EVisibility::Visible;
+	}
+	else
+	{
+		return EVisibility::Collapsed;
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

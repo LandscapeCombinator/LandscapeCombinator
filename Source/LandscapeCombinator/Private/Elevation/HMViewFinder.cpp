@@ -65,7 +65,7 @@ int HMViewFinder::TileToY(FString Tile) const
 		return 83 + FCString::Atoi(*Degrees);
 }
 
-FReply HMViewFinder::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete) const
+FReply HMViewFinder::DownloadHeightMapsImpl(TFunction<void(bool)> OnComplete)
 {
 	Concurrency::RunMany<FString>(
 		MegaTiles,
