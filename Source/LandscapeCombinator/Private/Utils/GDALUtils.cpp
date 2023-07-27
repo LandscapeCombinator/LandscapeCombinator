@@ -8,8 +8,8 @@
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
-bool GDALUtils::GetSpatialReference(OGRSpatialReference &InRs, FString File) {
-
+bool GDALUtils::GetSpatialReference(OGRSpatialReference &InRs, FString File)
+{
 	GDALDataset* Dataset = (GDALDataset *) GDALOpen(TCHAR_TO_UTF8(*File), GA_ReadOnly);
 	if (!Dataset)
 	{
@@ -87,7 +87,8 @@ bool GDALUtils::GetCoordinates(FVector4d& Coordinates, GDALDataset* Dataset)
 	return true;
 }
 
-bool GDALUtils::GetMinMax(FVector2D &MinMax, TArray<FString> Files) {
+bool GDALUtils::GetMinMax(FVector2D &MinMax, TArray<FString> Files)
+{
 	MinMax[0] = DBL_MAX;
 	MinMax[1] = -DBL_MAX;
 

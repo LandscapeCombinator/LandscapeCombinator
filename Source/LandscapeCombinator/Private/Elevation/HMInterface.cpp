@@ -89,7 +89,8 @@ bool HMInterface::Initialize()
 	return true;
 }
 
-bool HMInterface::GetCoordinates(FVector4d &Coordinates) const {
+bool HMInterface::GetCoordinates(FVector4d &Coordinates) const
+{
 	double MinCoordWidth = DBL_MAX;
 	double MaxCoordWidth = -DBL_MAX;
 	double MinCoordHeight = DBL_MAX;
@@ -152,7 +153,8 @@ bool HMInterface::GetInsidePixels(FIntPoint &InsidePixels) const
 	return true;
 }
 
-bool HMInterface::GetMinMax(FVector2D &MinMax) const {
+bool HMInterface::GetMinMax(FVector2D &MinMax) const
+{
 	return GDALUtils::GetMinMax(MinMax, OriginalFiles);
 }
 

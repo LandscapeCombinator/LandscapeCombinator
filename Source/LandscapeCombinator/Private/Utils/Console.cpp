@@ -5,7 +5,8 @@
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
-bool Console::ExecProcess(const TCHAR* URL, const TCHAR* Params, FString *StdOut, bool bDebug) {
+bool Console::ExecProcess(const TCHAR* URL, const TCHAR* Params, FString *StdOut, bool bDebug)
+{
 	FString StdErr;
 	int32 ReturnCode;
 	if (bDebug) UE_LOG(LogLandscapeCombinator, Log, TEXT("Running: %s %s"), URL, Params);
@@ -28,7 +29,8 @@ bool Console::ExecProcess(const TCHAR* URL, const TCHAR* Params, FString *StdOut
 	return bResult;
 }
 
-bool Console::Has7Z() {
+bool Console::Has7Z()
+{
 	return ExecProcess(TEXT("7z"), TEXT(""), nullptr, false);
 }
 

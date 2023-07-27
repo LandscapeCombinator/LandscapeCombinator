@@ -29,8 +29,8 @@
 using namespace GlobalSettings;
 
 
-TArray<FPCGPinProperties> UPCGOGRFilterSettings::InputPinProperties() const {
-
+TArray<FPCGPinProperties> UPCGOGRFilterSettings::InputPinProperties() const
+{
 	TArray<FPCGPinProperties> Properties;
 	Properties.Emplace(PCGPinConstants::DefaultInputLabel, EPCGDataType::Point);
 	Properties.Emplace(TEXT("BoundingShape"), EPCGDataType::Spatial, /*bAllowMultipleConnections=*/false, /*bAllowMultipleData=*/false,
