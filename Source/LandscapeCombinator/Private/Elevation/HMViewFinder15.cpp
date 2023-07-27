@@ -56,13 +56,15 @@ bool HMViewFinder15::Initialize()
 	return true;
 }
 
-int HMViewFinder15::TileToX(FString Tile) const {
+int HMViewFinder15::TileToX(FString Tile) const
+{
 	char C = Tile[3];
 	int T = C - 'A';
 	return T % 6;
 }
 
-int HMViewFinder15::TileToY(FString Tile) const {
+int HMViewFinder15::TileToY(FString Tile) const
+{
 	char C = Tile[3];
 	int T = C - 'A';
 	return T / 6;

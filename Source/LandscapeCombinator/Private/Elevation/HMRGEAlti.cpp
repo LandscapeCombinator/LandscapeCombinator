@@ -22,7 +22,8 @@ HMRGEAlti::HMRGEAlti(FString LandscapeLabel0, const FText &KindText0, FString De
 {
 }
 
-bool HMRGEAlti::Initialize() {
+bool HMRGEAlti::Initialize()
+{
 	if (!HMInterface::Initialize()) return false;
 
 	FRegexPattern BBoxPattern(TEXT("([\\d\\s.]+),([\\d\\s.]+),([\\d\\s.]+),([\\d\\s.]+)(,([\\d\\s]+),([\\d\\s]+))?"));
