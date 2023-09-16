@@ -55,8 +55,6 @@ protected:
 	virtual bool GetDataSpatialReference(OGRSpatialReference &InRs) const = 0;
 
 private:
-	ALandscape* GetLandscapeFromLabel();
-	
 	static void CouldNotCreateDirectory(FString Dir);
 };
 

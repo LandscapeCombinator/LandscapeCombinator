@@ -11,8 +11,6 @@
 #include "Utils/Logging.h"
 #include "Utils/Console.h"
 #include "Utils/Time.h"
-#include "Road/RoadBuilder.h"
-#include "Road/RoadTable.h"
 #include "Elevation/HeightMapTable.h"
 
 #include "LevelEditor.h"
@@ -116,7 +114,6 @@ TSharedRef<SDockTab> FLandscapeCombinatorModule::OnSpawnPluginTab(const FSpawnTa
 	Download::LoadExpectedSizeCache();
 
 	GlobalSettings::HMTable = new HeightMapTable();
-	RoadTable* RTable = new RoadTable(GlobalSettings::HMTable);
 
 	TSharedRef<SDockTab> Tab = SNew(SDockTab).TabRole(ETabRole::NomadTab)[
 		SNew(SScrollBox)
@@ -165,49 +162,16 @@ TSharedRef<SDockTab> FLandscapeCombinatorModule::OnSpawnPluginTab(const FSpawnTa
 				.Padding(FMargin(0, 0, 0, 30))
 				[
 					SNew(STextBlock)
-					.Text(FText::FromString("3. Roads (or Landscape Splines)"))
-					.Font(FLandscapeCombinatorStyle::SubtitleFont())
-				]
-			+ SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(FMargin(50, 0, 80, 40))
-				[
-					RTable->MakeTable()
-				]
-			+ SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(FMargin(0, 0, 0, 30))
-				[
-					SNew(STextBlock)
-					.Text(FText::FromString("4. Foliage"))
+					.Text(FText::FromString("3. Splines (Roads, Buildings, etc.) and Areas (Grass, Trees, etc.) from OpenStreetMap"))
 				.Font(FLandscapeCombinatorStyle::SubtitleFont())
 				]
-			+ SVerticalBox::Slot()
+			+SVerticalBox::Slot()
 				.AutoHeight()
 				.Padding(FMargin(50, 0, 80, 40))
 				[
 					SNew(SEditableText)
-					.Text(LOCTEXT("LandscapeFoliageExplanation",
-						"Please check the README file on https://github.com/LandscapeCombinator/LandscapeCombinator#procedural-foliage to add foliage."
-					))
-					.IsReadOnly(true)
-					.Font(FLandscapeCombinatorStyle::RegularFont())
-				]
-			+ SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(FMargin(0, 0, 0, 30))
-				[
-					SNew(STextBlock)
-					.Text(FText::FromString("5. Buildings"))
-				.Font(FLandscapeCombinatorStyle::SubtitleFont())
-				]
-			+ SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(FMargin(50, 0, 80, 40))
-				[
-					SNew(SEditableText)
-					.Text(LOCTEXT("Buildings teaser",
-						"Soon?"
+					.Text(LOCTEXT("OSMAreasExplanation",
+						"Please check the README file on https://github.com/LandscapeCombinator/LandscapeCombinator to add data from OpenStreetMap."
 					))
 					.IsReadOnly(true)
 					.Font(FLandscapeCombinatorStyle::RegularFont())

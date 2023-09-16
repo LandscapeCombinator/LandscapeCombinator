@@ -17,11 +17,11 @@ public class LandscapeCombinator : ModuleRules
 		foreach (string DLLFile in Directory.GetFiles(Path.Combine(PluginDirectory, "Source", "ThirdParty", "GDAL", "bin")))
 			RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Binaries", "Win64", Path.GetFileName(DLLFile)), DLLFile);
 
+		// Unreal Dependencies
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
 				"Core",
-				// ... add other public dependencies that you statically link with here ...
 			}
 			);
 			
@@ -46,16 +46,11 @@ public class LandscapeCombinator : ModuleRules
 				"Foliage",
 				"FoliageEdit",
 				"PCG",
-				// ... add private dependencies that you statically link with here ...	
-			}
-			);
-		
-		
-		DynamicallyLoadedModuleNames.AddRange(
-			new string[]
-			{
-				// ... add any modules that your module loads dynamically here ...
-			}
+                "GeometryCore",
+                "GeometryFramework",
+                "GeometryScriptingCore",
+                "GeometryScriptingEditor",
+            }
 			);
 	}
 }

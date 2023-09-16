@@ -230,7 +230,7 @@ FReply HMInterface::ImportHeightMaps()
 
 FReply HMInterface::CreateLandscape(int WorldWidthKm, int WorldHeightKm, double ZScale, double WorldOriginX, double WorldOriginY, TFunction<void(bool)> OnComplete)
 {
-	if (GetLandscapeFromLabel())
+	if (LandscapeUtils::GetLandscapeFromLabel(LandscapeLabel))
 	{
 		FMessageDialog::Open(EAppMsgType::Ok,
 			FText::Format(
@@ -332,28 +332,11 @@ bool HMInterface::GetMinMaxZ(FVector2D &MinMaxZ)
 	return LandscapeUtils::GetLandscapeBounds(Landscape, LandscapeStreamingProxies, UnusedMinMaxX, UnusedMinMaxY, MinMaxZ);
 }
 
-ALandscape* HMInterface::GetLandscapeFromLabel()
-{
-	UWorld* World = GEditor->GetEditorWorldContext().World();
-	TArray<AActor*> Landscapes;
-	UGameplayStatics::GetAllActorsOfClass(World, ALandscape::StaticClass(), Landscapes);
-
-	for (auto& Landscape0 : Landscapes)
-	{
-		if (Landscape0->GetActorLabel().Equals(LandscapeLabel))
-		{
-			return Cast<ALandscape>(Landscape0); 
-		}
-	}
-
-	return NULL;
-}
-
 bool HMInterface::SetLandscapeFromLabel()
 {
 	Landscape = NULL;
 	LandscapeStreamingProxies.Empty();
-	ALandscape* Landscape0 = GetLandscapeFromLabel();
+	ALandscape* Landscape0 = LandscapeUtils::GetLandscapeFromLabel(LandscapeLabel);
 	if (Landscape0)
 	{
 		Landscape = Landscape0;
@@ -655,43 +638,6 @@ bool HMInterface::GetCoordinates4326(FVector4d& Coordinates)
 	Coordinates[2] = ys[1];
 	Coordinates[3] = ys[0];
 	return true;
-}
-
-FCollisionQueryParams HMInterface::CustomCollisionQueryParams(UWorld* World)
-{
-	UE_LOG(LogLandscapeCombinator, Log, TEXT("Creating custom collusion query parameters for Landscape %s"), *LandscapeLabel);
-	SetLandscapeStreamingProxies();
-	TArray<AActor*> Actors;
-	UGameplayStatics::GetAllActorsOfClass(World, AActor::StaticClass(), Actors);
-
-	FCollisionQueryParams CollisionQueryParams;
-	for (auto &Actor : Actors)
-	{
-		if (Actor != Landscape && !LandscapeStreamingProxies.Contains(Actor))
-		{
-			UE_LOG(LogLandscapeCombinator, Log, TEXT("Ignoring actor %s"), *Actor->GetActorLabel());
-			CollisionQueryParams.AddIgnoredActor(Actor);
-		}
-	}
-	return CollisionQueryParams;
-}
-
-double HMInterface::GetZ(UWorld* World, FCollisionQueryParams CollisionQueryParams, double x, double y)
-{
-	FVector StartLocation = FVector(x, y, -HALF_WORLD_MAX);
-	FVector EndLocation = FVector(x, y, HALF_WORLD_MAX);
-
-	FHitResult HitResult;
-	World->LineTraceSingleByObjectType(
-		OUT HitResult,
-		StartLocation,
-		EndLocation,
-		FCollisionObjectQueryParams(ECollisionChannel::ECC_WorldStatic),
-		CollisionQueryParams
-	);
-
-	if (HitResult.GetActor()) return HitResult.ImpactPoint.Z;
-	else return 0;
 }
 
 #undef LOCTEXT_NAMESPACE
