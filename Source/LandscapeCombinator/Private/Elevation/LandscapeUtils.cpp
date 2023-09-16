@@ -232,5 +232,61 @@ TArray<ALandscapeStreamingProxy*> LandscapeUtils::GetLandscapeStreamingProxies(A
 	return LandscapeStreamingProxies;
 }
 
+ALandscape* LandscapeUtils::GetLandscapeFromLabel(FString LandscapeLabel)
+{
+	UWorld* World = GEditor->GetEditorWorldContext().World();
+	TArray<AActor*> Landscapes;
+	UGameplayStatics::GetAllActorsOfClass(World, ALandscape::StaticClass(), Landscapes);
+
+	for (auto& Landscape0 : Landscapes)
+	{
+		if (Landscape0->GetActorLabel().Equals(LandscapeLabel))
+		{
+			return Cast<ALandscape>(Landscape0); 
+		}
+	}
+
+	return NULL;
+}
+
+
+// Parameters to collide with this landscape only
+FCollisionQueryParams LandscapeUtils::CustomCollisionQueryParams(ALandscape *Landscape)
+{
+	UE_LOG(LogLandscapeCombinator, Warning, TEXT("CustomCollisionQueryParams %s"), *Landscape->GetActorLabel());
+	TArray<ALandscapeStreamingProxy*> LandscapeStreamingProxies = GetLandscapeStreamingProxies(Landscape);
+	UE_LOG(LogLandscapeCombinator, Warning, TEXT("Found %d Proxies"), LandscapeStreamingProxies.Num());
+	UWorld *World = Landscape->GetWorld();
+	TArray<AActor*> Actors;
+	UGameplayStatics::GetAllActorsOfClass(World, AActor::StaticClass(), Actors);
+
+	FCollisionQueryParams CollisionQueryParams;
+	for (auto &Actor : Actors)
+	{
+		if (Actor != Landscape && !LandscapeStreamingProxies.Contains(Actor))
+		{
+			CollisionQueryParams.AddIgnoredActor(Actor);
+		}
+	}
+	return CollisionQueryParams;
+}
+
+double LandscapeUtils::GetZ(UWorld* World, FCollisionQueryParams CollisionQueryParams, double x, double y)
+{
+	FVector StartLocation = FVector(x, y, -HALF_WORLD_MAX);
+	FVector EndLocation = FVector(x, y, HALF_WORLD_MAX);
+
+	FHitResult HitResult;
+	World->LineTraceSingleByObjectType(
+		OUT HitResult,
+		StartLocation,
+		EndLocation,
+		FCollisionObjectQueryParams(ECollisionChannel::ECC_WorldStatic),
+		CollisionQueryParams
+	);
+
+	if (HitResult.GetActor()) return HitResult.ImpactPoint.Z;
+	else return 0;
+}
 
 #undef LOCTEXT_NAMESPACE

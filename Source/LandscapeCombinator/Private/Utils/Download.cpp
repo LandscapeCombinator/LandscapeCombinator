@@ -16,6 +16,18 @@ namespace Download {
 	float TimeoutSeconds = 10;
 }
 
+FString Shorten(FString Input)
+{
+	if (Input.Len() > 53)
+	{
+		return Input.Left(25) + "..." + Input.Right(25);
+	}
+	else
+	{
+		return Input;
+	}
+}
+
 // FIXME: use TAtomic<bool> for bTriggered, but with TAtomic<bool> bTriggered { false}, everything blocks
 // We use bTriggered to avoid OnProcessRequestComplete being invoked multiple times
 
@@ -51,10 +63,12 @@ bool Download::SynchronousFromURL(FString URL, FString File)
 		Request->ProcessRequest();
 
 		float StartTime = FPlatformTime::Seconds();
+		UE_LOG(LogLandscapeCombinator, Log, TEXT("Actively waiting for Content-Length request to complete"));
 		while (!bIsComplete && FPlatformTime::Seconds() - StartTime <= TimeoutSeconds)
 		{
 			FPlatformProcess::Sleep(SleepSeconds);
 		}
+		UE_LOG(LogLandscapeCombinator, Log, TEXT("Finished waiting for Content-Length request to complete"));
 
 		Request->CancelRequest();
 
@@ -116,10 +130,12 @@ bool Download::SynchronousFromURLExpecting(FString URL, FString File, int32 Expe
 		
 
 	float StartTime = FPlatformTime::Seconds();
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("Actively waiting for download to complete"));
 	while (!bIsComplete && FPlatformTime::Seconds() - StartTime <= TimeoutSeconds)
 	{
 		FPlatformProcess::Sleep(SleepSeconds);
 	}
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("Finished waiting for download to complete"));
 		
 	Request->CancelRequest();
 
@@ -234,8 +250,8 @@ void Download::FromURLExpecting(FString URL, FString File, int32 ExpectedSize, T
 					SNew(STextBlock).Text(
 						FText::Format(
 							LOCTEXT("DowloadingURL", "Dowloading {0} to {1}."),
-							FText::FromString(URL.Left(20)),
-							FText::FromString(File)
+							FText::FromString(Shorten(URL)),
+							FText::FromString(Shorten(File))
 						)
 					).Font(FLandscapeCombinatorStyle::RegularFont())
 				]

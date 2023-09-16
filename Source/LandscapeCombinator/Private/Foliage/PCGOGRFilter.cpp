@@ -6,6 +6,7 @@
 #include "PCGCustomVersion.h"
 #include "PCGParamData.h"
 #include "PCGElement.h"
+#include "PCGComponent.h"
 #include "Elements/PCGSurfaceSampler.h"
 #include "PCGPin.h"
 #include "Helpers/PCGAsync.h"
@@ -27,17 +28,6 @@
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
 using namespace GlobalSettings;
-
-
-TArray<FPCGPinProperties> UPCGOGRFilterSettings::InputPinProperties() const
-{
-	TArray<FPCGPinProperties> Properties;
-	Properties.Emplace(PCGPinConstants::DefaultInputLabel, EPCGDataType::Point);
-	Properties.Emplace(TEXT("BoundingShape"), EPCGDataType::Spatial, /*bAllowMultipleConnections=*/false, /*bAllowMultipleData=*/false,
-		LOCTEXT("OGRFilterSurfacePinTooltip", "Please connect the landscape here")
-	);
-	return Properties;
-}
 
 FPCGElementPtr UPCGOGRFilterSettings::CreateElement() const
 {
@@ -67,7 +57,6 @@ OGRGeometry* UPCGOGRFilterSettings::GetGeometryFromShortQuery(FBox Bounds, FStri
 
 	FVector Origin = Bounds.GetCenter();
 	FVector BoxExtent = Bounds.GetExtent();
-	//GetActorBounds(false, Origin, BoxExtent, true);
 	
 	WorldParametersV1 GlobalParams;
 	if (!GetWorldParameters(GlobalParams)) return nullptr;
@@ -95,8 +84,7 @@ OGRGeometry* UPCGOGRFilterSettings::GetGeometryFromPath(FString Path) const
 		return nullptr;
 	}
 
-	UE_LOG(LogLandscapeCombinator, Log, TEXT("Got a valid dataset from OSM data, continuing..."));
-
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("Got a valid dataset to extract geometries, continuing..."));
 
 	OGRGeometry *UnionGeometry = OGRGeometryFactory::createGeometry(OGRwkbGeometryType::wkbMultiPolygon);
 	if (!UnionGeometry)
@@ -167,18 +155,7 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 	TArray<FPCGTaggedData> Inputs = Context->InputData.GetInputs();
 	TArray<FPCGTaggedData>& Outputs = Context->OutputData.TaggedData;
 	
-	TArray<FPCGTaggedData> BoundingShapeInputs = Context->InputData.GetInputsByPin(TEXT("BoundingShape"));
-	const UPCGSpatialData* BoundingShapeSpatialInput = nullptr;
-
-	if (BoundingShapeInputs.Num() == 0)
-	{
-		PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("BoundingShapeInput", "Please connect the landscape to the bounding shape"));
-		return true;
-	}
-
-	ensure(BoundingShapeInputs.Num() == 1);
-	
-	FBox Bounds = Cast<UPCGSpatialData>(BoundingShapeInputs[0].Data)->GetBounds();
+	FBox Bounds = Cast<UPCGSpatialData>(Context->SourceComponent->GetActorPCGData())->GetBounds();
 
 	OGRGeometry *Geometry = Settings->GetGeometry(Bounds);
 
@@ -228,7 +205,8 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 		OGRMultiPoint *AllPoints = (OGRMultiPoint*) OGRGeometryFactory::createGeometry(OGRwkbGeometryType::wkbMultiPoint);
 
 		TIME("MultiPointProcessing",
-			for (const FPCGPoint& PCGPoint : PCGPoints) {
+			for (const FPCGPoint& PCGPoint : PCGPoints)
+			{
 				const FVector& Location = PCGPoint.Transform.GetLocation();
 				FVector2D Coordinates4326 = GlobalSettings::UnrealCoordinatesToEPSG326(Location, WorldWidthCm, WorldHeightCm, WorldOriginX, WorldOriginY);
 				OGRPoint Point4326(Coordinates4326[0], Coordinates4326[1]);

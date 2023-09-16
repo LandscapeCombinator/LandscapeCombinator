@@ -151,6 +151,17 @@ namespace GlobalSettings
 
 	bool GetWorldParameters(WorldParametersV1& Params)
 	{
+		if (
+			!WorldWidthBlock.IsValid() ||
+			!WorldHeightBlock.IsValid() ||
+			!ZScaleBlock.IsValid() ||
+			!WorldOriginXBlock.IsValid() ||
+			!WorldOriginYBlock.IsValid()
+		)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("NoPlugin", "Could not fetch global parameters. Please make sure the plugin tab is open."));
+			return false;
+		}
 		int WorldWidthKm = FCString::Atoi(*WorldWidthBlock->GetText().ToString());
 		int WorldHeightKm = FCString::Atoi(*WorldHeightBlock->GetText().ToString());
 		double ZScale = FCString::Atod(*ZScaleBlock->GetText().ToString().Replace(TEXT(" "), TEXT("")));
