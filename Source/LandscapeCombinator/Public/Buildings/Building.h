@@ -26,6 +26,9 @@ public:
 	double MinHeightLocal = MAX_dbl;
 	double MaxHeightLocal = MAX_dbl;
 	double MinHeightWorld = MAX_dbl;
+
+	UPROPERTY(VisibleAnywhere, Category = "Building")
+	TObjectPtr<UStaticMeshComponent> StaticMeshComponent;
 	
 	UPROPERTY(
 		VisibleAnywhere, BlueprintReadWrite, Category = "Building",
@@ -55,9 +58,6 @@ private:
 	const int ExteriorMaterialID = 2;
 	const int InteriorMaterialID = 3;
 	const int RoofMaterialID = 4;
-
-	UPROPERTY()
-	TObjectPtr<UStaticMeshComponent> StaticMeshComponent;
 
 	UPROPERTY()
 	TArray<TObjectPtr<USplineMeshComponent>> SplineMeshComponents;

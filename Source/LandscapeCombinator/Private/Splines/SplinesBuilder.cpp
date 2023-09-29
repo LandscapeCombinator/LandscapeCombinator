@@ -342,6 +342,7 @@ void ASplinesBuilder::GenerateLandscapeSplines(
 	}
 		
 	LandscapeSplinesComponent->Modify();
+	LandscapeSplinesComponent->ShowSplineEditorMesh(true);
 
 	TMap<FVector2d, ULandscapeSplineControlPoint*> Points;
 	
