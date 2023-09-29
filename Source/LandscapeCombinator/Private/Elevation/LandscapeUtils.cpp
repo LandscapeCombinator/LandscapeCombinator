@@ -149,13 +149,13 @@ ALandscape* LandscapeUtils::SpawnLandscape(TArray<FString> Heightmaps, FString L
 bool LandscapeUtils::GetLandscapeBounds(ALandscape *Landscape, TArray<ALandscapeStreamingProxy*> LandscapeStreamingProxies, FVector2D &MinMaxX, FVector2D &MinMaxY, FVector2D &MinMaxZ)
 {
 	FString LandscapeLabel = Landscape->GetActorLabel();
-	FVector LandscapeOrigin;
-	FVector LandscapeExtent;
-	Landscape->GetActorBounds(false, LandscapeOrigin, LandscapeExtent, true);
 
-	if (LandscapeExtent != FVector(0,0,0))
+	if (LandscapeStreamingProxies.IsEmpty())
 	{
-		UE_LOG(LogLandscapeCombinator, Log, TEXT("GetLandscapeBounds: Landscape %s has an extent."), *LandscapeLabel);
+		UE_LOG(LogLandscapeCombinator, Log, TEXT("GetLandscapeBounds: Landscape %s has no streaming proxies."), *LandscapeLabel);
+		FVector LandscapeOrigin;
+		FVector LandscapeExtent;
+		Landscape->GetActorBounds(false, LandscapeOrigin, LandscapeExtent, true);
 
 		MinMaxX[0] = LandscapeOrigin.X - LandscapeExtent.X;
 		MinMaxX[1] = LandscapeOrigin.X + LandscapeExtent.X;
@@ -170,7 +170,7 @@ bool LandscapeUtils::GetLandscapeBounds(ALandscape *Landscape, TArray<ALandscape
 	}
 	else
 	{
-		UE_LOG(LogLandscapeCombinator, Log, TEXT("GetLandscapeBounds: Landscape %s has no extent, so we will look for LandscapeStreamingProxy's."), *LandscapeLabel);
+		UE_LOG(LogLandscapeCombinator, Log, TEXT("GetLandscapeBounds: Landscape %s has streaming proxies."), *LandscapeLabel);
 		double MaxX = -DBL_MAX;
 		double MinX = DBL_MAX;
 		double MaxY = -DBL_MAX;
@@ -253,9 +253,7 @@ ALandscape* LandscapeUtils::GetLandscapeFromLabel(FString LandscapeLabel)
 // Parameters to collide with this landscape only
 FCollisionQueryParams LandscapeUtils::CustomCollisionQueryParams(ALandscape *Landscape)
 {
-	UE_LOG(LogLandscapeCombinator, Warning, TEXT("CustomCollisionQueryParams %s"), *Landscape->GetActorLabel());
 	TArray<ALandscapeStreamingProxy*> LandscapeStreamingProxies = GetLandscapeStreamingProxies(Landscape);
-	UE_LOG(LogLandscapeCombinator, Warning, TEXT("Found %d Proxies"), LandscapeStreamingProxies.Num());
 	UWorld *World = Landscape->GetWorld();
 	TArray<AActor*> Actors;
 	UGameplayStatics::GetAllActorsOfClass(World, AActor::StaticClass(), Actors);
