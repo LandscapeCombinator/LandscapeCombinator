@@ -6,7 +6,7 @@
 
 ## Description
 
-Landscape Combinator is an Unreal Engine 5.2 plugin that enables you to create landscapes from
+Landscape Combinator is an Unreal Engine 5.3 plugin that enables you to create landscapes from
 real-world data in a few simple steps:
 
 * Create landscapes from real-world heightmaps (with a basic landscape material to visualize them),
