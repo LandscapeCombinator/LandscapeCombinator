@@ -61,7 +61,7 @@ ALandscape* LandscapeUtils::SpawnLandscape(TArray<FString> Heightmaps, FString L
 				LOCTEXT("MultipleFileImportError", "Heightmap file name %s doesn't match the format: Filename_x0_y0.png."),
 				FText::FromString(HeightmapFile)
 			));
-			return false;
+			return NULL;
 		}
 
 		HeightmapFile = XYMatcher.GetCaptureGroup(1) + XYMatcher.GetCaptureGroup(2);

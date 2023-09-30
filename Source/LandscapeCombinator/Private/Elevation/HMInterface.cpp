@@ -287,7 +287,7 @@ FReply HMInterface::CreateLandscape(int WorldWidthKm, int WorldHeightKm, double 
 			}
 
 			// importing Landscapes only works in GameThread
-			AsyncTask(ENamedThreads::GameThread, [=]()
+			AsyncTask(ENamedThreads::GameThread, [=, this]()
 			{
 				if (ImportHeightMaps().IsEventHandled())
 				{
