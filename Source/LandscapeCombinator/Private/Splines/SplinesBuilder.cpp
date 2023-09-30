@@ -143,11 +143,11 @@ void ASplinesBuilder::LoadGDALDatasetFromQuery(FString Query, TFunction<void(GDA
 	FString XmlFilePath = FPaths::Combine(DownloadDir, FString::Format(TEXT("overpass_query_{0}.xml"), { FTextLocalizationResource::HashString(Query) }));
 
 	Download::FromURL(Query, XmlFilePath,
-		[=](bool bWasSuccessful) {
+		[=, this](bool bWasSuccessful) {
 			if (bWasSuccessful)
 			{
 				// working on splines only works in GameThread
-				AsyncTask(ENamedThreads::GameThread, [=]() {
+				AsyncTask(ENamedThreads::GameThread, [=, this]() {
 					OnComplete(LoadGDALDatasetFromFile(XmlFilePath));
 				});
 			}
