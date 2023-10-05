@@ -1,0 +1,1 @@
+zip -r landscape-combinator-"$1".zip Config Content GlobalSettingsV1 HeightMapListV1 LandscapeCombinator.uplugin README.md Resources Source
