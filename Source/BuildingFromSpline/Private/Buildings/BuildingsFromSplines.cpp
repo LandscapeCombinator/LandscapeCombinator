@@ -1,7 +1,6 @@
 // Copyright 2023 LandscapeCombinator. All Rights Reserved.
 
 #include "Buildings/BuildingsFromSplines.h"
-#include "Splines/SplinesBuilder.h"
 
 #include "Components/SplineMeshComponent.h"
 #include "Logging/StructuredLog.h"
@@ -14,7 +13,7 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(BuildingsFromSplines)
 
-#define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
+#define LOCTEXT_NAMESPACE "FBuildingFromSplineModule"
 
 ABuildingsFromSplines::ABuildingsFromSplines()
 {

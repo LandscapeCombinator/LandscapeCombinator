@@ -3,17 +3,16 @@
 #pragma once
 
 #include "Utils/Logging.h"
-#include "GlobalSettings.h"
 #include "Buildings/Building.h"
 
 #include "Components/SplineComponent.h" 
 
 #include "BuildingsFromSplines.generated.h"
 
-#define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
+#define LOCTEXT_NAMESPACE "FBuildingFromSplineModule"
 
 UCLASS(meta = (PrioritizeCategories = "Buildings"))
-class LANDSCAPECOMBINATOR_API ABuildingsFromSplines : public AActor
+class BUILDINGFROMSPLINE_API ABuildingsFromSplines : public AActor
 {
 	GENERATED_BODY()
 

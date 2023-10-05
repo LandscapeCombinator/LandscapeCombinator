@@ -4,29 +4,22 @@
 
 #include "BuildingConfiguration.generated.h"
 
-#define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
+#define LOCTEXT_NAMESPACE "FBuildingFromSplineModule"
 
 UCLASS(meta = (PrioritizeCategories = "Building"), BlueprintType)
-class LANDSCAPECOMBINATOR_API UBuildingConfiguration : public UActorComponent
+class BUILDINGFROMSPLINE_API UBuildingConfiguration : public UActorComponent
 {
 	GENERATED_BODY()
 
 public:
 	/** Choices */
 
-	/* Add doors */
+	/* Regenerate the building when modified */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Choices",
 		meta = (DisplayPriority = "1")
 	)
-	bool bAddDoors = true;
-
-	/* Add windows */
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Building|Choices",
-		meta = (DisplayPriority = "1")
-	)
-	bool bAddWindows = true;
+	bool bGenerateWhenModified = true;
 
 	/* Build external walls */
 	UPROPERTY(
@@ -63,31 +56,37 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
 		meta = (DisplayPriority = "2")
 	)
-	TObjectPtr<UMaterialInterface> InteriorMaterial;
+	TObjectPtr<UMaterialInterface> InteriorMaterial =
+		Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, *FString("/Script/Engine.MaterialInstanceConstant'/LandscapeCombinator/Project/M_White.M_White'")));
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
 		meta = (DisplayPriority = "2")
 	)
-	TObjectPtr<UMaterialInterface> ExteriorMaterial;
+	TObjectPtr<UMaterialInterface> ExteriorMaterial =
+		Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, *FString("/Script/Engine.MaterialInstanceConstant'/LandscapeCombinator/Project/MI_ExternalWalls.MI_ExternalWalls'")));
+
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
 		meta = (DisplayPriority = "2")
 	)
-	TObjectPtr<UMaterialInterface> FloorMaterial;
+	TObjectPtr<UMaterialInterface> FloorMaterial =
+		Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, *FString("/Script/Engine.MaterialInstanceConstant'/LandscapeCombinator/Project/MI_Floor.MI_Floor'")));
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
 		meta = (DisplayPriority = "2")
 	)
-	TObjectPtr<UMaterialInterface> CeilingMaterial;
+	TObjectPtr<UMaterialInterface> CeilingMaterial =
+		Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, *FString("/Script/Engine.MaterialInstanceConstant'/LandscapeCombinator/Project/M_White.M_White'")));
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
 		meta = (DisplayPriority = "2")
 	)
-	TObjectPtr<UMaterialInterface> RoofMaterial;
+	TObjectPtr<UMaterialInterface> RoofMaterial =
+		Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, *FString("/Script/Engine.MaterialInstanceConstant'/LandscapeCombinator/Project/MI_Roof.MI_Roof'")));
 
 
 	/** Mesh settings */
@@ -114,7 +113,7 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
 		meta = (DisplayPriority = "3")
 	)
-	double FloorHeight = 400;
+	double FloorHeight = 300;
 	
 	/* The tickness of the floor tiles */
 	UPROPERTY(
@@ -163,7 +162,7 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
 		meta = (DisplayPriority = "3")
 	)
-	int ExtraWallTop = 120;
+	int ExtraWallTop = 200;
 
 
 	/** Roof Settings */
@@ -173,28 +172,28 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Roof",
 		meta = (DisplayPriority = "3")
 	)
-	double OuterRoofDistance = 100;
+	double OuterRoofDistance = 200;
 	
 	/* The distance from the walls to the inner/top part of the roof */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Roof",
 		meta = (DisplayPriority = "3")
 	)
-	double InnerRoofDistance = 300;
+	double InnerRoofDistance = 480;
 	
 	/* Roof thickness */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Roof",
 		meta = (DisplayPriority = "3")
 	)
-	double RoofThickness = 20;
+	double RoofThickness = 5;
 	
 	/* The height of the roof */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Roof",
 		meta = (DisplayPriority = "3")
 	)
-	double RoofHeight = 400;
+	double RoofHeight = 250;
 
 
 	/** Windows Settings */
@@ -218,14 +217,14 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Windows",
 		meta = (DisplayPriority = "3")
 	)
-	double WindowsWidth = 120;
+	double WindowsWidth = 140;
 	
 	/* The height of windows */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Windows",
 		meta = (DisplayPriority = "3")
 	)
-	double WindowsHeight = 120;
+	double WindowsHeight = 140;
 	
 	/* The (Z) distance between the floor and the windows */
 	UPROPERTY(

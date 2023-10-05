@@ -11,12 +11,12 @@
 
 #include "Building.generated.h"
 
-#define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
+#define LOCTEXT_NAMESPACE "FBuildingFromSplineModule"
 
 using namespace UE::Geometry;
 
 UCLASS(meta = (PrioritizeCategories = "Building"))
-class LANDSCAPECOMBINATOR_API ABuilding : public ADynamicMeshActor
+class BUILDINGFROMSPLINE_API ABuilding : public ADynamicMeshActor
 {
 	GENERATED_BODY()
 
@@ -26,15 +26,15 @@ public:
 	double MinHeightLocal = MAX_dbl;
 	double MaxHeightLocal = MAX_dbl;
 	double MinHeightWorld = MAX_dbl;
-
-	UPROPERTY(VisibleAnywhere, Category = "Building")
-	TObjectPtr<UStaticMeshComponent> StaticMeshComponent;
 	
 	UPROPERTY(
 		VisibleAnywhere, BlueprintReadWrite, Category = "Building",
 		meta = (DisplayPriority = "3")
 	)
 	TObjectPtr<USplineComponent> SplineComponent;
+	
+    UPROPERTY(VisibleAnywhere, Category = "Building")
+    TObjectPtr<UStaticMeshComponent> StaticMeshComponent;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building",
@@ -46,11 +46,21 @@ public:
 		meta = (DisplayPriority = "5")
 	)
 	void GenerateBuilding();
+
+	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Building",
+		meta = (DisplayPriority = "5")
+	)
+	void ConvertToStaticMesh();
 	
 	UFUNCTION(BlueprintCallable, Category = "Building")
 	void AppendBuilding(UDynamicMesh* TargetMesh);
 
 	void ComputeMinMaxHeight();
+
+protected:
+
+	virtual void PostEditChangeProperty(FPropertyChangedEvent &PropertyChangedEvent) override;
+
 
 private:
 	const int FloorMaterialID = 0;

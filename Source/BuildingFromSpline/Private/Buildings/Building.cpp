@@ -15,6 +15,7 @@
 #include "GeometryScript/MeshNormalsFunctions.h"
 #include "GeometryScript/MeshBooleanFunctions.h"
 #include "GeometryScript/MeshSimplifyFunctions.h"
+#include "GeometryScript/CreateNewAssetUtilityFunctions.h"
 #include "GeometryScript/PolyPathFunctions.h"
 #include "Logging/StructuredLog.h"
 #include "Polygon2.h"
@@ -22,7 +23,7 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(Building)
 
-#define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
+#define LOCTEXT_NAMESPACE "FBuildingFromSplineModule"
 
 using namespace UE::Geometry;
 
@@ -36,6 +37,15 @@ ABuilding::ABuilding() : ADynamicMeshActor()
 	SplineComponent = CreateDefaultSubobject<USplineComponent>(TEXT("SplineComponent"));
 	SplineComponent->SetupAttachment(RootComponent);
 	SplineComponent->SetClosedLoop(true);
+	SplineComponent->ClearSplinePoints();
+	SplineComponent->AddSplinePoint(FVector(0, 0, 0), ESplineCoordinateSpace::Local, false);
+	SplineComponent->AddSplinePoint(FVector(1000, 0, 0), ESplineCoordinateSpace::Local, false);
+	SplineComponent->AddSplinePoint(FVector(1000, 1000, 0), ESplineCoordinateSpace::Local, false);
+	SplineComponent->AddSplinePoint(FVector(0, 1000, 0), ESplineCoordinateSpace::Local, false);
+	SplineComponent->SetSplinePointType(0, ESplinePointType::Linear, false);
+	SplineComponent->SetSplinePointType(1, ESplinePointType::Linear, false);
+	SplineComponent->SetSplinePointType(2, ESplinePointType::Linear, false);
+	SplineComponent->SetSplinePointType(3, ESplinePointType::Linear, false);
 	SplineComponent->UpdateSpline();
 	SplineComponent->bSplineHasBeenEdited = true;
 	SplineComponent->SetMobility(EComponentMobility::Static);
@@ -51,7 +61,6 @@ ABuilding::ABuilding() : ADynamicMeshActor()
 	StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMeshComponent"));
 	StaticMeshComponent->SetupAttachment(RootComponent);
 	StaticMeshComponent->SetMobility(EComponentMobility::Static);
-
 	StaticMeshComponent->SetMaterial(0, BuildingConfiguration->FloorMaterial);
 	StaticMeshComponent->SetMaterial(1, BuildingConfiguration->CeilingMaterial);
 	StaticMeshComponent->SetMaterial(2, BuildingConfiguration->ExteriorMaterial);
@@ -357,7 +366,7 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 
 	if (PolygroupIDs.Num() < 3)
 	{
-		UE_LOGFMT(LogLandscapeCombinator, Error, "Internal error: something went wrong with the floor tile materials");
+		UE_LOGFMT(LogBuildingFromSpline, Error, "Internal error: something went wrong with the floor tile materials");
 		return false;
 	}
 
@@ -719,7 +728,7 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 
 	if (PolygroupIDs.Num() < 3)
 	{
-		UE_LOGFMT(LogLandscapeCombinator, Error, "Internal error: something went wrong with the floor tile materials");
+		UE_LOGFMT(LogBuildingFromSpline, Error, "Internal error: something went wrong with the floor tile materials");
 		return;
 	}
 
@@ -842,7 +851,6 @@ void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 {
 	ON_SCOPE_EXIT {
 		ReleaseAllComputeMeshes();
-		TargetMesh->Reset();
 		BaseClockwiseSplineComponent->ClearSplinePoints();
 	};
 	
@@ -872,41 +880,65 @@ void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 	DynamicMeshComponent->SetMaterial(3, BuildingConfiguration->InteriorMaterial);
 	DynamicMeshComponent->SetMaterial(4, BuildingConfiguration->RoofMaterial);
 
-	StaticMeshComponent->SetMaterial(0, BuildingConfiguration->FloorMaterial);
-	StaticMeshComponent->SetMaterial(1, BuildingConfiguration->CeilingMaterial);
-	StaticMeshComponent->SetMaterial(2, BuildingConfiguration->ExteriorMaterial);
-	StaticMeshComponent->SetMaterial(3, BuildingConfiguration->InteriorMaterial);
-	StaticMeshComponent->SetMaterial(4, BuildingConfiguration->RoofMaterial);
+	GEditor->NoteSelectionChange();
+}
 
-	FGeometryScriptCopyMeshToAssetOptions Options;
+void ABuilding::ConvertToStaticMesh()
+{
+	EGeometryScriptOutcomePins Outcome;
+
+	FGeometryScriptCreateNewStaticMeshAssetOptions Options;
 	FMeshNaniteSettings NaniteSettings;
 	NaniteSettings.bEnabled = true;
 	NaniteSettings.bPreserveArea = true;
 
-	Options.bReplaceMaterials = true;
-	Options.NewMaterials = {
-		StaticMeshComponent->GetMaterial(0),
-		StaticMeshComponent->GetMaterial(1),
-		StaticMeshComponent->GetMaterial(2),
-		StaticMeshComponent->GetMaterial(3),
-		StaticMeshComponent->GetMaterial(4)
-	};
-	Options.NewMaterialSlotNames = { FName("Floor"), FName("Ceiling"), FName("Exterior"), FName("Interior"), FName("Roof") };
-	Options.bApplyNaniteSettings = true;
-	Options.NewNaniteSettings = NaniteSettings;
+	FString Path;
+	FString Unused;
 
-	EGeometryScriptOutcomePins Outcome;
-	UStaticMesh *StaticMesh = NewObject<UStaticMesh>(this);
-	UGeometryScriptLibrary_StaticMeshFunctions::CopyMeshToStaticMesh(TargetMesh, StaticMesh, Options, FGeometryScriptMeshWriteLOD(), Outcome);
-	StaticMeshComponent->SetStaticMesh(StaticMesh);
-	DynamicMeshComponent->SetNumMaterials(0);
+	UGeometryScriptLibrary_CreateNewAssetFunctions::CreateUniqueNewAssetPathName(FString("/Game"), FString("SM_Building"), Path, Unused, FGeometryScriptUniqueAssetNameOptions(), Outcome);
 
 	if (Outcome != EGeometryScriptOutcomePins::Success)
 	{
-		UE_LOGFMT(LogLandscapeCombinator, Error, "Internal error while creating static mesh for building");
+		FMessageDialog::Open(EAppMsgType::Ok,
+			LOCTEXT("StaticMeshError", "Internal error while creating unique asset path name.")
+		);
+		return;
 	}
 
-	GEditor->NoteSelectionChange();
+	UStaticMesh *StaticMesh = UGeometryScriptLibrary_CreateNewAssetFunctions::CreateNewStaticMeshAssetFromMesh(
+		DynamicMeshComponent->GetDynamicMesh(), Path,
+		Options, Outcome
+	);
+
+	if (Outcome != EGeometryScriptOutcomePins::Success || !StaticMesh)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			LOCTEXT("StaticMeshError", "Internal error while creating static mesh for building. You may want to regenerate the building.")
+		);
+		return;
+	}
+
+	StaticMesh->NaniteSettings = NaniteSettings;
+	StaticMesh->SetStaticMaterials({
+		DynamicMeshComponent->GetMaterial(0),
+		DynamicMeshComponent->GetMaterial(1),
+		DynamicMeshComponent->GetMaterial(2),
+		DynamicMeshComponent->GetMaterial(3),
+		DynamicMeshComponent->GetMaterial(4)
+	});
+
+	StaticMeshComponent->SetStaticMesh(StaticMesh);
+	DynamicMeshComponent->GetDynamicMesh()->Reset();
+}
+
+void ABuilding::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	if (BuildingConfiguration->bGenerateWhenModified)
+	{
+		GenerateBuilding();
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

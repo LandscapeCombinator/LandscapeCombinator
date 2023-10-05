@@ -45,11 +45,7 @@ public class LandscapeCombinator : ModuleRules
 				"PropertyEditor",
 				"Foliage",
 				"FoliageEdit",
-				"PCG",
-                "GeometryCore",
-                "GeometryFramework",
-                "GeometryScriptingCore",
-                "GeometryScriptingEditor",
+				"PCG"
             }
 			);
 	}
