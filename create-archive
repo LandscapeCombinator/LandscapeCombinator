@@ -1,1 +1,1 @@
-zip -r landscape-combinator-"$1".zip Config Content GlobalSettingsV1 HeightMapListV1 LandscapeCombinator.uplugin README.md Resources Source
+zip -r building-from-spline-"$1".zip Config Content BuildingFromSpline.uplugin README.md Source
