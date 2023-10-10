@@ -15,6 +15,7 @@
 #include "GeometryScript/MeshNormalsFunctions.h"
 #include "GeometryScript/MeshBooleanFunctions.h"
 #include "GeometryScript/MeshSimplifyFunctions.h"
+#include "GeometryScript/MeshUVFunctions.h"
 #include "GeometryScript/CreateNewAssetUtilityFunctions.h"
 #include "GeometryScript/PolyPathFunctions.h"
 #include "Logging/StructuredLog.h"
@@ -879,6 +880,8 @@ void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 	DynamicMeshComponent->SetMaterial(2, BuildingConfiguration->ExteriorMaterial);
 	DynamicMeshComponent->SetMaterial(3, BuildingConfiguration->InteriorMaterial);
 	DynamicMeshComponent->SetMaterial(4, BuildingConfiguration->RoofMaterial);
+
+	UGeometryScriptLibrary_MeshUVFunctions::AutoGenerateXAtlasMeshUVs(TargetMesh, 0, FGeometryScriptXAtlasOptions());
 
 	GEditor->NoteSelectionChange();
 }
