@@ -5,7 +5,7 @@
 	"EngineVersion": "5",
 	"FriendlyName": "BuildingFromSpline",
 	"Category": "Other",
-	"MarketplaceURL": "",
+	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/product/64c9fedf0ff44d9ba0137db8721f47b6",
 	"CanContainContent": true,
 	"IsBetaVersion": true,
 	"IsExperimentalVersion": true,
