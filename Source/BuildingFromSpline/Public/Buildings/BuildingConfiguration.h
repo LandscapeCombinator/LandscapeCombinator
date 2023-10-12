@@ -12,6 +12,8 @@ class BUILDINGFROMSPLINE_API UBuildingConfiguration : public UActorComponent
 	GENERATED_BODY()
 
 public:
+	UBuildingConfiguration();
+
 	/** Choices */
 
 	/* Regenerate the building when modified */
@@ -56,37 +58,31 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
 		meta = (DisplayPriority = "2")
 	)
-	TObjectPtr<UMaterialInterface> InteriorMaterial =
-		Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, *FString("/Script/Engine.MaterialInstanceConstant'/LandscapeCombinator/Project/M_White.M_White'")));
+	TObjectPtr<UMaterialInterface> InteriorMaterial;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
 		meta = (DisplayPriority = "2")
 	)
-	TObjectPtr<UMaterialInterface> ExteriorMaterial =
-		Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, *FString("/Script/Engine.MaterialInstanceConstant'/LandscapeCombinator/Project/MI_ExternalWalls.MI_ExternalWalls'")));
-
+	TObjectPtr<UMaterialInterface> ExteriorMaterial;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
 		meta = (DisplayPriority = "2")
 	)
-	TObjectPtr<UMaterialInterface> FloorMaterial =
-		Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, *FString("/Script/Engine.MaterialInstanceConstant'/LandscapeCombinator/Project/MI_Floor.MI_Floor'")));
+	TObjectPtr<UMaterialInterface> FloorMaterial;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
 		meta = (DisplayPriority = "2")
 	)
-	TObjectPtr<UMaterialInterface> CeilingMaterial =
-		Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, *FString("/Script/Engine.MaterialInstanceConstant'/LandscapeCombinator/Project/M_White.M_White'")));
+	TObjectPtr<UMaterialInterface> CeilingMaterial;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
 		meta = (DisplayPriority = "2")
 	)
-	TObjectPtr<UMaterialInterface> RoofMaterial =
-		Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, *FString("/Script/Engine.MaterialInstanceConstant'/LandscapeCombinator/Project/MI_Roof.MI_Roof'")));
+	TObjectPtr<UMaterialInterface> RoofMaterial;
 
 
 	/** Mesh settings */

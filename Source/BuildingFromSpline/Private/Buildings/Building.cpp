@@ -457,40 +457,14 @@ TArray<FTransform> ABuilding::FindFrames(double BeginDistance, double Length)
 	return Result;
 }
 
-void ABuilding::AppendHoles(UDynamicMesh* TargetMesh, double MinDistanceHoleToCorner, double MinDistanceHoleToHole, double HolesWidth, double HolesHeight, double ZOffset)
-{
-	for (int i = 0; i < SplineComponent->GetNumberOfSplinePoints(); i++)
-	{
-		float Distance1 = BaseClockwiseSplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineIndexToBaseSplineIndex[i]);
-		float Distance2 = BaseClockwiseSplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineIndexToBaseSplineIndex[i + 1]);
-
-		float TotalDistance = Distance2 - Distance1;
-		float AvailableDistance = TotalDistance - 2 * MinDistanceHoleToCorner;
-
-		if (AvailableDistance >= HolesWidth)
-		{
-			int NumHoles = 1 + (AvailableDistance - HolesWidth) / (HolesWidth + MinDistanceHoleToHole); // >= 1
-			int NumSpaces = NumHoles - 1; // >= 0
-
-			float BeginOffset = (AvailableDistance - NumHoles * HolesWidth - NumSpaces * MinDistanceHoleToHole) / 2; // >= 0
-			float BeginWindowDistance = Distance1 + MinDistanceHoleToCorner + BeginOffset; // >= Distance1 + MinDistanceHoleToCorner
-
-			while (BeginWindowDistance + HolesWidth + MinDistanceHoleToCorner <= Distance2)
-			{
-				AppendAlongSpline(TargetMesh, BuildingConfiguration->InternalWallThickness + 20, BuildingConfiguration->ExternalWallThickness + 20, BeginWindowDistance, HolesWidth, HolesHeight, ZOffset, 2);
-				BeginWindowDistance += HolesWidth + MinDistanceHoleToHole;
-			}
-		}
-	}
-}
-
 void ABuilding::AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, double Length, double Height, double ZOffset)
 {
 	USplineMeshComponent *SplineMeshComponent = NewObject<USplineMeshComponent>(RootComponent);
 	SplineMeshComponents.Add(SplineMeshComponent);
-	SplineMeshComponent->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
-	SplineMeshComponent->RegisterComponent();
 	SplineMeshComponent->SetStaticMesh(StaticMesh);
+	SplineMeshComponent->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
+	SplineMeshComponent->CreationMethod = EComponentCreationMethod::UserConstructionScript;
+	SplineMeshComponent->RegisterComponent();
 	FVector StartPos = BaseClockwiseSplineComponent->GetLocationAtDistanceAlongSpline(BeginDistance, ESplineCoordinateSpace::Local);
 	FVector StartTangent = BaseClockwiseSplineComponent->GetTangentAtDistanceAlongSpline(BeginDistance, ESplineCoordinateSpace::Local);
 	FVector EndPos = BaseClockwiseSplineComponent->GetLocationAtDistanceAlongSpline(BeginDistance + Length, ESplineCoordinateSpace::Local);
@@ -501,7 +475,6 @@ void ABuilding::AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, dou
 
 	FBox BoundingBox = StaticMesh->GetBoundingBox();
 	double NewScale = Height / BoundingBox.GetExtent()[2] / 2;
-	//SplineMeshComponent->SetWorldScale3D(FVector(1, 1, ));
 	SplineMeshComponent->SetStartAndEnd(StartPos, StartTangent, EndPos, EndTangent, false);
 	SplineMeshComponent->SetStartScale( { 1, NewScale }, false);
 	SplineMeshComponent->SetEndScale( { 1, NewScale }, false);
@@ -533,6 +506,19 @@ void ABuilding::AppendWallsWithHoles(
 			float BeginOffset = (AvailableDistance - NumHoles * HolesWidth - NumSpaces * MinDistanceHoleToHole) / 2; // >= 0
 			float BeginHoleDistance = Distance1 + MinDistanceHoleToCorner + BeginOffset; // >= Distance1 + MinDistanceHoleToCorner
 			float BeginSpaceDistance = BeginHoleDistance + HolesWidth;
+			
+			UE_LOG(LogBuildingFromSpline, Error, TEXT("TotalDistance: %f"), TotalDistance);
+			UE_LOG(LogBuildingFromSpline, Error, TEXT("AvailableDistance: %f"), AvailableDistance);
+			UE_LOG(LogBuildingFromSpline, Error, TEXT("Distance1: %f"), Distance1);
+			UE_LOG(LogBuildingFromSpline, Error, TEXT("Distance2: %f"), Distance2);
+			UE_LOG(LogBuildingFromSpline, Error, TEXT("BeginOffset: %f"), BeginOffset);
+			UE_LOG(LogBuildingFromSpline, Error, TEXT("BeginHoleDistance: %f"), BeginHoleDistance);
+			UE_LOG(LogBuildingFromSpline, Error, TEXT("BeginSpaceDistance: %f"), BeginSpaceDistance);
+			UE_LOG(LogBuildingFromSpline, Error, TEXT("NumSpaces: %d"), NumSpaces);
+			UE_LOG(LogBuildingFromSpline, Error, TEXT("NumHoles: %d"), NumHoles);
+			UE_LOG(LogBuildingFromSpline, Error, TEXT("MinDistanceHoleToCorner: %f"), MinDistanceHoleToCorner);
+			UE_LOG(LogBuildingFromSpline, Error, TEXT("MinDistanceHoleToHole: %f"), MinDistanceHoleToHole);
+			UE_LOG(LogBuildingFromSpline, Error, TEXT("HolesWidth: %f"), HolesWidth);
 
 			if (bBuildWalls)
 			{
@@ -834,7 +820,26 @@ void ABuilding::ComputeMinMaxHeight()
 
 void ABuilding::GenerateBuilding()
 {
+	if (StaticMeshComponent->GetStaticMesh())
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			LOCTEXT("StaticMeshPresent", "Please reset the static mesh before generating the building.")
+		);
+		return;
+	}
 	AppendBuilding(DynamicMeshComponent->GetDynamicMesh());
+}
+
+void ABuilding::ResetStaticMesh()
+{
+	UE_LOG(LogBuildingFromSpline, Log, TEXT("Resetting static mesh."));
+	StaticMeshComponent->SetStaticMesh(nullptr);
+}
+
+void ABuilding::ResetDynamicMesh()
+{
+	UE_LOG(LogBuildingFromSpline, Log, TEXT("Resetting dynamic mesh."));
+	DynamicMeshComponent->GetDynamicMesh()->Reset();
 }
 
 void ABuilding::ClearSplineMeshComponents()
@@ -938,7 +943,7 @@ void ABuilding::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEve
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
-	if (BuildingConfiguration->bGenerateWhenModified)
+	if (BuildingConfiguration->bGenerateWhenModified && !StaticMeshComponent->GetStaticMesh())
 	{
 		GenerateBuilding();
 	}
