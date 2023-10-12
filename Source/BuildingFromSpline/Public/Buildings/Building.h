@@ -50,6 +50,16 @@ public:
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Building",
 		meta = (DisplayPriority = "5")
 	)
+	void ResetDynamicMesh();
+
+	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Building",
+		meta = (DisplayPriority = "5")
+	)
+	void ResetStaticMesh();
+
+	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Building",
+		meta = (DisplayPriority = "5")
+	)
 	void ConvertToStaticMesh();
 	
 	UFUNCTION(BlueprintCallable, Category = "Building")
@@ -103,7 +113,6 @@ private:
 		int MaterialID
 	);
 	void AppendWallsWithHoles(UDynamicMesh* TargetMesh);
-	void AppendHoles(UDynamicMesh* TargetMesh, double MinDistanceHoleToCorner, double MinDistanceHoleToHole, double HolesWidth, double HolesHeight, double ZOffset);
 	void AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, double Length, double Height, double ZOffset);
 	void AppendAlongSpline(UDynamicMesh* TargetMesh, double InsideWidth, double OutsideWidth, double BeginDistance, double Length, double Height, double ZOffset, int MaterialID);
 	void AppendRoof(UDynamicMesh* TargetMesh);
