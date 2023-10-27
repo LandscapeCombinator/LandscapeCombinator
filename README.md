@@ -46,7 +46,7 @@ For commercial projects, please check the [Unreal Engine Marketplace](https://ww
   using the heightmap provider of your choosing. Heightmap lines are saved automatically in the HeightMapListV1 file in the Saved directory of your project.
 * Press the `Create Landscape` button for the landscape(s) of your chosing.
   It might look like as if nothing is happening, because it can take a while to convert the heightmaps.
-  Please monitor the progress in the Output Log (in the LogLandscapeCombinator category) and make sure there are
+  Please monitor the progress in the Output Log and make sure there are
   no errors.
   After a while, you should see your landscape appear in your editor.
 * Go to the `Landscape Mode` of Unreal Engine in order to paint the landscape. You can use the basic landscape material
@@ -77,7 +77,7 @@ y = (WorldOriginY - Lat) * WorldHeight (in km) * 1000 * 100 / 180 // note the si
 
 * You can add (regular) splines or landscape splines from OSM data on the landscapes you created.
 * In the Content Drawer, make sure that "Show C++ Classes" is checked in the settings.
-* Search for `SplinesBuilder`, which is a C++ class in the Landscape Combinator plugin, and drag it into your level.
+* Search for `SplineImporter`, which is a C++ class in the Landscape Combinator plugin, and drag it into your level.
 * In the details panel of your newly created actor, select the Splines Source as you wish.
   You can either use a premade query, such as Roads, Buildings, or you can write the query yourself using Overpass syntax.
   For instance, the premade query for Roads is the same as using "Overpass Short Query" with the query:
@@ -94,7 +94,7 @@ If you use the `MI_Landscape` material for your landscape, you can try `Road` as
 For rivers, you can select all the segments, and then add a mesh on the landscape splines in the details panel to represent water.
 
 For buildings, it is recommended that you use regular splines (not landscape splines).
-When you generate regular splines, they are added to as Spline Components in your `SplinesBuilder` actor.
+When you generate regular splines, they are added to as Spline Components in your `SplineImporter` actor.
 Use the "Toggle Linear" button if you
 want buildings with straight walls. Then, drag a `BuildingsFromSplines`
 actor in your level. Select the parameters you want for your buildings (windows and doors meshes, materials, number of floors, etc.).
