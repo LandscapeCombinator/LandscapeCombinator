@@ -1,0 +1,28 @@
+h3
+{
+    font-size: 110%;
+    font-weight: 400;
+}
+
+img
+{
+    width: 45%;
+    aspect-ratio: 4 / 3;
+    margin-right: 20px;
+}
+
+img.details
+{
+    width: 100%;
+    aspect-ratio: unset;
+    margin-right: unset;
+}
+
+.wy-nav-content
+{
+    max-width: 1200px;
+}
+
+span.pre {
+    color: #15405d;
+}

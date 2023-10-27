@@ -1,0 +1,9 @@
+make clean html
+cd build/html
+git init --initial-branch=main
+touch .nojekyll
+git add .
+git config user.email "landscapecombinator@proton.me"
+git config user.name "Landscape Combinator"
+git commit -m "Documentation"
+git push -f git@$1:LandscapeCombinator/LandscapeCombinator.git main:doc
