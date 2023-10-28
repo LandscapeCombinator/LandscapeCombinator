@@ -12,7 +12,7 @@ that enables you to create landscapes from real-world data in a few simple steps
 When creating a landscape, the plugin will adjust its position and scale correctly in a planar world.
 You can thus create several real-world landscapes with different resolutions and have them placed and
 scaled correctly with respect to one another. The plugin also has :ref:`a blending feature <blending>`
-to modify the landscapes heightmap data to make the transition between different landscape resolution as
+to modify the landscapes heightmap data to make the transition between different landscapes as
 seamless as possible.
 
 .. toctree::
