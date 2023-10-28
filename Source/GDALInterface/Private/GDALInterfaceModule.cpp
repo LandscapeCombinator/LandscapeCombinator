@@ -28,6 +28,7 @@ void FGDALInterfaceModule::StartupModule()
 	FString GDALData = (ShareFolder / "gdal").Replace(TEXT("/"), TEXT("\\"));
 	FString PROJData = (ShareFolder / "proj").Replace(TEXT("/"), TEXT("\\"));
 	FString OSMConf = (ShareFolder / "gdal" / "osmconf.ini").Replace(TEXT("/"), TEXT("\\"));
+	UE_LOG(LogGDALInterface, Log, TEXT("GDAL Version: %s"), *FString(GDALVersionInfo("RELEASE_NAME")));
 	UE_LOG(LogGDALInterface, Log, TEXT("Setting GDAL_DATA to: %s"), *GDALData);
 	UE_LOG(LogGDALInterface, Log, TEXT("Setting PROJ_DATA to: %s"), *PROJData);
 	CPLSetConfigOption("GDAL_DATA", TCHAR_TO_UTF8(*GDALData));
