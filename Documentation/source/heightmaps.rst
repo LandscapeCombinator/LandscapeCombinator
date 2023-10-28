@@ -6,11 +6,11 @@ Creating Landscapes
 LandscapeSpawner Overview
 -------------------------
 
-#. Search for ``LandscapeSpawner``. You will find ``LandscapeSpawner_Example`` classes, and the main ``LandscapeSpawner`` class.
+#. Search for ``LandscapeSpawner``. You will find ``BP_LandscapeSpawner_Example`` classes, and the main ``LandscapeSpawner`` class.
 
-#. Drag any of these examples in your level, or the main ``LandscapeSpawner`` class where you can choose heightmap sources manually.
+#. Drag any of these examples in your level, or the main ``LandscapeSpawner`` class, where you can setup your heightmap sources manually.
 
-#. Click the landscape spawner that you have imported, and click on ``Spawn Landscape`` in its details panel.
+#. In the Details Panel of the ``LandscapeSpawner``, click on ``Spawn Landscape``.
 
 
 Miscellaneous Settings
