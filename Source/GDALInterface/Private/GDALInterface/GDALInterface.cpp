@@ -395,44 +395,6 @@ bool GDALInterface::Warp(FString& SourceFile, FString& TargetFile, int InEPSG, i
 		return false;
 	}
 
-	FVector4d Coordinates;
-	if (!GDALInterface::GetCoordinates(Coordinates, (GDALDataset*) SrcDataset))
-	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("GDALWarpOpenError", "Could not read coordinates from file {0}."),
-			FText::FromString(SourceFile)
-		));
-		
-		GDALClose(SrcDataset);
-		return false;
-	}
-				
-	double MinCoordWidth = Coordinates[0];
-	double MaxCoordWidth = Coordinates[1];
-	double MinCoordHeight = Coordinates[2];
-	double MaxCoordHeight = Coordinates[3];
-
-	double xs[4] = { MinCoordWidth,  MinCoordWidth,  MaxCoordWidth,  MaxCoordWidth };
-	double ys[4] = { MinCoordHeight, MaxCoordHeight, MaxCoordHeight, MinCoordHeight };
-
-	/* Compute xmin, xmax, ymin, ymax for cropping the output */
-	OGRSpatialReference InRs, OutRs;	
-	if (!GDALInterface::SetCRSFromEPSG(InRs, InEPSG) || !GDALInterface::SetCRSFromEPSG(OutRs, OutEPSG) || !OGRCreateCoordinateTransformation(&InRs, &OutRs)->Transform(4, xs, ys))
-	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("ReprojectionError", "Internal error while transforming coordinates for file {0}."),
-			FText::FromString(SourceFile)
-		));
-
-		GDALClose(SrcDataset);
-		return false;
-	}
-
-	double xmin = FMath::Max(xs[0], xs[1]);
-	double xmax = FMath::Min(xs[2], xs[3]);
-	double ymin = FMath::Max(ys[0], ys[3]);
-	double ymax = FMath::Min(ys[1], ys[2]);
-
 	char** WarpArgv = nullptr;
 				
 	WarpArgv = CSLAddString(WarpArgv, "-r");
@@ -441,11 +403,6 @@ bool GDALInterface::Warp(FString& SourceFile, FString& TargetFile, int InEPSG, i
 	WarpArgv = CSLAddString(WarpArgv, TCHAR_TO_UTF8(*FString::Format(TEXT("EPSG:{0}"), { InEPSG })));
 	WarpArgv = CSLAddString(WarpArgv, "-t_srs");
 	WarpArgv = CSLAddString(WarpArgv, TCHAR_TO_UTF8(*FString::Format(TEXT("EPSG:{0}"), { OutEPSG })));
-	WarpArgv = CSLAddString(WarpArgv, "-te");
-	WarpArgv = CSLAddString(WarpArgv, TCHAR_TO_UTF8(*FString::SanitizeFloat(xmin)));
-	WarpArgv = CSLAddString(WarpArgv, TCHAR_TO_UTF8(*FString::SanitizeFloat(ymin)));
-	WarpArgv = CSLAddString(WarpArgv, TCHAR_TO_UTF8(*FString::SanitizeFloat(xmax)));
-	WarpArgv = CSLAddString(WarpArgv, TCHAR_TO_UTF8(*FString::SanitizeFloat(ymax)));
 	WarpArgv = CSLAddString(WarpArgv, "-dstnodata");
 	WarpArgv = CSLAddString(WarpArgv, TCHAR_TO_UTF8(*FString::SanitizeFloat(NoData)));
 	GDALWarpAppOptions* WarpOptions = GDALWarpAppOptionsNew(WarpArgv, NULL);
@@ -462,11 +419,8 @@ bool GDALInterface::Warp(FString& SourceFile, FString& TargetFile, int InEPSG, i
 		return false;
 	}
 
-	UE_LOG(LogGDALInterface, Log, TEXT("Reprojecting using gdalwarp --config GDAL_PAM_ENABLED NO -r bilinear -t_srs EPSG:4326 -te %s %s %s %s \"%s\" \"%s\""),
-		*FString::SanitizeFloat(xmin),
-		*FString::SanitizeFloat(ymin),
-		*FString::SanitizeFloat(xmax),
-		*FString::SanitizeFloat(ymax),
+	UE_LOG(LogGDALInterface, Log, TEXT("Reprojecting using gdalwarp --config GDAL_PAM_ENABLED NO -r bilinear -t_srs EPSG:%d \"%s\" \"%s\""),
+		OutEPSG,
 		*SourceFile,
 		*TargetFile
 	);
@@ -478,20 +432,18 @@ bool GDALInterface::Warp(FString& SourceFile, FString& TargetFile, int InEPSG, i
 	if (!WarpedDataset)
 	{
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("GDALWarpError", "Internal GDALWarp error ({0}) while converting dataset from file {1} to EPSG 4326."),
+			LOCTEXT("GDALWarpError", "Internal GDALWarp error ({0}) while converting dataset from file {1} to EPSG {2}."),
 			FText::AsNumber(WarpError),
-			FText::FromString(SourceFile)
+			FText::FromString(SourceFile),
+			FText::AsNumber(OutEPSG)
 		));
 
 		return false;
 	}
 	GDALClose(WarpedDataset);
 
-	UE_LOG(LogGDALInterface, Log, TEXT("Finished reprojecting using gdalwarp --config GDAL_PAM_ENABLED NO -r bilinear -t_srs EPSG:4326 -te %s %s %s %s \"%s\" \"%s\""),
-		*FString::SanitizeFloat(xmin),
-		*FString::SanitizeFloat(ymin),
-		*FString::SanitizeFloat(xmax),
-		*FString::SanitizeFloat(ymax),
+	UE_LOG(LogGDALInterface, Log, TEXT("Finished reprojecting using gdalwarp --config GDAL_PAM_ENABLED NO -r bilinear -t_srs EPSG:%d -te %s %s %s %s \"%s\" \"%s\""),
+        OutEPSG,
 		*SourceFile,
 		*TargetFile
 	);
