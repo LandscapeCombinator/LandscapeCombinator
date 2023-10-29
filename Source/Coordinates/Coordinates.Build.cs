@@ -9,19 +9,18 @@ public class Coordinates : ModuleRules
 		CppStandard = CppStandardVersion.Cpp20;
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		// Unreal Dependencies
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"Core",
-				"GDALInterface"
+				"Core"
 			}
 		);
 			
 		
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
-			{
+            {
+				// Unreal Dependencies
 				"Projects",
 				"InputCore",
 				"EditorFramework",
@@ -29,6 +28,8 @@ public class Coordinates : ModuleRules
 				"ToolMenus",
 				"CoreUObject",
 				"Engine",
+
+				// Other Dependencies
 				"GDALInterface"
 			}
 		);

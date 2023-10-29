@@ -9,11 +9,15 @@
 class HMLocalFolder : public HMFetcher
 {
 public:
-	HMLocalFolder(FString Folder0) : Folder(Folder0) {};
+	HMLocalFolder(FString Folder0, int EPSG) : Folder(Folder0)
+	{
+		OutputEPSG = EPSG;
+	};
 	void Fetch(int InputEPSG, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
 
 private:
 	FString Folder;
+	int OutputEPSG;
 };
 
 #undef LOCTEXT_NAMESPACE
