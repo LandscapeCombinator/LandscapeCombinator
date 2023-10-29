@@ -9,7 +9,10 @@
 class HMURL : public HMFetcher
 {
 public:
-	HMURL(FString URL0, FString FileName0) : URL(URL0), FileName(FileName0) {};
+	HMURL(FString URL0, FString FileName0, int EPSG) : URL(URL0), FileName(FileName0)
+	{
+		OutputEPSG = EPSG;
+	};
 	void Fetch(int InputEPSG, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
 
 protected:

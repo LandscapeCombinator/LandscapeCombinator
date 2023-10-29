@@ -48,7 +48,7 @@ ALandscapeSpawner::ALandscapeSpawner()
 
 ALandscapeSpawner::~ALandscapeSpawner()
 {
-	MarkPendingKill();
+	MarkAsGarbage();
 }
 
 HMFetcher* ALandscapeSpawner::CreateInitialFetcher()
@@ -57,23 +57,17 @@ HMFetcher* ALandscapeSpawner::CreateInitialFetcher()
 	{
 		case EHeightMapSourceKind::LocalFile:
 		{
-			HMFetcher *Fetcher1 = new HMDebugFetcher("LocalFile", new HMLocalFile(LocalFilePath), true);
-			HMFetcher *Fetcher2 = new HMDebugFetcher("SetEPSG", new HMSetEPSG());
-			return Fetcher1->AndThen(Fetcher2);
+			return new HMDebugFetcher("LocalFile", new HMLocalFile(LocalFilePath, EPSG), true);
 		}
 
 		case EHeightMapSourceKind::LocalFolder:
 		{
-			HMFetcher *Fetcher1 = new HMDebugFetcher("LocalFolder", new HMLocalFolder(Folder), true);
-			HMFetcher *Fetcher2 = new HMDebugFetcher("SetEPSG", new HMSetEPSG());
-			return Fetcher1->AndThen(Fetcher2);
+			return new HMDebugFetcher("LocalFolder", new HMLocalFolder(Folder, EPSG), true);
 		}
 
 		case EHeightMapSourceKind::URL:
 		{
-			HMFetcher *Fetcher1 = new HMDebugFetcher("URL", new HMURL(URL, LandscapeLabel), true);
-			HMFetcher *Fetcher2 = new HMDebugFetcher("SetEPSG", new HMSetEPSG());
-			return Fetcher1->AndThen(Fetcher2);
+			return new HMDebugFetcher("URL", new HMURL(URL, LandscapeLabel + ".tif", EPSG), true);
 		}
 
 		case EHeightMapSourceKind::Litto3D_Guadeloupe:
@@ -85,8 +79,33 @@ HMFetcher* ALandscapeSpawner::CreateInitialFetcher()
 
 		case EHeightMapSourceKind::RGE_ALTI:
 		{
-			HMFetcher *Fetcher1 = new HMDebugFetcher("RGE_ALTI", HMRGEALTI::RGEALTI(LandscapeLabel, RGEALTI_MinLong, RGEALTI_MaxLong, RGEALTI_MinLat, RGEALTI_MaxLat, bResizeRGEAltiUsingWebAPI, RGEALTIWidth, RGEALTIHeight), true);
-			HMFetcher *Fetcher2 = new HMDebugFetcher("RGE_ALTI_FixNoData", new HMFunction(LandscapeLabel, [](float x) { return x == -99999 ? 0 : x; }));
+			HMFetcher* Fetcher1 = new HMDebugFetcher("RGE_ALTI",
+				HMRGEALTI::RGEALTI(
+					LandscapeLabel,
+					"https://wxs.ign.fr/altimetrie/geoportail/r/wms?LAYERS=RGEALTI-MNT_PYR-ZIP_FXX_LAMB93_WMS&FORMAT=image/geotiff&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&CRS=EPSG:2154&BBOX=",
+					2154,
+					RGEALTI_MinLong, RGEALTI_MaxLong, RGEALTI_MinLat, RGEALTI_MaxLat,
+					bResizeRGEAltiUsingWebAPI, RGEALTI_Width, RGEALTI_Height
+				),
+				true
+			);
+			HMFetcher* Fetcher2 = new HMDebugFetcher("RGE_ALTI_FixNoData", new HMFunction(LandscapeLabel, [](float x) { return x == -99999 ? 0 : x; }));
+			return Fetcher1->AndThen(Fetcher2);
+		}
+
+		case EHeightMapSourceKind::RGE_ALTI_REUNION:
+		{
+			HMFetcher* Fetcher1 = new HMDebugFetcher("RGE_ALTI_REUNION",
+				HMRGEALTI::RGEALTI(
+					LandscapeLabel,
+					"https://wxs.ign.fr/altimetrie/geoportail/r/wms?LAYERS=RGEALTI-MNT_PYR-ZIP_REU_RGR92UTM40S_WMS&FORMAT=image/geotiff&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&CRS=IGNF:RGR92GEO&BBOX=",
+					4971,
+					RGEALTI_REU_MinLong, RGEALTI_REU_MaxLong, RGEALTI_REU_MinLat, RGEALTI_REU_MaxLat,
+					bResizeRGEAltiUsingWebAPI, RGEALTI_Width, RGEALTI_Height
+				),
+				true
+			);
+			HMFetcher* Fetcher2 = new HMDebugFetcher("RGE_ALTI_FixNoData", new HMFunction(LandscapeLabel, [](float x) { return x == -99999 ? 0 : x; }));
 			return Fetcher1->AndThen(Fetcher2);
 		}
 
@@ -207,7 +226,7 @@ bool GetPixels(FIntPoint& InsidePixels, TArray<FString> Files)
 
 bool GetCmPerPixelForEPSG(int EPSG, int &CmPerPixel)
 {
-	if (EPSG == 4326 || EPSG == 4269)
+	if (EPSG == 4326 || EPSG == 4269 || EPSG == 4971)
 	{
 		CmPerPixel = 11111111;
 		return true;

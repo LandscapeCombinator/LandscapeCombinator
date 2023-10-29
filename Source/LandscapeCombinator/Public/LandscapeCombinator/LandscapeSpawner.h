@@ -23,9 +23,10 @@ enum class EHeightMapSourceKind : uint8
 	SwissALTI_3D,
 	USGS_OneThird,
 	RGE_ALTI,
+	RGE_ALTI_REUNION,
+	Litto3D_Guadeloupe,
 	LocalFile,
 	LocalFolder,
-	Litto3D_Guadeloupe,
 	URL
 };
 
@@ -162,19 +163,6 @@ public:
 	)
 	/* Enter C:\Path\To\ListOfLinks.txt (see the help above, or the documentation for more details) */
 	FString USGS_OneThird_ListOfLinks;
-	
-
-	
-	/******************
-	 *  Local Folder  *
-	 ******************/
-
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Source",
-		meta = (EditCondition = "HeightMapSourceKind == EHeightMapSourceKind::Folder", EditConditionHides, DisplayPriority = "3")
-	)
-	/* Enter C:\Path\To\Folder\ containing heightmaps following the _x0_y0 convention */
-	FString Folder;
 
 	
 
@@ -214,32 +202,35 @@ public:
 		meta = (EditCondition = "HeightMapSourceKind == EHeightMapSourceKind::RGE_ALTI", EditConditionHides, DisplayPriority = "3")
 	)
 	/* Enter the minimum longitude of the bounding box in EPSG 2154 coordinates (left coordinate) */
-	int RGEALTI_MinLong;
+	double RGEALTI_MinLong;
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Source",
 		meta = (EditCondition = "HeightMapSourceKind == EHeightMapSourceKind::RGE_ALTI", EditConditionHides, DisplayPriority = "4")
 	)
 	/* Enter the maximum longitude of the bounding box in EPSG 2154 coordinates (right coordinate) */
-	int RGEALTI_MaxLong;
+	double RGEALTI_MaxLong;
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Source",
 		meta = (EditCondition = "HeightMapSourceKind == EHeightMapSourceKind::RGE_ALTI", EditConditionHides, DisplayPriority = "5")
 	)
 	/* Enter the minimum latitude of the bounding box in EPSG 2154 coordinates (bottom coordinate) */
-	int RGEALTI_MinLat;
+	double RGEALTI_MinLat;
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Source",
 		meta = (EditCondition = "HeightMapSourceKind == EHeightMapSourceKind::RGE_ALTI", EditConditionHides, DisplayPriority = "6")
 	)
 	/* Enter the maximum latitude of the bounding box in EPSG 2154 coordinates (top coordinate) */
-	int RGEALTI_MaxLat;
+	double RGEALTI_MaxLat;
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Source",
-		meta = (EditCondition = "HeightMapSourceKind == EHeightMapSourceKind::RGE_ALTI", EditConditionHides, DisplayPriority = "7")
+		meta = (
+			EditCondition = "HeightMapSourceKind == EHeightMapSourceKind::RGE_ALTI || HeightMapSourceKind == EHeightMapSourceKind::RGE_ALTI_REUNION",
+			EditConditionHides, DisplayPriority = "7"
+		)
 	)
 	/* When set to true, you can specify the width and height of the desired heightmap,
 	 * so that the RGE ALTI web API resizes your image before download.
@@ -248,23 +239,56 @@ public:
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Source",
-		meta = (EditCondition = "HeightMapSourceKind == EHeightMapSourceKind::RGE_ALTI && bResizeRGEALTIUsingWebAPI", EditConditionHides, DisplayPriority = "8")
+		meta = (EditCondition = "(HeightMapSourceKind == EHeightMapSourceKind::RGE_ALTI || HeightMapSourceKind == EHeightMapSourceKind::RGE_ALTI_REUNION) && bResizeRGEALTIUsingWebAPI", EditConditionHides, DisplayPriority = "8")
 	)
 	/* Enter desired width for the downloaded heightmap from RGE ALTI web API */
-	int RGEALTIWidth;
-	
+	int RGEALTI_Width;
+
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Source",
-		meta = (EditCondition = "HeightMapSourceKind == EHeightMapSourceKind::RGE_ALTI && bResizeRGEALTIUsingWebAPI", EditConditionHides, DisplayPriority = "9")
+		meta = (EditCondition = "(HeightMapSourceKind == EHeightMapSourceKind::RGE_ALTI || HeightMapSourceKind == EHeightMapSourceKind::RGE_ALTI_REUNION) && bResizeRGEALTIUsingWebAPI", EditConditionHides, DisplayPriority = "9")
 	)
 	/* Enter desired height for the downloaded heightmap from RGE ALTI web API */
-	int RGEALTIHeight;
+	int RGEALTI_Height;
 
-	
+
+	/*********************
+	 *  RGE ALTI REUNION *
+	 *********************/
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Source",
+		meta = (EditCondition = "HeightMapSourceKind == EHeightMapSourceKind::RGE_ALTI_REUNION", EditConditionHides, DisplayPriority = "3")
+	)
+	/* Enter the minimum longitude of the bounding box in EPSG 4971 coordinates (left coordinate) */
+	double RGEALTI_REU_MinLong;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Source",
+		meta = (EditCondition = "HeightMapSourceKind == EHeightMapSourceKind::RGE_ALTI_REUNION", EditConditionHides, DisplayPriority = "4")
+	)
+	/* Enter the maximum longitude of the bounding box in EPSG 4971 coordinates (right coordinate) */
+	double RGEALTI_REU_MaxLong;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Source",
+		meta = (EditCondition = "HeightMapSourceKind == EHeightMapSourceKind::RGE_ALTI_REUNION", EditConditionHides, DisplayPriority = "5")
+	)
+	/* Enter the minimum latitude of the bounding box in EPSG 4971 coordinates (bottom coordinate) */
+	double RGEALTI_REU_MinLat;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Source",
+		meta = (EditCondition = "HeightMapSourceKind == EHeightMapSourceKind::RGE_ALTI_REUNION", EditConditionHides, DisplayPriority = "6")
+	)
+	/* Enter the maximum latitude of the bounding box in EPSG 4971 coordinates (top coordinate) */
+	double RGEALTI_REU_MaxLat;
+
+
 
 	/***************
 	 * Local Files *
-	 ***************/	
+	 ***************/
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Source",
@@ -272,6 +296,27 @@ public:
 	)
 	/* Enter your C:\\Path\\To\\MyHeightmap.tif in GeoTIFF format */
 	FString LocalFilePath;
+
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Source",
+		meta = (EditCondition = "HeightMapSourceKind == EHeightMapSourceKind::LocalFile || HeightMapSourceKind == EHeightMapSourceKind::LocalFolder || HeightMapSourceKind == EHeightMapSourceKind::URL", EditConditionHides, DisplayPriority = "3")
+	)
+	/* Enter the EPSG code of your file(s) */
+	int EPSG;
+
+
+
+	/******************
+	 *  Local Folder  *
+	 ******************/
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Source",
+		meta = (EditCondition = "HeightMapSourceKind == EHeightMapSourceKind::LocalFolder", EditConditionHides, DisplayPriority = "3")
+	)
+	/* Enter C:\Path\To\Folder\ containing heightmaps following the _x0_y0 convention */
+	FString Folder;
 
 	
 
@@ -281,7 +326,7 @@ public:
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Source",
-		meta = (EditCondition = "HeightMapSourceKind == EHeightMapSourceKind::LocalFile", EditConditionHides, DisplayPriority = "3")
+		meta = (EditCondition = "HeightMapSourceKind == EHeightMapSourceKind::URL", EditConditionHides, DisplayPriority = "3")
 	)
 	/* Enter URL to a heightmap in GeoTIFF format */
 	FString URL;
