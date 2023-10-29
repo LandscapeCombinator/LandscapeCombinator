@@ -2,17 +2,33 @@
 
 #include "LandscapeCombinator/HMRGEAlti.h"
 
+#include "Internationalization/TextLocalizationResource.h" 
+
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
-HMURL* HMRGEALTI::RGEALTI(FString LandscapeLabel, int MinLong, int MaxLong, int MinLat, int MaxLat, bool bOverrideWidthAndHeight, int Width0, int Height0)
+HMURL* HMRGEALTI::RGEALTI(
+	FString LandscapeLabel, FString URL,
+	int EPSG,
+	double MinLong, double MaxLong,
+	double MinLat, double MaxLat,
+	bool bOverrideWidthAndHeight, int Width0, int Height0
+)
 {
 	int Width = Width0;
 	int Height = Height0;
 
 	if (!bOverrideWidthAndHeight)
 	{
-		Width =  MaxLong - MinLong;
-		Height = MaxLat - MinLat;
+		if (EPSG == 2154)
+		{
+			Width = MaxLong - MinLong;
+			Height = MaxLat - MinLat;
+		}
+		else
+		{
+			Width = (MaxLong - MinLong) * 111111.11;
+			Height = (MaxLat - MinLat) * 111111.11;
+		}
 	}
 
 	if (Width <= 0)
@@ -55,14 +71,20 @@ HMURL* HMRGEALTI::RGEALTI(FString LandscapeLabel, int MinLong, int MaxLong, int 
 		return nullptr;
 	}
 
+	FString CoordinatesString = FString::Format(
+		TEXT("{0}_{1}_{2}_{3}_{4}_{5}"),
+		{ MinLong, MaxLong, MinLat, MaxLat, Width, Height }
+	);
+	int Hash = FTextLocalizationResource::HashString(CoordinatesString);
+
 	HMURL* Result = new HMURL(
 		FString::Format(
-			TEXT("https://wxs.ign.fr/altimetrie/geoportail/r/wms?LAYERS=RGEALTI-MNT_PYR-ZIP_FXX_LAMB93_WMS&FORMAT=image/geotiff&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&CRS=EPSG:2154&BBOX={0},{1},{2},{3}&WIDTH={4}&HEIGHT={5}&STYLES="),
-			{ MinLong, MinLat, MaxLong, MaxLat, Width, Height }
+			TEXT("{0}{1},{2},{3},{4}&WIDTH={5}&HEIGHT={6}&STYLES="),
+			{ URL, MinLong, MinLat, MaxLong, MaxLat, Width, Height }
 		),
-		FString::Format(TEXT("RGE_ALTI_{0}_{1}_{2}_{3}_{4}_{5}.tif"), { MinLong, MaxLong, MinLat, MaxLat, Width, Height })
+		FString::Format(TEXT("RGE_ALTI_{0}.tif"), { Hash }),
+		EPSG
 	);
-	Result->OutputEPSG = 2154;
 	return Result;
 }
 
