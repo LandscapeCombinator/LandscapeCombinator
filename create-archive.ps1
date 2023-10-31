@@ -1,6 +1,9 @@
 param (
-    [string]$version = "v42"
- )
+    [string]$PluginVersion,
+    [string]$EngineVersion
+)
+
+Set-StrictMode -Version 3
 
 $ErrorActionPreference = 'Stop'
 
@@ -21,7 +24,7 @@ function New-Archive {
 
     foreach ($Dependency in $Dependencies[$Plugin])
     {
-        Copy-Item -Path "Source/$Dependency" -Destination "$TempFolder/Source" -Force -Recurse
+        Copy-Item -Path "Source/$Dependency" -Destination "$TempFolder/Source/$Dependency" -Force -Recurse
     }
 
     # Modify uplugin file
@@ -33,6 +36,12 @@ function New-Archive {
     $NewUPlugin = $NewUPlugin -replace
         "`"MarketplaceURL`": `".*`"",
         "`"MarketplaceURL`": `"com.epicgames.launcher://ue/marketplace/product/$($MarketplaceURLs[$Plugin])`""
+    $NewUPlugin = $NewUPlugin -replace
+        "`"EngineVersion`": `".*`"",
+        "`"EngineVersion`": `"$EngineVersion`""
+    $NewUPlugin = $NewUPlugin -replace
+        "`"VersionName`": `".*`"",
+        "`"VersionName`": `"$PluginVersion`""
 
     $PluginDependencies = $Dependencies[$Plugin]
 
@@ -47,13 +56,25 @@ function New-Archive {
     Set-Content $TempFolder/$Plugin.uplugin $NewUPlugin
 
 
-    # Remove GDAL from FilterPlugin.ini for plugins that do not depend on GDAL
+    # GDAL
 
     if (!$PluginDependencies.Contains("GDALInterface"))
     {
+        # Remove GDAL from FilterPlugin.ini for plugins that do not depend on GDAL
         $FilterPlugin = Get-Content "$TempFolder/Config/FilterPlugin.ini" -Raw
         $FilterPlugin = $FilterPlugin -replace ".*ThirdParty.*\n.*\n", ""
+        $FilterPlugin = $FilterPlugin -replace ".*Binaries.*\n.*\n", ""
         Set-Content "$TempFolder/Config/FilterPlugin.ini" $FilterPlugin    
+    }
+    else
+    {
+        # Copy ThirdParty/GDAL for plugins that depend on it
+        Copy-Item -Path "Source/ThirdParty" -Destination "$TempFolder/Source/ThirdParty" -Force -Recurse
+
+        # And the GDAL DLLs from the Binaries folder, otherwise they don't appear in the Engine package
+        New-Item -Path "$TempFolder" -Name "Binaries" -ItemType "directory" | Out-Null
+        New-Item -Path "$TempFolder/Binaries" -Name "Win64" -ItemType "directory" | Out-Null
+        Copy-Item -Path Binaries/Win64/*.dll -Exclude Unreal* -Destination "$TempFolder/Binaries/Win64" -Force
     }
 
 
@@ -64,10 +85,8 @@ function New-Archive {
         Remove-Item -Recurse -Force "$TempFolder/Content/LandscapeSpawners"
     }
 
-    Remove-Item -Force -Recurse "*.zip"
-
-    Write-Output "Running: 7z a $plugin-$version.zip $(Resolve-Path "$TempFolder/*" | Select-Object -ExpandProperty Path)"
-    & 7z a "$plugin-$version.zip" (Resolve-Path "$TempFolder/*" | Select-Object -ExpandProperty Path)
+    Write-Output "Running: 7z a $plugin-v$PluginVersion-UE$EngineVersion.zip $(Resolve-Path "$TempFolder/*" | Select-Object -ExpandProperty Path)"
+    & 7z a "$plugin-v$PluginVersion-UE$EngineVersion.zip" (Resolve-Path "$TempFolder/*" | Select-Object -ExpandProperty Path)
 
     Remove-Item -Force -Recurse $TempFolder
 }
@@ -97,22 +116,16 @@ function Update-Transitive {
         $UpdatedGraph = @{}
 
         foreach ($Node in $Graph.Keys) {
-            # Write-Output "Node: $Node"
             $ReachableNodes = @($Graph[$Node])
 
             foreach ($Node1 in $Graph[$Node]) {
-                # Write-Output "Node1: $Node1"
                 foreach ($Node2 in $Graph[$Node1]) {
-                    # Write-Output "Node2: $Node2"
                     if (!$ReachableNodes.Contains($Node2)) {
-                        # Write-Output "Adding"
                         $Changed = $true;
                         $ReachableNodes += $Node2
                     }
                 }
             }
-            
-            # Write-Output "ReachableNodes: $Node"
 
             $UpdatedGraph[$Node] = $ReachableNodes
         }
@@ -158,11 +171,11 @@ $Dependencies = Update-Transitive $DirectDependencies
 $MarketPlaceURLs = @{}
 $MarketPlaceURLs.Add("LandscapeCombinator", "675e54fcb72f42db82125d5573d0667e")
 $MarketPlaceURLs.Add("BuildingFromSpline",  "64c9fedf0ff44d9ba0137db8721f47b6")
-$MarketPlaceURLs.Add("Coordinates",         "")
+$MarketPlaceURLs.Add("Coordinates",         "11fabe5dcee545338cc6818f5e465bf6")
 $MarketPlaceURLs.Add("SplineImporter",      "")
 $MarketPlaceURLs.Add("HeightmapModifier",   "")
 
-
+Remove-Item -Force -Recurse "*UE$EngineVersion*.zip"
 
 foreach($Plugin in
     @(
