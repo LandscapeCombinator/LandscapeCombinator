@@ -24,7 +24,15 @@ void FGDALInterfaceModule::StartupModule()
 	// GDAL
 	GDALAllRegister();
 	OGRRegisterAll();
-	FString ShareFolder = FPaths:: ConvertRelativePathToFull(IPluginManager::Get().FindPlugin("Coordinates")->GetBaseDir()) / "Source" / "ThirdParty" / "GDAL" / "share";
+	TSharedPtr<IPlugin> ThisPlugin = IPluginManager::Get().GetModuleOwnerPlugin("GDALInterface");
+	if (!ThisPlugin)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			LOCTEXT("FGDALInterfaceModule::StartupModule", "GDALInterface Internal Error: Could not start module.")
+		);
+		return;
+	}
+	FString ShareFolder = FPaths:: ConvertRelativePathToFull(ThisPlugin->GetBaseDir()) / "Source" / "ThirdParty" / "GDAL" / "share";
 	FString GDALData = (ShareFolder / "gdal").Replace(TEXT("/"), TEXT("\\"));
 	FString PROJData = (ShareFolder / "proj").Replace(TEXT("/"), TEXT("\\"));
 	FString OSMConf = (ShareFolder / "gdal" / "osmconf.ini").Replace(TEXT("/"), TEXT("\\"));
