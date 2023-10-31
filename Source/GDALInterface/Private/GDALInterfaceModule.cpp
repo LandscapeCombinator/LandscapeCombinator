@@ -24,7 +24,7 @@ void FGDALInterfaceModule::StartupModule()
 	// GDAL
 	GDALAllRegister();
 	OGRRegisterAll();
-	FString ShareFolder = FPaths:: ConvertRelativePathToFull(IPluginManager::Get().FindPlugin("LandscapeCombinator")->GetBaseDir()) / "Source" / "ThirdParty" / "GDAL" / "share";
+	FString ShareFolder = FPaths:: ConvertRelativePathToFull(IPluginManager::Get().FindPlugin("Coordinates")->GetBaseDir()) / "Source" / "ThirdParty" / "GDAL" / "share";
 	FString GDALData = (ShareFolder / "gdal").Replace(TEXT("/"), TEXT("\\"));
 	FString PROJData = (ShareFolder / "proj").Replace(TEXT("/"), TEXT("\\"));
 	FString OSMConf = (ShareFolder / "gdal" / "osmconf.ini").Replace(TEXT("/"), TEXT("\\"));
