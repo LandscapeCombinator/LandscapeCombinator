@@ -6,6 +6,15 @@
 
 #define LOCTEXT_NAMESPACE "FBuildingFromSplineModule"
 
+UENUM(BlueprintType)
+enum class ERoofKind : uint8
+{
+	None,
+	Flat,
+	Point,
+	InnerSpline
+};
+
 UCLASS(meta = (PrioritizeCategories = "Building"), BlueprintType)
 class BUILDINGFROMSPLINE_API UBuildingConfiguration : public UActorComponent
 {
@@ -43,13 +52,6 @@ public:
 		meta = (DisplayPriority = "1")
 	)
 	bool bBuildFloorTiles = true;
-	
-	/* Build roof */
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Building|Choices",
-		meta = (DisplayPriority = "1")
-	)
-	bool bBuildRoof = true;
 
 
 	/** Materials */
@@ -162,32 +164,53 @@ public:
 
 
 	/** Roof Settings */
+
+
+	/* Build roof */
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|Roof",
+		meta = (DisplayPriority = "1")
+	)
+	ERoofKind RoofKind = ERoofKind::Point;
+
 	
 	/* The length of the roof that goes outside the building */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Roof",
-		meta = (DisplayPriority = "3")
+		meta = (
+			EditCondition = "RoofKind == ERoofKind::Point || RoofKind == ERoofKind::InnerSpline",
+			EditConditionHides, DisplayPriority = "3"
+		)
 	)
-	double OuterRoofDistance = 200;
+	double OuterRoofDistance = 100;
 	
 	/* The distance from the walls to the inner/top part of the roof */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Roof",
-		meta = (DisplayPriority = "3")
+		meta = (
+			EditCondition = "RoofKind == ERoofKind::InnerSpline",
+			EditConditionHides, DisplayPriority = "4"
+		)
 	)
-	double InnerRoofDistance = 480;
+	double InnerRoofDistance = 300;
 	
 	/* Roof thickness */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Roof",
-		meta = (DisplayPriority = "3")
+		meta = (
+			EditCondition = "RoofKind != ERoofKind::None",
+			EditConditionHides, DisplayPriority = "5"
+		)
 	)
 	double RoofThickness = 5;
 	
-	/* The height of the roof */
+	/* The distance from the top of the walls to the top of the roof */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Roof",
-		meta = (DisplayPriority = "3")
+		meta = (
+			EditCondition = "RoofKind == ERoofKind::Point || RoofKind == ERoofKind::InnerSpline",
+			EditConditionHides, DisplayPriority = "6"
+		)
 	)
 	double RoofHeight = 250;
 
