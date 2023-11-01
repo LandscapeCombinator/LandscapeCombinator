@@ -8,7 +8,7 @@ has a ``BlendLandscape`` component. You can also add this component manually on 
 created without Landscape Combinator.
 
 In the ``BlendLandscape`` component, simply choose the landscape that you want to blend with,
-and with on the ``Blend With Landscape`` button.
+and click the ``Blend With Landscape`` button.
 
 You can also explore the ``Advanced Blending Options``, which allow to specify custom curves
 for blending the landscapes.
