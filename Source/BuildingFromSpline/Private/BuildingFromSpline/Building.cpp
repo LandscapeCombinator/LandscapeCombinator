@@ -21,6 +21,7 @@
 #include "Logging/StructuredLog.h"
 #include "Polygon2.h"
 #include "Algo/Reverse.h"
+#include "Stats/Stats.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(Building)
 
@@ -71,6 +72,9 @@ ABuilding::ABuilding() : ADynamicMeshActor()
 
 void ABuilding::ComputeBaseVertices()
 {
+	static FTotalTimeAndCount ComputeBaseVerticesTime;
+	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&ComputeBaseVerticesTime)
+
 	int NumPoints = SplineComponent->GetNumberOfSplinePoints();
 	if (NumPoints == 0) return;
 
@@ -159,6 +163,9 @@ void ABuilding::ComputeBaseVertices()
 
 void ABuilding::ComputeOffsetPolygons()
 {
+	static FTotalTimeAndCount ComputeOffsetPolygonsTime;
+	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&ComputeOffsetPolygonsTime)
+
 	/* Initialization */
 
 	int NumFrames = BaseClockwiseFrames.Num();
@@ -193,7 +200,10 @@ FVector2D To2D(FVector Vector)
 }
 
 FVector2D ABuilding::GetIntersection(FVector2D Point1, FVector2D Direction1, FVector2D Point2, FVector2D Direction2)
-{	
+{
+	static FTotalTimeAndCount GetIntersectionTime;
+	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&GetIntersectionTime)
+
 	// Point1.X + t * Direction1.X = Point2.X + t' * Direction2.X
 	// Point1.Y + t * Direction1.Y = Point2.Y + t' * Direction2.Y
 	
@@ -220,6 +230,8 @@ FVector2D ABuilding::GetIntersection(FVector2D Point1, FVector2D Direction1, FVe
 
 FVector2D ABuilding::GetShiftedPoint(TArray<FTransform> Frames, int Index, int Offset)
 {
+	static FTotalTimeAndCount GetShiftedPointTime;
+	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&GetShiftedPointTime)
 	FVector2D Point = To2D(Frames[Index].GetLocation());
 	FVector2D NextPoint = To2D(Frames[Index + 1].GetLocation());
 
@@ -242,6 +254,8 @@ FVector2D ABuilding::GetShiftedPoint(TArray<FTransform> Frames, int Index, int O
 
 void ABuilding::DeflateFrames(TArray<FTransform> Frames, TArray<FVector2D>& OutOffsetPolygon, TArray<int>& OutIndexToOffsetIndex, double Offset)
 {
+	static FTotalTimeAndCount DeflateFramesTime;
+	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&DeflateFramesTime)
 	int NumFrames = Frames.Num() - 1; // the first one is only there to help compute intersections
 	int NumVertices = BaseVertices2D.Num();
 
@@ -293,6 +307,8 @@ void ABuilding::DeflateFrames(TArray<FTransform> Frames, TArray<FVector2D>& OutO
 
 void ABuilding::AppendAlongSpline(UDynamicMesh* TargetMesh, double InternalWidth, double ExternalWidth, double BeginDistance, double Length, double Height, double ZOffset, int MaterialID)
 {
+	static FTotalTimeAndCount AppendAlongSplineTime;
+	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AppendAlongSplineTime)
 	// TODO: reuse the internal and external walls polygons when the parameters match the walls thickness
 
 	/* Construct a polygon that follows the base splines, and which extends inside by `InternalWidth` and outside by `ExternalWidth` */
@@ -341,6 +357,9 @@ void ABuilding::AppendAlongSpline(UDynamicMesh* TargetMesh, double InternalWidth
 
 bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 {
+	static FTotalTimeAndCount AppendFloorsTime;
+	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AppendFloorsTime)
+
 	/* Create one floor tile in FloorMesh */
 
 	UDynamicMesh *FloorMesh = AllocateComputeMesh();
@@ -396,9 +415,9 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 	}
 	
 
-	/* Add the last floor with roof material if there is no custom roof */
+	/* Add the last floor with roof material for flat roof kind */
 
-	if (!BuildingConfiguration->bBuildRoof)
+	if (BuildingConfiguration->RoofKind == ERoofKind::Flat)
 	{
 		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(FloorMesh, 0, RoofMaterialID);
 	
@@ -415,6 +434,8 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 
 TArray<FTransform> ABuilding::FindFrames(double BeginDistance, double Length)
 {
+	static FTotalTimeAndCount FindFramesTime;
+	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&FindFramesTime)
 	TArray<FTransform> Result;
 
 	FTransform FirstTransform = BaseClockwiseSplineComponent->GetTransformAtDistanceAlongSpline(BeginDistance, ESplineCoordinateSpace::Local);
@@ -459,6 +480,8 @@ TArray<FTransform> ABuilding::FindFrames(double BeginDistance, double Length)
 
 void ABuilding::AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, double Length, double Height, double ZOffset)
 {
+	static FTotalTimeAndCount AddSplineMeshTime;
+	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AddSplineMeshTime)
 	USplineMeshComponent *SplineMeshComponent = NewObject<USplineMeshComponent>(RootComponent);
 	SplineMeshComponents.Add(SplineMeshComponent);
 	SplineMeshComponent->SetStaticMesh(StaticMesh);
@@ -490,6 +513,8 @@ void ABuilding::AppendWallsWithHoles(
 	int MaterialID
 )
 {
+	static FTotalTimeAndCount AppendWallsWithHolesTime1;
+	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AppendWallsWithHolesTime1)
 	for (int i = 0; i < SplineComponent->GetNumberOfSplinePoints(); i++)
 	{
 		float Distance1 = BaseClockwiseSplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineIndexToBaseSplineIndex[i]);
@@ -506,19 +531,6 @@ void ABuilding::AppendWallsWithHoles(
 			float BeginOffset = (AvailableDistance - NumHoles * HolesWidth - NumSpaces * MinDistanceHoleToHole) / 2; // >= 0
 			float BeginHoleDistance = Distance1 + MinDistanceHoleToCorner + BeginOffset; // >= Distance1 + MinDistanceHoleToCorner
 			float BeginSpaceDistance = BeginHoleDistance + HolesWidth;
-			
-			UE_LOG(LogBuildingFromSpline, Error, TEXT("TotalDistance: %f"), TotalDistance);
-			UE_LOG(LogBuildingFromSpline, Error, TEXT("AvailableDistance: %f"), AvailableDistance);
-			UE_LOG(LogBuildingFromSpline, Error, TEXT("Distance1: %f"), Distance1);
-			UE_LOG(LogBuildingFromSpline, Error, TEXT("Distance2: %f"), Distance2);
-			UE_LOG(LogBuildingFromSpline, Error, TEXT("BeginOffset: %f"), BeginOffset);
-			UE_LOG(LogBuildingFromSpline, Error, TEXT("BeginHoleDistance: %f"), BeginHoleDistance);
-			UE_LOG(LogBuildingFromSpline, Error, TEXT("BeginSpaceDistance: %f"), BeginSpaceDistance);
-			UE_LOG(LogBuildingFromSpline, Error, TEXT("NumSpaces: %d"), NumSpaces);
-			UE_LOG(LogBuildingFromSpline, Error, TEXT("NumHoles: %d"), NumHoles);
-			UE_LOG(LogBuildingFromSpline, Error, TEXT("MinDistanceHoleToCorner: %f"), MinDistanceHoleToCorner);
-			UE_LOG(LogBuildingFromSpline, Error, TEXT("MinDistanceHoleToHole: %f"), MinDistanceHoleToHole);
-			UE_LOG(LogBuildingFromSpline, Error, TEXT("HolesWidth: %f"), HolesWidth);
 
 			if (bBuildWalls)
 			{
@@ -577,7 +589,10 @@ void ABuilding::AppendWallsWithHoles(
 }
 
 void ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
-{	
+{
+	static FTotalTimeAndCount AppendWallsWithHolesTime2;
+	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AppendWallsWithHolesTime2)
+
 	double InternalWallHeight = BuildingConfiguration->FloorHeight;
 	if (BuildingConfiguration->bBuildFloorTiles) InternalWallHeight -= BuildingConfiguration->FloorThickness;
 
@@ -603,7 +618,7 @@ void ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 
 	for (int i = 1; i < BuildingConfiguration->NumFloors; i++)
 	{
-		if (i == BuildingConfiguration->NumFloors - 1 && BuildingConfiguration->bBuildRoof)
+		if (i == BuildingConfiguration->NumFloors - 1 && BuildingConfiguration->RoofKind == ERoofKind::None)
 		{
 			InternalWallHeight = BuildingConfiguration->FloorHeight;
 		}
@@ -669,6 +684,9 @@ void ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 
 void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 {
+	static FTotalTimeAndCount AppendRoofTime;
+	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AppendRoofTime)
+
 	/* Allocate RoofMesh */
 
 	UDynamicMesh *RoofMesh = AllocateComputeMesh();
@@ -690,45 +708,63 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 	TArray<int> IndexToRoofIndex;
 	DeflateFrames(Frames, RoofPolygon, IndexToRoofIndex, BuildingConfiguration->InnerRoofDistance);
 
-	if (RoofPolygon.IsEmpty() || InternalWallPolygon.IsEmpty()) return;
-
-	UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSimpleExtrudePolygon(
-		RoofMesh,
-		FGeometryScriptPrimitiveOptions(),
-		FTransform(FVector(0, 0, RoofTopHeight)),
-		RoofPolygon,
-		BuildingConfiguration->RoofThickness
-	);
-
-	UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, RoofMaterialID);
-
-	/* Set the Polygroup ID of ceiling to CeilingMaterialID in FloorMesh */
-
-	FGeometryScriptIndexList PolygroupIDs0;
-	UGeometryScriptLibrary_MeshPolygroupFunctions::GetPolygroupIDsInMesh(
-		RoofMesh,
-		FGeometryScriptGroupLayer(),
-		PolygroupIDs0
-	);
-
-	TArray<int> PolygroupIDs = *PolygroupIDs0.List;
-
-	if (PolygroupIDs.Num() < 3)
+	if (RoofPolygon.IsEmpty() || BuildingConfiguration->RoofKind == ERoofKind::Point)
 	{
-		UE_LOGFMT(LogBuildingFromSpline, Error, "Internal error: something went wrong with the floor tile materials");
-		return;
-	}
+		double MiddleX = 0;
+		double MiddleY = 0;
+		int n = BaseVertices2D.Num();
+		for (int i = 0; i < n; i++)
+		{
+			MiddleX += BaseVertices2D[i].X / n;
+			MiddleY += BaseVertices2D[i].Y / n;
+		}
 
-	bool bIsValidPolygroupID;
-	UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
-		RoofMesh,
-		FGeometryScriptGroupLayer(),
-		PolygroupIDs[2], // TODO: polygroup ID of the ceiling, is there a way to ensure it?
-		CeilingMaterialID, // new material ID
-		bIsValidPolygroupID,
-		false,
-		nullptr
-	);
+		RoofPolygon = TArray<FVector2D>({ { MiddleX, MiddleY } });
+		for (int i = 0; i < NumFrames; i++)
+		{
+			IndexToRoofIndex[i] = 0;
+		}
+	}
+	else
+	{
+		UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSimpleExtrudePolygon(
+			RoofMesh,
+			FGeometryScriptPrimitiveOptions(),
+			FTransform(FVector(0, 0, RoofTopHeight)),
+			RoofPolygon,
+			BuildingConfiguration->RoofThickness
+		);
+
+		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, RoofMaterialID);
+
+		/* Set the Polygroup ID of ceiling to CeilingMaterialID */
+
+		FGeometryScriptIndexList PolygroupIDs0;
+		UGeometryScriptLibrary_MeshPolygroupFunctions::GetPolygroupIDsInMesh(
+			RoofMesh,
+			FGeometryScriptGroupLayer(),
+			PolygroupIDs0
+		);
+
+		TArray<int> PolygroupIDs = *PolygroupIDs0.List;
+
+		if (PolygroupIDs.Num() < 3)
+		{
+			UE_LOGFMT(LogBuildingFromSpline, Error, "Internal error: something went wrong with the floor tile materials");
+			return;
+		}
+
+		bool bIsValidPolygroupID;
+		UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
+			RoofMesh,
+			FGeometryScriptGroupLayer(),
+			PolygroupIDs[2], // TODO: polygroup ID of the ceiling, is there a way to ensure it?
+			CeilingMaterialID, // new material ID
+			bIsValidPolygroupID,
+			false,
+			nullptr
+		);
+	}
 
 
 	/* Connection from the walls to the roof, outside */
@@ -759,7 +795,7 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 	Options.bFlipOrientation = true;
 	UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSweepPolyline(
 		RoofMesh, Options,
-		FTransform(), { {0, 0}, {0, 1 } },
+		FTransform(), { {0, 0}, {0, 1} },
 		SweepPath, {}, {}, true
 	);
 	UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, RoofMaterialID);
@@ -767,33 +803,36 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 
 	/* Connection from the walls to the roof, inside */
 
-	SweepPath.Empty();
-	for (int i = 0; i < NumFrames; i++)
+	if (!InternalWallPolygon.IsEmpty())
 	{
-		FVector2D WallPoint = InternalWallPolygon[IndexToInternalIndex[i]];
-		FVector2D RoofPoint = RoofPolygon[IndexToRoofIndex[i]];
+		SweepPath.Empty();
+		for (int i = 0; i < NumFrames; i++)
+		{
+			FVector2D WallPoint = InternalWallPolygon[IndexToInternalIndex[i]];
+			FVector2D RoofPoint = RoofPolygon[IndexToRoofIndex[i]];
 
-		FVector Source(WallPoint[0], WallPoint[1], WallTopHeight);
-		const FVector Target(RoofPoint[0], RoofPoint[1], RoofTopHeight);
+			FVector Source(WallPoint[0], WallPoint[1], WallTopHeight);
+			const FVector Target(RoofPoint[0], RoofPoint[1], RoofTopHeight);
 
-		const FVector UnitDirection = (Target - Source).GetSafeNormal();
-		Source -= UnitDirection * BuildingConfiguration->OuterRoofDistance;
+			const FVector UnitDirection = (Target - Source).GetSafeNormal();
+			Source -= UnitDirection * BuildingConfiguration->OuterRoofDistance;
 
-		FTransform NewTransform;
-		NewTransform.SetLocation(Source);
-		NewTransform.SetRotation(FQuat::FindBetweenVectors(FVector(0, 0, 1), UnitDirection));
-		NewTransform.SetScale3D(FVector(1, 1, FVector::Distance(Source, Target)));
+			FTransform NewTransform;
+			NewTransform.SetLocation(Source);
+			NewTransform.SetRotation(FQuat::FindBetweenVectors(FVector(0, 0, 1), UnitDirection));
+			NewTransform.SetScale3D(FVector(1, 1, FVector::Distance(Source, Target)));
 
-		SweepPath.Add(NewTransform);
+			SweepPath.Add(NewTransform);
+		}
+
+		Options.bFlipOrientation = false;
+		UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSweepPolyline(
+			RoofMesh, Options,
+			FTransform(), { {0, 0}, {0, 1} },
+			SweepPath, {}, {}, true
+		);
+		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, InteriorMaterialID);
 	}
-
-	Options.bFlipOrientation = false;
-	UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSweepPolyline(
-		RoofMesh, Options,
-		FTransform(), { {0, 0}, {0, 1 } },
-		SweepPath, {}, {}, true
-	);
-	UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, InteriorMaterialID);
 	
 
 	/* Add the WallMesh to our TargetMesh */
@@ -803,6 +842,8 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 
 void ABuilding::ComputeMinMaxHeight()
 {
+	static FTotalTimeAndCount ComputeMinMaxHeightTime;
+	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&ComputeMinMaxHeightTime)
 	int NumPoints = SplineComponent->GetNumberOfSplinePoints();
 	MinHeightLocal = MAX_dbl;
 	MinHeightWorld = MAX_dbl;
@@ -820,6 +861,8 @@ void ABuilding::ComputeMinMaxHeight()
 
 void ABuilding::GenerateBuilding()
 {
+	static FTotalTimeAndCount GenerateBuildingTime;
+	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&GenerateBuildingTime)
 	if (StaticMeshComponent->GetStaticMesh())
 	{
 		FMessageDialog::Open(EAppMsgType::Ok,
@@ -832,18 +875,24 @@ void ABuilding::GenerateBuilding()
 
 void ABuilding::ResetStaticMesh()
 {
+	static FTotalTimeAndCount ResetStaticMeshTime;
+	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&ResetStaticMeshTime)
 	UE_LOG(LogBuildingFromSpline, Log, TEXT("Resetting static mesh."));
 	StaticMeshComponent->SetStaticMesh(nullptr);
 }
 
 void ABuilding::ResetDynamicMesh()
 {
+	static FTotalTimeAndCount ResetDynamicMeshTime;
+	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&ResetDynamicMeshTime)
 	UE_LOG(LogBuildingFromSpline, Log, TEXT("Resetting dynamic mesh."));
 	DynamicMeshComponent->GetDynamicMesh()->Reset();
 }
 
 void ABuilding::ClearSplineMeshComponents()
 {
+	static FTotalTimeAndCount ClearSplineMeshComponentsTime;
+	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&ClearSplineMeshComponentsTime)
 	for (auto& SplineMeshComponent : SplineMeshComponents)
 	{
 		if (IsValid(SplineMeshComponent))
@@ -873,7 +922,10 @@ void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 		if (!AppendFloors(TargetMesh)) return;
 	}
 
-	if (BuildingConfiguration->bBuildRoof)
+	if (
+		BuildingConfiguration->RoofKind == ERoofKind::Point ||
+		BuildingConfiguration->RoofKind == ERoofKind::InnerSpline
+	)
 	{
 		AppendRoof(TargetMesh);
 	}
