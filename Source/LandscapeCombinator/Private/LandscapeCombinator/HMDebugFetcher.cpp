@@ -9,6 +9,12 @@
 
 void HMDebugFetcher::Fetch(int InputEPSG, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
 {
+	if (!Fetcher)
+	{
+		if (OnComplete) OnComplete(false);
+		return;
+	}
+
 	if (!bAllowEmpty && InputFiles.IsEmpty())
 	{
 		UE_LOG(LogLandscapeCombinator, Error, TEXT("No input files when entering Phase %s"), *Name);
