@@ -20,6 +20,9 @@ ABuildingsFromSplines::ABuildingsFromSplines()
 	PrimaryActorTick.bCanEverTick = false;
 
 	BuildingConfiguration = CreateDefaultSubobject<UBuildingConfiguration>(TEXT("Building Configuration"));
+
+	BuildingConfiguration->InternalWallThickness = 1;
+	BuildingConfiguration->ExternalWallThickness = 1;
 }
 
 TArray<AActor*> ABuildingsFromSplines::FindActors()

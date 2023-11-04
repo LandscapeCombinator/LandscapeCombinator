@@ -191,7 +191,7 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 			LOCTEXT("UHeightmapModifier::ModifyHeightmap::5", "There was an error while writing heightmap data to file {0}. (Error: {1})"),
 			FText::FromString(InputFile),
-			FText::AsNumber(WriteErr)
+			FText::AsNumber(WriteErr, &FNumberFormattingOptions::DefaultNoGrouping())
 		));
 		GDALClose(Dataset);
 		return;
@@ -205,7 +205,7 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 			LOCTEXT("UHeightmapModifier::ModifyHeightmap::5", "Could not write heightmap to file {0}."),
 			FText::FromString(InputFile),
-			FText::AsNumber(WriteErr)
+			FText::AsNumber(WriteErr, &FNumberFormattingOptions::DefaultNoGrouping())
 		));
 		return;
 	}

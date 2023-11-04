@@ -82,31 +82,27 @@ private:
 	UPROPERTY()
 	TArray<TObjectPtr<USplineMeshComponent>> SplineMeshComponents;
 
-	// returns Point2 when the lines are colinear
-	FVector2D GetIntersection(FVector2D Point1, FVector2D Direction1, FVector2D Point2, FVector2D Direction2);
-
 	// same as SplineComponent, but all points have the same Z coordinate as the lowest point,
 	// and the points are clockwise (when seen from above in Unreal, which isn't the same as clockwise in TPolygon2
 	// because of inverted Y-axis
-	UPROPERTY()
 	TObjectPtr<USplineComponent> BaseClockwiseSplineComponent;
-
 	TArray<FTransform> BaseClockwiseFrames;
 	TArray<double> BaseClockwiseFramesTimes;
 	TArray<FVector2D> BaseVertices2D;
 	TArray<FVector2D> InternalWallPolygon;
 	TArray<FVector2D> ExternalWallPolygon;
 	TArray<int> IndexToInternalIndex;
-	
+
+	FVector2D GetIntersection(FVector2D Point1, FVector2D Direction1, FVector2D Point2, FVector2D Direction2);
 	void DeflateFrames(TArray<FTransform> Frames, TArray<FVector2D>& OutOffsetPolygon, TArray<int>& OutIndexToOffsetIndex, double Offset);
 
 	TArray<int> SplineIndexToBaseSplineIndex;
 	void ComputeBaseVertices();
 	void ComputeOffsetPolygons();
-	TArray<FTransform> FindFrames(double BeginDistance, double Length);
-	FVector2D GetShiftedPoint(TArray<FTransform> Frames, int Index, int Shift);
+	TArray<FVector2D> MakePolygon(bool bInternalWall, double BeginDistance, double Length);
+	FVector2D GetShiftedPoint(TArray<FTransform> Frames, int Index, double Shift, bool bIsLoop);
 	void AppendWallsWithHoles(
-		UDynamicMesh* TargetMesh, double InternalWidth, double ExternalWidth, double WallHeight,
+		UDynamicMesh* TargetMesh, bool bInternalWall, double WallHeight,
 		double MinDistanceHoleToCorner, double MinDistanceHoleToHole, double HolesWidth, double HolesHeight, double HoleDistanceToFloor, double ZOffset,
 		bool bBuildWalls,
 		UStaticMesh *StaticMesh,
@@ -114,7 +110,7 @@ private:
 	);
 	void AppendWallsWithHoles(UDynamicMesh* TargetMesh);
 	void AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, double Length, double Height, double ZOffset);
-	void AppendAlongSpline(UDynamicMesh* TargetMesh, double InsideWidth, double OutsideWidth, double BeginDistance, double Length, double Height, double ZOffset, int MaterialID);
+	void AppendAlongSpline(UDynamicMesh* TargetMesh, bool bInternalWall, double BeginDistance, double Length, double Height, double ZOffset, int MaterialID);
 	void AppendRoof(UDynamicMesh* TargetMesh);
 	bool AppendFloors(UDynamicMesh *TargetMesh);
 	void ClearSplineMeshComponents();
