@@ -17,7 +17,7 @@ bool GDALInterface::SetWellKnownGeogCRS(OGRSpatialReference& InRs, FString CRS)
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 			LOCTEXT("SetWellKnownGeogCRS", "Unable to get spatial reference from string: {0}.\nError: {1}"),
 			FText::FromString(CRS),
-			FText::AsNumber(Err)
+			FText::AsNumber(Err, &FNumberFormattingOptions::DefaultNoGrouping())
 		));
 		return false;
 	}
@@ -59,7 +59,7 @@ bool GDALInterface::SetCRSFromDataset(OGRSpatialReference& InRs, GDALDataset* Da
 	{
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 			LOCTEXT("GetSpatialReferenceError2", "Unable to get spatial reference from dataset (Error {0})."),
-			FText::AsNumber(Err)
+			FText::AsNumber(Err, &FNumberFormattingOptions::DefaultNoGrouping())
 		));
 		return false;
 	}
@@ -76,8 +76,8 @@ bool GDALInterface::SetCRSFromEPSG(OGRSpatialReference& InRs, int EPSG)
 		FMessageDialog::Open(EAppMsgType::Ok,
 			FText::Format(
 				LOCTEXT("StartupModuleError1", "Could not create spatial reference from EPSG {0} (Error {1})."),
-				FText::AsNumber(EPSG),
-				FText::AsNumber(Err)
+				FText::AsNumber(EPSG, &FNumberFormattingOptions::DefaultNoGrouping()),
+				FText::AsNumber(Err, &FNumberFormattingOptions::DefaultNoGrouping())
 			)
 		);
 		return false;
@@ -359,7 +359,7 @@ bool GDALInterface::Merge(TArray<FString> SourceFiles, FString& TargetFile)
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 			LOCTEXT("GDALInterfaceMergeError", "Could not merge the files {0}.\nError {1}."),
 			FText::FromString(FString::Join(SourceFiles, TEXT(", "))),
-			FText::AsNumber(pbUsageError)
+			FText::AsNumber(pbUsageError, &FNumberFormattingOptions::DefaultNoGrouping())
 		));
 		return false;
 	}
@@ -433,9 +433,9 @@ bool GDALInterface::Warp(FString& SourceFile, FString& TargetFile, int InEPSG, i
 	{
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 			LOCTEXT("GDALWarpError", "Internal GDALWarp error ({0}) while converting dataset from file {1} to EPSG {2}."),
-			FText::AsNumber(WarpError),
+			FText::AsNumber(WarpError, &FNumberFormattingOptions::DefaultNoGrouping()),
 			FText::FromString(SourceFile),
-			FText::AsNumber(OutEPSG)
+			FText::AsNumber(OutEPSG, &FNumberFormattingOptions::DefaultNoGrouping())
 		));
 
 		return false;
@@ -489,7 +489,7 @@ TArray<TArray<OGRPoint>> GDALInterface::GetPointLists(GDALDataset *Dataset)
 	
 	FScopedSlowTask FeaturesTask = FScopedSlowTask(0,
 		FText::Format(
-			LOCTEXT("PointsTask", "Reading Features from Dataset..."),
+			LOCTEXT("PointsTask", "Reading {0} Features from Dataset..."),
 			FText::AsNumber(FeatureCount)
 		)
 	);

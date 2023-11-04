@@ -48,7 +48,6 @@ ALandscapeSpawner::ALandscapeSpawner()
 
 ALandscapeSpawner::~ALandscapeSpawner()
 {
-	MarkAsGarbage();
 }
 
 HMFetcher* ALandscapeSpawner::CreateInitialFetcher()
@@ -297,7 +296,7 @@ void ALandscapeSpawner::SpawnLandscape()
 										"Please create a LevelCoordinates actor with EPSG {0}, and set the scale that you wish here."
 										"Then, in the LandscapeController component of your landscape, click on the Adjust Landscape button."
 									),
-									FText::AsNumber(Fetcher->OutputEPSG)
+									FText::AsNumber(Fetcher->OutputEPSG, &FNumberFormattingOptions::DefaultNoGrouping())
 								)
 							);
 							return;

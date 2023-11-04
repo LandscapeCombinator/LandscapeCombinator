@@ -21,7 +21,7 @@ bool Console::ExecProcess(const TCHAR* URL, const TCHAR* Params, bool bDebug)
 				LOCTEXT("ExecProcessError", "Error while running command '{0} {1}': (Error: {2})\nStdOut:\n{3}\nStdErr:\n{4}"),
 				FText::FromString(URL),
 				FText::FromString(Params),
-				FText::AsNumber(ReturnCode),
+				FText::AsNumber(ReturnCode, &FNumberFormattingOptions::DefaultNoGrouping()),
 				FText::FromString(StdOut),
 				FText::FromString(StdErr)
 			)

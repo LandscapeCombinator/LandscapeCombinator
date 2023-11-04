@@ -45,13 +45,20 @@ public:
 		meta = (DisplayPriority = "1")
 	)
 	bool bBuildInternalWalls = true;
-	
+
 	/* Build floor tiles */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Choices",
 		meta = (DisplayPriority = "1")
 	)
 	bool bBuildFloorTiles = true;
+
+	/* Recompute UVs using AutoGenerateXAtlasMeshUVs (slow operation) */
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|Choices",
+		meta = (DisplayPriority = "2")
+	)
+	bool bAutoGenerateXAtlasMeshUVs = false;
 
 
 	/** Materials */
@@ -125,8 +132,8 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
 		meta = (DisplayPriority = "3")
 	)
-	double InternalWallThickness = 5;
-	
+	double InternalWallThickness = 1;
+
 	/* The tickness of the external walls */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
@@ -160,7 +167,7 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
 		meta = (DisplayPriority = "3")
 	)
-	int ExtraWallTop = 200;
+	int ExtraWallTop = 20;
 
 
 	/** Roof Settings */
@@ -171,7 +178,7 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Roof",
 		meta = (DisplayPriority = "1")
 	)
-	ERoofKind RoofKind = ERoofKind::Point;
+	ERoofKind RoofKind = ERoofKind::Flat;
 
 	
 	/* The length of the roof that goes outside the building */
@@ -192,13 +199,13 @@ public:
 			EditConditionHides, DisplayPriority = "4"
 		)
 	)
-	double InnerRoofDistance = 300;
+	double InnerRoofDistance = 50;
 	
 	/* Roof thickness */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Roof",
 		meta = (
-			EditCondition = "RoofKind != ERoofKind::None",
+			EditCondition = "RoofKind == ERoofKind::Point || RoofKind == ERoofKind::InnerSpline",
 			EditConditionHides, DisplayPriority = "5"
 		)
 	)

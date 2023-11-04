@@ -34,9 +34,9 @@ void HMSetEPSG::Fetch(int InputEPSG, TArray<FString> InputFiles, TFunction<void(
 			FText::Format(
 				LOCTEXT("HMSetEPSG::Fetch", "Could not read EPSG code from file {0} (Error: {1}). Authority name and code are {2}:{3}"),
 				FText::FromString(InputFiles[0]),
-				FText::AsNumber(Err),
+				FText::AsNumber(Err, &FNumberFormattingOptions::DefaultNoGrouping()),
 				FText::FromString(Name),
-				FText::AsNumber(OutputEPSG)
+				FText::AsNumber(OutputEPSG, &FNumberFormattingOptions::DefaultNoGrouping())
 			)
 		); 
 		if (OnComplete) OnComplete(false);
