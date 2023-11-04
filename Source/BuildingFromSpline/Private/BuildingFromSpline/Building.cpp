@@ -75,7 +75,7 @@ ABuilding::ABuilding() : ADynamicMeshActor()
 
 void ABuilding::ComputeBaseVertices()
 {
-	static FTotalTimeAndCount ComputeBaseVerticesTime;
+	// static FTotalTimeAndCount ComputeBaseVerticesTime;
 	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&ComputeBaseVerticesTime);
 
 	int NumPoints = SplineComponent->GetNumberOfSplinePoints();
@@ -166,7 +166,7 @@ void ABuilding::ComputeBaseVertices()
 
 void ABuilding::ComputeOffsetPolygons()
 {
-	static FTotalTimeAndCount ComputeOffsetPolygonsTime;
+	// static FTotalTimeAndCount ComputeOffsetPolygonsTime;
 	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&ComputeOffsetPolygonsTime);
 
 	/* Initialization */
@@ -209,7 +209,7 @@ FVector To3D(FVector2D Vector)
 
 FVector2D ABuilding::GetShiftedPoint(TArray<FTransform> Frames, int Index, double Offset, bool bIsLoop)
 {
-	static FTotalTimeAndCount GetShiftedPointTime;
+	// static FTotalTimeAndCount GetShiftedPointTime;
 	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&GetShiftedPointTime);
 
 	int NumFrames = Frames.Num();
@@ -256,7 +256,7 @@ FVector2D ABuilding::GetShiftedPoint(TArray<FTransform> Frames, int Index, doubl
 
 FVector2D ABuilding::GetIntersection(FVector2D Point1, FVector2D Direction1, FVector2D Point2, FVector2D Direction2)
 {
-	static FTotalTimeAndCount GetIntersectionTime;
+	// static FTotalTimeAndCount GetIntersectionTime;
 	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&GetIntersectionTime);
 
 	// Point1.X + t * Direction1.X = Point2.X + t' * Direction2.X
@@ -285,7 +285,7 @@ FVector2D ABuilding::GetIntersection(FVector2D Point1, FVector2D Direction1, FVe
 
 void ABuilding::DeflateFrames(TArray<FTransform> Frames, TArray<FVector2D>& OutOffsetPolygon, TArray<int>& OutIndexToOffsetIndex, double Offset)
 {
-	static FTotalTimeAndCount DeflateFramesTime;
+	// static FTotalTimeAndCount DeflateFramesTime;
 	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&DeflateFramesTime);
 
 	int NumFrames = Frames.Num();
@@ -337,7 +337,7 @@ void ABuilding::DeflateFrames(TArray<FTransform> Frames, TArray<FVector2D>& OutO
 
 void ABuilding::AppendAlongSpline(UDynamicMesh* TargetMesh, bool bInternalWall, double BeginDistance, double Length, double Height, double ZOffset, int MaterialID)
 {
-	static FTotalTimeAndCount AppendAlongSplineTime1;
+	// static FTotalTimeAndCount AppendAlongSplineTime1;
 	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AppendAlongSplineTime1);
 	
 	TArray<FVector2D> Polygon = MakePolygon(bInternalWall, BeginDistance, Length);
@@ -369,7 +369,7 @@ void ABuilding::AppendAlongSpline(UDynamicMesh* TargetMesh, bool bInternalWall, 
 
 bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 {
-	static FTotalTimeAndCount AppendFloorsTime;
+	// static FTotalTimeAndCount AppendFloorsTime;
 	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AppendFloorsTime);
 
 	/* Create one floor tile in FloorMesh */
@@ -447,7 +447,7 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 
 TArray<FVector2D> ABuilding::MakePolygon(bool bInternalWall, double BeginDistance, double Length)
 {
-	static FTotalTimeAndCount MakePolygonTime;
+	// static FTotalTimeAndCount MakePolygonTime;
 	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&MakePolygonTime);
 
 	TArray<FVector2D> Result;
@@ -563,7 +563,7 @@ TArray<FVector2D> ABuilding::MakePolygon(bool bInternalWall, double BeginDistanc
 
 void ABuilding::AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, double Length, double Height, double ZOffset)
 {
-	static FTotalTimeAndCount AddSplineMeshTime;
+	// static FTotalTimeAndCount AddSplineMeshTime;
 	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AddSplineMeshTime);
 	USplineMeshComponent *SplineMeshComponent = NewObject<USplineMeshComponent>(RootComponent);
 	SplineMeshComponents.Add(SplineMeshComponent);
@@ -596,7 +596,7 @@ void ABuilding::AppendWallsWithHoles(
 	int MaterialID
 )
 {
-	static FTotalTimeAndCount AppendWallsWithHolesTime1;
+	// static FTotalTimeAndCount AppendWallsWithHolesTime1;
 	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AppendWallsWithHolesTime1);
 
 	for (int i = 0; i < SplineComponent->GetNumberOfSplinePoints(); i++)
@@ -674,7 +674,7 @@ void ABuilding::AppendWallsWithHoles(
 
 void ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 {
-	static FTotalTimeAndCount AppendWallsWithHolesTime2;
+	// static FTotalTimeAndCount AppendWallsWithHolesTime2;
 	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AppendWallsWithHolesTime2);
 
 	double InternalWallHeight = BuildingConfiguration->FloorHeight;
@@ -791,7 +791,7 @@ void ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 
 void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 {
-	static FTotalTimeAndCount AppendRoofTime;
+	///*// static FTotalTimeAndCount*/ AppendRoofTime;
 	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AppendRoofTime);
 
 	/* Allocate RoofMesh */
@@ -948,7 +948,7 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 
 void ABuilding::ComputeMinMaxHeight()
 {
-	static FTotalTimeAndCount ComputeMinMaxHeightTime;
+	// static FTotalTimeAndCount ComputeMinMaxHeightTime;
 	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&ComputeMinMaxHeightTime);
 	int NumPoints = SplineComponent->GetNumberOfSplinePoints();
 	MinHeightLocal = MAX_dbl;
@@ -967,7 +967,7 @@ void ABuilding::ComputeMinMaxHeight()
 
 void ABuilding::GenerateBuilding()
 {
-	static FTotalTimeAndCount GenerateBuildingTime;
+	// static FTotalTimeAndCount GenerateBuildingTime;
 	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&GenerateBuildingTime);
 	if (StaticMeshComponent->GetStaticMesh())
 	{
@@ -981,7 +981,7 @@ void ABuilding::GenerateBuilding()
 
 void ABuilding::ResetStaticMesh()
 {
-	static FTotalTimeAndCount ResetStaticMeshTime;
+	// static FTotalTimeAndCount ResetStaticMeshTime;
 	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&ResetStaticMeshTime);
 	UE_LOG(LogBuildingFromSpline, Log, TEXT("Resetting static mesh."));
 	StaticMeshComponent->SetStaticMesh(nullptr);
@@ -989,7 +989,7 @@ void ABuilding::ResetStaticMesh()
 
 void ABuilding::ResetDynamicMesh()
 {
-	static FTotalTimeAndCount ResetDynamicMeshTime;
+	// static FTotalTimeAndCount ResetDynamicMeshTime;
 	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&ResetDynamicMeshTime);
 	UE_LOG(LogBuildingFromSpline, Log, TEXT("Resetting dynamic mesh."));
 	DynamicMeshComponent->GetDynamicMesh()->Reset();
@@ -997,7 +997,7 @@ void ABuilding::ResetDynamicMesh()
 
 void ABuilding::ClearSplineMeshComponents()
 {
-	static FTotalTimeAndCount ClearSplineMeshComponentsTime;
+	// static FTotalTimeAndCount ClearSplineMeshComponentsTime;
 	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&ClearSplineMeshComponentsTime);
 	for (auto& SplineMeshComponent : SplineMeshComponents)
 	{
@@ -1010,7 +1010,7 @@ void ABuilding::ClearSplineMeshComponents()
 
 void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 {
-	static FTotalTimeAndCount AppendBuildingTime, NormalsTime, UVsTime;
+	// static FTotalTimeAndCount AppendBuildingTime, NormalsTime, UVsTime;
 	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AppendBuildingTime);
 
 	ON_SCOPE_EXIT {
