@@ -46,7 +46,10 @@ public class LandscapeCombinator : ModuleRules
 				"LandscapeUtils",
 				"Coordinates",
 				"HeightmapModifier",
-				"ConsoleHelpers"
+				"ConsoleHelpers",
+
+				"SplineImporter", // artificial dependency
+				"BuildingFromSpline" // artificial dependency
 			}
 		);
 	}
