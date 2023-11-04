@@ -3,7 +3,6 @@
 ![Landscape Picture of Entrevaux Village](Gallery/entrevaux.png?raw=true "Landscape Picture of Entrevaux Village")
 ![Landscape Picture with Road](Gallery/picture.png?raw=true "Landscape Picture with Road")
 ![Landscape Picture with Forests](Gallery/picture2.png?raw=true "Landscape Picture with Forests")
-![Plugin Use Example](Gallery/capture.png?raw=true "Plugin Use Example")
 
 ## Description
 
