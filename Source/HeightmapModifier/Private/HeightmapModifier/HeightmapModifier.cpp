@@ -151,7 +151,7 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 	}
 
 
-	/* Write the heightmap data to `InputFile` */
+	/* Write the HeightmapData to `InputFile` */
 
 	GDALDataset *Dataset = MEMDriver->Create(
 		"",
@@ -184,7 +184,6 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 
 
 	CPLErr WriteErr = Dataset->GetRasterBand(1)->RasterIO(GF_Write, 0, 0, SizeX, SizeY, HeightmapData, SizeX, SizeY, GDT_UInt16, 0, 0);
-	free(HeightmapData);
 
 	if (WriteErr != CE_None)
 	{
@@ -194,6 +193,7 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 			FText::AsNumber(WriteErr, &FNumberFormattingOptions::DefaultNoGrouping())
 		));
 		GDALClose(Dataset);
+		free(HeightmapData);
 		return;
 	}
 
@@ -207,6 +207,7 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 			FText::FromString(InputFile),
 			FText::AsNumber(WriteErr, &FNumberFormattingOptions::DefaultNoGrouping())
 		));
+		free(HeightmapData);
 		return;
 	}
 	
@@ -217,6 +218,7 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 
 	if (!ExternalTool->Run(InputFile, OutputFile))
 	{
+		free(HeightmapData);
 		return;
 	}
 
@@ -230,6 +232,7 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 			LOCTEXT("UHeightmapModifier::ModifyHeightmap::6", "Could not read file {0} using GDAL."),
 			FText::FromString(OutputFile)
 		));
+		free(HeightmapData);
 		return;
 	}
 	
@@ -242,6 +245,7 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 			FText::FromString(OutputFile)
 		));
 		GDALClose(NewDataset);
+		free(HeightmapData);
 		return;
 	}
 
@@ -255,24 +259,20 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 			FText::FromString(OutputFile)
 		));
 		free(NewHeightmapData);
+		free(HeightmapData);
 		return;
 	}
 
-
-	/* Make the new data to be a difference, so that it can be used on a different edit layer */
-	
-	for (int i = 0; i < SizeX; i++)
-	{
-		for (int j = 0; j < SizeY; j++)
-		{
-			NewHeightmapData[i + j * SizeX] -= HeightmapData[i + j * SizeX];
-		}
-	}
-
-
-	/* Write difference data to a new edit layer (>= 5.3 only). */
 	
 #if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 3)
+
+	/* Make the new data to be a difference, so that it can be used on a different edit layer (>= 5.3 only) */
+
+	LandscapeUtils::MakeDataRelativeTo(SizeX, SizeY, NewHeightmapData, HeightmapData);
+	free(HeightmapData);
+
+	/* Write difference data to a new edit layer (>= 5.3 only) */
+	
 	int LayerIndex = Landscape->CreateLayer();
 	if (LayerIndex == INDEX_NONE)
 	{

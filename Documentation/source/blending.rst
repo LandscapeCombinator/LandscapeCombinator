@@ -10,7 +10,7 @@ created without Landscape Combinator.
 In the ``BlendLandscape`` component, simply choose the landscape that you want to blend with,
 and click the ``Blend With Landscape`` button.
 
-You can also explore the ``Advanced Blending Options``, which allow to specify custom curves
+You can also explore the ``Advanced Blending Options``, which let you specify custom curves
 for blending the landscapes.
 
 * | **DegradeThisData (pointer to UCurveFloat)**:

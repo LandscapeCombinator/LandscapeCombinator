@@ -8,7 +8,7 @@ Installation
 
 #. Open a new project and enable the Landscape Combinator plugin.
 
-#. In the ``Content Browser``, make sure that ``Show Plugin Content`` and ``Show C++ Classes`` are enabled.
+#. In the ``Content Browser``, make sure that ``Show Plugin Content``, ``Show Engine Content``, and  ``Show C++ Classes`` are enabled.
 
 .. note::
 

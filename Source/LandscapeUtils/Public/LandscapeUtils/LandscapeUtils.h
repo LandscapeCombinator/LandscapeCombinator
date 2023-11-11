@@ -9,7 +9,8 @@
 class LANDSCAPEUTILS_API LandscapeUtils
 {
 public:
-	static ALandscape* SpawnLandscape(TArray<FString> Heightmaps, FString LandscapeLabel, bool bDropData);
+	static void MakeDataRelativeTo(int SizeX, int SizeY, uint16* Data, uint16* Base);
+	static ALandscape* SpawnLandscape(TArray<FString> Heightmaps, FString LandscapeLabel, bool bDropData, bool bCreateLandscapeStreamingProxies);
 	static bool GetLandscapeBounds(ALandscape *Landscape, TArray<ALandscapeStreamingProxy*> LandscapeStreamingProxies, FVector2D &MinMaxX, FVector2D &MinMaxY, FVector2D &MinMaxZ);
 	static bool GetLandscapeBounds(ALandscape *Landscape, FVector2D &MinMaxX, FVector2D &MinMaxY, FVector2D &MinMaxZ);
 	static bool GetLandscapeMinMaxZ(ALandscape *Landscape, FVector2D &MinMaxZ);

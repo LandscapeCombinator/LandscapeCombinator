@@ -9,6 +9,7 @@
 project = 'Landscape Combinator'
 copyright = '2023, Landscape Combinator'
 author = ''
+version = '0.6.1'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

@@ -4,6 +4,8 @@
 
 #include "GDALInterface/GDALInterface.h"
 
+#include "Landscape.h"
+
 #include "GlobalCoordinates.generated.h"
 
 UCLASS(BlueprintType)
@@ -18,7 +20,7 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "GlobalCoordinates",
 		meta = (DisplayPriority = "1")
 	)
-	int EPSG = 4326;
+	FString CRS = "EPSG:4326";
 
 	/* Number of Unreal Engine centimeters per longitude coordinate system unit */
 	UPROPERTY(
@@ -51,14 +53,16 @@ public:
 
 
 	/* This function is slow. If you need to call it many times, make a single OGRCoordinateTransformation
-	 * with `GetEPSGTransformer`and use this instead. */
-	bool GetUnrealCoordinatesFromEPSG(double Longitude, double Latitude, int FromEPSG, FVector2D &XY);
+	 * with `GetCRSTransformer`and use this instead. */
+	bool GetUnrealCoordinatesFromCRS(double Longitude, double Latitude, FString FromCRS, FVector2D &XY);
 	
-	OGRCoordinateTransformation *GetEPSGTransformer(int FromEPSG);
-	void GetEPSGCoordinatesFromUnrealLocation(FVector2D Location, FVector2D& OutCoordinates);
-	void GetUnrealCoordinatesFromEPSG(double Longitude, double Latitude, FVector2D &XY);
-	bool GetEPSGCoordinatesFromUnrealLocation(FVector2D Location, int ToEPSG, FVector2D& OutCoordinates);
-	bool GetEPSGCoordinatesFromUnrealLocations(FVector4d Locations, int ToEPSG, FVector4d& OutCoordinates);
-	bool GetEPSGCoordinatesFromFBox(FBox Box, int ToEPSG, FVector4d& OutCoordinates);
-	bool GetEPSGCoordinatesFromOriginExtent(FVector Origin, FVector Extent, int ToEPSG, FVector4d& OutCoordinates);
+	OGRCoordinateTransformation *GetCRSTransformer(FString FromCRS);
+	void GetCRSCoordinatesFromUnrealLocation(FVector2D Location, FVector2D& OutCoordinates);
+	void GetUnrealCoordinatesFromCRS(double Longitude, double Latitude, FVector2D &XY);
+	bool GetCRSCoordinatesFromUnrealLocation(FVector2D Location, FString ToCRS, FVector2D& OutCoordinates);
+	void GetCRSCoordinatesFromUnrealLocations(FVector4d Locations, FVector4d& OutCoordinates);
+	bool GetCRSCoordinatesFromUnrealLocations(FVector4d Locations, FString ToCRS, FVector4d& OutCoordinates);
+	bool GetCRSCoordinatesFromFBox(FBox Box, FString ToCRS, FVector4d& OutCoordinates);
+	bool GetCRSCoordinatesFromOriginExtent(FVector Origin, FVector Extent, FString ToCRS, FVector4d& OutCoordinates);
+	bool GetLandscapeBounds(ALandscape *Landscape, FString ToCRS, FVector4d &OutCoordinates);
 };

@@ -23,6 +23,17 @@ img.details
     max-width: 1200px;
 }
 
-span.pre {
+span.pre
+{
     color: #15405d;
+}
+
+p
+{
+    margin-bottom: 10px;
+}
+
+.rst-content section ul li > *
+{
+    margin-top: 0px !important;
 }

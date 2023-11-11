@@ -14,7 +14,21 @@
 
 #define LOCTEXT_NAMESPACE "FLandscapeUtilsModule"
 
-ALandscape* LandscapeUtils::SpawnLandscape(TArray<FString> Heightmaps, FString LandscapeLabel, bool bDropData)
+
+
+void LandscapeUtils::MakeDataRelativeTo(int SizeX, int SizeY, uint16* Data, uint16* Base)
+{
+	for (int X = 0; X < SizeX; X++)
+	{
+		for (int Y = 0; Y < SizeY; Y++)
+		{
+			Data[X + Y * SizeX] = FMath::Min(FMath::Max(0, (((int32) Data[X + Y * SizeX]) + 32768) - Base[X + Y * SizeX]), (int32) MAX_uint16);
+		}
+	}
+}
+
+
+ALandscape* LandscapeUtils::SpawnLandscape(TArray<FString> Heightmaps, FString LandscapeLabel, bool bDropData, bool bCreateLandscapeStreamingProxies)
 {
 	if (Heightmaps.IsEmpty())
 	{
@@ -134,7 +148,7 @@ ALandscape* LandscapeUtils::SpawnLandscape(TArray<FString> Heightmaps, FString L
 
 	TMap<FGuid, TArray<uint16>> ImportHeightData = { { FGuid(), ExpandedData } };
 	TMap<FGuid, TArray<FLandscapeImportLayerInfo>> ImportMaterialLayerType = { { FGuid(), TArray<FLandscapeImportLayerInfo>() }};
-	
+
 	ALandscape* NewLandscape = LandscapeEdMode->GetWorld()->SpawnActor<ALandscape>(FVector::ZeroVector, FRotator::ZeroRotator);
 	NewLandscape->SetActorScale3D(FVector(100, 100, 100));
 	NewLandscape->Import(FGuid::NewGuid(), 0, 0, SizeX - 1, SizeY - 1, SectionsPerComponent, QuadsPerSubsection, ImportHeightData, NULL, ImportMaterialLayerType, ELandscapeImportAlphamapType::Additive);
@@ -143,9 +157,12 @@ ALandscape* LandscapeUtils::SpawnLandscape(TArray<FString> Heightmaps, FString L
 	
 
 	/* Create Landscape Streaming Proxies */
-
-	ULandscapeInfo* LandscapeInfo = NewLandscape->GetLandscapeInfo();
-	LandscapeSubsystem->ChangeGridSize(LandscapeInfo, UISettings->WorldPartitionGridSize);
+	
+	if (bCreateLandscapeStreamingProxies)
+	{
+		ULandscapeInfo* LandscapeInfo = NewLandscape->GetLandscapeInfo();
+		LandscapeSubsystem->ChangeGridSize(LandscapeInfo, UISettings->WorldPartitionGridSize);
+	}
 
 	return NewLandscape;
 }

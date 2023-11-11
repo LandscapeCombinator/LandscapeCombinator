@@ -23,6 +23,7 @@ ABuildingsFromSplines::ABuildingsFromSplines()
 
 	BuildingConfiguration->InternalWallThickness = 1;
 	BuildingConfiguration->ExternalWallThickness = 1;
+	BuildingConfiguration->bBuildInternalWalls = false;
 }
 
 TArray<AActor*> ABuildingsFromSplines::FindActors()

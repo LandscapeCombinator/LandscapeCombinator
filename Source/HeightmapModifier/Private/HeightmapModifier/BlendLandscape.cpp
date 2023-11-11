@@ -17,17 +17,54 @@
 
 UBlendLandscape::UBlendLandscape()
 {
-	FRichCurve *ThisCurve = new FRichCurve();
-	ThisCurve->AddKey(0.0f, 0.0f);
-	ThisCurve->AddKey(1.0f, 1.0f);
-	DegradeThisData  = CreateDefaultSubobject<UCurveFloat>(TEXT("Degrade This Data"));
-	DegradeThisData->FloatCurve = *ThisCurve;
+	{
+		FRichCurveKey ZeroKey, OneKey;
+		ZeroKey.Time = 0;
+		ZeroKey.Value = 0;
+		ZeroKey.InterpMode = ERichCurveInterpMode::RCIM_Cubic;
+		ZeroKey.TangentMode = ERichCurveTangentMode::RCTM_User;
+		ZeroKey.TangentWeightMode = ERichCurveTangentWeightMode::RCTWM_WeightedBoth;
+		ZeroKey.LeaveTangent = FLT_MAX;
+		ZeroKey.LeaveTangentWeight = 1;
+
+		OneKey.Time = 1;
+		OneKey.Value = 1;
+		OneKey.InterpMode = ERichCurveInterpMode::RCIM_Cubic;
+		OneKey.TangentMode = ERichCurveTangentMode::RCTM_User;
+		OneKey.TangentWeightMode = ERichCurveTangentWeightMode::RCTWM_WeightedBoth;
+		OneKey.ArriveTangent = 0;
+		OneKey.ArriveTangentWeight = 1;
 	
-	FRichCurve *OtherCurve = new FRichCurve();
-	OtherCurve->AddKey(1.0f, 0.0f);
-	OtherCurve->AddKey(0.0f, 1.0f);
-	DegradeOtherData = CreateDefaultSubobject<UCurveFloat>(TEXT("Degrade Other Data"));
-	DegradeOtherData->FloatCurve = *OtherCurve;
+		FRichCurve *ThisCurve = new FRichCurve();
+		ThisCurve->SetKeys( { ZeroKey, OneKey });
+		DegradeThisData = CreateDefaultSubobject<UCurveFloat>(TEXT("DegradeThisData"));
+		DegradeThisData->FloatCurve = *ThisCurve;
+	}
+
+	{
+		FRichCurveKey ZeroKey, OneKey;
+		ZeroKey.Time = 0;
+		ZeroKey.Value = 1;
+		ZeroKey.InterpMode = ERichCurveInterpMode::RCIM_Cubic;
+		ZeroKey.TangentMode = ERichCurveTangentMode::RCTM_User;
+		ZeroKey.TangentWeightMode = ERichCurveTangentWeightMode::RCTWM_WeightedBoth;
+		ZeroKey.LeaveTangent = 0;
+		ZeroKey.LeaveTangentWeight = 1;
+
+		OneKey.Time = 1;
+		OneKey.Value = 0;
+		OneKey.InterpMode = ERichCurveInterpMode::RCIM_Cubic;
+		OneKey.TangentMode = ERichCurveTangentMode::RCTM_User;
+		OneKey.TangentWeightMode = ERichCurveTangentWeightMode::RCTWM_WeightedBoth;
+		OneKey.ArriveTangent = -FLT_MAX;
+		OneKey.ArriveTangentWeight = 1;
+	
+		FRichCurve *OtherCurve = new FRichCurve();
+		OtherCurve->SetKeys( { ZeroKey, OneKey });
+		DegradeOtherData = CreateDefaultSubobject<UCurveFloat>(TEXT("DegradeOtherData"));
+		DegradeOtherData->FloatCurve = *OtherCurve;
+	}
+
 }
 
 void UBlendLandscape::BlendWithLandscape()
@@ -56,10 +93,18 @@ void UBlendLandscape::BlendWithLandscape()
 
 	const FScopedTransaction Transaction(LOCTEXT("BlendWithLandscapeToBlendWiths", "Blending With Other Landscapes"));
 
-	if (!LandscapeToBlendWith || LandscapeToBlendWith == Landscape)
+	if (!LandscapeToBlendWith)
 	{
 		FMessageDialog::Open(EAppMsgType::Ok,
 			LOCTEXT("UBlendLandscape::BlendWithLandscape", "Please select a LandscapeToBlendWith")
+		);
+		return;
+	}
+
+	if (LandscapeToBlendWith == Landscape)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			LOCTEXT("UBlendLandscape::BlendWithLandscape", "Please select a LandscapeToBlendWith different than this one")
 		);
 		return;
 	}
@@ -142,11 +187,7 @@ void UBlendLandscape::BlendWithLandscape()
 					// we transform the data according to the curve
 					double DistanceFromBorder = FMath::Min(X, FMath::Min(Y, FMath::Min(OtherSizeX - X - 1, OtherSizeY - Y - 1)));
 					double DistanceRatio = DistanceFromBorder / MaxDistance;
-					check(DistanceRatio >= 0);
-					check(DistanceRatio <= 1);
 					double Alpha = DegradeOtherData->GetFloatValue(DistanceRatio);
-					check(Alpha >= 0);
-					check(Alpha <= 1);
 					OtherNewHeightmapData[X + Y * OtherSizeX] = Alpha * OtherOldHeightmapData[X + Y * OtherSizeX] + (1 - Alpha) * OtherLandscapeNoData;
 				}
 				else
@@ -156,6 +197,33 @@ void UBlendLandscape::BlendWithLandscape()
 				}
 			}
 		}
+
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 3)
+
+		/* Make the new data to be a difference, so that it can be used on a different edit layer (>= 5.3 only) */
+	
+		LandscapeUtils::MakeDataRelativeTo(OtherSizeX, OtherSizeY, OtherNewHeightmapData, OtherOldHeightmapData);
+
+		/* Write difference data to a new edit layer (>= 5.3 only) */
+
+		int OtherLayerIndex = LandscapeToBlendWith->CreateLayer();
+		if (OtherLayerIndex == INDEX_NONE)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+				LOCTEXT("UHeightmapModifier::ModifyHeightmap::10", "Could not create landscape layer. Make sure that edit layers are enabled on Landscape {0}."),
+				FText::FromString(LandscapeToBlendWith->GetActorLabel())
+			));
+			free(OldHeightmapData);
+			free(OtherOldHeightmapData);
+			free(OtherNewHeightmapData);
+			return;
+		}
+
+		OtherHeightmapAccessor.SetEditLayer(LandscapeToBlendWith->GetLayer(OtherLayerIndex)->Guid);
+
+#endif
+
+
 		OtherHeightmapAccessor.SetData(OtherX1, OtherY1, OtherX2, OtherY2, OtherNewHeightmapData);
 		free(OtherNewHeightmapData);
 
@@ -184,29 +252,56 @@ void UBlendLandscape::BlendWithLandscape()
 					// we transform the data according to the curve
 					double DistanceFromBorder = FMath::Min(X, FMath::Min(Y, FMath::Min(SizeX - X - 1, SizeY - Y - 1)));
 					double DistanceRatio = DistanceFromBorder / MaxDistance2;
-					check(DistanceRatio >= 0);
-					check(DistanceRatio <= 1);
 					double Alpha = DegradeThisData->GetFloatValue(DistanceRatio);
 					NewHeightmapData[X + Y * SizeX] = Alpha * OldHeightmapData[X + Y * SizeX] + (1 - Alpha) * OtherLandscapeNoData;
 				}
 				else
-				{					
+				{
 					// otherwise, we keep the old data
 					NewHeightmapData[X + Y * SizeX] = OldHeightmapData[X + Y * SizeX];
 				}
 			}
 		}
-		HeightmapAccessor.SetData(0, 0, SizeX - 1, SizeY - 1, NewHeightmapData);
+
+
+
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 3)
+
+		/* Make the new data to be a difference, so that it can be used on a different edit layer (>= 5.3 only) */
+	
+		LandscapeUtils::MakeDataRelativeTo(SizeX, SizeY, NewHeightmapData, OldHeightmapData);
+	
+		int LayerIndex = Landscape->CreateLayer();
+		if (LayerIndex == INDEX_NONE)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+				LOCTEXT("UHeightmapModifier::ModifyHeightmap::10", "Could not create landscape layer. Make sure that edit layers are enabled on Landscape {0}."),
+				FText::FromString(Landscape->GetActorLabel())
+			));
+			free(OldHeightmapData);
+			free(NewHeightmapData);
+			free(OtherOldHeightmapData);
+			return;
+		}
+
+		OtherHeightmapAccessor.SetEditLayer(Landscape->GetLayer(LayerIndex)->Guid);
+#endif
 
 		free(OldHeightmapData);
-		free(NewHeightmapData);
 		free(OtherOldHeightmapData);
+
+		HeightmapAccessor.SetData(0, 0, SizeX - 1, SizeY - 1, NewHeightmapData);
+
+		free(NewHeightmapData);
 
 		UE_LOG(LogHeightmapModifier, Log, TEXT("Finished blending with Landscape %s (MinX: %d, MaxX: %d, MinY: %d, MaxY: %d)"),
 			*LandscapeToBlendWith->GetActorLabel(), OtherX1, OtherX2, OtherY1, OtherY2
 		);
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("UBlendLandscape::BlendWithLandscape::Finished", "Finished blending with Landscape {0}. Press Ctrl-Z to cancel the modifications."),
+			LOCTEXT(
+				"UBlendLandscape::BlendWithLandscape::Finished",
+				"Finished blending with Landscape {0}. The heightmap modifications are on a new landscape layer."
+			),
 			FText::FromString(LandscapeToBlendWith->GetActorLabel())
 		));
 		return;

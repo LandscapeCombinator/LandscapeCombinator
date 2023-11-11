@@ -17,6 +17,8 @@ Heightmap Providers
 
 * `Litto 3D Guadeloupe <https://diffusion.shom.fr/litto3d-guad2016.html>`_
 
+* All the WMS servers such as IGN, SHOM, USGS, OSM, Terrestris, etc.
+
 
 Data for Splines and Procedural Foliage
 ---------------------------------------

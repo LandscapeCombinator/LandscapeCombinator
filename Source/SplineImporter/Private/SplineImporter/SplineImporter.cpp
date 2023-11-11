@@ -114,7 +114,7 @@ void ASplineImporter::GenerateSplines()
 				return;
 			}
 
-			OGRCoordinateTransformation *OGRTransform = GlobalCoordinates->GetEPSGTransformer(4326);
+			OGRCoordinateTransformation *OGRTransform = GlobalCoordinates->GetCRSTransformer("EPSG:4326");
 
 			if (!OGRTransform)
 			{
@@ -200,7 +200,7 @@ void ASplineImporter::LoadGDALDatasetFromShortQuery(FString ShortQuery, TFunctio
 		}
 		FVector Origin, BoxExtent;
 		BoundingActor->GetActorBounds(true, Origin, BoxExtent);
-		if (!ALevelCoordinates::GetEPSGCoordinatesFromOriginExtent(BoundingActor->GetWorld(), Origin, BoxExtent, 4326, Coordinates))
+		if (!ALevelCoordinates::GetCRSCoordinatesFromOriginExtent(BoundingActor->GetWorld(), Origin, BoxExtent, "EPSG:4326", Coordinates))
 		{
 			FMessageDialog::Open(EAppMsgType::Ok,
 				LOCTEXT("LoadGDALDatasetFromShortQuery2", "Internal error while reading coordinates. Make sure that your level coordinates are valid.")
@@ -213,7 +213,7 @@ void ASplineImporter::LoadGDALDatasetFromShortQuery(FString ShortQuery, TFunctio
 	{
 		FVector Origin, BoxExtent;
 		ActorOrLandscapeToPlaceSplines->GetActorBounds(true, Origin, BoxExtent);
-		if (!ALevelCoordinates::GetEPSGCoordinatesFromOriginExtent(ActorOrLandscapeToPlaceSplines->GetWorld(), Origin, BoxExtent, 4326, Coordinates))
+		if (!ALevelCoordinates::GetCRSCoordinatesFromOriginExtent(ActorOrLandscapeToPlaceSplines->GetWorld(), Origin, BoxExtent, "EPSG:4326", Coordinates))
 		{
 			FMessageDialog::Open(EAppMsgType::Ok,
 				LOCTEXT("LoadGDALDatasetFromShortQuery2", "Internal error while reading coordinates. Make sure that your level coordinates are valid.")
@@ -226,28 +226,8 @@ void ASplineImporter::LoadGDALDatasetFromShortQuery(FString ShortQuery, TFunctio
 	{
 		ALandscape *Landscape = Cast<ALandscape>(ActorOrLandscapeToPlaceSplines);
 
-		FVector2D MinMaxX, MinMaxY, UnusedMinMaxZ;
-		if (!LandscapeUtils::GetLandscapeBounds(Landscape, MinMaxX, MinMaxY, UnusedMinMaxZ))
+		if (!ALevelCoordinates::GetLandscapeBounds(Landscape->GetWorld(), Landscape, "EPSG:4326", Coordinates))
 		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-				LOCTEXT("LoadGDALDatasetFromShortQuery3", "Could not compute bounds of Landscape {0}"),
-				FText::FromString(Landscape->GetActorLabel())
-			));
-			if (OnComplete) OnComplete(nullptr);
-			return;
-		}
-
-		FVector4d Locations;
-		Locations[0] = MinMaxX[0];
-		Locations[1] = MinMaxX[1];
-		Locations[2] = MinMaxY[1];
-		Locations[3] = MinMaxY[0];
-		if (!ALevelCoordinates::GetEPSGCoordinatesFromUnrealLocations(Landscape->GetWorld(), Locations, 4326, Coordinates))
-		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-				LOCTEXT("LoadGDALDatasetFromShortQuery3", "Could not compute coordinates of Landscape {0}"),
-				FText::FromString(Landscape->GetActorLabel())
-			));
 			if (OnComplete) OnComplete(nullptr);
 			return;
 		}
@@ -402,7 +382,7 @@ void ASplineImporter::AddLandscapeSplinesPoints(
 		}
 
 		FVector2D XY;
-		GlobalCoordinates->GetUnrealCoordinatesFromEPSG(ConvertedLongitude, ConvertedLatitude, XY);
+		GlobalCoordinates->GetUnrealCoordinatesFromCRS(ConvertedLongitude, ConvertedLatitude, XY);
 
 		double x = XY[0]; 
 		double y = XY[1];
@@ -570,7 +550,7 @@ void ASplineImporter::AddRegularSpline(
 			}
 			
 			FVector2D XY;
-			GlobalCoordinates->GetUnrealCoordinatesFromEPSG(ConvertedLongitude, ConvertedLatitude, XY);
+			GlobalCoordinates->GetUnrealCoordinatesFromCRS(ConvertedLongitude, ConvertedLatitude, XY);
 
 			double x = XY[0];
 			double y = XY[1];

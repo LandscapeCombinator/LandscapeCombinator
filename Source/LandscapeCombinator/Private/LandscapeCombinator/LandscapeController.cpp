@@ -28,14 +28,10 @@ void ULandscapeController::AdjustLandscape()
 	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(Landscape->GetWorld());
 	if (!GlobalCoordinates) return;
 
-	//double WorldWidthCm  = ((double) WorldWidthKm)  * 1000 * 100;
-	//double WorldHeightCm = ((double) WorldHeightKm) * 1000 * 100;
-
-	FVector4d Coordinates;
-	if (!GDALInterface::ConvertCoordinates(OriginalCoordinates, Coordinates, OriginalEPSG, GlobalCoordinates->EPSG))
+	if (CRS != GlobalCoordinates->CRS)
 	{
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("ULandscapeController::AdjustLandscape::2", "Internal error while adjusting scale and position of Landscape {0}"),
+			LOCTEXT("ULandscapeController::AdjustLandscape::3", "Adjust landscape requires the CRS of the landscape to be the same as the LevelCoordinates CRS"),
 			FText::FromString(LandscapeLabel)
 		));
 		return;

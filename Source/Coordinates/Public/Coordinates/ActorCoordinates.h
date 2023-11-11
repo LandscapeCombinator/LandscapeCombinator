@@ -18,7 +18,7 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "Coordinates",
 		meta = (DisplayPriority = "1")
 	)
-	int EPSG = 4326;
+	FString CRS = "EPSG:4326";
 
 	/* Longitude */
 	UPROPERTY(
