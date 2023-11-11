@@ -6,10 +6,6 @@
 #include "Stats/Stats.h"
 
 #define LOCTEXT_NAMESPACE "FCoordinatesModule"
-
-DECLARE_STATS_GROUP(TEXT("Coordinates"), STATGROUP_Coordinates, STATCAT_Advanced);
-DECLARE_CYCLE_STAT(TEXT("GetUnrealCoordinatesFromEPSG"), STAT_GetUnrealCoordinatesFromEPSG, STATGROUP_Coordinates);
-
 ALevelCoordinates::ALevelCoordinates()
 {
 	PrimaryActorTick.bCanEverTick = false;
@@ -51,56 +47,70 @@ TObjectPtr<UGlobalCoordinates> ALevelCoordinates::GetGlobalCoordinates(UWorld* W
 }
 
 
-OGRCoordinateTransformation *ALevelCoordinates::GetEPSGTransformer(UWorld* World, int EPSG)
+OGRCoordinateTransformation *ALevelCoordinates::GetCRSTransformer(UWorld* World, FString CRS)
 {
 	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World);
 	if (!GlobalCoordinates) return nullptr;
-	return GlobalCoordinates->GetEPSGTransformer(EPSG);
+	return GlobalCoordinates->GetCRSTransformer(CRS);
 }
 
-bool ALevelCoordinates::GetUnrealCoordinatesFromEPSG(UWorld* World, double Longitude, double Latitude, int EPSG, FVector2D& OutXY)
+bool ALevelCoordinates::GetUnrealCoordinatesFromCRS(UWorld* World, double Longitude, double Latitude, FString CRS, FVector2D& OutXY)
 {
 	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World);
 	if (!GlobalCoordinates) return false;
-	if (!GlobalCoordinates->GetUnrealCoordinatesFromEPSG(Longitude, Latitude, EPSG, OutXY)) return false;
+	if (!GlobalCoordinates->GetUnrealCoordinatesFromCRS(Longitude, Latitude, CRS, OutXY)) return false;
 
 	return true;
 }
 
-bool ALevelCoordinates::GetEPSGCoordinatesFromUnrealLocation(UWorld* World, FVector2D Location, int EPSG, FVector2D &OutCoordinates)
+bool ALevelCoordinates::GetCRSCoordinatesFromUnrealLocation(UWorld* World, FVector2D Location, FString CRS, FVector2D &OutCoordinates)
 {
 	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World);
 	if (!GlobalCoordinates) return false;
-	if (!GlobalCoordinates->GetEPSGCoordinatesFromUnrealLocation(Location, EPSG, OutCoordinates)) return false;
+	if (!GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(Location, CRS, OutCoordinates)) return false;
 
 	return true;
 }
 
-bool ALevelCoordinates::GetEPSGCoordinatesFromUnrealLocations(UWorld* World, FVector4d Locations, int EPSG, FVector4d &OutCoordinates)
+bool ALevelCoordinates::GetCRSCoordinatesFromUnrealLocations(UWorld* World, FVector4d Locations, FString CRS, FVector4d &OutCoordinates)
 {
 	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World);
 	if (!GlobalCoordinates) return false;
-	if (!GlobalCoordinates->GetEPSGCoordinatesFromUnrealLocations(Locations, EPSG, OutCoordinates)) return false;
+	if (!GlobalCoordinates->GetCRSCoordinatesFromUnrealLocations(Locations, CRS, OutCoordinates)) return false;
 
 	return true;
 }
 
-bool ALevelCoordinates::GetEPSGCoordinatesFromFBox(UWorld* World, FBox Box, int ToEPSG, FVector4d& OutCoordinates)
+bool ALevelCoordinates::GetCRSCoordinatesFromUnrealLocations(UWorld* World, FVector4d Locations, FVector4d& OutCoordinates)
 {
 	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World);
 	if (!GlobalCoordinates) return false;
-	if (!GlobalCoordinates->GetEPSGCoordinatesFromFBox(Box, ToEPSG, OutCoordinates)) return false;
 
+	GlobalCoordinates->GetCRSCoordinatesFromUnrealLocations(Locations, OutCoordinates);
 	return true;
 }
 
-bool ALevelCoordinates::GetEPSGCoordinatesFromOriginExtent(UWorld* World, FVector Origin, FVector Extent, int ToEPSG, FVector4d& OutCoordinates)
+bool ALevelCoordinates::GetCRSCoordinatesFromFBox(UWorld* World, FBox Box, FString ToCRS, FVector4d& OutCoordinates)
 {
 	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World);
 	if (!GlobalCoordinates) return false;
-	if (!GlobalCoordinates->GetEPSGCoordinatesFromOriginExtent(Origin, Extent, ToEPSG, OutCoordinates)) return false;
 
-	return true;
+	return GlobalCoordinates->GetCRSCoordinatesFromFBox(Box, ToCRS, OutCoordinates);
+}
+
+bool ALevelCoordinates::GetCRSCoordinatesFromOriginExtent(UWorld* World, FVector Origin, FVector Extent, FString ToCRS, FVector4d& OutCoordinates)
+{
+	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World);
+	if (!GlobalCoordinates) return false;
+	
+	return GlobalCoordinates->GetCRSCoordinatesFromOriginExtent(Origin, Extent, ToCRS, OutCoordinates);
+}
+
+bool ALevelCoordinates::GetLandscapeBounds(UWorld* World, ALandscape* Landscape, FString CRS, FVector4d &OutCoordinates)
+{
+	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World);
+	if (!GlobalCoordinates) return false;
+	return GlobalCoordinates->GetLandscapeBounds(Landscape, CRS, OutCoordinates);
 }
 
 #undef LOCTEXT_NAMESPACE

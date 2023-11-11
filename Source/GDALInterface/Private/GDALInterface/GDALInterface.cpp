@@ -86,6 +86,24 @@ bool GDALInterface::SetCRSFromEPSG(OGRSpatialReference& InRs, int EPSG)
 	return true;
 }
 
+bool GDALInterface::SetCRSFromUserInput(OGRSpatialReference& InRs, FString CRS)
+{
+	OGRErr Err = InRs.SetFromUserInput(TCHAR_TO_ANSI(*CRS));
+	if (Err != OGRERR_NONE)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			FText::Format(
+				LOCTEXT("StartupModuleError1", "Could not create spatial reference from user input '{0}' (Error {1})."),
+				FText::FromString(CRS),
+				FText::AsNumber(Err, &FNumberFormattingOptions::DefaultNoGrouping())
+			)
+		);
+		return false;
+	}
+	InRs.SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
+	return true;
+}
+
 bool GDALInterface::GetCoordinates(FVector4d& Coordinates, GDALDataset* Dataset)
 {
 	if (!Dataset) return false;
@@ -162,20 +180,19 @@ bool GDALInterface::GetCoordinates(FVector4d& Coordinates, TArray<FString> Files
 	return true;
 }
 
-bool GDALInterface::ConvertCoordinates(FVector4d& OriginalCoordinates, FVector4d& Coordinates, int InEPSG, int OutEPSG)
+bool GDALInterface::ConvertCoordinates(FVector4d& OriginalCoordinates, FVector4d& Coordinates, FString InCRS, FString OutCRS)
 {
-	double MinCoordWidth0 = OriginalCoordinates[0];
-	double MaxCoordWidth0 = OriginalCoordinates[1];
-	double MinCoordHeight0 = OriginalCoordinates[2];
-	double MaxCoordHeight0 = OriginalCoordinates[3];
-	double xs[2] = { MinCoordWidth0,  MaxCoordWidth0  };
-	double ys[2] = { MaxCoordHeight0, MinCoordHeight0 };
+	double MinCoordWidth = OriginalCoordinates[0];
+	double MaxCoordWidth = OriginalCoordinates[1];
+	double MinCoordHeight = OriginalCoordinates[2];
+	double MaxCoordHeight = OriginalCoordinates[3];
+	double xs[2] = { MinCoordWidth,  MaxCoordWidth  };
+	double ys[2] = { MaxCoordHeight, MinCoordHeight };
 
 	OGRSpatialReference InRs, OutRs;
-	
-	if (!SetCRSFromEPSG(InRs, InEPSG) || !SetCRSFromEPSG(OutRs, OutEPSG) || !OGRCreateCoordinateTransformation(&InRs, &OutRs)->Transform(2, xs, ys)) {
+	if (!SetCRSFromUserInput(InRs, InCRS) || !SetCRSFromUserInput(OutRs, OutCRS) || !OGRCreateCoordinateTransformation(&InRs, &OutRs)->Transform(2, xs, ys)) {
 		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("AdjustLandscapeTransformError", "Internal error while transforming coordinates.")
+			LOCTEXT("GDALInterface::ConvertCoordinates", "Internal error while transforming coordinates.")
 		);
 		return false;
 	}
@@ -184,6 +201,45 @@ bool GDALInterface::ConvertCoordinates(FVector4d& OriginalCoordinates, FVector4d
 	Coordinates[1] = xs[1];
 	Coordinates[2] = ys[1];
 	Coordinates[3] = ys[0];
+	return true;
+}
+
+bool GDALInterface::ConvertCoordinates(FVector4d& OriginalCoordinates, bool bCrop, FVector4d& NewCoordinates, FString InCRS, FString OutCRS)
+{
+	double MinCoordWidth = OriginalCoordinates[0];
+	double MaxCoordWidth = OriginalCoordinates[1];
+	double MinCoordHeight = OriginalCoordinates[2];
+	double MaxCoordHeight = OriginalCoordinates [3];
+
+	double xs[4] = { MinCoordWidth,  MinCoordWidth,  MaxCoordWidth,  MaxCoordWidth };
+	double ys[4] = { MinCoordHeight, MaxCoordHeight, MaxCoordHeight, MinCoordHeight };
+	
+	OGRSpatialReference InRs, OutRs;
+	if (!SetCRSFromUserInput(InRs, InCRS) || !SetCRSFromUserInput(OutRs, OutCRS) || !OGRCreateCoordinateTransformation(&InRs, &OutRs)->Transform(4, xs, ys))
+	{
+		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			LOCTEXT("GDALInterface::ConvertCoordinates", "Internal error while transforming coordinates between {0} and {1}."),
+			FText::FromString(InCRS),
+			FText::FromString(OutCRS)
+		));
+		return false;
+	}
+
+	if (bCrop)
+	{
+		NewCoordinates[0] = FMath::Max(xs[0], xs[1]);
+		NewCoordinates[1] = FMath::Min(xs[2], xs[3]);
+		NewCoordinates[2] = FMath::Max(ys[0], ys[3]);
+		NewCoordinates[3] = FMath::Min(ys[1], ys[2]);
+	}
+	else
+	{
+		NewCoordinates[0] = FMath::Min(xs[0], xs[1]);
+		NewCoordinates[1] = FMath::Max(xs[2], xs[3]);
+		NewCoordinates[2] = FMath::Min(ys[0], ys[3]);
+		NewCoordinates[3] = FMath::Max(ys[1], ys[2]);
+	}
+
 	return true;
 }
 
@@ -265,6 +321,17 @@ bool GDALInterface::ConvertToPNG(FString& SourceFile, FString& TargetFile, int M
 	return Translate(SourceFile, TargetFile, Args);
 }
 
+bool GDALInterface::ConvertToPNG(FString& SourceFile, FString& TargetFile)
+{
+	TArray<FString> Args;
+	Args.Add("-ot");
+	Args.Add("UInt16");
+	Args.Add("-of");
+	Args.Add("PNG");
+
+	return Translate(SourceFile, TargetFile, Args);
+}
+
 bool GDALInterface::ChangeResolution(FString& SourceFile, FString& TargetFile, int PrecisionPercent)
 {
 	TArray<FString> Args;
@@ -319,10 +386,13 @@ bool GDALInterface::Translate(FString &SourceFile, FString &TargetFile, TArray<F
 
 	if (!DstDataset)
 	{
-		UE_LOG(LogGDALInterface, Error, TEXT("Error while translating: %s to %s"), *SourceFile, *TargetFile);
+		FString Error = FString(CPLGetLastErrorMsg());
+		UE_LOG(LogGDALInterface, Error, TEXT("Error while translating: %s to %s:\n"), *SourceFile, *TargetFile, *Error);
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("ConvertGDALTranslateError", "Internal GDALTranslate error while converting dataset from file {0} to PNG."),
-			FText::FromString(SourceFile)
+			LOCTEXT("ConvertGDALTranslateError",
+				"Internal GDALTranslate error while converting dataset from file {0} to PNG.\nIt is possible that the source image is not a heightmap.\n{1}"),
+			FText::FromString(SourceFile),
+			FText::FromString(Error)
 		));
 		return false;
 	}
@@ -357,7 +427,7 @@ bool GDALInterface::Merge(TArray<FString> SourceFiles, FString& TargetFile)
 	if (!DatasetVRT)
 	{
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("GDALInterfaceMergeError", "Could not merge the files {0}.\nError {1}."),
+			LOCTEXT("GDALInterfaceMergeError", "Could not merge the files {0}. Error {1}."),
 			FText::FromString(FString::Join(SourceFiles, TEXT(", "))),
 			FText::AsNumber(pbUsageError, &FNumberFormattingOptions::DefaultNoGrouping())
 		));
@@ -369,19 +439,19 @@ bool GDALInterface::Merge(TArray<FString> SourceFiles, FString& TargetFile)
 	return true;
 }
 
-bool GDALInterface::Warp(TArray<FString> SourceFiles, FString& TargetFile, int InEPSG, int OutEPSG, int NoData)
+bool GDALInterface::Warp(TArray<FString> SourceFiles, FString& TargetFile, FString InCRS, FString OutCRS, int NoData)
 {
 	check(SourceFiles.Num() > 0);
 
-	if (SourceFiles.Num() == 1) return Warp(SourceFiles[0], TargetFile, InEPSG, OutEPSG, NoData);
+	if (SourceFiles.Num() == 1) return Warp(SourceFiles[0], TargetFile, InCRS, OutCRS, NoData);
 	else
 	{
 		FString MergedFile = FPaths::Combine(FPaths::GetPath(TargetFile), FPaths::GetBaseFilename(TargetFile) + ".vrt");
-		return Merge(SourceFiles, MergedFile) && Warp(MergedFile, TargetFile, InEPSG, OutEPSG, NoData);
+		return Merge(SourceFiles, MergedFile) && Warp(MergedFile, TargetFile, InCRS, OutCRS, NoData);
 	}
 }
 
-bool GDALInterface::Warp(FString& SourceFile, FString& TargetFile, int InEPSG, int OutEPSG, int NoData)
+bool GDALInterface::Warp(FString& SourceFile, FString& TargetFile, TArray<FString> Args)
 {
 	GDALDatasetH SrcDataset = GDALOpen(TCHAR_TO_UTF8(*SourceFile), GA_ReadOnly);
 
@@ -394,61 +464,77 @@ bool GDALInterface::Warp(FString& SourceFile, FString& TargetFile, int InEPSG, i
 
 		return false;
 	}
-
+		
+	
 	char** WarpArgv = nullptr;
-				
-	WarpArgv = CSLAddString(WarpArgv, "-r");
-	WarpArgv = CSLAddString(WarpArgv, "bilinear");
-	WarpArgv = CSLAddString(WarpArgv, "-s_srs");
-	WarpArgv = CSLAddString(WarpArgv, TCHAR_TO_UTF8(*FString::Format(TEXT("EPSG:{0}"), { InEPSG })));
-	WarpArgv = CSLAddString(WarpArgv, "-t_srs");
-	WarpArgv = CSLAddString(WarpArgv, TCHAR_TO_UTF8(*FString::Format(TEXT("EPSG:{0}"), { OutEPSG })));
-	WarpArgv = CSLAddString(WarpArgv, "-dstnodata");
-	WarpArgv = CSLAddString(WarpArgv, TCHAR_TO_UTF8(*FString::SanitizeFloat(NoData)));
-	GDALWarpAppOptions* WarpOptions = GDALWarpAppOptionsNew(WarpArgv, NULL);
+
+	for (auto& Arg : Args)
+	{
+		WarpArgv = CSLAddString(WarpArgv, TCHAR_TO_UTF8(*Arg));
+	}
+
+	GDALWarpAppOptions* Options = GDALWarpAppOptionsNew(WarpArgv, NULL);
 	CSLDestroy(WarpArgv);
 
-	if (!WarpOptions)
+	UE_LOG(LogGDALInterface, Log, TEXT("Reprojecting using gdalwarp --config GDAL_PAM_ENABLED NO %s \"%s\" \"%s\""),
+		*FString::Join(Args, TEXT(" ")),
+		*SourceFile,
+		*TargetFile
+	);
+
+	if (!Options)
 	{
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("GDALWarpError", "Could not parse gdalwarp options for file {0}."),
-			FText::FromString(SourceFile)
+			LOCTEXT("GDALWarpError", "Could not parse gdalwarp options for file {0}.\nError: {1}"),
+			FText::FromString(SourceFile),
+			FText::FromString(FString(CPLGetLastErrorMsg()))
 		));
 		
 		GDALClose(SrcDataset);
 		return false;
 	}
 
-	UE_LOG(LogGDALInterface, Log, TEXT("Reprojecting using gdalwarp --config GDAL_PAM_ENABLED NO -r bilinear -t_srs EPSG:%d \"%s\" \"%s\""),
-		OutEPSG,
-		*SourceFile,
-		*TargetFile
-	);
-
 	int WarpError = 0;
-	GDALDataset* WarpedDataset = (GDALDataset*) GDALWarp(TCHAR_TO_UTF8(*TargetFile), nullptr, 1, &SrcDataset, WarpOptions, &WarpError);
+	GDALDataset* WarpedDataset = (GDALDataset*) GDALWarp(TCHAR_TO_UTF8(*TargetFile), nullptr, 1, &SrcDataset, Options, &WarpError);
 	GDALClose(SrcDataset);
 
 	if (!WarpedDataset)
 	{
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("GDALWarpError", "Internal GDALWarp error ({0}) while converting dataset from file {1} to EPSG {2}."),
+			LOCTEXT("GDALWarpError", "Internal GDALWarp error ({0}):\n{1}"),
 			FText::AsNumber(WarpError, &FNumberFormattingOptions::DefaultNoGrouping()),
-			FText::FromString(SourceFile),
-			FText::AsNumber(OutEPSG, &FNumberFormattingOptions::DefaultNoGrouping())
+			FText::FromString(FString(CPLGetLastErrorMsg()))
 		));
 
 		return false;
 	}
 	GDALClose(WarpedDataset);
 
-	UE_LOG(LogGDALInterface, Log, TEXT("Finished reprojecting using gdalwarp --config GDAL_PAM_ENABLED NO -r bilinear -t_srs EPSG:%d -te %s %s %s %s \"%s\" \"%s\""),
-        OutEPSG,
+	UE_LOG(LogGDALInterface, Log, TEXT("Finished reprojecting using gdalwarp --config GDAL_PAM_ENABLED NO %s \"%s\" \"%s\""),
+		*FString::Join(Args, TEXT(" ")),
 		*SourceFile,
 		*TargetFile
 	);
 
 	return true;
+}
+
+bool GDALInterface::Warp(FString& SourceFile, FString& TargetFile, FString InCRS, FString OutCRS, int NoData)
+{
+	TArray<FString> Args;
+	Args.Add("-r");
+	Args.Add("bilinear");
+	if (!InCRS.IsEmpty())
+	{
+		Args.Add("-s_srs");
+		Args.Add(TCHAR_TO_UTF8(*InCRS));
+	}
+	Args.Add("-t_srs");
+	Args.Add(TCHAR_TO_UTF8(*OutCRS));
+	Args.Add("-dstnodata");
+	Args.Add(TCHAR_TO_UTF8(*FString::SanitizeFloat(NoData)));
+
+	return Warp(SourceFile, TargetFile, Args);
 }
 
 void GDALInterface::AddPointLists(OGRMultiPolygon* MultiPolygon, TArray<TArray<OGRPoint>> &PointLists)

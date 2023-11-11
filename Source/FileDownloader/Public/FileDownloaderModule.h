@@ -5,4 +5,7 @@
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
 
-class FFileDownloaderModule : public IModuleInterface {};
+class FFileDownloaderModule : public IModuleInterface
+{
+	void StartupModule() override;
+};

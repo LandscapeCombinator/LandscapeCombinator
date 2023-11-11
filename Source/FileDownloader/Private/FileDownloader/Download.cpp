@@ -9,6 +9,8 @@
 #include "Misc/FileHelper.h"
 #include "HAL/PlatformFileManager.h" 
 #include "Widgets/Notifications/SProgressBar.h"
+#include "Misc/ScopedSlowTask.h"
+
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
@@ -153,18 +155,25 @@ void Download::FromURL(FString URL, FString File, TFunction<void(bool)> OnComple
 	}
 	else
 	{
+		UE_LOG(LogFileDownloader, Log, TEXT("No cache for '%s'"), *URL);
 		TSharedRef<IHttpRequest> Request = FHttpModule::Get().CreateRequest();
 		Request->SetURL(URL);
 		Request->SetVerb("HEAD");
 		Request->SetHeader("User-Agent", "X-UnrealEngine-Agent");
 		bool *bTriggered = new bool(false);
-		Request->OnProcessRequestComplete().BindLambda([URL, File, OnComplete, bTriggered](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful) {
+
+		FScopedSlowTask *Task = new FScopedSlowTask(0, LOCTEXT("Download::FromURL", "Fetching Content Length from URL"));
+		Task->MakeDialog();
+
+		Request->OnProcessRequestComplete().BindLambda([Task, URL, File, OnComplete, bTriggered](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful) {
 			if (*bTriggered) return;
 			*bTriggered = true;
 
+			Task->Destroy();
+
 			if (bWasSuccessful && Response.IsValid() && EHttpResponseCodes::IsOk(Response->GetResponseCode()))
 			{
-				int32 ExpectedSize = FCString::Atoi(*Response->GetHeader("Content-Length"));
+				int64 ExpectedSize = FCString::Atoi64(*Response->GetHeader("Content-Length"));
 				FromURLExpecting(URL, File, ExpectedSize, OnComplete);
 			}
 			else
@@ -177,7 +186,7 @@ void Download::FromURL(FString URL, FString File, TFunction<void(bool)> OnComple
 
 }
 
-void Download::FromURLExpecting(FString URL, FString File, int32 ExpectedSize, TFunction<void(bool)> OnComplete)
+void Download::FromURLExpecting(FString URL, FString File, int64 ExpectedSize, TFunction<void(bool)> OnComplete)
 {
 	// make sure we are in game thread to spawn download progress windows
 	AsyncTask(ENamedThreads::GameThread, [=]()
@@ -190,11 +199,20 @@ void Download::FromURLExpecting(FString URL, FString File, int32 ExpectedSize, T
 			.Title(LOCTEXT("DownloadProgress", "Download Progress"));
 
 		IPlatformFile &PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
-		if (PlatformFile.FileExists(*File) && ExpectedSize != 0 && PlatformFile.FileSize(*File) == ExpectedSize)
+
+		if (ExpectedSize != 0 && PlatformFile.FileExists(*File))
 		{
-			UE_LOG(LogFileDownloader, Log, TEXT("File already exists with the correct size, skipping download of '%s' to '%s' "), *URL, *File);
-			if (OnComplete) OnComplete(true);
-			return;
+			int64 FileSize = PlatformFile.FileSize(*File);
+			if (FileSize == ExpectedSize)
+			{
+				UE_LOG(LogFileDownloader, Log, TEXT("File already exists with the correct size, skipping download of '%s' to '%s' "), *URL, *File);
+				if (OnComplete) OnComplete(true);
+				return;
+			}
+			else
+			{
+				UE_LOG(LogFileDownloader, Log, TEXT("File already exists with size %ld but the expected size is %ld. Redownloading"), FileSize, ExpectedSize);
+			}
 		}
 
 		TSharedPtr<IHttpRequest> Request = FHttpModule::Get().CreateRequest().ToSharedPtr();
@@ -286,6 +304,10 @@ void Download::FromURLExpecting(FString URL, FString File, int32 ExpectedSize, T
 			Request->CancelRequest();
 		}));
 		FSlateApplication::Get().AddWindow(Window.ToSharedRef());
+		if (Request->GetStatus() != EHttpRequestStatus::Processing)
+		{
+			Window->RequestDestroyWindow();
+		}
 	});
 }
 

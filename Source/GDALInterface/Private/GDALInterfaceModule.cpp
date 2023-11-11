@@ -32,7 +32,8 @@ void FGDALInterfaceModule::StartupModule()
 		);
 		return;
 	}
-	FString ShareFolder = FPaths:: ConvertRelativePathToFull(ThisPlugin->GetBaseDir()) / "Source" / "ThirdParty" / "GDAL" / "share";
+	PluginDir = FPaths:: ConvertRelativePathToFull(ThisPlugin->GetBaseDir());
+	FString ShareFolder = PluginDir / "Source" / "ThirdParty" / "GDAL" / "share";
 	FString GDALData = (ShareFolder / "gdal").Replace(TEXT("/"), TEXT("\\"));
 	FString PROJData = (ShareFolder / "proj").Replace(TEXT("/"), TEXT("\\"));
 	FString OSMConf = (ShareFolder / "gdal" / "osmconf.ini").Replace(TEXT("/"), TEXT("\\"));

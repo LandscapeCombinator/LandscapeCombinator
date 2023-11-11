@@ -69,4 +69,5 @@ public:
 	
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "BlendLandscape")
 	void BlendWithLandscape();
+
 };

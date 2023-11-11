@@ -7,10 +7,12 @@
 
 #define LOCTEXT_NAMESPACE "FGDALInterfaceModule"
 
-class FGDALInterfaceModule : public IModuleInterface
+class GDALINTERFACE_API FGDALInterfaceModule : public IModuleInterface
 {
 public:
 	virtual void StartupModule() override;
+
+	static inline FString PluginDir = "";
 };
 
 #undef LOCTEXT_NAMESPACE

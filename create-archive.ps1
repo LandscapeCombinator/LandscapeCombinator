@@ -78,11 +78,23 @@ function New-Archive {
     }
 
 
-    # Remove LandscapeSpawners Content folder for all plugins except LandscapeCombinator
+    # Remove Examples folder for all plugins except LandscapeCombinator and ImageDownloader
+    
+    if ($Plugin -ne "LandscapeCombinator" -and $Plugin -ne "ImageDownloader")
+    {
+        $FilterPlugin = Get-Content "$TempFolder/Config/FilterPlugin.ini" -Raw
+        $FilterPlugin = $FilterPlugin -replace ".*Examples.*\n.*\n", ""
+        Set-Content "$TempFolder/Config/FilterPlugin.ini" $FilterPlugin    
+    }
+
+
+    # Remove LandscapeCombinatorMap from Content folder for all plugins except LandscapeCombinator
 
     if ($Plugin -ne "LandscapeCombinator")
     {
-        Remove-Item -Recurse -Force "$TempFolder/Content/LandscapeSpawners"
+        Remove-Item -Recurse -Force "$TempFolder/Content/__ExternalActors__"
+        Remove-Item -Recurse -Force "$TempFolder/Content/__ExternalObjects__"
+        Remove-Item -Force "$TempFolder/Content/LandscapeCombinatorMap.umap"
     }
 
     Write-Output "Running: 7z a $plugin-v$PluginVersion-UE$EngineVersion.zip $(Resolve-Path "$TempFolder/*" | Select-Object -ExpandProperty Path)"
@@ -170,6 +182,7 @@ $Dependencies = Update-Transitive $DirectDependencies
 
 $MarketPlaceURLs = @{}
 $MarketPlaceURLs.Add("LandscapeCombinator", "675e54fcb72f42db82125d5573d0667e")
+$MarketPlaceURLs.Add("ImageDownloader",     "")
 $MarketPlaceURLs.Add("BuildingFromSpline",  "64c9fedf0ff44d9ba0137db8721f47b6")
 $MarketPlaceURLs.Add("Coordinates",         "11fabe5dcee545338cc6818f5e465bf6")
 $MarketPlaceURLs.Add("SplineImporter",      "")
@@ -180,6 +193,7 @@ Remove-Item -Force -Recurse "*UE$EngineVersion*.zip"
 foreach($Plugin in
     @(
         "LandscapeCombinator",
+        "ImageDownloader",
         "BuildingFromSpline",
         "SplineImporter",
         "Coordinates",

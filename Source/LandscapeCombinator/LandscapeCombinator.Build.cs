@@ -11,8 +11,9 @@ public class LandscapeCombinator : ModuleRules
 	{
 		CppStandard = CppStandardVersion.Cpp20;
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
+        IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_2;
 
-		PublicDependencyModuleNames.AddRange(
+        PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
 				// Unreal Engine dependencies
@@ -40,13 +41,12 @@ public class LandscapeCombinator : ModuleRules
 				"PropertyEditor",
 
 				// Other dependencies
-				"GDALInterface",
-				"FileDownloader",
-				"ConcurrencyHelpers",
-				"LandscapeUtils",
-				"Coordinates",
-				"HeightmapModifier",
+                "Coordinates",
 				"ConsoleHelpers",
+                "GDALInterface",
+                "LandscapeUtils",
+                "HeightmapModifier",
+				"ImageDownloader",
 
 				"SplineImporter", // artificial dependency
 				"BuildingFromSpline" // artificial dependency

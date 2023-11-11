@@ -19,12 +19,12 @@ public:
 	UPROPERTY(VisibleAnywhere, Category = "LandscapeCombinator|Information",
 		meta = (DisplayPriority = "1")
 	)
-	FVector4d OriginalCoordinates;
+	FString CRS;
 
 	UPROPERTY(VisibleAnywhere, Category = "LandscapeCombinator|Information",
 		meta = (DisplayPriority = "2")
 	)
-	int OriginalEPSG;
+	FVector4d Coordinates;
 	
 	UPROPERTY(VisibleAnywhere, Category = "LandscapeCombinator|Information",
 		meta = (DisplayPriority = "3")

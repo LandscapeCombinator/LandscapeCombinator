@@ -52,7 +52,7 @@ OGRGeometry* UPCGOGRFilterSettings::GetGeometryFromShortQuery(UWorld *World, FBo
 	UE_LOG(LogSplineImporter, Log, TEXT("Resimulating foliage with short query: '%s'"), *ShortQuery);
 
 	FVector4d Coordinates;
-	if (!ALevelCoordinates::GetEPSGCoordinatesFromFBox(World, Bounds, 4326, Coordinates))
+	if (!ALevelCoordinates::GetCRSCoordinatesFromFBox(World, Bounds, "EPSG:4326", Coordinates))
 	{
 		return nullptr;
 	}
@@ -193,7 +193,7 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 			const FVector2D& Location = { Location0.X, Location0.Y };
 			FVector2D Coordinates4326;
 
-			if (!ALevelCoordinates::GetEPSGCoordinatesFromUnrealLocation(Context->SourceComponent->GetWorld(), Location, 4326, Coordinates4326))
+			if (!ALevelCoordinates::GetCRSCoordinatesFromUnrealLocation(Context->SourceComponent->GetWorld(), Location, "EPSG:4326", Coordinates4326))
 			{
 				PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("NoData", "Unable to convert coordinates, make sure that you have a LevelCoordinates actor in your level"));
 				return false;

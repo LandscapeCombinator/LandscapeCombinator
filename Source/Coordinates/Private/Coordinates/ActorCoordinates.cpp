@@ -13,7 +13,7 @@ void UActorCoordinates::MoveActor()
 	if (!Owner) return;
 
 	FVector2D XY;
-	if (!ALevelCoordinates::GetUnrealCoordinatesFromEPSG(Owner->GetWorld(), Longitude, Latitude, EPSG, XY)) return;
+	if (!ALevelCoordinates::GetUnrealCoordinatesFromCRS(Owner->GetWorld(), Longitude, Latitude, CRS, XY)) return;
 
 	double X = XY[0];
 	double Y = XY[1];

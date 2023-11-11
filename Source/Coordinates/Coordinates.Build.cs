@@ -8,8 +8,9 @@ public class Coordinates : ModuleRules
 	{
 		CppStandard = CppStandardVersion.Cpp20;
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
+        IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_2;
 
-		PublicDependencyModuleNames.AddRange(
+        PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
 				"Core"
@@ -30,7 +31,8 @@ public class Coordinates : ModuleRules
 				"Engine",
 
 				// Other Dependencies
-				"GDALInterface"
+				"GDALInterface",
+				"LandscapeUtils"
 			}
 		);
 	}

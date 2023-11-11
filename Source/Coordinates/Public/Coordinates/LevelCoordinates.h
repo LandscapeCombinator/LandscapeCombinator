@@ -4,6 +4,8 @@
 
 #include "GlobalCoordinates.h"
 
+#include "Landscape.h"
+
 #include "LevelCoordinates.generated.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
@@ -16,17 +18,19 @@ class COORDINATES_API ALevelCoordinates : public AActor
 public:
 	ALevelCoordinates();
 	
-	UPROPERTY(VisibleAnywhere, Category = "Building")
+	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UGlobalCoordinates> GlobalCoordinates;
 
 	static TObjectPtr<UGlobalCoordinates> GetGlobalCoordinates(UWorld *World, bool bShowDialog = true);
 	
-	static OGRCoordinateTransformation *GetEPSGTransformer(UWorld *World, int EPSG);
-	static bool GetUnrealCoordinatesFromEPSG(UWorld *World, double Longitude, double Latitude, int EPSG, FVector2D &OutXY);
-	static bool GetEPSGCoordinatesFromUnrealLocation(UWorld* World, FVector2D Location, int EPSG, FVector2D &OutCoordinates);
-	static bool GetEPSGCoordinatesFromUnrealLocations(UWorld* World, FVector4d Locations, int EPSG, FVector4d &OutCoordinates);
-	static bool GetEPSGCoordinatesFromFBox(UWorld* World, FBox Box, int EPSG, FVector4d &OutCoordinates);
-	static bool GetEPSGCoordinatesFromOriginExtent(UWorld* World, FVector Origin, FVector Extent, int EPSG, FVector4d &OutCoordinates);
+	static OGRCoordinateTransformation *GetCRSTransformer(UWorld *World, FString CRS);
+	static bool GetUnrealCoordinatesFromCRS(UWorld *World, double Longitude, double Latitude, FString CRS, FVector2D &OutXY);
+	static bool GetCRSCoordinatesFromUnrealLocation(UWorld* World, FVector2D Location, FString CRS, FVector2D &OutCoordinates);
+	static bool GetCRSCoordinatesFromUnrealLocations(UWorld* World, FVector4d Locations, FString CRS, FVector4d &OutCoordinates);
+	static bool GetCRSCoordinatesFromUnrealLocations(UWorld* World, FVector4d Locations, FVector4d &OutCoordinates);
+	static bool GetCRSCoordinatesFromFBox(UWorld* World, FBox Box, FString CRS, FVector4d &OutCoordinates);
+	static bool GetCRSCoordinatesFromOriginExtent(UWorld* World, FVector Origin, FVector Extent, FString CRS, FVector4d &OutCoordinates);
+	static bool GetLandscapeBounds(UWorld* World, ALandscape* Landscape, FString CRS, FVector4d &OutCoordinates);
 };
 
 #undef LOCTEXT_NAMESPACE
