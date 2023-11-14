@@ -23,13 +23,16 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
 		meta = (DisplayPriority = "0")
 	)
-	TObjectPtr<UBuildingConfiguration> BuildingConfiguration;
-	
+	/* If true, ExtraWallBottom will be set to be equal to the difference between the maximum and minimum Z
+	   coordinates of spline points + 100 (1 meter). */
+	bool bAutoComputeWallBottom = true;	
+
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
 		meta = (DisplayPriority = "0")
 	)
-	bool bAutoComputeWallBottom = true;
+	/* If true, the number of floors will be set to the height found in the Asset User Data (* 100) divided by the floor height */
+	bool bAutoComputeNumFloors = true;
 	
 	/* The tag of the actors containing spline components to search for. If None, all actors will be used. */
 	UPROPERTY(
@@ -44,6 +47,12 @@ public:
 		meta = (DisplayPriority = "0")
 	)
 	FName SplinesTag;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
+		meta = (DisplayPriority = "2")
+	)
+	TObjectPtr<UBuildingConfiguration> BuildingConfiguration;
 
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Buildings",
 		meta = (DisplayPriority = "3")

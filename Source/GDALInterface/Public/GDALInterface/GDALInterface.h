@@ -12,6 +12,17 @@
 #include <ogrsf_frmts.h>
 #pragma warning(default: 4668)
 
+struct FOSMInfo
+{
+	float Height;
+};
+
+struct FPointList
+{
+	TArray<OGRPoint> Points;
+	FOSMInfo Info;
+};
+
 class GDALINTERFACE_API GDALInterface
 {
 public:
@@ -35,7 +46,7 @@ public:
 	static bool Warp(FString &SourceFile, FString &TargetFile, TArray<FString> Args);
 	static bool Merge(TArray<FString> SourceFiles, FString& TargetFile);
 
-	static TArray<TArray<OGRPoint>> GetPointLists(GDALDataset *Dataset);
-	static void AddPointList(OGRLineString* LineString, TArray<TArray<OGRPoint>> &PointLists);
-	static void AddPointLists(OGRMultiPolygon* MultiPolygon, TArray<TArray<OGRPoint>> &PointLists);
+	static TArray<FPointList> GetPointLists(GDALDataset *Dataset);
+	static void AddPointList(OGRLineString* LineString, TArray<FPointList> &PointLists, FOSMInfo Info);
+	static void AddPointLists(OGRMultiPolygon* MultiPolygon, TArray<FPointList> &PointLists, FOSMInfo Info);
 };

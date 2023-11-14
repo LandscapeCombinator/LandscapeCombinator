@@ -4,7 +4,7 @@
 
 #include "ExternalTool.generated.h"
 
-#define LOCTEXT_NAMESPACE "FExternalToolModule"
+#define LOCTEXT_NAMESPACE "FConsoleHelpersModule"
 
 UCLASS(BlueprintType)
 class CONSOLEHELPERS_API UExternalTool : public UActorComponent

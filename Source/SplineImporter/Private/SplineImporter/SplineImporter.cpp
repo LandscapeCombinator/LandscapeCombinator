@@ -6,6 +6,7 @@
 #include "FileDownloader/Download.h"
 #include "LandscapeUtils/LandscapeUtils.h"
 #include "GDALInterface/GDALInterface.h"
+#include "OSMUserData/OSMUserData.h"
 
 #include "EditorSupportDelegates.h"
 #include "LandscapeStreamingProxy.h"
@@ -104,7 +105,7 @@ void ASplineImporter::GenerateSplines()
 	LoadGDALDataset([this, Landscape](GDALDataset* Dataset) {
 		if (Dataset)
 		{
-			TArray<TArray<OGRPoint>> PointLists = GDALInterface::GetPointLists(Dataset);
+			TArray<FPointList> PointLists = GDALInterface::GetPointLists(Dataset);
 			GDALClose(Dataset);
 			FCollisionQueryParams CollisionQueryParams = LandscapeUtils::CustomCollisionQueryParams(ActorOrLandscapeToPlaceSplines);
 			UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), true);
@@ -278,7 +279,7 @@ void ASplineImporter::GenerateLandscapeSplines(
 	FCollisionQueryParams CollisionQueryParams,
 	OGRCoordinateTransformation *OGRTransform,
 	UGlobalCoordinates *GlobalCoordinates,
-	TArray<TArray<OGRPoint>> &PointLists
+	TArray<FPointList> &PointLists
 )
 {
 	FString LandscapeLabel = Landscape->GetActorLabel();
@@ -357,14 +358,14 @@ void ASplineImporter::AddLandscapeSplinesPoints(
 	OGRCoordinateTransformation *OGRTransform,
 	UGlobalCoordinates *GlobalCoordinates,
 	ULandscapeSplinesComponent* LandscapeSplinesComponent,
-	TArray<OGRPoint> &PointList,
+	FPointList &PointList,
 	TMap<FVector2D, ULandscapeSplineControlPoint*> &ControlPoints
 )
 {
 	UWorld *World = Landscape->GetWorld();
 	FTransform WorldToComponent = LandscapeSplinesComponent->GetComponentToWorld().Inverse();
 
-	for (OGRPoint &Point : PointList)
+	for (OGRPoint &Point : PointList.Points)
 	{
 		double Longitude = Point.getX();
 		double Latitude = Point.getY();
@@ -408,15 +409,15 @@ void ASplineImporter::AddLandscapeSplines(
 	OGRCoordinateTransformation *OGRTransform,
 	UGlobalCoordinates *GlobalCoordinates,
 	ULandscapeSplinesComponent* LandscapeSplinesComponent,
-	TArray<OGRPoint> &PointList,
+	FPointList &PointList,
 	TMap<FVector2D, ULandscapeSplineControlPoint*> &Points
 )
 {	
-	int NumPoints = PointList.Num();
+	int NumPoints = PointList.Points.Num();
 	for (int i = 0; i < NumPoints - 1; i++)
 	{
-		OGRPoint Point1 = PointList[i];
-		OGRPoint Point2 = PointList[i + 1];
+		OGRPoint Point1 = PointList.Points[i];
+		OGRPoint Point2 = PointList.Points[i + 1];
 
 		FVector2D OGRLocation1 = { Point1.getX(), Point1.getY() };
 		FVector2D OGRLocation2 = { Point2.getX(), Point2.getY() };
@@ -463,7 +464,7 @@ void ASplineImporter::GenerateRegularSplines(
 	FCollisionQueryParams CollisionQueryParams,
 	OGRCoordinateTransformation *OGRTransform,
 	UGlobalCoordinates *GlobalCoordinates,
-	TArray<TArray<OGRPoint>> &PointLists
+	TArray<FPointList> &PointLists
 )
 {
 	UWorld *World = Actor->GetWorld();
@@ -512,16 +513,16 @@ void ASplineImporter::AddRegularSpline(
 	FCollisionQueryParams CollisionQueryParams,
 	OGRCoordinateTransformation *OGRTransform,
 	UGlobalCoordinates *GlobalCoordinates,
-	TArray<OGRPoint> &PointList
+	FPointList &PointList
 )
 {
 	UWorld *World = Actor->GetWorld();
 	
-	int NumPoints = PointList.Num();
+	int NumPoints = PointList.Points.Num();
 	if (NumPoints == 0) return;
 
-	OGRPoint First = PointList[0];
-	OGRPoint Last = PointList.Last();
+	OGRPoint First = PointList.Points[0];
+	OGRPoint Last = PointList.Points.Last();
 			
 	USplineComponent *SplineComponent = NewObject<USplineComponent>(SplineCollection);
 	SplineCollection->SplineComponents.Add(SplineComponent);
@@ -529,11 +530,15 @@ void ASplineImporter::AddRegularSpline(
 	SplineComponent->ClearSplinePoints();
 	SplineComponent->SetMobility(EComponentMobility::Static);
 
+	UOSMUserData *OSMUserData = NewObject<UOSMUserData>(SplineComponent);
+	OSMUserData->Height = PointList.Info.Height;
+	SplineComponent->AddAssetUserData(OSMUserData);
+
 	for (int i = 0; i < NumPoints; i++)
 	{
 		if (Last != First || i < NumPoints - 1) // don't add last point in case the spline is a closed loop
 		{
-			OGRPoint Point = PointList[i];
+			OGRPoint Point = PointList.Points[i];
 			double Longitude = Point.getX();
 			double Latitude = Point.getY();
 		

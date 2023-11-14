@@ -35,28 +35,28 @@ public:
 	/* Build external walls */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Choices",
-		meta = (DisplayPriority = "1")
+		meta = (DisplayPriority = "2")
 	)
 	bool bBuildExternalWalls = true;
 	
 	/* Build internal walls */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Choices",
-		meta = (DisplayPriority = "1")
+		meta = (DisplayPriority = "3")
 	)
 	bool bBuildInternalWalls = true;
 
 	/* Build floor tiles */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Choices",
-		meta = (DisplayPriority = "1")
+		meta = (DisplayPriority = "4")
 	)
 	bool bBuildFloorTiles = true;
 
 	/* Recompute UVs using AutoGenerateXAtlasMeshUVs (slow operation) */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Choices",
-		meta = (DisplayPriority = "2")
+		meta = (DisplayPriority = "5")
 	)
 	bool bAutoGenerateXAtlasMeshUVs = false;
 

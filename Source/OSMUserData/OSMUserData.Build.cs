@@ -2,41 +2,27 @@
 
 using UnrealBuildTool;
 
-public class SplineImporter : ModuleRules
+public class OSMUserData : ModuleRules
 {
-	public SplineImporter(ReadOnlyTargetRules Target) : base(Target)
+	public OSMUserData(ReadOnlyTargetRules Target) : base(Target)
 	{
 		CppStandard = CppStandardVersion.Cpp20;
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
         IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_2;
 
+        // Unreal Dependencies
         PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
-				// Unreal Engine Dependencies
-				"Core"
+				"Core",
 			}
 		);
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-				// Unreal Engine Dependencies
 				"CoreUObject",
-				"Engine",
-				"PCG",
-				"Foliage",
-				"Landscape",
-				"LandscapeEditor",
-				"UnrealEd",
-				"HTTP",
-
-				// Other Dependencies
-				"LandscapeUtils",
-				"Coordinates",
-				"GDALInterface",
-				"FileDownloader",
-				"OSMUserData"
+				"Engine"
 			}
 		);
 	}

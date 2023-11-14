@@ -1,6 +1,8 @@
+
 // Copyright 2023 LandscapeCombinator. All Rights Reserved.
 
 #include "BuildingFromSpline/BuildingsFromSplines.h"
+#include "OSMUserData/OSMUserData.h"
 
 #include "Components/SplineMeshComponent.h"
 #include "Logging/StructuredLog.h"
@@ -140,7 +142,8 @@ void ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent)
 		}
 	}
 
-	TObjectPtr<ABuilding> Building = GetWorld()->SpawnActor<ABuilding>(Location, RotatorForLargestSegment);
+	ABuilding* Building = GetWorld()->SpawnActor<ABuilding>(Location, RotatorForLargestSegment);
+	Building->SetFolderPath(FName(*(FString("/") + GetActorLabel())));
 	SpawnedBuildings.Add(Building);
 
 	TArray<uint8> BufferData;
@@ -165,6 +168,16 @@ void ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent)
 	if (bAutoComputeWallBottom)
 	{
 		Building->BuildingConfiguration->ExtraWallBottom = Building->MaxHeightLocal - Building->MinHeightLocal + 100;
+	}
+
+	if (bAutoComputeNumFloors)
+	{
+		UOSMUserData *OSMUserData = Cast<UOSMUserData>(SplineComponent->GetAssetUserDataOfClass(UOSMUserData::StaticClass()));
+
+		if (OSMUserData->Height > 0)
+		{
+			Building->BuildingConfiguration->NumFloors = FMath::Max(1, OSMUserData->Height * 100 / Building->BuildingConfiguration->FloorHeight);
+		}
 	}
 
 	Building->GenerateBuilding();
