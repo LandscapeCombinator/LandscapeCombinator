@@ -18,7 +18,7 @@ class COORDINATES_API ALevelCoordinates : public AActor
 public:
 	ALevelCoordinates();
 	
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category = "LevelCoordinates")
 	TObjectPtr<UGlobalCoordinates> GlobalCoordinates;
 
 	static TObjectPtr<UGlobalCoordinates> GetGlobalCoordinates(UWorld *World, bool bShowDialog = true);
