@@ -35,7 +35,8 @@ public class SplineImporter : ModuleRules
 				"LandscapeUtils",
 				"Coordinates",
 				"GDALInterface",
-				"FileDownloader"
+				"FileDownloader",
+				"OSMUserData"
 			}
 		);
 	}

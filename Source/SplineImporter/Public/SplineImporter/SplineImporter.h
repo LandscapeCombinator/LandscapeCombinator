@@ -106,7 +106,7 @@ private:
 		FCollisionQueryParams CollisionQueryParams,
 		OGRCoordinateTransformation *OGRTransform,
 		UGlobalCoordinates *GlobalCoordinates,
-		TArray<TArray<OGRPoint>> &PointLists
+		TArray<FPointList> &PointLists
 	);
 
 	void AddLandscapeSplinesPoints(
@@ -115,7 +115,7 @@ private:
 		OGRCoordinateTransformation *OGRTransform,
 		UGlobalCoordinates *GlobalCoordinates,
 		ULandscapeSplinesComponent* LandscapeSplinesComponent,
-		TArray<OGRPoint> &PointList,
+		FPointList &PointList,
 		TMap<FVector2D, ULandscapeSplineControlPoint*> &Points
 	);
 
@@ -125,7 +125,7 @@ private:
 		OGRCoordinateTransformation *OGRTransform,
 		UGlobalCoordinates *GlobalCoordinates,
 		ULandscapeSplinesComponent* LandscapeSplinesComponent,
-		TArray<OGRPoint> &PointList,
+		FPointList &PointList,
 		TMap<FVector2D, ULandscapeSplineControlPoint*> &Points
 	);
 
@@ -134,7 +134,7 @@ private:
 		FCollisionQueryParams CollisionQueryParams,
 		OGRCoordinateTransformation *OGRTransform,
 		UGlobalCoordinates *GlobalCoordinates,
-		TArray<TArray<OGRPoint>> &PointLists
+		TArray<FPointList> &PointLists
 	);
 
 	void AddRegularSpline(
@@ -143,7 +143,7 @@ private:
 		FCollisionQueryParams CollisionQueryParams,
 		OGRCoordinateTransformation *OGRTransform,
 		UGlobalCoordinates *GlobalCoordinates,
-		TArray<OGRPoint> &PointList
+		FPointList &PointList
 	);
 };
 

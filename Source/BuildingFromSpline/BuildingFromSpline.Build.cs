@@ -11,7 +11,6 @@ public class BuildingFromSpline : ModuleRules
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
         IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_2;
 
-        // Unreal Dependencies
         PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
@@ -23,6 +22,7 @@ public class BuildingFromSpline : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
+				// Unreal Engine Dependencies
 				"Projects",
 				"InputCore",
 				"EditorFramework",
@@ -33,7 +33,10 @@ public class BuildingFromSpline : ModuleRules
 				"GeometryCore",
 				"GeometryFramework",
 				"GeometryScriptingCore",
-				"GeometryScriptingEditor"
+				"GeometryScriptingEditor",
+
+				// Other Dependencies
+				"OSMUserData"
 			}
 		);
 	}

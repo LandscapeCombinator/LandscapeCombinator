@@ -592,7 +592,7 @@ void ABuilding::AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, dou
 void ABuilding::AppendWallsWithHoles(
 	UDynamicMesh* TargetMesh, bool bInternalWall, double WallHeight,
 	double MinDistanceHoleToCorner, double MinDistanceHoleToHole, double HolesWidth, double HolesHeight, double HoleDistanceToFloor, double ZOffset,
-	bool bBuildWalls, UStaticMesh *StaticMesh,
+	bool bBuildWalls, TArray<float> &OutHolePositions,
 	int MaterialID
 )
 {
@@ -656,13 +656,10 @@ void ABuilding::AppendWallsWithHoles(
 				}
 			}
 
-			// adding the meshes in the holes
-			if (StaticMesh)
+			// add holes positions
+			for (int j = 0; j < NumHoles; j++)
 			{
-				for (int j = 0; j < NumHoles; j++)
-				{
-					AddSplineMesh(StaticMesh, BeginHoleDistance + j * (HolesWidth + MinDistanceHoleToHole), HolesWidth, HolesHeight, ZOffset + HoleDistanceToFloor);
-				}
+				OutHolePositions.Add(BeginHoleDistance + j * (HolesWidth + MinDistanceHoleToHole));
 			}
 		}
 		else if (bBuildWalls)
@@ -680,7 +677,7 @@ void ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 	double InternalWallHeight = BuildingConfiguration->FloorHeight;
 	if (BuildingConfiguration->bBuildFloorTiles) InternalWallHeight -= BuildingConfiguration->FloorThickness;
 
-	// ExtraWallBottom
+	// Inside ExtraWallBottom
 
 	if (BuildingConfiguration->bBuildInternalWalls && BuildingConfiguration->ExtraWallBottom > 0) {
 		AppendAlongSpline(
@@ -689,45 +686,63 @@ void ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 		);
 	}
 
-	// Floor 0
+	// Inside Floor 0
 
 	if (BuildingConfiguration->NumFloors > 0)
 	{
+		TArray<float> HolePositions;
 		AppendWallsWithHoles(
 			TargetMesh, true, InternalWallHeight,
 			BuildingConfiguration->MinDistanceDoorToCorner, BuildingConfiguration->MinDistanceDoorToDoor,
 			BuildingConfiguration->DoorsWidth, BuildingConfiguration->DoorsHeight, BuildingConfiguration->DoorsDistanceToFloor,
 			MinHeightLocal + BuildingConfiguration->ExtraWallBottom,
-			BuildingConfiguration->bBuildInternalWalls, BuildingConfiguration->DoorMesh,
+			BuildingConfiguration->bBuildInternalWalls, HolePositions,
 			InteriorMaterialID
 		);
+		for (auto& HolePosition : HolePositions)
+		{
+			AddSplineMesh(
+				BuildingConfiguration->DoorMesh, HolePosition, BuildingConfiguration->DoorsWidth, BuildingConfiguration->DoorsHeight,
+				MinHeightLocal + BuildingConfiguration->ExtraWallBottom + BuildingConfiguration->DoorsDistanceToFloor
+			);
+		}
 	}
 
 
-	// Other Floors
+	// Inside Other Floors
 
-	for (int i = 1; i < BuildingConfiguration->NumFloors; i++)
+	if (BuildingConfiguration->NumFloors > 1)
 	{
-		if (i == BuildingConfiguration->NumFloors - 1 && BuildingConfiguration->RoofKind != ERoofKind::Flat)
-		{
-			InternalWallHeight = BuildingConfiguration->FloorHeight;
-		}
-		else
-		{
-			InternalWallHeight = BuildingConfiguration->FloorHeight - BuildingConfiguration->FloorThickness;
-		}
-
+		UDynamicMesh* WholeFloorMesh = AllocateComputeMesh();
+		
+		TArray<float> HolePositions;
 		AppendWallsWithHoles(
-			TargetMesh, true, InternalWallHeight,
+			WholeFloorMesh, true, InternalWallHeight,
 			BuildingConfiguration->MinDistanceWindowToCorner, BuildingConfiguration->MinDistanceWindowToWindow,
 			BuildingConfiguration->WindowsWidth, BuildingConfiguration->WindowsHeight, BuildingConfiguration->WindowsDistanceToFloor,
-			MinHeightLocal + BuildingConfiguration->ExtraWallBottom + i * BuildingConfiguration->FloorHeight,
-			BuildingConfiguration->bBuildInternalWalls, BuildingConfiguration->WindowMesh,
+			0,
+			BuildingConfiguration->bBuildInternalWalls, HolePositions,
 			InteriorMaterialID
 		);
+
+		for (int i = 1; i < BuildingConfiguration->NumFloors; i++)
+		{
+			UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(
+				TargetMesh, WholeFloorMesh,
+				FTransform(FVector(0, 0, MinHeightLocal + BuildingConfiguration->ExtraWallBottom + i * BuildingConfiguration->FloorHeight)),
+				true
+			);
+			for (auto& HolePosition : HolePositions)
+			{
+				AddSplineMesh(
+					BuildingConfiguration->WindowMesh, HolePosition, BuildingConfiguration->WindowsWidth, BuildingConfiguration->WindowsHeight,
+					MinHeightLocal + BuildingConfiguration->ExtraWallBottom + i * BuildingConfiguration->FloorHeight + BuildingConfiguration->WindowsDistanceToFloor
+				);
+			}
+		}
 	}
 	
-	// ExtraWallTop
+	// Inside ExtraWallTop
 
 	if (BuildingConfiguration->bBuildInternalWalls && BuildingConfiguration->ExtraWallTop > 0)
 	{
@@ -741,7 +756,7 @@ void ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 
 
 
-	// ExtraWallBottom
+	// Outside ExtraWallBottom
 
 	if (BuildingConfiguration->bBuildExternalWalls && BuildingConfiguration->ExtraWallBottom > 0)
 	{
@@ -751,33 +766,46 @@ void ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 		);
 	}
 
-	// Floor 0
+	// Outside Floor 0
 
 	if (BuildingConfiguration->NumFloors > 0)
 	{
+		TArray<float> HolePositions;
 		AppendWallsWithHoles(
 			TargetMesh, false, BuildingConfiguration->FloorHeight,
 			BuildingConfiguration->MinDistanceDoorToCorner, BuildingConfiguration->MinDistanceDoorToDoor,
 			BuildingConfiguration->DoorsWidth, BuildingConfiguration->DoorsHeight, BuildingConfiguration->DoorsDistanceToFloor,
 			MinHeightLocal + BuildingConfiguration->ExtraWallBottom,
-			BuildingConfiguration->bBuildExternalWalls, nullptr, ExteriorMaterialID
+			BuildingConfiguration->bBuildExternalWalls, HolePositions, ExteriorMaterialID
 		);
 	}
 
-	// Other Floors
+	// Outside Other Floors
 
-	for (int i = 1; i < BuildingConfiguration->NumFloors; i++)
+	if (BuildingConfiguration->NumFloors > 1)
 	{
+		UDynamicMesh* WholeFloorMesh = AllocateComputeMesh();
+		
+		TArray<float> HolePositions;
 		AppendWallsWithHoles(
-			TargetMesh, false, BuildingConfiguration->FloorHeight,
+			WholeFloorMesh, false, BuildingConfiguration->FloorHeight,
 			BuildingConfiguration->MinDistanceWindowToCorner, BuildingConfiguration->MinDistanceWindowToWindow,
 			BuildingConfiguration->WindowsWidth, BuildingConfiguration->WindowsHeight, BuildingConfiguration->WindowsDistanceToFloor,
-			MinHeightLocal + BuildingConfiguration->ExtraWallBottom + i * BuildingConfiguration->FloorHeight,
-			BuildingConfiguration->bBuildExternalWalls, nullptr, ExteriorMaterialID
+			0,
+			BuildingConfiguration->bBuildExternalWalls, HolePositions, ExteriorMaterialID
 		);
+
+		for (int i = 1; i < BuildingConfiguration->NumFloors; i++)
+		{
+			UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(
+				TargetMesh, WholeFloorMesh,
+				FTransform(FVector(0, 0, MinHeightLocal + BuildingConfiguration->ExtraWallBottom + i * BuildingConfiguration->FloorHeight)),
+				true
+			);
+		}
 	}
 
-	// ExtraWallTop
+	// Outside ExtraWallTop
 	
 	if (BuildingConfiguration->bBuildExternalWalls && BuildingConfiguration->ExtraWallTop > 0)
 	{
@@ -791,8 +819,8 @@ void ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 
 void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 {
-	///*// static FTotalTimeAndCount*/ AppendRoofTime;
-	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AppendRoofTime);
+	///	// static FTotalTimeAndCount*/ AppendRoofTime;
+	// S// E_LOG_TIME_FUNC_WITH_GLOBAL(&AppendRoofTime);
 
 	/* Allocate RoofMesh */
 

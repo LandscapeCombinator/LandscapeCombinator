@@ -105,7 +105,7 @@ private:
 		UDynamicMesh* TargetMesh, bool bInternalWall, double WallHeight,
 		double MinDistanceHoleToCorner, double MinDistanceHoleToHole, double HolesWidth, double HolesHeight, double HoleDistanceToFloor, double ZOffset,
 		bool bBuildWalls,
-		UStaticMesh *StaticMesh,
+		TArray<float> &OutHolePositions,
 		int MaterialID
 	);
 	void AppendWallsWithHoles(UDynamicMesh* TargetMesh);

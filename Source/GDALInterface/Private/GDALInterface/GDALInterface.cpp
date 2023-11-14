@@ -537,48 +537,47 @@ bool GDALInterface::Warp(FString& SourceFile, FString& TargetFile, FString InCRS
 	return Warp(SourceFile, TargetFile, Args);
 }
 
-void GDALInterface::AddPointLists(OGRMultiPolygon* MultiPolygon, TArray<TArray<OGRPoint>> &PointLists)
+void GDALInterface::AddPointLists(OGRMultiPolygon* MultiPolygon, TArray<FPointList> &PointLists, FOSMInfo Info)
 {
 	for (OGRPolygon* &Polygon : MultiPolygon)
 	{
 		for (OGRLinearRing* &LinearRing : Polygon)
 		{
-			TArray<OGRPoint> NewList;
+			FPointList NewList;
+			NewList.Info = Info;
 			for (OGRPoint &Point : LinearRing)
 			{
-				NewList.Add(Point);
+				NewList.Points.Add(Point);
 			}
 			PointLists.Add(NewList);
 		}
 	}
 }
 
-void GDALInterface::AddPointList(OGRLineString* LineString, TArray<TArray<OGRPoint>> &PointLists)
+void GDALInterface::AddPointList(OGRLineString* LineString, TArray<FPointList> &PointLists, FOSMInfo Info)
 {
-	TArray<OGRPoint> NewList;
+	FPointList NewList;
+	NewList.Info = Info;
 	for (OGRPoint &Point : LineString)
 	{
-		NewList.Add(Point);
+		NewList.Points.Add(Point);
 	}
 	PointLists.Add(NewList);
 }
 
-TArray<TArray<OGRPoint>> GDALInterface::GetPointLists(GDALDataset *Dataset)
+FOSMInfo InfoFromFeature(OGRFeature* Feature)
 {
-	TArray<TArray<OGRPoint>> PointLists;
-
-	int FeatureCount = 0;
-	for (auto Layer : Dataset->GetLayers())
+	return
 	{
-		FeatureCount += Layer->GetFeatureCount();
-	}
+		(float) Feature->GetFieldAsDouble("height")
+	};
+}
+
+TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset)
+{
+	TArray<FPointList> PointLists;
 	
-	FScopedSlowTask FeaturesTask = FScopedSlowTask(0,
-		FText::Format(
-			LOCTEXT("PointsTask", "Reading {0} Features from Dataset..."),
-			FText::AsNumber(FeatureCount)
-		)
-	);
+	FScopedSlowTask FeaturesTask = FScopedSlowTask(0, LOCTEXT("PointsTask", "Reading Features from Dataset..."));
 	FeaturesTask.MakeDialog(true);
 	
 	OGRFeature *Feature;
@@ -588,8 +587,13 @@ TArray<TArray<OGRPoint>> GDALInterface::GetPointLists(GDALDataset *Dataset)
 	{
 		if (FeaturesTask.ShouldCancel())
 		{
-			return TArray<TArray<OGRPoint>>();
+			return TArray<FPointList>();
 		}
+
+		FOSMInfo Info = InfoFromFeature(Feature);
+		
+		UE_LOG(LogTemp, Error, TEXT("Building height: %f"), Info.Height);
+
 
 		OGRGeometry* Geometry = Feature->GetGeometryRef();
 		if (!Geometry) continue;
@@ -598,11 +602,11 @@ TArray<TArray<OGRPoint>> GDALInterface::GetPointLists(GDALDataset *Dataset)
 			
 		if (GeometryType == wkbMultiPolygon)
 		{
-			AddPointLists(Geometry->toMultiPolygon(), PointLists);
+			AddPointLists(Geometry->toMultiPolygon(), PointLists, Info);
 		}
 		else if (GeometryType == wkbLineString)
 		{
-			AddPointList(Geometry->toLineString(), PointLists);
+			AddPointList(Geometry->toLineString(), PointLists, Info);
 		}
 		else if (GeometryType == wkbPoint)
 		{
@@ -612,6 +616,7 @@ TArray<TArray<OGRPoint>> GDALInterface::GetPointLists(GDALDataset *Dataset)
 		{
 			UE_LOG(LogGDALInterface, Warning, TEXT("Found an unsupported feature %d"), wkbFlatten(Geometry->getGeometryType()));
 		}
+		OGRFeature::DestroyFeature(Feature);
 		Feature = Dataset->GetNextFeature(&Layer, nullptr, nullptr, nullptr);
 	}
 
