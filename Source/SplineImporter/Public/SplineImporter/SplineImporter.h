@@ -90,8 +90,21 @@ public:
 	)
 	double LandscapeSplinesStraightness = 1;
 
+	/* Tag to apply to the Spline Collection which is created. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
+		meta = (EditCondition = "!bUseLandscapeSplines", EditConditionHides, DisplayPriority = "5")
+	)
+	FName SplineCollectionTag;
+
+	/* Tag to apply to the Spline Components which are created. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
+		meta = (EditCondition = "!bUseLandscapeSplines", EditConditionHides, DisplayPriority = "6")
+	)
+	FName SplineComponentsTag;
+
+
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Spline Importer",
-		meta = (DisplayPriority = "4")
+		meta = (DisplayPriority = "-1")
 	)
 	void GenerateSplines();
 

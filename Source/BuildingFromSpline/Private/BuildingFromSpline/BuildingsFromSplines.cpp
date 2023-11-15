@@ -93,10 +93,14 @@ void ABuildingsFromSplines::GenerateBuildings()
 			FText::AsNumber(NumComponents)
 		)
 	);
-	GenerateTask.MakeDialog();
+	GenerateTask.MakeDialog(true);
 
 	for (int i = 0; i < NumComponents; i++)
 	{
+		if (GenerateTask.ShouldCancel())
+		{
+			break;
+		}
 		GenerateTask.EnterProgressFrame(1);
 		GenerateBuilding(SplineComponents[i]);
 	}
