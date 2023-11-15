@@ -15,8 +15,8 @@ LandscapeSpawner Overview
 
 
 
-Settings
---------
+LandscapeSpawner Settings
+-------------------------
 
 * **Drop Data (bool)**:
   When the landscape components do not exactly match with the total size of the heightmaps,

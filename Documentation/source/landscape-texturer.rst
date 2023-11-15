@@ -23,8 +23,8 @@ LandscapeTexturer Overview
 
 
 
-Settings
---------
+LandscapeTexturer Settings
+--------------------------
 
 * **Resize Images (bool)**:
   Check this if you want to force resize the images to have the exact same pixel size as your landscape.

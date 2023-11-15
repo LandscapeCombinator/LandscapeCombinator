@@ -6,7 +6,7 @@ Importing Splines and Landscape Splines
 SplineImporter Overview
 -----------------------
 
-* First make sure that you have a :ref:`Level Coordinates <coordinates.rst>` actor in your level.
+* First make sure that you have a :ref:`Level Coordinates <coordinates>` actor in your level.
 * Search for ``SplineImporter``, which is a C++ class in the Landscape Combinator plugin, and drag it into your level.
 * In the Details Panel, select the splines source as you wish.
   You can either use a premade query, such as Roads, Buildings, or you can write the query yourself using `Overpass <https://overpass-turbo.eu/>`_ syntax.
