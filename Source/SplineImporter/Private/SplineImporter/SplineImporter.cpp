@@ -478,6 +478,8 @@ void ASplineImporter::GenerateRegularSplines(
 	}
 
 	ASplineCollection *SplineCollection = World->SpawnActor<ASplineCollection>();
+	SplineCollection->SetActorLabel("SC_" + this->GetActorLabel());
+	SplineCollection->Tags.Add(SplineCollectionTag);
 
 	if (!SplineCollection)
 	{
@@ -529,6 +531,7 @@ void ASplineImporter::AddRegularSpline(
 	SplineComponent->RegisterComponent();
 	SplineComponent->ClearSplinePoints();
 	SplineComponent->SetMobility(EComponentMobility::Static);
+	SplineComponent->ComponentTags.Add(SplineComponentsTag);
 
 	UOSMUserData *OSMUserData = NewObject<UOSMUserData>(SplineComponent);
 	OSMUserData->Height = PointList.Info.Height;
