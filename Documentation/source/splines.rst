@@ -6,6 +6,7 @@ Importing Splines and Landscape Splines
 SplineImporter Overview
 -----------------------
 
+* First make sure that you have a :ref:`Level Coordinates <coordinates.rst>` actor in your level.
 * Search for ``SplineImporter``, which is a C++ class in the Landscape Combinator plugin, and drag it into your level.
 * In the Details Panel, select the splines source as you wish.
   You can either use a premade query, such as Roads, Buildings, or you can write the query yourself using `Overpass <https://overpass-turbo.eu/>`_ syntax.
@@ -13,6 +14,8 @@ SplineImporter Overview
   ``way["highway"]["highway"!~"path"]["highway"!~"track"];``.
 * Select whether you want landscape splines, or regular spline components.
 * Choose an actor on which to spawn the splines (usually a landscape).
+  This actor's area in Unreal will be mapped to a real-world area thanks to the ``Level Coordinates``,
+  and the plugin will use this real-world area to search for splines.
 * Press the ``Generate Splines`` button.
 
 Landscape Splines
