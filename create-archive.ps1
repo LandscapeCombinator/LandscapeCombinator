@@ -185,7 +185,7 @@ $MarketPlaceURLs.Add("LandscapeCombinator", "675e54fcb72f42db82125d5573d0667e")
 $MarketPlaceURLs.Add("ImageDownloader",     "")
 $MarketPlaceURLs.Add("BuildingFromSpline",  "64c9fedf0ff44d9ba0137db8721f47b6")
 $MarketPlaceURLs.Add("Coordinates",         "11fabe5dcee545338cc6818f5e465bf6")
-$MarketPlaceURLs.Add("SplineImporter",      "")
+$MarketPlaceURLs.Add("SplineImporter",      "855af21d9cb040eab2a7810662baae3d")
 $MarketPlaceURLs.Add("HeightmapModifier",   "")
 
 Remove-Item -Force -Recurse "*UE$EngineVersion*.zip"
