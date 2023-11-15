@@ -4,7 +4,6 @@
 #include "HeightmapModifier/LogHeightmapModifier.h"
 
 #include "LandscapeUtils/LandscapeUtils.h"
-#include "GDALInterface/GDALInterface.h"
 
 #include "Kismet/GameplayStatics.h"
 #include "Landscape.h"
