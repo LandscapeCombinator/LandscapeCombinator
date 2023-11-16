@@ -48,7 +48,7 @@ bool GetCmPerPixelForCRS(FString CRS, int &CmPerPixel)
 		CmPerPixel = 11111111;
 		return true;
 	}
-	else if (CRS == "IGNF:LAMB93" || CRS == "EPSG:2154" || CRS == "EPSG:4559" || CRS == "EPSG:2056" )
+	else if (CRS == "IGNF:LAMB93" || CRS == "EPSG:2154" || CRS == "EPSG:4559" || CRS == "EPSG:2056" || CRS == "EPSG:3857" )
 	{
 		CmPerPixel = 100;
 		return true;
@@ -123,8 +123,9 @@ void ALandscapeSpawner::SpawnLandscape()
 			AsyncTask(ENamedThreads::GameThread, [bSuccess, Fetcher, Altitudes, CRS, Coordinates, this]()
 			{
 				int CmPerPixel = 0;
+				TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false);
 
-				if (!GetCmPerPixelForCRS(Fetcher->OutputCRS, CmPerPixel))
+				if (!GlobalCoordinates && !GetCmPerPixelForCRS(Fetcher->OutputCRS, CmPerPixel))
 				{
 					FMessageDialog::Open(EAppMsgType::Ok,
 						FText::Format(
@@ -145,8 +146,6 @@ void ALandscapeSpawner::SpawnLandscape()
 				if (CreatedLandscape)	
 				{
 					CreatedLandscape->SetActorLabel(LandscapeLabel);
-					
-					TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false);
 
 					if (!GlobalCoordinates)
 					{
