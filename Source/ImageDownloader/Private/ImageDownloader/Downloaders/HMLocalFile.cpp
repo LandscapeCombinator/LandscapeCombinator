@@ -16,6 +16,10 @@ void HMLocalFile::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<
 	}
 	else
 	{
+		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			LOCTEXT("HMLocalFile::Fetch", "Image Downloader Error: File {0} does not exist."),
+			FText::FromString(File)
+		));
 		if (OnComplete) OnComplete(false);
 		return;
 	}

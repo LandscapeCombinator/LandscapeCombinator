@@ -73,12 +73,12 @@ void ALandscapeTexturer::SetCoordinatesFromLandscape()
 	ImageDownloader->WMS_MaxLat = ImageDownloaderCoordinates[3];
 }
 
-void ALandscapeTexturer::DownloadImagesForLandscape()
+void ALandscapeTexturer::PrepareImagesForLandscape()
 {
 	if (!ImageDownloader)
 	{
 		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("ALandscapeTexturer::DownloadImagesForLandscape", "ImageDownloader is not set, you may want to create one, or spawn a new LandscapeTexturer")
+			LOCTEXT("ALandscapeTexturer::PrepareImagesForLandscape", "ImageDownloader is not set, you may want to create one, or spawn a new LandscapeTexturer")
 		);
 		return;
 	}
@@ -94,7 +94,7 @@ void ALandscapeTexturer::DownloadImagesForLandscape()
 		if (!LandscapeUtils::GetLandscapeBounds(TargetLandscape, MinMaxX, MinMaxY, UnusedMinMaxZ))
 		{
 			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-				LOCTEXT("ALandscapeTexturer::DownloadImagesForLandscape::NoBounds", "Could not compute bounds of Landscape {0}"),
+				LOCTEXT("ALandscapeTexturer::PrepareImagesForLandscape::NoBounds", "Could not compute bounds of Landscape {0}"),
 				FText::FromString(TargetLandscape->GetActorLabel())
 			));
 			return;
@@ -109,7 +109,7 @@ void ALandscapeTexturer::DownloadImagesForLandscape()
 		if (!ALevelCoordinates::GetCRSCoordinatesFromUnrealLocations(TargetLandscape->GetWorld(), Locations, Coordinates))
 		{
 			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-				LOCTEXT("ALandscapeTexturer::DownloadImagesForLandscape::NoCoordinates", "Could not compute coordinates of Landscape {0}"),
+				LOCTEXT("ALandscapeTexturer::PrepareImagesForLandscape::NoCoordinates", "Could not compute coordinates of Landscape {0}"),
 				FText::FromString(TargetLandscape->GetActorLabel())
 			));
 			return;
@@ -124,7 +124,7 @@ void ALandscapeTexturer::DownloadImagesForLandscape()
 	if (!Fetcher)
 	{
 		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("ALandscapeTexturer::DownloadImagesForLandscape::NoFetcher", "Could not make image fetcher.")
+			LOCTEXT("ALandscapeTexturer::PrepareImagesForLandscape::NoFetcher", "Could not make image fetcher.")
 		);
 		return;
 	}
@@ -134,7 +134,7 @@ void ALandscapeTexturer::DownloadImagesForLandscape()
 		if (bSuccess)
 		{
 			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-				LOCTEXT("ALandscapeTexturer::DownloadImagesForLandscape::Success", "LandscapeTexturer successfully prepared the following file(s):\n{0}"),
+				LOCTEXT("ALandscapeTexturer::PrepareImagesForLandscape::Success", "LandscapeTexturer successfully prepared the following file(s):\n{0}"),
 				FText::FromString(FString::Join(Fetcher->OutputFiles, TEXT("\n")))
 			));
 			return;
@@ -142,7 +142,7 @@ void ALandscapeTexturer::DownloadImagesForLandscape()
 		else
 		{
 			FMessageDialog::Open(EAppMsgType::Ok,
-				LOCTEXT("ALandscapeTexturer::DownloadImagesForLandscape::Failure", "There was an error while downloading or preparing the files.")
+				LOCTEXT("ALandscapeTexturer::PrepareImagesForLandscape::Failure", "There was an error while downloading or preparing the files.")
 			);
 			return;
 		}

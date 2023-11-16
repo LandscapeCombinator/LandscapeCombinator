@@ -453,13 +453,20 @@ bool GDALInterface::Warp(TArray<FString> SourceFiles, FString& TargetFile, FStri
 
 bool GDALInterface::Warp(FString& SourceFile, FString& TargetFile, TArray<FString> Args)
 {
+	UE_LOG(LogGDALInterface, Log, TEXT("Reprojecting using gdalwarp --config GDAL_PAM_ENABLED NO %s \"%s\" \"%s\""),
+		*FString::Join(Args, TEXT(" ")),
+		*SourceFile,
+		*TargetFile
+	);
+
 	GDALDatasetH SrcDataset = GDALOpen(TCHAR_TO_UTF8(*SourceFile), GA_ReadOnly);
 
 	if (!SrcDataset)
 	{
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("GDALWarpOpenError", "Could not open file {0}."),
-			FText::FromString(SourceFile)
+			LOCTEXT("GDALWarpOpenError", "Could not open file {0}.\n{1}"),
+			FText::FromString(SourceFile),
+			FText::FromString(FString(CPLGetLastErrorMsg()))
 		));
 
 		return false;
@@ -475,12 +482,6 @@ bool GDALInterface::Warp(FString& SourceFile, FString& TargetFile, TArray<FStrin
 
 	GDALWarpAppOptions* Options = GDALWarpAppOptionsNew(WarpArgv, NULL);
 	CSLDestroy(WarpArgv);
-
-	UE_LOG(LogGDALInterface, Log, TEXT("Reprojecting using gdalwarp --config GDAL_PAM_ENABLED NO %s \"%s\" \"%s\""),
-		*FString::Join(Args, TEXT(" ")),
-		*SourceFile,
-		*TargetFile
-	);
 
 	if (!Options)
 	{
@@ -554,6 +555,20 @@ void GDALInterface::AddPointLists(OGRMultiPolygon* MultiPolygon, TArray<FPointLi
 	}
 }
 
+void GDALInterface::AddPointLists(OGRPolygon* Polygon, TArray<FPointList> &PointLists, FOSMInfo Info)
+{
+	for (OGRLinearRing* &LinearRing : Polygon)
+	{
+		FPointList NewList;
+		NewList.Info = Info;
+		for (OGRPoint &Point : LinearRing)
+		{
+			NewList.Points.Add(Point);
+		}
+		PointLists.Add(NewList);
+	}
+}
+
 void GDALInterface::AddPointList(OGRLineString* LineString, TArray<FPointList> &PointLists, FOSMInfo Info)
 {
 	FPointList NewList;
@@ -591,8 +606,6 @@ TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset)
 		}
 
 		FOSMInfo Info = InfoFromFeature(Feature);
-		
-		UE_LOG(LogTemp, Error, TEXT("Building height: %f"), Info.Height);
 
 
 		OGRGeometry* Geometry = Feature->GetGeometryRef();
@@ -603,6 +616,10 @@ TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset)
 		if (GeometryType == wkbMultiPolygon)
 		{
 			AddPointLists(Geometry->toMultiPolygon(), PointLists, Info);
+		}
+		else if (GeometryType == wkbPolygon)
+		{
+			AddPointLists(Geometry->toPolygon(), PointLists, Info);
 		}
 		else if (GeometryType == wkbLineString)
 		{
