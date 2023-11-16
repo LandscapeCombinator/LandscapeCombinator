@@ -11,6 +11,8 @@
 #include "Serialization/BufferArchive.h"
 #include "Serialization/MemoryWriter.h"
 #include "Serialization/ObjectAndNameAsStringProxyArchive.h"
+#include "Serialization/ObjectReader.h"
+#include "Serialization/ObjectWriter.h"
 #include "TransactionCommon.h" 
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(BuildingsFromSplines)
@@ -23,6 +25,7 @@ ABuildingsFromSplines::ABuildingsFromSplines()
 
 	BuildingConfiguration = CreateDefaultSubobject<UBuildingConfiguration>(TEXT("Building Configuration"));
 
+	BuildingConfiguration->BuildingKind = EBuildingKind::Simple;
 	BuildingConfiguration->InternalWallThickness = 1;
 	BuildingConfiguration->ExternalWallThickness = 1;
 	BuildingConfiguration->bBuildInternalWalls = false;
@@ -158,6 +161,9 @@ void ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent)
 	FMemoryReader BufferReader = FMemoryReader(BufferData, true);
 	FObjectAndNameAsStringProxyArchive Reader = FObjectAndNameAsStringProxyArchive(BufferReader, true);
 	Building->BuildingConfiguration->Serialize(Reader);
+	// enums are not properly serialized, so we copy them ourselves
+	Building->BuildingConfiguration->BuildingKind = BuildingConfiguration->BuildingKind;
+	Building->BuildingConfiguration->RoofKind = BuildingConfiguration->RoofKind;
 
 	Building->SplineComponent->ClearSplinePoints();
 	for (int i = 0; i < NumPoints; i++)
@@ -178,11 +184,13 @@ void ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent)
 	{
 		UOSMUserData *OSMUserData = Cast<UOSMUserData>(SplineComponent->GetAssetUserDataOfClass(UOSMUserData::StaticClass()));
 
-		if (OSMUserData->Height > 0)
+		if (OSMUserData && OSMUserData->Height > 0)
 		{
 			Building->BuildingConfiguration->NumFloors = FMath::Max(1, OSMUserData->Height * 100 / Building->BuildingConfiguration->FloorHeight);
+			Building->BuildingConfiguration->BuildingHeight = OSMUserData->Height * 100;
 		}
 	}
+	
 
 	Building->GenerateBuilding();
 }

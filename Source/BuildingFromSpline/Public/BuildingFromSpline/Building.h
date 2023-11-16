@@ -113,6 +113,7 @@ private:
 	void AppendAlongSpline(UDynamicMesh* TargetMesh, bool bInternalWall, double BeginDistance, double Length, double Height, double ZOffset, int MaterialID);
 	void AppendRoof(UDynamicMesh* TargetMesh);
 	bool AppendFloors(UDynamicMesh *TargetMesh);
+	bool AppendSimpleBuilding(UDynamicMesh *TargetMesh);
 	void ClearSplineMeshComponents();
 };
 
