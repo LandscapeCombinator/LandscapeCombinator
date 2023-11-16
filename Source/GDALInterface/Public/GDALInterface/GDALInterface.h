@@ -48,5 +48,6 @@ public:
 
 	static TArray<FPointList> GetPointLists(GDALDataset *Dataset);
 	static void AddPointList(OGRLineString* LineString, TArray<FPointList> &PointLists, FOSMInfo Info);
+	static void AddPointLists(OGRPolygon* Polygon, TArray<FPointList> &PointLists, FOSMInfo Info);
 	static void AddPointLists(OGRMultiPolygon* MultiPolygon, TArray<FPointList> &PointLists, FOSMInfo Info);
 };

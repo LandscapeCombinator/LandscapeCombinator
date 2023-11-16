@@ -15,7 +15,7 @@ LandscapeTexturer Overview
 
 #. (Optinal) Click of ``Set Coordinates From Landscape`` to set the bounding box coordinates from your landscape.
 
-#. In the Details Panel of the ``LandscapeTexturer``, click on ``Download Images for Landscape``.
+#. In the Details Panel of the ``LandscapeTexturer``, click on ``Prepare Images for Landscape``.
 
 #. If successful, there will be a dialog window telling you that a PNG file (or more) was prepared.
    You can then use this image as a weightmap for your landscape layers, or import it in your project

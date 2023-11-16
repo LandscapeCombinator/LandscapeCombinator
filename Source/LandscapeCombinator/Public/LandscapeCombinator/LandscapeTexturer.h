@@ -41,7 +41,7 @@ public:
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeTexturer",
 		meta = (DisplayPriority = "10")
 	)
-	void DownloadImagesForLandscape();
+	void PrepareImagesForLandscape();
 	
 	/* Set the ImageDownloader coordinates using the TargetLandscape LandscapeController component. */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeTexturer",
