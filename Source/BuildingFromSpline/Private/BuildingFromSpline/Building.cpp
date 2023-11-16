@@ -445,6 +445,59 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 	return true;
 }
 
+bool ABuilding::AppendSimpleBuilding(UDynamicMesh* TargetMesh)
+{
+	// static FTotalTimeAndCount AppendSimpleBuildingTime;
+	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AppendSimpleBuildingTime);
+
+	UDynamicMesh *SimpleBuildingMesh = AllocateComputeMesh();
+
+	UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSimpleExtrudePolygon(
+		SimpleBuildingMesh,
+		FGeometryScriptPrimitiveOptions(),
+		FTransform(FVector(0, 0, 0)),
+		BaseVertices2D,
+		BuildingConfiguration->BuildingHeight
+	);
+
+
+	/* Set the Polygroup ID of ceiling to CeilingMaterialID in SimpleBuildingMesh */
+
+	FGeometryScriptIndexList PolygroupIDs0;
+	UGeometryScriptLibrary_MeshPolygroupFunctions::GetPolygroupIDsInMesh(
+		SimpleBuildingMesh,
+		FGeometryScriptGroupLayer(),
+		PolygroupIDs0
+	);
+
+	TArray<int> PolygroupIDs = *PolygroupIDs0.List;
+
+	if (PolygroupIDs.Num() < 3)
+	{
+		UE_LOG(LogBuildingFromSpline, Error, TEXT("Internal error: something went wrong with the floor tile materials"));
+		return false;
+	}
+
+	bool bIsValidPolygroupID;
+	UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
+		SimpleBuildingMesh,
+		FGeometryScriptGroupLayer(),
+		PolygroupIDs[0], // TODO: polygroup ID of the sides of the polygon, is there a way to ensure it?
+		1, // new material ID
+		bIsValidPolygroupID,
+		false,
+		nullptr
+	);
+
+	UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(
+		TargetMesh, SimpleBuildingMesh,
+		FTransform(FVector(0, 0, MinHeightLocal)),
+		true
+	);
+
+	return true;
+}
+
 TArray<FVector2D> ABuilding::MakePolygon(bool bInternalWall, double BeginDistance, double Length)
 {
 	// static FTotalTimeAndCount MakePolygonTime;
@@ -565,6 +618,9 @@ void ABuilding::AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, dou
 {
 	// static FTotalTimeAndCount AddSplineMeshTime;
 	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AddSplineMeshTime);
+
+	if (!StaticMesh) return;
+
 	USplineMeshComponent *SplineMeshComponent = NewObject<USplineMeshComponent>(RootComponent);
 	SplineMeshComponents.Add(SplineMeshComponent);
 	SplineMeshComponent->SetStaticMesh(StaticMesh);
@@ -1050,34 +1106,46 @@ void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 	ClearSplineMeshComponents();
 	ComputeMinMaxHeight();
 	ComputeBaseVertices();
-	ComputeOffsetPolygons();
 
-	AppendWallsWithHoles(TargetMesh);
-
-	if (BuildingConfiguration->bBuildFloorTiles || BuildingConfiguration->RoofKind == ERoofKind::Flat)
+	if (BuildingConfiguration->BuildingKind == EBuildingKind::Custom)
 	{
-		if (!AppendFloors(TargetMesh)) return;
-	}
+		ComputeOffsetPolygons();
 
-	if (
-		BuildingConfiguration->RoofKind == ERoofKind::Point ||
-		BuildingConfiguration->RoofKind == ERoofKind::InnerSpline
-	)
-	{
-		AppendRoof(TargetMesh);
-	}
+		AppendWallsWithHoles(TargetMesh);
 
-	{
-		// SCOPE_LOG_TIME_IN_SECONDS(TEXT("Normals"), &NormalsTime);
+		if (BuildingConfiguration->bBuildFloorTiles || BuildingConfiguration->RoofKind == ERoofKind::Flat)
+		{
+			if (!AppendFloors(TargetMesh)) return;
+		}
 
-		UGeometryScriptLibrary_MeshNormalsFunctions::ComputeSplitNormals(TargetMesh, FGeometryScriptSplitNormalsOptions(), FGeometryScriptCalculateNormalsOptions());
-	}
+		if (
+			BuildingConfiguration->RoofKind == ERoofKind::Point ||
+			BuildingConfiguration->RoofKind == ERoofKind::InnerSpline
+		)
+		{
+			AppendRoof(TargetMesh);
+		}
+
+		{
+			// SCOPE_LOG_TIME_IN_SECONDS(TEXT("Normals"), &NormalsTime);
+
+			UGeometryScriptLibrary_MeshNormalsFunctions::ComputeSplitNormals(TargetMesh, FGeometryScriptSplitNormalsOptions(), FGeometryScriptCalculateNormalsOptions());
+		}
 	
-	DynamicMeshComponent->SetMaterial(0, BuildingConfiguration->FloorMaterial);
-	DynamicMeshComponent->SetMaterial(1, BuildingConfiguration->CeilingMaterial);
-	DynamicMeshComponent->SetMaterial(2, BuildingConfiguration->ExteriorMaterial);
-	DynamicMeshComponent->SetMaterial(3, BuildingConfiguration->InteriorMaterial);
-	DynamicMeshComponent->SetMaterial(4, BuildingConfiguration->RoofMaterial);
+		DynamicMeshComponent->SetMaterial(0, BuildingConfiguration->FloorMaterial);
+		DynamicMeshComponent->SetMaterial(1, BuildingConfiguration->CeilingMaterial);
+		DynamicMeshComponent->SetMaterial(2, BuildingConfiguration->ExteriorMaterial);
+		DynamicMeshComponent->SetMaterial(3, BuildingConfiguration->InteriorMaterial);
+		DynamicMeshComponent->SetMaterial(4, BuildingConfiguration->RoofMaterial);
+	}
+	else
+	{
+		AppendSimpleBuilding(TargetMesh);
+		DynamicMeshComponent->SetMaterial(0, BuildingConfiguration->RoofMaterial);
+		DynamicMeshComponent->SetMaterial(1, BuildingConfiguration->ExteriorMaterial);
+	}
+
+
 
 	{
 		// SCOPE_LOG_TIME_IN_SECONDS(TEXT("UVs"), &UVsTime);
