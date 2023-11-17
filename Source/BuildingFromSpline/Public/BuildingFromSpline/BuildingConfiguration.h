@@ -10,7 +10,8 @@ UENUM(BlueprintType)
 enum class EBuildingKind : uint8
 {
 	Simple,
-	Custom
+	Custom,
+	Volume
 };
 
 UENUM(BlueprintType)
@@ -20,18 +21,6 @@ enum class ERoofKind : uint8
 	Flat,
 	Point,
 	InnerSpline
-};
-
-USTRUCT(BlueprintType)
-struct FRoofKind
-{
-	GENERATED_BODY()
-	
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "RoofKind",
-		meta = (DisplayPriority = "-1")
-	)
-	ERoofKind RoofKind;
 };
 
 UCLASS(meta = (PrioritizeCategories = "Building"), BlueprintType)
@@ -82,7 +71,7 @@ public:
 	/* Recompute UVs using AutoGenerateXAtlasMeshUVs (slow operation) */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|General",
-		meta = (DisplayPriority = "5")
+		meta = (EditCondition = "BuildingKind != EBuildingKind::Volume", EditConditionHides, DisplayPriority = "5")
 	)
 	bool bAutoGenerateXAtlasMeshUVs = false;
 
@@ -97,7 +86,7 @@ public:
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
-		meta = (DisplayPriority = "2")
+		meta = (EditCondition = "BuildingKind != EBuildingKind::Volume", EditConditionHides, DisplayPriority = "2")
 	)
 	TObjectPtr<UMaterialInterface> ExteriorMaterial;
 
@@ -115,7 +104,7 @@ public:
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
-		meta = (DisplayPriority = "2")
+		meta = (EditCondition = "BuildingKind != EBuildingKind::Volume", EditConditionHides, DisplayPriority = "2")
 	)
 	TObjectPtr<UMaterialInterface> RoofMaterial;
 
@@ -149,7 +138,10 @@ public:
 	/* The height of the building */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
-		meta = (EditCondition = "BuildingKind == EBuildingKind::Simple", EditConditionHides, DisplayPriority = "3")
+		meta = (
+			EditCondition = "BuildingKind == EBuildingKind::Simple || BuildingKind == EBuildingKind::Volume",
+			EditConditionHides, DisplayPriority = "3"
+		)
 	)
 	double BuildingHeight = 1000;
 	
@@ -181,7 +173,7 @@ public:
 	)
 	int NumFloors = 3;
 	
-	/* The number of subdivisions in a wall (increase it if you want smoothly bended walls) */
+	/* The number of subdivisions in a wall (increase it if you want smoothly bended borders) */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
 		meta = (DisplayPriority = "3")

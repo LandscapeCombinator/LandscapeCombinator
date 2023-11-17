@@ -54,6 +54,17 @@ void ASplineImporter::GenerateSplines()
 			return;
 		}
 	}
+	else if (
+		!ActorOrLandscapeToPlaceSplines->GetRootComponent() ||
+		ActorOrLandscapeToPlaceSplines->GetRootComponent()->Mobility != EComponentMobility::Static
+	)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			LOCTEXT("ASplineImporter::GenerateSplines::NoStatic", "Please make sure that {0}'s mobility is set to static."),
+			FText::FromString(ActorOrLandscapeToPlaceSplines->GetActorLabel())
+		));
+		return;
+	}
 
 	FText IntroMessage;
 	ALandscape *Landscape = nullptr;
@@ -400,6 +411,10 @@ void ASplineImporter::AddLandscapeSplinesPoints(
 			ControlPoint->SideFalloff = 200;
 			ControlPoints.Add( { Longitude, Latitude } , ControlPoint);
 		}
+		else
+		{
+			UE_LOG(LogSplineImporter, Warning, TEXT("No collision for point %f, %f"), x, y);
+		}
 	}
 }
 
@@ -567,6 +582,10 @@ void ASplineImporter::AddRegularSpline(
 			{
 				FVector Location = { x, y, z };
 				SplineComponent->AddSplinePoint(Location, ESplineCoordinateSpace::World, false);
+			}
+			else
+			{
+				UE_LOG(LogSplineImporter, Warning, TEXT("No collision for point %f, %f"), x, y);
 			}
 		}
 	}

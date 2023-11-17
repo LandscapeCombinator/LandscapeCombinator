@@ -1141,8 +1141,41 @@ void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 	else
 	{
 		AppendSimpleBuilding(TargetMesh);
-		DynamicMeshComponent->SetMaterial(0, BuildingConfiguration->RoofMaterial);
-		DynamicMeshComponent->SetMaterial(1, BuildingConfiguration->ExteriorMaterial);
+
+		if (BuildingConfiguration->BuildingKind == EBuildingKind::Volume)
+		{
+			if (IsValid(Volume))
+			{
+				Volume->Destroy();
+			}
+
+			FGeometryScriptCreateNewVolumeFromMeshOptions Options;
+			EGeometryScriptOutcomePins Outcome;
+			Volume = UGeometryScriptLibrary_CreateNewAssetFunctions::CreateNewVolumeFromMesh(
+				TargetMesh,
+				this->GetWorld(),
+				this->GetTransform(),
+				this->GetActorLabel() + "Volume",
+				Options, Outcome
+			);
+
+			TargetMesh->Reset();
+
+			if (Outcome != EGeometryScriptOutcomePins::Success || !Volume)
+			{
+				FMessageDialog::Open(EAppMsgType::Ok,
+					LOCTEXT("StaticMeshError", "Internal error while creating volume.")
+				);
+				return;
+			}
+
+		}
+		else
+		{
+			DynamicMeshComponent->SetMaterial(0, BuildingConfiguration->RoofMaterial);
+			DynamicMeshComponent->SetMaterial(1, BuildingConfiguration->ExteriorMaterial);
+		}
+
 	}
 
 
