@@ -439,6 +439,75 @@ bool GDALInterface::Merge(TArray<FString> SourceFiles, FString& TargetFile)
 	return true;
 }
 
+bool GDALInterface::ReadColorsFromFile(FString File, int &OutWidth, int &OutHeight, TArray<FColor> &OutColors)
+{
+	GDALDataset *Dataset = (GDALDataset *)GDALOpen(TCHAR_TO_UTF8(*File), GA_ReadOnly);
+
+	if (!Dataset)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			FText::Format(LOCTEXT("GDALInterface::ReadTextureFromFile", "Could not open file '{0}' to create a texture."),
+				FText::FromString(File)
+			)
+		);
+		return false;
+	}
+	
+	OutWidth = Dataset->GetRasterXSize();
+	OutHeight = Dataset->GetRasterYSize();
+	int NumBands = Dataset->GetRasterCount();
+	
+	UE_LOG(LogGDALInterface, Log, TEXT("Reading colors from image %s of size %d x %d with %d band(s)"), *File, OutWidth, OutHeight, NumBands);
+
+	uint8_t* RedBuffer = nullptr;
+	uint8_t* GreenBuffer = nullptr;
+	uint8_t* BlueBuffer = nullptr;
+	uint8_t* AlphaBuffer = nullptr;
+
+	if (NumBands >= 1)
+	{
+		RedBuffer = new uint8_t[OutWidth * OutHeight];
+		Dataset->GetRasterBand(1)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, RedBuffer, OutWidth, OutHeight, GDT_Byte, 0, 0);
+	}
+
+	if (NumBands >= 2)
+	{
+		GreenBuffer = new uint8_t[OutWidth * OutHeight];
+		Dataset->GetRasterBand(2)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, GreenBuffer, OutWidth, OutHeight, GDT_Byte, 0, 0);
+	}
+
+	if (NumBands >= 3)
+	{
+		BlueBuffer = new uint8_t[OutWidth * OutHeight];
+		Dataset->GetRasterBand(3)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, BlueBuffer, OutWidth, OutHeight, GDT_Byte, 0, 0);
+	}
+
+	if (NumBands >= 4)
+	{
+		AlphaBuffer = new uint8_t[OutWidth * OutHeight];
+		Dataset->GetRasterBand(4)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, AlphaBuffer, OutWidth, OutHeight, GDT_Byte, 0, 0);
+	}
+
+	OutColors.Reset();
+	OutColors.SetNum(OutWidth * OutHeight);
+
+	for (int i = 0; i < OutWidth; i++)
+	{
+		for (int j = 0; j < OutHeight; j++)
+		{
+			FColor Color;
+			int k = i + j * OutWidth;
+			if (NumBands >= 1) Color.R = RedBuffer[k];
+			if (NumBands >= 2) Color.G = GreenBuffer[k];
+			if (NumBands >= 3) Color.B = BlueBuffer[k];
+			if (NumBands >= 4) Color.A = AlphaBuffer[k];
+			OutColors[k] = Color;
+		}
+	}
+
+	return true;
+}
+
 bool GDALInterface::Warp(TArray<FString> SourceFiles, FString& TargetFile, FString InCRS, FString OutCRS, int NoData)
 {
 	check(SourceFiles.Num() > 0);

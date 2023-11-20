@@ -8,7 +8,7 @@
 
 #include "LevelCoordinates.generated.h"
 
-#define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
+#define LOCTEXT_NAMESPACE "FCoordinatesModule"
 
 UCLASS(BlueprintType)
 class COORDINATES_API ALevelCoordinates : public AActor
