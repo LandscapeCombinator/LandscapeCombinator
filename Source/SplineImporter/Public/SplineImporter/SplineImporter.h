@@ -90,7 +90,7 @@ public:
 	)
 	double LandscapeSplinesStraightness = 1;
 
-	/* Tag to apply to the Spline Collection which is created. */
+	/* Tag to apply to the Spline Collections which are created. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
 		meta = (EditCondition = "!bUseLandscapeSplines", EditConditionHides, DisplayPriority = "5")
 	)
@@ -101,7 +101,18 @@ public:
 		meta = (EditCondition = "!bUseLandscapeSplines", EditConditionHides, DisplayPriority = "6")
 	)
 	FName SplineComponentsTag;
+	
+	/* Put all the Spline Components in the same Spline Collection actor. Untick if you prefer one actor per component. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
+		meta = (EditCondition = "!bUseLandscapeSplines", EditConditionHides, DisplayPriority = "7")
+	)
+	bool bUseSingleCollection = true;
 
+
+	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Spline Importer",
+		meta = (DisplayPriority = "-1")
+	)
+	void DeleteSplines();
 
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Spline Importer",
 		meta = (DisplayPriority = "-1")
@@ -109,6 +120,9 @@ public:
 	void GenerateSplines();
 
 private:
+	UPROPERTY()
+	TArray<AActor*> SplineCollections;
+
 	GDALDataset* LoadGDALDatasetFromFile(FString File);
 	void LoadGDALDataset(TFunction<void(GDALDataset*)> OnComplete);
 	void LoadGDALDatasetFromQuery(FString Query, TFunction<void(GDALDataset*)> OnComplete);

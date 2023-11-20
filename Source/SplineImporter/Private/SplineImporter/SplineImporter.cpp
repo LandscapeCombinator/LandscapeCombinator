@@ -32,6 +32,17 @@ ASplineImporter::ASplineImporter()
 	RootComponent->SetMobility(EComponentMobility::Static);
 }
 
+void ASplineImporter::DeleteSplines()
+{
+	for (auto& SplineCollection : SplineCollections)
+	{
+		if (IsValid(SplineCollection))
+		{
+			SplineCollection->Destroy();
+		}
+	}
+}
+
 void ASplineImporter::GenerateSplines()
 {
 	if (!ActorOrLandscapeToPlaceSplines)
@@ -112,6 +123,9 @@ void ASplineImporter::GenerateSplines()
 		UE_LOG(LogSplineImporter, Log, TEXT("User cancelled adding landscape splines."));
 		return;
 	}
+
+	// Delete existing spline collections before generating new ones
+	DeleteSplines();
 
 	LoadGDALDataset([this, Landscape](GDALDataset* Dataset) {
 		if (Dataset)
@@ -492,16 +506,23 @@ void ASplineImporter::GenerateRegularSplines(
 		return;
 	}
 
-	ASplineCollection *SplineCollection = World->SpawnActor<ASplineCollection>();
-	SplineCollection->SetActorLabel("SC_" + this->GetActorLabel());
-	SplineCollection->Tags.Add(SplineCollectionTag);
-
-	if (!SplineCollection)
+	ASplineCollection *SplineCollection = nullptr;
+	
+	if (bUseSingleCollection)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("NoWorld", "Internal error while creating splines. Could not spawn a SplineCollection.")
-		);
-		return;
+		SplineCollection = World->SpawnActor<ASplineCollection>();
+		SplineCollection->SetActorLabel("SC_" + this->GetActorLabel());
+		SplineCollection->Tags.Add(SplineCollectionTag);
+
+		if (!SplineCollection)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok,
+				LOCTEXT("NoWorld", "Internal error while creating splines. Could not spawn a SplineCollection.")
+			);
+			return;
+		}
+
+		SplineCollections.Add(SplineCollection);
 	}
 
 	const int NumLists = PointLists.Num();
@@ -513,8 +534,26 @@ void ASplineImporter::GenerateRegularSplines(
 	);
 	SplinesTask.MakeDialog();
 
+	int i = 0;
 	for (auto &PointList : PointLists)
 	{
+		i++;
+		if (!bUseSingleCollection)
+		{
+			SplineCollection = World->SpawnActor<ASplineCollection>();
+			SplineCollection->SetActorLabel("SC_" + this->GetActorLabel() + FString::FromInt(i));
+			SplineCollection->Tags.Add(SplineCollectionTag);
+
+			if (!SplineCollection)
+			{
+				FMessageDialog::Open(EAppMsgType::Ok,
+					LOCTEXT("NoWorld", "Internal error while creating splines. Could not spawn a SplineCollection.")
+				);
+				return;
+			}
+			
+			SplineCollections.Add(SplineCollection);
+		}
 		SplinesTask.EnterProgressFrame();
 		AddRegularSpline(Actor, SplineCollection, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointList);
 	}
