@@ -5,11 +5,12 @@
 #include "Coordinates/LogCoordinates.h"
 #include "GDALInterface/GDALInterface.h"
 
+
 #include "Engine/DecalActor.h"
 #include "Components/DecalComponent.h"
 #include "Misc/Paths.h"
 #include "Misc/FileHelper.h"
-#include "Materials/MaterialInstanceConstant.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "ImageUtils.h"
 
 #define LOCTEXT_NAMESPACE "FCoordinatesModule"
