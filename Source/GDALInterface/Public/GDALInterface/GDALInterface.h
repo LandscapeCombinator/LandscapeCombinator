@@ -46,6 +46,8 @@ public:
 	static bool Warp(FString &SourceFile, FString &TargetFile, TArray<FString> Args);
 	static bool Merge(TArray<FString> SourceFiles, FString& TargetFile);
 
+	static bool ReadColorsFromFile(FString File, int &OutWidth, int &OutHeight, TArray<FColor> &OutColors);
+
 	static TArray<FPointList> GetPointLists(GDALDataset *Dataset);
 	static void AddPointList(OGRLineString* LineString, TArray<FPointList> &PointLists, FOSMInfo Info);
 	static void AddPointLists(OGRPolygon* Polygon, TArray<FPointList> &PointLists, FOSMInfo Info);

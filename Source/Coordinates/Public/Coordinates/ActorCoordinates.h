@@ -4,7 +4,7 @@
 
 #include "ActorCoordinates.generated.h"
 
-#define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
+#define LOCTEXT_NAMESPACE "FCoordinatesModule"
 
 UCLASS(BlueprintType, meta = (BlueprintSpawnableComponent))
 class COORDINATES_API UActorCoordinates : public UActorComponent
