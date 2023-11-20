@@ -52,7 +52,20 @@ function New-Archive {
             $NewUPlugin = $NewUPlugin -replace "[\s\r]*\n.*{[\n\s]+`"Name`": `"$Module`".*\n.*\n.*\n.*\n.*},?", ""
         }
     }
-    
+
+    foreach ($UEPlugin in $UEPluginUsers.Keys)
+    {
+        Write-Output "Checking $UEPlugin"
+        Write-Output "PluginDependencies: $PluginDependencies"
+        $Users = $PluginDependencies | ?{$UEPluginUsers[$UEPlugin] -contains $_}
+        Write-Output "Users: $Users"
+        if ($null -eq $Users)
+        {
+            Write-Output "Removing $UEPlugin"
+            $NewUPlugin = $NewUPlugin -replace "[\s\r]*\n.*{[\n\s]+`"Name`": `"$UEPlugin`".*\n.*\n.*},?", ""
+        }
+    }
+
     Set-Content $TempFolder/$Plugin.uplugin $NewUPlugin
 
 
@@ -187,6 +200,10 @@ $MarketPlaceURLs.Add("BuildingFromSpline",  "64c9fedf0ff44d9ba0137db8721f47b6")
 $MarketPlaceURLs.Add("Coordinates",         "11fabe5dcee545338cc6818f5e465bf6")
 $MarketPlaceURLs.Add("SplineImporter",      "855af21d9cb040eab2a7810662baae3d")
 $MarketPlaceURLs.Add("HeightmapModifier",   "")
+
+$UEPluginUsers = @{}
+$UEPluginUsers.Add("PCG", @("SplineImporter"))
+$UEPluginUsers.Add("GeometryScripting", @("BuildingFromSpline"))
 
 Remove-Item -Force -Recurse "*UE$EngineVersion*.zip"
 
