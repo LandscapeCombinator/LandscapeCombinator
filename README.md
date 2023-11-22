@@ -7,7 +7,7 @@
 ## Description
 
 Landscape Combinator is an [Unreal Engine 5.3 plugin](https://www.unrealengine.com/marketplace/en-US/product/landscape-combinator)
-that enables you to create landscapes from real-world data in a few simple steps:
+that lets you create landscapes from real-world data in a few simple steps:
 
 * Create landscapes from real-world heightmaps (with a basic landscape material to visualize them),
 * Create landscape splines from [OSM](https://www.openstreetmap.org) data for roads, rivers, etc.
@@ -16,7 +16,7 @@ that enables you to create landscapes from real-world data in a few simple steps
 
 When creating a landscape for a real-world location, the plugin will adjust its position and scale
 correctly in a planar world. You can thus create several real-world landscapes of various resolution and
-have them placed and scaled correctly with respect to one another. The plugin also has blending
+have them placed and scaled correctly with respect to one another. The plugin also has a blending feature
 to modify the landscapes heightmap data to make the transition between different landscapes as
 seamless as possible.
 
