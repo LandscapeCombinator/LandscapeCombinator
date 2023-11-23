@@ -607,14 +607,14 @@ bool GDALInterface::Warp(FString& SourceFile, FString& TargetFile, FString InCRS
 	return Warp(SourceFile, TargetFile, Args);
 }
 
-void GDALInterface::AddPointLists(OGRMultiPolygon* MultiPolygon, TArray<FPointList> &PointLists, FOSMInfo Info)
+void GDALInterface::AddPointLists(OGRMultiPolygon* MultiPolygon, TArray<FPointList> &PointLists, TMap<FString, FString> &Fields)
 {
 	for (OGRPolygon* &Polygon : MultiPolygon)
 	{
 		for (OGRLinearRing* &LinearRing : Polygon)
 		{
 			FPointList NewList;
-			NewList.Info = Info;
+			NewList.Fields = Fields;
 			for (OGRPoint &Point : LinearRing)
 			{
 				NewList.Points.Add(Point);
@@ -624,12 +624,12 @@ void GDALInterface::AddPointLists(OGRMultiPolygon* MultiPolygon, TArray<FPointLi
 	}
 }
 
-void GDALInterface::AddPointLists(OGRPolygon* Polygon, TArray<FPointList> &PointLists, FOSMInfo Info)
+void GDALInterface::AddPointLists(OGRPolygon* Polygon, TArray<FPointList> &PointLists, TMap<FString, FString> &Fields)
 {
 	for (OGRLinearRing* &LinearRing : Polygon)
 	{
 		FPointList NewList;
-		NewList.Info = Info;
+		NewList.Fields = Fields;
 		for (OGRPoint &Point : LinearRing)
 		{
 			NewList.Points.Add(Point);
@@ -638,10 +638,10 @@ void GDALInterface::AddPointLists(OGRPolygon* Polygon, TArray<FPointList> &Point
 	}
 }
 
-void GDALInterface::AddPointList(OGRLineString* LineString, TArray<FPointList> &PointLists, FOSMInfo Info)
+void GDALInterface::AddPointList(OGRLineString* LineString, TArray<FPointList> &PointLists, TMap<FString, FString> &Fields)
 {
 	FPointList NewList;
-	NewList.Info = Info;
+	NewList.Fields = Fields;
 	for (OGRPoint &Point : LineString)
 	{
 		NewList.Points.Add(Point);
@@ -649,12 +649,20 @@ void GDALInterface::AddPointList(OGRLineString* LineString, TArray<FPointList> &
 	PointLists.Add(NewList);
 }
 
-FOSMInfo InfoFromFeature(OGRFeature* Feature)
+TMap<FString, FString> FieldsFromFeature(OGRFeature* Feature)
 {
-	return
+	TMap<FString, FString> Result;
+
+	int n = Feature->GetFieldCount();
+
+	for (int i = 0; i < n; i++)
 	{
-		(float) Feature->GetFieldAsDouble("height")
-	};
+		FString Key = FString(Feature->GetFieldDefnRef(i)->GetNameRef());
+		FString Value = FString(Feature->GetFieldAsString(i));
+		Result.Add(Key, Value);
+	}
+
+	return Result;
 }
 
 TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset)
@@ -674,8 +682,8 @@ TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset)
 			return TArray<FPointList>();
 		}
 
-		FOSMInfo Info = InfoFromFeature(Feature);
-
+		//FOSMInfo Info = InfoFromFeature(Feature);
+		TMap<FString, FString> Fields = FieldsFromFeature(Feature);
 
 		OGRGeometry* Geometry = Feature->GetGeometryRef();
 		if (!Geometry) continue;
@@ -684,15 +692,15 @@ TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset)
 			
 		if (GeometryType == wkbMultiPolygon)
 		{
-			AddPointLists(Geometry->toMultiPolygon(), PointLists, Info);
+			AddPointLists(Geometry->toMultiPolygon(), PointLists, Fields);
 		}
 		else if (GeometryType == wkbPolygon)
 		{
-			AddPointLists(Geometry->toPolygon(), PointLists, Info);
+			AddPointLists(Geometry->toPolygon(), PointLists, Fields);
 		}
 		else if (GeometryType == wkbLineString)
 		{
-			AddPointList(Geometry->toLineString(), PointLists, Info);
+			AddPointList(Geometry->toLineString(), PointLists, Fields);
 		}
 		else if (GeometryType == wkbPoint)
 		{
