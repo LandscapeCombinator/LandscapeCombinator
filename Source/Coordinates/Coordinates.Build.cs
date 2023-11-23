@@ -29,6 +29,8 @@ public class Coordinates : ModuleRules
 				"ToolMenus",
 				"CoreUObject",
 				"Engine",
+				"AssetTools",
+                "AssetRegistry",
 
 				// Other Dependencies
 				"GDALInterface",
