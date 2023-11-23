@@ -119,7 +119,7 @@ void ALandscapeTexturer::PrepareImagesForLandscape()
 		ImageSize.Y = TargetLandscape->ComputeComponentCounts().Y * TargetLandscape->ComponentSizeQuads + 1;
 	}
 	
-	HMFetcher* Fetcher = ImageDownloader->CreateFetcher(Name, false, false, Coordinates, ImageSize, nullptr);
+	HMFetcher* Fetcher = ImageDownloader->CreateFetcher(Name, false, false, false, Coordinates, ImageSize, nullptr);
 
 	if (!Fetcher)
 	{

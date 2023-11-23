@@ -187,7 +187,7 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 	}
 }
 
-HMFetcher* UImageDownloader::CreateFetcher(FString Name, bool bEnsureOneBand, bool bScaleAltitude, FVector4d CropCoordinates, FIntPoint CropPixels, TFunction<bool(HMFetcher*)> RunBeforePNG)
+HMFetcher* UImageDownloader::CreateFetcher(FString Name, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG, FVector4d CropCoordinates, FIntPoint CropPixels, TFunction<bool(HMFetcher*)> RunBeforePNG)
 {
 	HMFetcher *Result = CreateInitialFetcher(Name);
 	if (!Result) return nullptr;
@@ -219,8 +219,11 @@ HMFetcher* UImageDownloader::CreateFetcher(FString Name, bool bEnsureOneBand, bo
 		Result = Result->AndThen(new HMDebugFetcher("FitToLandscape", new HMCrop(Name, CropCoordinates, CropPixels)));
 	}
 	
-	Result = Result->AndThen(new HMDebugFetcher("ToPNG", new HMToPNG(Name, bScaleAltitude)));
-	Result = Result->AndThen(new HMDebugFetcher("AddMissingTiles", new HMAddMissingTiles()));
+	if (bConvertToPNG)
+	{
+		Result = Result->AndThen(new HMDebugFetcher("ToPNG", new HMToPNG(Name, bScaleAltitude)));
+		Result = Result->AndThen(new HMDebugFetcher("AddMissingTiles", new HMAddMissingTiles()));
+	}
 
 	if (bChangeResolution)
 	{
@@ -375,7 +378,7 @@ void UImageDownloader::OnLayerChanged()
 	WMS_MaxAllowedLong = WMSProvider.MaxXs[LayerIndex];
 	WMS_MinAllowedLat = WMSProvider.MinYs[LayerIndex];
 	WMS_MaxAllowedLat = WMSProvider.MaxYs[LayerIndex];
-	WMS_Link = FString::Format(TEXT("https://duckduckgo.com/?q={0}+site%3Aepsg.io"), { WMS_CRS });
+	WMS_SearchCRS = FString::Format(TEXT("https://duckduckgo.com/?q={0}+site%3Aepsg.io"), { WMS_CRS });
 	WMS_Abstract = WMSProvider.Abstracts[LayerIndex];
 }
 
@@ -433,7 +436,7 @@ void UImageDownloader::ResetWMSProvider(TArray<FString> ExcludeCRS, TFunction<bo
 				WMS_Name = "";
 				WMS_Help = "";
 				WMS_CRS = "";
-				WMS_Link = "";
+				WMS_SearchCRS = "";
 				WMS_MinAllowedLong = 0;
 				WMS_MinAllowedLat = 0;
 				WMS_MaxAllowedLat = 0;
