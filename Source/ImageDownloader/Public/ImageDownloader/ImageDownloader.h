@@ -126,7 +126,7 @@ public:
 			EditConditionHides, DisplayPriority = "9"
 		)
 	)
-	FString WMS_Link = "";
+	FString WMS_SearchCRS = "";
 
 	UPROPERTY(
 		VisibleAnywhere, Category = "ImageDownloader|Source",
@@ -534,7 +534,7 @@ public:
 	
 	void PostEditChangeProperty(struct FPropertyChangedEvent&);
 	
-	HMFetcher* CreateFetcher(FString Name, bool bEnsureOneBand, bool bScaleAltitude, FVector4d CropCoordinates, FIntPoint CropPixels, TFunction<bool(HMFetcher*)> RunBeforePNG);
+	HMFetcher* CreateFetcher(FString Name, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG, FVector4d CropCoordinates, FIntPoint CropPixels, TFunction<bool(HMFetcher*)> RunBeforePNG);
 
 	UFUNCTION()
 	bool IsWMS();
