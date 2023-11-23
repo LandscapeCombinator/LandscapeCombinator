@@ -13,10 +13,10 @@ class OSMUSERDATA_API UOSMUserData : public UAssetUserData
 
 public:
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ExternalTool",
+		EditAnywhere, BlueprintReadWrite, Category = "OSMUserData",
 		meta = (EditConditionHides, DisplayPriority = "1")
 	)
-	float Height = 0;
+	TMap<FString, FString> Fields;
 };
 
 #undef LOCTEXT_NAMESPACE

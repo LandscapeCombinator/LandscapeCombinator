@@ -588,7 +588,7 @@ void ASplineImporter::AddRegularSpline(
 	SplineComponent->ComponentTags.Add(SplineComponentsTag);
 
 	UOSMUserData *OSMUserData = NewObject<UOSMUserData>(SplineComponent);
-	OSMUserData->Height = PointList.Info.Height;
+	OSMUserData->Fields = PointList.Fields;
 	SplineComponent->AddAssetUserData(OSMUserData);
 
 	for (int i = 0; i < NumPoints; i++)
