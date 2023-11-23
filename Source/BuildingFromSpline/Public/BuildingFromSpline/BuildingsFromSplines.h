@@ -21,7 +21,7 @@ public:
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
-		meta = (DisplayPriority = "0")
+		meta = (DisplayPriority = "-5")
 	)
 	/* If true, ExtraWallBottom will be set to be equal to the difference between the maximum and minimum Z
 	   coordinates of spline points + 100 (1 meter). */
@@ -29,24 +29,33 @@ public:
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
-		meta = (DisplayPriority = "0")
+		meta = (DisplayPriority = "-4")
 	)
-	/* If true, the number of floors will be set to the height found in the Asset User Data (* 100) divided by the floor height */
+	/* If true, the height is set to the height found in the Asset User Data (*100),
+	   and the number of floors is set to the height divided by the floor height.
+	   This overrides the Random Num Floors and Random Building Height options when the height is available. */
 	bool bAutoComputeNumFloors = true;
 	
 	/* The tag of the actors containing spline components to search for. If None, all actors will be used. */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
-		meta = (DisplayPriority = "0")
+		meta = (DisplayPriority = "-3")
 	)
 	FName ActorsTag;
 	
 	/* The tag of the Spline Components to use to generate buildings. If None, all spline components will be used. */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
-		meta = (DisplayPriority = "0")
+		meta = (DisplayPriority = "-2")
 	)
 	FName SplinesTag;
+	
+	/* Whether the generated buildings can receive decals. */
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
+		meta = (DisplayPriority = "0")
+	)
+	bool bBuildingsReceivesDecals = true;
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
