@@ -28,6 +28,13 @@ public:
 		meta = (DisplayPriority = "20")
 	)
 	bool bAdvancedBlendingOptions;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "BlendLandscape",
+		meta = (EditCondition = "bAdvancedBlendingOptions", EditConditionHides, DisplayPriority = "20")
+	)
+	/* Enable this if you want the modifications to go on new edit layers. */
+	bool bUseEditLayers = false;
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "BlendLandscape",

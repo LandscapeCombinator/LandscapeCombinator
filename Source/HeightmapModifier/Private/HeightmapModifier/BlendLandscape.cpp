@@ -198,27 +198,30 @@ void UBlendLandscape::BlendWithLandscape()
 		}
 
 #if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 3)
-
-		/* Make the new data to be a difference, so that it can be used on a different edit layer (>= 5.3 only) */
-	
-		LandscapeUtils::MakeDataRelativeTo(OtherSizeX, OtherSizeY, OtherNewHeightmapData, OtherOldHeightmapData);
-
-		/* Write difference data to a new edit layer (>= 5.3 only) */
-
-		int OtherLayerIndex = LandscapeToBlendWith->CreateLayer();
-		if (OtherLayerIndex == INDEX_NONE)
+		
+		if (bUseEditLayers)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-				LOCTEXT("UHeightmapModifier::ModifyHeightmap::10", "Could not create landscape layer. Make sure that edit layers are enabled on Landscape {0}."),
-				FText::FromString(LandscapeToBlendWith->GetActorLabel())
-			));
-			free(OldHeightmapData);
-			free(OtherOldHeightmapData);
-			free(OtherNewHeightmapData);
-			return;
-		}
+			/* Make the new data to be a difference, so that it can be used on a different edit layer (>= 5.3 only) */
+	
+			LandscapeUtils::MakeDataRelativeTo(OtherSizeX, OtherSizeY, OtherNewHeightmapData, OtherOldHeightmapData);
 
-		OtherHeightmapAccessor.SetEditLayer(LandscapeToBlendWith->GetLayer(OtherLayerIndex)->Guid);
+			/* Write difference data to a new edit layer (>= 5.3 only) */
+
+			int OtherLayerIndex = LandscapeToBlendWith->CreateLayer();
+			if (OtherLayerIndex == INDEX_NONE)
+			{
+				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+					LOCTEXT("UHeightmapModifier::ModifyHeightmap::10", "Could not create landscape layer. Make sure that edit layers are enabled on Landscape {0}."),
+					FText::FromString(LandscapeToBlendWith->GetActorLabel())
+				));
+				free(OldHeightmapData);
+				free(OtherOldHeightmapData);
+				free(OtherNewHeightmapData);
+				return;
+			}
+
+			OtherHeightmapAccessor.SetEditLayer(LandscapeToBlendWith->GetLayer(OtherLayerIndex)->Guid);
+		}
 
 #endif
 
@@ -268,22 +271,25 @@ void UBlendLandscape::BlendWithLandscape()
 
 		/* Make the new data to be a difference, so that it can be used on a different edit layer (>= 5.3 only) */
 	
-		LandscapeUtils::MakeDataRelativeTo(SizeX, SizeY, NewHeightmapData, OldHeightmapData);
-	
-		int LayerIndex = Landscape->CreateLayer();
-		if (LayerIndex == INDEX_NONE)
+		if (bUseEditLayers)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-				LOCTEXT("UHeightmapModifier::ModifyHeightmap::10", "Could not create landscape layer. Make sure that edit layers are enabled on Landscape {0}."),
-				FText::FromString(Landscape->GetActorLabel())
-			));
-			free(OldHeightmapData);
-			free(NewHeightmapData);
-			free(OtherOldHeightmapData);
-			return;
-		}
+			LandscapeUtils::MakeDataRelativeTo(SizeX, SizeY, NewHeightmapData, OldHeightmapData);
+	
+			int LayerIndex = Landscape->CreateLayer();
+			if (LayerIndex == INDEX_NONE)
+			{
+				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+					LOCTEXT("UHeightmapModifier::ModifyHeightmap::10", "Could not create landscape layer. Make sure that edit layers are enabled on Landscape {0}."),
+					FText::FromString(Landscape->GetActorLabel())
+				));
+				free(OldHeightmapData);
+				free(NewHeightmapData);
+				free(OtherOldHeightmapData);
+				return;
+			}
 
-		OtherHeightmapAccessor.SetEditLayer(Landscape->GetLayer(LayerIndex)->Guid);
+			OtherHeightmapAccessor.SetEditLayer(Landscape->GetLayer(LayerIndex)->Guid);
+		}
 #endif
 
 		free(OldHeightmapData);
@@ -299,7 +305,7 @@ void UBlendLandscape::BlendWithLandscape()
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 			LOCTEXT(
 				"UBlendLandscape::BlendWithLandscape::Finished",
-				"Finished blending with Landscape {0}. The heightmap modifications are on a new landscape layer."
+				"Finished blending with Landscape {0}."
 			),
 			FText::FromString(LandscapeToBlendWith->GetActorLabel())
 		));
