@@ -10,8 +10,12 @@
 #include "Components/DecalComponent.h"
 #include "Misc/Paths.h"
 #include "Misc/FileHelper.h"
-#include "Materials/MaterialInstanceDynamic.h"
 #include "ImageUtils.h"
+#include "Materials/MaterialInstanceConstant.h"
+#include "Factories/MaterialInstanceConstantFactoryNew.h"
+#include "AssetToolsModule.h"
+#include "IAssetTools.h"
+#include "AssetRegistry/AssetRegistryModule.h"
 
 #define LOCTEXT_NAMESPACE "FCoordinatesModule"
 
@@ -25,6 +29,16 @@ void UDecalCoordinates::PlaceDecal()
 		);
 		return;
 	}
+	
+	if (!FPaths::FileExists(PathToGeoreferencedImage))
+	{
+		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			LOCTEXT("UDecalCoordinates::PlaceDecal::NoFile", "File {0} does not exist."),
+			FText::FromString(PathToGeoreferencedImage)
+		));
+		return;
+	}
+	
 	UWorld* World = this->GetWorld();
 
 	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World, true);
@@ -70,16 +84,33 @@ void UDecalCoordinates::PlaceDecal()
 	UMaterial *M_GeoDecal = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, *FString("/Script/Engine.Material'/LandscapeCombinator/Project/M_GeoDecal.M_GeoDecal'")));
 	if (!M_GeoDecal)
 	{
-		UE_LOG(LogCoordinates, Error, TEXT("Could not find M_GeoDecal"));
+		FMessageDialog::Open(EAppMsgType::Ok,
+			LOCTEXT("UDecalCoordinates::PlaceDecal::M_GeoDecal", "Could not find material M_GeoDecal.")
+		);
 		return;
 	}
 
-	UMaterialInstanceDynamic* MDynGeoDecal = UMaterialInstanceDynamic::Create(M_GeoDecal, DecalActor);
-	if (!MDynGeoDecal)
+	FString MI_GeoDecal_Name = FString("MI_GeoDecal_") + DecalActor->GetActorLabel();
+	UMaterialInstanceConstantFactoryNew* Factory = NewObject<UMaterialInstanceConstantFactoryNew>();
+	UMaterialInstanceConstant* MI_GeoDecal =
+		(UMaterialInstanceConstant*) Factory->FactoryCreateNew(
+			UMaterialInstanceConstant::StaticClass(),
+			DecalActor,
+			*MI_GeoDecal_Name,
+			RF_Standalone | RF_Public | RF_Transactional,
+			DecalActor,
+			GWarn
+		);
+
+	if (!MI_GeoDecal)
 	{
-		UE_LOG(LogCoordinates, Error, TEXT("Could not create dynamic material instance"));
+		FMessageDialog::Open(EAppMsgType::Ok,
+			LOCTEXT("UDecalCoordinates::PlaceDecal::MI_GeoDecal", "Could not create material instance from M_GeoDecal.")
+		);
 		return;
 	}
+
+	MI_GeoDecal->SetParentEditorOnly(M_GeoDecal);
 
 	int Width, Height;
 	TArray<FColor> Colors;
@@ -91,11 +122,20 @@ void UDecalCoordinates::PlaceDecal()
 	}
 
 	FCreateTexture2DParameters Parameters;
-	UTexture2D* Texture = FImageUtils::CreateTexture2D(Width, Height, Colors, DecalActor, DecalActor->GetActorLabel() + "Texture", EObjectFlags::RF_Dynamic, Parameters);
+	UTexture2D* Texture = FImageUtils::CreateTexture2D(
+		Width, Height, Colors,
+		MI_GeoDecal, FString("T_") + DecalActor->GetActorLabel(),
+		RF_Standalone | RF_Public | RF_Transactional,
+		Parameters
+	);
 
-	MDynGeoDecal->SetTextureParameterValue("Texture", Texture);
 
-	DecalActor->SetDecalMaterial(MDynGeoDecal);
+	FMaterialParameterInfo TextureParam;
+	TextureParam.Name = "Texture";
+	TextureParam.Association = EMaterialParameterAssociation::GlobalParameter;
+	TextureParam.Index = INDEX_NONE;
+	MI_GeoDecal->SetTextureParameterValueEditorOnly(TextureParam, Texture);
+	DecalActor->SetDecalMaterial(MI_GeoDecal);
 
 }
 
