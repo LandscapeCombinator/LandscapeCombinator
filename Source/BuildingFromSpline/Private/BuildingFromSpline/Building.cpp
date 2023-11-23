@@ -5,6 +5,7 @@
 #include "BuildingFromSpline/LogBuildingFromSpline.h"
 
 #include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "GeometryScript/MeshPrimitiveFunctions.h"
 #include "GeometryScript/MeshTransformFunctions.h"
 #include "GeometryScript/MeshAssetFunctions.h"
@@ -38,6 +39,9 @@ ABuilding::ABuilding() : ADynamicMeshActor()
 
 	DynamicMeshComponent->SetMobility(EComponentMobility::Static);
 	DynamicMeshComponent->SetNumMaterials(0);
+	
+	InstancedDoorsComponent = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("InstancedDoorsComponent"));
+	InstancedWindowsComponent = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("InstancedWindowsComponent"));
 
 	SplineComponent = CreateDefaultSubobject<USplineComponent>(TEXT("SplineComponent"));
 	SplineComponent->SetupAttachment(RootComponent);
@@ -457,7 +461,9 @@ bool ABuilding::AppendSimpleBuilding(UDynamicMesh* TargetMesh)
 		FGeometryScriptPrimitiveOptions(),
 		FTransform(FVector(0, 0, 0)),
 		BaseVertices2D,
-		BuildingConfiguration->BuildingHeight
+		BuildingConfiguration->ExtraWallBottom +
+		BuildingConfiguration->NumFloors * BuildingConfiguration->FloorHeight +
+		BuildingConfiguration->ExtraWallTop
 	);
 
 
@@ -472,9 +478,9 @@ bool ABuilding::AppendSimpleBuilding(UDynamicMesh* TargetMesh)
 
 	TArray<int> PolygroupIDs = *PolygroupIDs0.List;
 
-	if (PolygroupIDs.Num() < 3)
+	if (PolygroupIDs.Num() < 4)
 	{
-		UE_LOG(LogBuildingFromSpline, Error, TEXT("Internal error: something went wrong with the floor tile materials"));
+		UE_LOG(LogBuildingFromSpline, Error, TEXT("Internal error: something went wrong with the simple building materials"));
 		return false;
 	}
 
@@ -483,6 +489,15 @@ bool ABuilding::AppendSimpleBuilding(UDynamicMesh* TargetMesh)
 		SimpleBuildingMesh,
 		FGeometryScriptGroupLayer(),
 		PolygroupIDs[0], // TODO: polygroup ID of the sides of the polygon, is there a way to ensure it?
+		0, // new material ID
+		bIsValidPolygroupID,
+		false,
+		nullptr
+	);
+	UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
+		SimpleBuildingMesh,
+		FGeometryScriptGroupLayer(),
+		PolygroupIDs[3], // TODO: polygroup ID of the top of the polygon, is there a way to ensure it?
 		1, // new material ID
 		bIsValidPolygroupID,
 		false,
@@ -494,6 +509,71 @@ bool ABuilding::AppendSimpleBuilding(UDynamicMesh* TargetMesh)
 		FTransform(FVector(0, 0, MinHeightLocal)),
 		true
 	);
+
+	if (BuildingConfiguration->DoorMesh)
+	{
+		FBox BoundingBox = BuildingConfiguration->DoorMesh->GetBoundingBox();
+		InstancedDoorsComponent->SetStaticMesh(BuildingConfiguration->DoorMesh);
+		TArray<float> HolePositions;
+		AppendWallsWithHoles(nullptr, false, 0,
+			BuildingConfiguration->MinDistanceDoorToCorner, BuildingConfiguration->MinDistanceDoorToDoor,
+			BuildingConfiguration->DoorsWidth, BuildingConfiguration->DoorsHeight, BuildingConfiguration->DoorsDistanceToFloor,
+			0, false, HolePositions, -1
+		);
+	
+		for (auto& HolePosition : HolePositions)
+		{
+			FVector HoleLocation = BaseClockwiseSplineComponent->GetLocationAtDistanceAlongSpline(HolePosition, ESplineCoordinateSpace::World);
+			FVector HoleTangent = BaseClockwiseSplineComponent->GetTangentAtDistanceAlongSpline(HolePosition, ESplineCoordinateSpace::World);
+			HoleLocation.Z += BuildingConfiguration->ExtraWallBottom + BuildingConfiguration->DoorsDistanceToFloor;
+				
+			FVector Scale(
+				BuildingConfiguration->DoorsWidth / BoundingBox.GetExtent()[0] / 2,
+				1,
+				BuildingConfiguration->DoorsHeight / BoundingBox.GetExtent()[2] / 2
+			);
+
+			FTransform Transform;
+			Transform.SetLocation(HoleLocation);
+			Transform.SetRotation(FQuat::FindBetweenVectors(FVector(1, 0, 0), HoleTangent));
+			Transform.SetScale3D(Scale);
+			InstancedWindowsComponent->AddInstance(Transform, true);
+		}
+	}
+
+	if (BuildingConfiguration->WindowMesh)
+	{
+		FBox BoundingBox = BuildingConfiguration->WindowMesh->GetBoundingBox();
+		InstancedWindowsComponent->SetStaticMesh(BuildingConfiguration->WindowMesh);
+		TArray<float> HolePositions;
+		AppendWallsWithHoles(nullptr, false, 0,
+			BuildingConfiguration->MinDistanceWindowToCorner, BuildingConfiguration->MinDistanceWindowToWindow,
+			BuildingConfiguration->WindowsWidth, BuildingConfiguration->WindowsHeight, BuildingConfiguration->WindowsDistanceToFloor,
+			0, false, HolePositions, -1
+		);
+
+		for (int i = 1; i < BuildingConfiguration->NumFloors; i++)
+		{			
+			for (auto& HolePosition : HolePositions)
+			{
+				FVector HoleLocation = BaseClockwiseSplineComponent->GetLocationAtDistanceAlongSpline(HolePosition, ESplineCoordinateSpace::World);
+				FVector HoleTangent = BaseClockwiseSplineComponent->GetTangentAtDistanceAlongSpline(HolePosition, ESplineCoordinateSpace::World);
+				HoleLocation.Z += BuildingConfiguration->ExtraWallBottom + i * BuildingConfiguration->FloorHeight + BuildingConfiguration->WindowsDistanceToFloor;
+				
+				FVector Scale(
+					BuildingConfiguration->WindowsWidth / BoundingBox.GetExtent()[0] / 2,
+					1,
+					BuildingConfiguration->WindowsHeight / BoundingBox.GetExtent()[2] / 2
+				);
+
+				FTransform Transform;
+				Transform.SetLocation(HoleLocation);
+				Transform.SetRotation(FQuat::FindBetweenVectors(FVector(1, 0, 0), HoleTangent));
+				Transform.SetScale3D(Scale);
+				InstancedWindowsComponent->AddInstance(Transform, true);
+			}
+		}
+	}
 
 	return true;
 }
@@ -1049,40 +1129,39 @@ void ABuilding::ComputeMinMaxHeight()
 	}
 }
 
+void ABuilding::DeleteBuilding()
+{
+	ClearSplineMeshComponents();
+	InstancedWindowsComponent->ClearInstances();
+	StaticMeshComponent->SetStaticMesh(nullptr);
+	DynamicMeshComponent->SetNumMaterials(0);
+	DynamicMeshComponent->GetDynamicMesh()->Reset();
+	if (IsValid(Volume))
+	{
+		Volume->Destroy();
+	}
+}
+
 void ABuilding::GenerateBuilding()
 {
 	// static FTotalTimeAndCount GenerateBuildingTime;
 	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&GenerateBuildingTime);
-	if (StaticMeshComponent->GetStaticMesh())
+
+	DeleteBuilding();
+
+	if (BuildingConfiguration->bUseRandomNumFloors)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("StaticMeshPresent", "Please reset the static mesh before generating the building.")
-		);
-		return;
+		BuildingConfiguration->NumFloors = UKismetMathLibrary::RandomIntegerInRange(BuildingConfiguration->MinNumFloors, BuildingConfiguration->MaxNumFloors);
 	}
+
 	AppendBuilding(DynamicMeshComponent->GetDynamicMesh());
-}
-
-void ABuilding::ResetStaticMesh()
-{
-	// static FTotalTimeAndCount ResetStaticMeshTime;
-	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&ResetStaticMeshTime);
-	UE_LOG(LogBuildingFromSpline, Log, TEXT("Resetting static mesh."));
-	StaticMeshComponent->SetStaticMesh(nullptr);
-}
-
-void ABuilding::ResetDynamicMesh()
-{
-	// static FTotalTimeAndCount ResetDynamicMeshTime;
-	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&ResetDynamicMeshTime);
-	UE_LOG(LogBuildingFromSpline, Log, TEXT("Resetting dynamic mesh."));
-	DynamicMeshComponent->GetDynamicMesh()->Reset();
 }
 
 void ABuilding::ClearSplineMeshComponents()
 {
 	// static FTotalTimeAndCount ClearSplineMeshComponentsTime;
 	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&ClearSplineMeshComponentsTime);
+
 	for (auto& SplineMeshComponent : SplineMeshComponents)
 	{
 		if (IsValid(SplineMeshComponent))
@@ -1102,8 +1181,6 @@ void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 		BaseClockwiseSplineComponent->ClearSplinePoints();
 	};
 	
-	TargetMesh->Reset();
-	ClearSplineMeshComponents();
 	ComputeMinMaxHeight();
 	ComputeBaseVertices();
 
@@ -1125,12 +1202,6 @@ void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 		{
 			AppendRoof(TargetMesh);
 		}
-
-		{
-			// SCOPE_LOG_TIME_IN_SECONDS(TEXT("Normals"), &NormalsTime);
-
-			UGeometryScriptLibrary_MeshNormalsFunctions::ComputeSplitNormals(TargetMesh, FGeometryScriptSplitNormalsOptions(), FGeometryScriptCalculateNormalsOptions());
-		}
 	
 		DynamicMeshComponent->SetMaterial(0, BuildingConfiguration->FloorMaterial);
 		DynamicMeshComponent->SetMaterial(1, BuildingConfiguration->CeilingMaterial);
@@ -1142,43 +1213,30 @@ void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 	{
 		AppendSimpleBuilding(TargetMesh);
 
-		if (BuildingConfiguration->BuildingKind == EBuildingKind::Volume)
-		{
-			if (IsValid(Volume))
-			{
-				Volume->Destroy();
-			}
-
-			FGeometryScriptCreateNewVolumeFromMeshOptions Options;
-			EGeometryScriptOutcomePins Outcome;
-			Volume = UGeometryScriptLibrary_CreateNewAssetFunctions::CreateNewVolumeFromMesh(
-				TargetMesh,
-				this->GetWorld(),
-				this->GetTransform(),
-				this->GetActorLabel() + "Volume",
-				Options, Outcome
-			);
-
-			TargetMesh->Reset();
-
-			if (Outcome != EGeometryScriptOutcomePins::Success || !Volume)
-			{
-				FMessageDialog::Open(EAppMsgType::Ok,
-					LOCTEXT("StaticMeshError", "Internal error while creating volume.")
-				);
-				return;
-			}
-
-		}
-		else
-		{
-			DynamicMeshComponent->SetMaterial(0, BuildingConfiguration->RoofMaterial);
-			DynamicMeshComponent->SetMaterial(1, BuildingConfiguration->ExteriorMaterial);
-		}
-
+		DynamicMeshComponent->SetMaterial(0, BuildingConfiguration->ExteriorMaterial);
+		DynamicMeshComponent->SetMaterial(1, BuildingConfiguration->RoofMaterial);
 	}
 
+	//{
+	//	// SCOPE_LOG_TIME_IN_SECONDS(TEXT("Normals"), &NormalsTime);
 
+	//	UGeometryScriptLibrary_MeshNormalsFunctions::ComputeSplitNormals(TargetMesh, FGeometryScriptSplitNormalsOptions(), FGeometryScriptCalculateNormalsOptions());
+	//}
+
+	if (BuildingConfiguration->bConvertToStaticMesh)
+	{
+		GenerateStaticMesh();
+	}
+
+	if (BuildingConfiguration->bConvertToVolume)
+	{
+		GenerateVolume();
+	}
+
+	if (BuildingConfiguration->bConvertToStaticMesh || BuildingConfiguration->bConvertToVolume)
+	{
+		DynamicMeshComponent->GetDynamicMesh()->Reset();
+	}
 
 	{
 		// SCOPE_LOG_TIME_IN_SECONDS(TEXT("UVs"), &UVsTime);
@@ -1195,6 +1253,14 @@ void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 
 void ABuilding::ConvertToStaticMesh()
 {
+	GenerateStaticMesh();
+	DynamicMeshComponent->GetDynamicMesh()->Reset();
+}
+
+void ABuilding::GenerateStaticMesh()
+{
+	// static FTotalTimeAndCount GenerateStaticMeshTime, NormalsTime, UVsTime;
+	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&GenerateStaticMeshTime);
 	EGeometryScriptOutcomePins Outcome;
 
 	FGeometryScriptCreateNewStaticMeshAssetOptions Options;
@@ -1229,23 +1295,59 @@ void ABuilding::ConvertToStaticMesh()
 	}
 
 	StaticMesh->NaniteSettings = NaniteSettings;
-	StaticMesh->SetStaticMaterials({
-		DynamicMeshComponent->GetMaterial(0),
-		DynamicMeshComponent->GetMaterial(1),
-		DynamicMeshComponent->GetMaterial(2),
-		DynamicMeshComponent->GetMaterial(3),
-		DynamicMeshComponent->GetMaterial(4)
-	});
+
+	int NumMaterials = DynamicMeshComponent->GetNumMaterials();
+	TArray<FStaticMaterial> Materials;
+
+	for (int i = 0; i < NumMaterials; i++)
+	{
+		Materials.Add(DynamicMeshComponent->GetMaterial(i));
+		StaticMeshComponent->SetMaterial(i, DynamicMeshComponent->GetMaterial(i));
+	}
+	StaticMesh->SetStaticMaterials(Materials);
 
 	StaticMeshComponent->SetStaticMesh(StaticMesh);
+}
+
+void ABuilding::ConvertToVolume()
+{
+	GenerateVolume();
 	DynamicMeshComponent->GetDynamicMesh()->Reset();
+}
+
+void ABuilding::GenerateVolume()
+{
+	// static FTotalTimeAndCount GenerateVolumeTime, NormalsTime, UVsTime;
+	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&GenerateVolumeTime);
+	if (IsValid(Volume))
+	{
+		Volume->Destroy();
+	}
+
+	FGeometryScriptCreateNewVolumeFromMeshOptions Options;
+	EGeometryScriptOutcomePins Outcome;
+	Volume = UGeometryScriptLibrary_CreateNewAssetFunctions::CreateNewVolumeFromMesh(
+		DynamicMeshComponent->GetDynamicMesh(),
+		this->GetWorld(),
+		this->GetTransform(),
+		this->GetActorLabel() + "Volume",
+		Options, Outcome
+	);
+
+	if (Outcome != EGeometryScriptOutcomePins::Success || !Volume)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			LOCTEXT("StaticMeshError", "Internal error while creating volume.")
+		);
+		return;
+	}
 }
 
 void ABuilding::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
-	if (BuildingConfiguration->bGenerateWhenModified && !StaticMeshComponent->GetStaticMesh())
+	if (BuildingConfiguration->bGenerateWhenModified)
 	{
 		GenerateBuilding();
 	}

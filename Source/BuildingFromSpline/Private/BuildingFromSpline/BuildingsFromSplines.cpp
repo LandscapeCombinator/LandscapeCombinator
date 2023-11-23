@@ -37,7 +37,7 @@ TArray<AActor*> ABuildingsFromSplines::FindActors()
 
 	if (ActorsTag.IsNone())
 	{
-		UGameplayStatics::GetAllActorsOfClass (this->GetWorld(), AActor::StaticClass(), Actors);
+		UGameplayStatics::GetAllActorsOfClass(this->GetWorld(), AActor::StaticClass(), Actors);
 	}
 	else
 	{
@@ -184,13 +184,24 @@ void ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent)
 	{
 		UOSMUserData *OSMUserData = Cast<UOSMUserData>(SplineComponent->GetAssetUserDataOfClass(UOSMUserData::StaticClass()));
 
-		if (OSMUserData && OSMUserData->Height > 0)
+		if (OSMUserData && OSMUserData->Fields.Contains("height"))
 		{
-			Building->BuildingConfiguration->NumFloors = FMath::Max(1, OSMUserData->Height * 100 / Building->BuildingConfiguration->FloorHeight);
-			Building->BuildingConfiguration->BuildingHeight = OSMUserData->Height * 100;
+			FString HeightString = OSMUserData->Fields["height"];
+			double Height = FCString::Atod(*HeightString);
+			if (Height > 0)
+			{
+				Building->BuildingConfiguration->bUseRandomNumFloors = false;
+				Building->BuildingConfiguration->NumFloors = FMath::Max(1, Height * 100 / Building->BuildingConfiguration->FloorHeight);
+			}
+			else if (!HeightString.IsEmpty())
+			{
+				UE_LOG(LogBuildingFromSpline, Warning, TEXT("Ignoring height field: '%s'"), *HeightString)
+			}
 		}
 	}
 	
+	Building->StaticMeshComponent->bReceivesDecals = bBuildingsReceivesDecals; 
+	Building->GetDynamicMeshComponent()->bReceivesDecals = bBuildingsReceivesDecals;
 
 	Building->GenerateBuilding();
 }

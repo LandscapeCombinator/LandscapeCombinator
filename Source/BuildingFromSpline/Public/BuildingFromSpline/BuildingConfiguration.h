@@ -10,8 +10,7 @@ UENUM(BlueprintType)
 enum class EBuildingKind : uint8
 {
 	Simple,
-	Custom,
-	Volume
+	Custom
 };
 
 UENUM(BlueprintType)
@@ -33,45 +32,59 @@ public:
 
 	/** Choices */
 
-	/* The kind of building that should be spawned */
+	/* The kind of building that should be spawned. (Use Simple for best performance.) */
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Building|Kind",
-		meta = (DisplayPriority = "0")
+		EditAnywhere, BlueprintReadWrite, Category = "Building|General",
+		meta = (DisplayPriority = "-5")
 	)
-	EBuildingKind BuildingKind = EBuildingKind::Custom;
+	EBuildingKind BuildingKind = EBuildingKind::Simple;
 
-	/* Regenerate the building when modified */
+	/* Convert to static mesh after the building is generated. */
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|General",
+		meta = (DisplayPriority = "-4")
+	)
+	bool bConvertToStaticMesh = true;
+
+	/* Convert to volume after the building is generated (better used with Simple building). */
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|General",
+		meta = (DisplayPriority = "-3")
+	)
+	bool bConvertToVolume = false;
+
+	/* Regenerate the building when a property is modified. */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|General",
 		meta = (DisplayPriority = "1")
 	)
 	bool bGenerateWhenModified = true;
 
-	/* Build external walls */
+	/* Build external walls. */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|General",
 		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "2")
 	)
 	bool bBuildExternalWalls = true;
 	
-	/* Build internal walls */
+	/* Build internal wall.s */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|General",
 		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "3")
 	)
 	bool bBuildInternalWalls = true;
 
-	/* Build floor tiles */
+	/* Build floor tiles. */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|General",
 		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "4")
 	)
 	bool bBuildFloorTiles = true;
 
-	/* Recompute UVs using AutoGenerateXAtlasMeshUVs (slow operation) */
+	/* Recompute UVs using AutoGenerateXAtlasMeshUVs (slow operation). */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|General",
-		meta = (EditCondition = "BuildingKind != EBuildingKind::Volume", EditConditionHides, DisplayPriority = "5")
+		meta = (DisplayPriority = "5")
 	)
 	bool bAutoGenerateXAtlasMeshUVs = false;
 
@@ -86,25 +99,25 @@ public:
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
-		meta = (EditCondition = "BuildingKind != EBuildingKind::Volume", EditConditionHides, DisplayPriority = "2")
+		meta = (DisplayPriority = "3")
 	)
 	TObjectPtr<UMaterialInterface> ExteriorMaterial;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
-		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "2")
+		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "4")
 	)
 	TObjectPtr<UMaterialInterface> FloorMaterial;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
-		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "2")
+		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "5")
 	)
 	TObjectPtr<UMaterialInterface> CeilingMaterial;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
-		meta = (EditCondition = "BuildingKind != EBuildingKind::Volume", EditConditionHides, DisplayPriority = "2")
+		meta = (DisplayPriority = "6")
 	)
 	TObjectPtr<UMaterialInterface> RoofMaterial;
 
@@ -114,14 +127,14 @@ public:
 	/* Door mesh */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Meshes",
-		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "3")
+		meta = (DisplayPriority = "3")
 	)
 	UStaticMesh *DoorMesh;
 
 	/* Window Mesh */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Meshes",
-		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "3")
+		meta = (DisplayPriority = "3")
 	)
 	UStaticMesh *WindowMesh;
 	
@@ -131,48 +144,69 @@ public:
 	/* The height of a floor */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
-		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "3")
+		meta = (DisplayPriority = "10")
 	)
 	double FloorHeight = 300;
-	
-	/* The height of the building */
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
-		meta = (
-			EditCondition = "BuildingKind == EBuildingKind::Simple || BuildingKind == EBuildingKind::Volume",
-			EditConditionHides, DisplayPriority = "3"
-		)
-	)
-	double BuildingHeight = 1000;
 	
 	/* The tickness of the floor tiles */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
-		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "3")
+		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "11")
 	)
 	double FloorThickness = 20;
 	
 	/* The tickness of the internal walls */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
-		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "3")
+		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "12")
 	)
 	double InternalWallThickness = 1;
 
 	/* The tickness of the external walls */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
-		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "3")
+		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "13")
 	)
 	double ExternalWallThickness = 10;
-	
-	/* The number of floors above ground */
+
+	/* Random number of floors */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
-		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "3")
+		meta = (DisplayPriority = "20")
+	)
+	bool bUseRandomNumFloors = false;
+	
+	/* The number of floors (including ground level) */
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
+		meta = (
+			EditCondition = "!bUseRandomNumFloors",
+			EditConditionHides, DisplayPriority = "21"
+		)
 	)
 	int NumFloors = 3;
 	
+	/* Minimum number of floors */
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
+		meta = (
+			EditCondition = "bUseRandomNumFloors",
+			EditConditionHides, DisplayPriority = "22"
+		)
+	)
+	int MinNumFloors = 3;
+	
+	/* Maximum number of floors */
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
+		meta = (
+			EditCondition = "bUseRandomNumFloors",
+			EditConditionHides, DisplayPriority = "23"
+		)
+	)
+	int MaxNumFloors = 5;
+
+
 	/* The number of subdivisions in a wall (increase it if you want smoothly bended borders) */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
@@ -183,14 +217,14 @@ public:
 	/* Wall height below the first floor */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
-		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "3")
+		meta = (DisplayPriority = "3")
 	)
 	int ExtraWallBottom = 20;
 	
 	/* Wall height above the last floor */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
-		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "3")
+		meta = (DisplayPriority = "3")
 	)
 	int ExtraWallTop = 20;
 
@@ -252,35 +286,35 @@ public:
 	/* Minimum distance between a window and a spline point */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Windows",
-		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "3")
+		meta = (DisplayPriority = "3")
 	)
 	double MinDistanceWindowToCorner = 150;
 	
 	/* Minimum distance between two windows */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Windows",
-		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "3")
+		meta = (DisplayPriority = "3")
 	)
 	double MinDistanceWindowToWindow = 350;
 	
 	/* The width of windows */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Windows",
-		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "3")
+		meta = (DisplayPriority = "3")
 	)
 	double WindowsWidth = 140;
 	
 	/* The height of windows */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Windows",
-		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "3")
+		meta = (DisplayPriority = "3")
 	)
 	double WindowsHeight = 140;
 	
 	/* The (Z) distance between the floor and the windows */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Windows",
-		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "3")
+		meta = (DisplayPriority = "3")
 	)
 	double WindowsDistanceToFloor = 110;
 	
@@ -290,35 +324,35 @@ public:
 	/* Minimum distance between a door and a spline point */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Doors",
-		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "3")
+		meta = (DisplayPriority = "3")
 	)
 	double MinDistanceDoorToCorner = 150;
 	
 	/* Minimum distance between two doors */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Doors",
-		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "3")
+		meta = (DisplayPriority = "3")
 	)
 	double MinDistanceDoorToDoor = 450;
 	
 	/* The width of doors */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Doors",
-		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "3")
+		meta = (DisplayPriority = "3")
 	)
 	double DoorsWidth = 240;
 	
 	/* The height of doors */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Doors",
-		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "3")
+		meta = (DisplayPriority = "3")
 	)
 	double DoorsHeight = 210;
 	
 	/* The (Z) distance between the floor and the doors */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Doors",
-		meta = (EditCondition = "BuildingKind == EBuildingKind::Custom", EditConditionHides, DisplayPriority = "3")
+		meta = (DisplayPriority = "3")
 	)
 	double DoorsDistanceToFloor = 5;
 

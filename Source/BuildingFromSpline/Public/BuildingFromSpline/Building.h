@@ -6,6 +6,7 @@
 
 #include "Components/SplineComponent.h"
 #include "Components/SplineMeshComponent.h"
+#include "Components/InstancedStaticMeshComponent.h"
 #include "DynamicMeshActor.h"
 #include "SegmentTypes.h"
 
@@ -50,17 +51,22 @@ public:
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Building",
 		meta = (DisplayPriority = "5")
 	)
-	void ResetDynamicMesh();
-
-	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Building",
-		meta = (DisplayPriority = "5")
-	)
-	void ResetStaticMesh();
+	void DeleteBuilding();
 
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Building",
 		meta = (DisplayPriority = "5")
 	)
 	void ConvertToStaticMesh();
+
+	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Building",
+		meta = (DisplayPriority = "5")
+	)
+	void ConvertToVolume();
+	
+	UFUNCTION(BlueprintCallable, Category = "Building")
+	void GenerateStaticMesh();
+	UFUNCTION(BlueprintCallable, Category = "Building")
+	void GenerateVolume();
 	
 	UFUNCTION(BlueprintCallable, Category = "Building")
 	void AppendBuilding(UDynamicMesh* TargetMesh);
@@ -86,6 +92,12 @@ private:
 
 	UPROPERTY()
 	TArray<TObjectPtr<USplineMeshComponent>> SplineMeshComponents;
+
+	UPROPERTY()
+	TObjectPtr<UInstancedStaticMeshComponent> InstancedDoorsComponent;
+
+	UPROPERTY()
+	TObjectPtr<UInstancedStaticMeshComponent> InstancedWindowsComponent;
 
 	// same as SplineComponent, but all points have the same Z coordinate as the lowest point,
 	// and the points are clockwise (when seen from above in Unreal, which isn't the same as clockwise in TPolygon2
