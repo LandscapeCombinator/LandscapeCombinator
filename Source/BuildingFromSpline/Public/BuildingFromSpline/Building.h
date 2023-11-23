@@ -24,6 +24,10 @@ class BUILDINGFROMSPLINE_API ABuilding : public ADynamicMeshActor
 public:
 	ABuilding();
 	
+	//virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+	virtual void Destroyed() override;
+	
 	double MinHeightLocal = MAX_dbl;
 	double MaxHeightLocal = MAX_dbl;
 	double MinHeightWorld = MAX_dbl;

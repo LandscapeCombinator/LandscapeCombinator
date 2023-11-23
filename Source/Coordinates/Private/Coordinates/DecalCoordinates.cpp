@@ -101,6 +101,7 @@ void UDecalCoordinates::PlaceDecal()
 			DecalActor,
 			GWarn
 		);
+	Factory->MarkAsGarbage();
 
 	if (!MI_GeoDecal)
 	{

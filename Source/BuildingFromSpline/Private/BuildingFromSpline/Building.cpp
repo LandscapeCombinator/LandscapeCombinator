@@ -3,6 +3,7 @@
 
 #include "BuildingFromSpline/Building.h"
 #include "BuildingFromSpline/LogBuildingFromSpline.h"
+#include "OSMUserData/OSMUserData.h"
 
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
@@ -75,6 +76,12 @@ ABuilding::ABuilding() : ADynamicMeshActor()
 	StaticMeshComponent->SetMaterial(2, BuildingConfiguration->ExteriorMaterial);
 	StaticMeshComponent->SetMaterial(3, BuildingConfiguration->InteriorMaterial);
 	StaticMeshComponent->SetMaterial(4, BuildingConfiguration->RoofMaterial);
+}
+
+void ABuilding::Destroyed()
+{
+	DeleteBuilding();
+	Super::Destroyed();
 }
 
 void ABuilding::ComputeBaseVertices()
@@ -537,7 +544,7 @@ bool ABuilding::AppendSimpleBuilding(UDynamicMesh* TargetMesh)
 			Transform.SetLocation(HoleLocation);
 			Transform.SetRotation(FQuat::FindBetweenVectors(FVector(1, 0, 0), HoleTangent));
 			Transform.SetScale3D(Scale);
-			InstancedWindowsComponent->AddInstance(Transform, true);
+			InstancedDoorsComponent->AddInstance(Transform, true);
 		}
 	}
 
@@ -1132,10 +1139,23 @@ void ABuilding::ComputeMinMaxHeight()
 void ABuilding::DeleteBuilding()
 {
 	ClearSplineMeshComponents();
-	InstancedWindowsComponent->ClearInstances();
-	StaticMeshComponent->SetStaticMesh(nullptr);
-	DynamicMeshComponent->SetNumMaterials(0);
-	DynamicMeshComponent->GetDynamicMesh()->Reset();
+
+	if (IsValid(InstancedWindowsComponent))
+	{
+		InstancedWindowsComponent->ClearInstances();
+	}
+	
+	if (IsValid(StaticMeshComponent))
+	{
+		StaticMeshComponent->SetStaticMesh(nullptr);
+	}
+	
+	if (IsValid(DynamicMeshComponent))
+	{
+		DynamicMeshComponent->SetNumMaterials(0);
+		DynamicMeshComponent->GetDynamicMesh()->Reset();
+	}
+
 	if (IsValid(Volume))
 	{
 		Volume->Destroy();
@@ -1319,6 +1339,7 @@ void ABuilding::GenerateVolume()
 {
 	// static FTotalTimeAndCount GenerateVolumeTime, NormalsTime, UVsTime;
 	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&GenerateVolumeTime);
+
 	if (IsValid(Volume))
 	{
 		Volume->Destroy();
@@ -1333,6 +1354,13 @@ void ABuilding::GenerateVolume()
 		this->GetActorLabel() + "Volume",
 		Options, Outcome
 	);
+	
+	Volume->SetFolderPath(FName(this->GetFolderPath().ToString() + "Volume"));
+
+	UOSMUserData *BuildingOSMUserData = Cast<UOSMUserData>(this->GetRootComponent()->GetAssetUserDataOfClass(UOSMUserData::StaticClass()));
+	UOSMUserData *VolumeOSMUserData = NewObject<UOSMUserData>(Volume->GetRootComponent());
+	VolumeOSMUserData->Fields = BuildingOSMUserData->Fields;
+	Volume->GetRootComponent()->AddAssetUserData(VolumeOSMUserData);
 
 	if (Outcome != EGeometryScriptOutcomePins::Success || !Volume)
 	{
