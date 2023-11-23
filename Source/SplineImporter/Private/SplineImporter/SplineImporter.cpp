@@ -41,6 +41,7 @@ void ASplineImporter::DeleteSplines()
 			SplineCollection->Destroy();
 		}
 	}
+	SplineCollections.Reset();
 }
 
 void ASplineImporter::GenerateSplines()

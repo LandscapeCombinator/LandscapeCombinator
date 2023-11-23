@@ -118,6 +118,7 @@ void ABuildingsFromSplines::ClearBuildings()
 			Building->Destroy();
 		}
 	}
+	SpawnedBuildings.Reset();
 }
 
 void ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent)
@@ -179,14 +180,14 @@ void ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent)
 	{
 		Building->BuildingConfiguration->ExtraWallBottom = Building->MaxHeightLocal - Building->MinHeightLocal + 100;
 	}
+	
+	UOSMUserData *SplineOSMUserData = Cast<UOSMUserData>(SplineComponent->GetAssetUserDataOfClass(UOSMUserData::StaticClass()));
 
 	if (bAutoComputeNumFloors)
 	{
-		UOSMUserData *OSMUserData = Cast<UOSMUserData>(SplineComponent->GetAssetUserDataOfClass(UOSMUserData::StaticClass()));
-
-		if (OSMUserData && OSMUserData->Fields.Contains("height"))
+		if (SplineOSMUserData && SplineOSMUserData->Fields.Contains("height"))
 		{
-			FString HeightString = OSMUserData->Fields["height"];
+			FString HeightString = SplineOSMUserData->Fields["height"];
 			double Height = FCString::Atod(*HeightString);
 			if (Height > 0)
 			{
@@ -199,6 +200,10 @@ void ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent)
 			}
 		}
 	}
+
+	UOSMUserData *BuildingOSMUserData = NewObject<UOSMUserData>(Building->GetRootComponent());
+	BuildingOSMUserData->Fields = SplineOSMUserData->Fields;
+	Building->GetRootComponent()->AddAssetUserData(BuildingOSMUserData);
 	
 	Building->StaticMeshComponent->bReceivesDecals = bBuildingsReceivesDecals; 
 	Building->GetDynamicMeshComponent()->bReceivesDecals = bBuildingsReceivesDecals;
