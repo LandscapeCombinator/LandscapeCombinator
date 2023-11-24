@@ -1136,6 +1136,14 @@ void ABuilding::ComputeMinMaxHeight()
 	}
 }
 
+void ABuilding::SetReceivesDecals(bool bReceivesDecal)
+{
+	StaticMeshComponent->bReceivesDecals = bReceivesDecal; 
+	GetDynamicMeshComponent()->bReceivesDecals = bReceivesDecal;
+	InstancedWindowsComponent->bReceivesDecals = bReceivesDecal;
+	InstancedDoorsComponent->bReceivesDecals = bReceivesDecal;
+}
+
 void ABuilding::DeleteBuilding()
 {
 	ClearSplineMeshComponents();
