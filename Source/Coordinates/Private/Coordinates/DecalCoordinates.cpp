@@ -42,19 +42,14 @@ void UDecalCoordinates::PlaceDecal()
 	UWorld* World = this->GetWorld();
 
 	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World, true);
+	if (!GlobalCoordinates) return;
 
 	FString ReprojectedImage = FPaths::Combine(FPaths::ProjectSavedDir(), "temp.tif");
 	
-	if (!GDALInterface::Warp(PathToGeoreferencedImage, ReprojectedImage, "", GlobalCoordinates->CRS, 0))
-	{
-		return;
-	}
+	if (!GDALInterface::Warp(PathToGeoreferencedImage, ReprojectedImage, "", GlobalCoordinates->CRS, 0)) return;
 
 	FVector4d Coordinates;
-	if (!GDALInterface::GetCoordinates(Coordinates, { ReprojectedImage }))
-	{
-		return;
-	}
+	if (!GDALInterface::GetCoordinates(Coordinates, { ReprojectedImage })) return;
 
 	// In the image coordinates
 	double West = Coordinates[0];
@@ -91,11 +86,12 @@ void UDecalCoordinates::PlaceDecal()
 	}
 
 	FString MI_GeoDecal_Name = FString("MI_GeoDecal_") + DecalActor->GetActorLabel();
+	UPackage* Package = CreatePackage(*(FString("/Game/") + MI_GeoDecal_Name));
 	UMaterialInstanceConstantFactoryNew* Factory = NewObject<UMaterialInstanceConstantFactoryNew>();
 	UMaterialInstanceConstant* MI_GeoDecal =
 		(UMaterialInstanceConstant*) Factory->FactoryCreateNew(
 			UMaterialInstanceConstant::StaticClass(),
-			DecalActor,
+			Package,
 			*MI_GeoDecal_Name,
 			RF_Standalone | RF_Public | RF_Transactional,
 			DecalActor,
@@ -106,7 +102,7 @@ void UDecalCoordinates::PlaceDecal()
 	if (!MI_GeoDecal)
 	{
 		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("UDecalCoordinates::PlaceDecal::MI_GeoDecal", "Could not create material instance from M_GeoDecal.")
+			LOCTEXT("UDecalCoordinates::PlaceDecal::MI_GeoDecal", "Could not create material instance for M_GeoDecal.")
 		);
 		return;
 	}
@@ -138,6 +134,8 @@ void UDecalCoordinates::PlaceDecal()
 	MI_GeoDecal->SetTextureParameterValueEditorOnly(TextureParam, Texture);
 	DecalActor->SetDecalMaterial(MI_GeoDecal);
 
+	FAssetRegistryModule::AssetCreated(MI_GeoDecal);
+	Package->MarkPackageDirty();
 }
 
 #undef LOCTEXT_NAMESPACE
