@@ -29,6 +29,7 @@ void HMDebugFetcher::Fetch(FString InputCRS, TArray<FString> InputFiles, TFuncti
 	// Always reenter game thread to display progress to the user
 	AsyncTask(ENamedThreads::GameThread, [this, InputCRS, InputFiles, OnComplete]()
 	{
+		SCOPE_LOG_TIME_IN_SECONDS(*Name, nullptr);
 		Fetcher->Fetch(InputCRS, InputFiles, [this, OnComplete](bool bSuccess)
 		{
 			if (bSuccess)

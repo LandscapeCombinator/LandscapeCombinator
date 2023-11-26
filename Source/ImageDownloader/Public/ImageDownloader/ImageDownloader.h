@@ -244,34 +244,6 @@ public:
 	/* Enter desired height for the downloaded heightmap from the WMS API. Smaller or equal than WMS_MaxHeight. */
 	int WMS_Height = 1000;
 
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
-		meta = (
-			EditCondition = "IsWMS()",
-			EditConditionHides, DisplayPriority = "30"
-		)
-	)
-	/* Some services use -99999 as no data. Check this option to remap -99999 to -100 (or any other mapping). */
-	bool bWMS_Remap = true;
-
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
-		meta = (
-			EditCondition = "IsWMS() && bWMS_Remap",
-			EditConditionHides, DisplayPriority = "31"
-		)
-	)
-	float WMS_OriginalValue = -99999;
-
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
-		meta = (
-			EditCondition = "IsWMS() && bWMS_Remap",
-			EditConditionHides, DisplayPriority = "32"
-		)
-	)
-	float WMS_TransformedValue = -100;
-
 
 	/**************************
 	 *  Viewfinder Panoramas  *
@@ -464,6 +436,36 @@ public:
 	)
 	/* Enter URL to a heightmap in GeoTIFF format */
 	FString URL;
+
+	
+	/***************
+	 * Remap value *
+	 ***************/
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Remap",
+		meta = (DisplayPriority = "1")
+	)
+	/* Some sources use -99999 as no data. Check this option to remap -99999 to -10 (or any other mapping). */
+	bool bRemap = true;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Remap",
+		meta = (
+			EditCondition = "bRemap",
+			EditConditionHides, DisplayPriority = "2"
+		)
+	)
+	float OriginalValue = -99999;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Remap",
+		meta = (
+			EditCondition = "bRemap",
+			EditConditionHides, DisplayPriority = "3"
+		)
+	)
+	float TransformedValue = -10;
 
 
 	/*****************
