@@ -3,7 +3,9 @@
 #include "ImageDownloader/Transformers/HMEnsureOneBand.h"
 #include "ImageDownloader/LogImageDownloader.h"
 #include "GDALInterface/GDALInterface.h"
+
 #include "Misc/MessageDialog.h"
+#include "Misc/ScopedSlowTask.h"
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
@@ -14,8 +16,17 @@ void HMEnsureOneBand::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunct
 
 	bool bWarned = false;
 
+	FScopedSlowTask EnsureOneBandTask(InputFiles.Num(), LOCTEXT("EnsureOneBandTask", "Image Downloader: Ensuring each heightmap has only one band"));
+	EnsureOneBandTask.MakeDialog(true);
+
 	for (auto &InputFile : InputFiles)
 	{
+		if (EnsureOneBandTask.ShouldCancel())
+		{
+			if (OnComplete) OnComplete(false);
+			return;
+		}
+
 		GDALDataset *Dataset = (GDALDataset *) GDALOpen(TCHAR_TO_UTF8(*InputFile), GA_ReadOnly);
 		if (!Dataset)
 		{

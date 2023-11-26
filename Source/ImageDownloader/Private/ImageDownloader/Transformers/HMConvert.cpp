@@ -12,6 +12,17 @@
 void HMConvert::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
 {
 	OutputCRS = InputCRS;
+
+
+	if (InputFiles[0].EndsWith(NewExtension))
+	{
+		UE_LOG(LogImageDownloader, Log, TEXT("Skipping conversion phase as input files are already in the correct format (%s)"), *NewExtension);
+
+		OutputFiles.Append(InputFiles);
+		if (OnComplete) OnComplete(true);
+		return;
+	}
+
 	FString ConvertFolder = FPaths::Combine(Directories::ImageDownloaderDir(), Name + "-Convert");
 
 	if (!IPlatformFile::GetPlatformPhysical().DeleteDirectoryRecursively(*ConvertFolder) || !IPlatformFile::GetPlatformPhysical().CreateDirectory(*ConvertFolder))
@@ -38,10 +49,16 @@ void HMConvert::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<vo
 			FText::FromString(NewExtension)
 		)
 	);
-	ConvertTask.MakeDialog();
+	ConvertTask.MakeDialog(true);
 
 	for (int32 i = 0; i < InputFiles.Num(); i++)
 	{
+		if (ConvertTask.ShouldCancel())
+		{
+			if (OnComplete) OnComplete(false);
+			return;
+		}
+
 		ConvertTask.EnterProgressFrame(1);
 
 		FString InputFile = InputFiles[i];

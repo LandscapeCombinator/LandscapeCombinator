@@ -161,11 +161,6 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 
 				HMFetcher* Result = new HMDebugFetcher("WMS_Download", WMSFetcher, true);
 
-				if (bWMS_Remap)
-				{
-					Result = Result->AndThen(new HMDebugFetcher("WMS_FixNoData", new HMFunction([this](float x) { return x == WMS_OriginalValue ? WMS_TransformedValue : x; })));
-				}
-
 				if (!bGeoTiff)
 				{
 					Result = Result->AndThen(new HMDebugFetcher("WMS_WriteCRS", new HMWriteCRS(Name, WMS_Width, WMS_Height, WMS_MinLong, WMS_MaxLong, WMS_MinLat, WMS_MaxLat)));
@@ -191,13 +186,19 @@ HMFetcher* UImageDownloader::CreateFetcher(FString Name, bool bEnsureOneBand, bo
 {
 	HMFetcher *Result = CreateInitialFetcher(Name);
 	if (!Result) return nullptr;
-
+	
+	if (bRemap)
+	{
+		Result = Result->AndThen(new HMDebugFetcher("Convert", new HMConvert(Name, "tif")));
+		Result = Result->AndThen(new HMDebugFetcher("FixNoData", new HMFunction([this](float x) { return x == OriginalValue ? TransformedValue : x; })));
+	}
+	
 	if (bPreprocess)
 	{
 		Result = Result->AndThen(new HMDebugFetcher("Preprocess", new HMPreprocess(Name, PreprocessingTool)));
 	}
 
-	if (bEnsureOneBand)
+	if (bEnsureOneBand && IsWMS())
 	{
 		Result = Result->AndThen(new HMDebugFetcher("EnsureOneBand", new HMEnsureOneBand()));
 	}

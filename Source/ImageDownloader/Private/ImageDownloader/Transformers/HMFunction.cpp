@@ -20,7 +20,7 @@ void HMFunction::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<v
 		{
 			FMessageDialog::Open(EAppMsgType::Ok,
 				FText::Format(
-					LOCTEXT("GetCoordinatesError", "Image Downloader Error: Could not open heightmap file '{0}'.\nError: {1}"),
+					LOCTEXT("HMFunction::Fetch::1", "Image Downloader Error: Could not open heightmap file '{0}'.\nError: {1}"),
 					FText::FromString(InputFile),
 					FText::FromString(FString(CPLGetLastErrorMsg()))
 				)
@@ -33,7 +33,11 @@ void HMFunction::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<v
 
 		if (!Band)
 		{
-			UE_LOG(LogImageDownloader, Log, TEXT("Could not get raster band of file %s"), *InputFile);
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+				LOCTEXT("HMFunction::Fetch::2", "Internal error: Could not get raster band of file {0}.\nError: {1}"),
+				FText::FromString(InputFile),
+				FText::FromString(FString(CPLGetLastErrorMsg()))
+			));
 			GDALClose(Dataset);
 			if (OnComplete) OnComplete(false);
 			return;
@@ -45,7 +49,9 @@ void HMFunction::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<v
 
 		if (!Data)
 		{
-			UE_LOG(LogImageDownloader, Log, TEXT("Could not allocate memory"));
+			FMessageDialog::Open(EAppMsgType::Ok,
+				LOCTEXT("HMFunction::Fetch::3", "Internal error: Could not allocate memory.")
+			);
 			GDALClose(Dataset);
 			if (OnComplete) OnComplete(false);
 			return;
@@ -56,7 +62,11 @@ void HMFunction::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<v
 
 		if (Err != CE_None)
 		{
-			UE_LOG(LogImageDownloader, Log, TEXT("Could not read data from file %s"), *InputFile);
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+				LOCTEXT("HMFunction::Fetch::4", "Internal error: Could not read data from file {0}.\nError: {1}"),
+				FText::FromString(InputFile),
+				FText::FromString(FString(CPLGetLastErrorMsg()))
+			));
 			GDALClose(Dataset);
 			if (OnComplete) OnComplete(false);
 			return;
@@ -74,7 +84,11 @@ void HMFunction::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<v
 
 		if (Err != CE_None)
 		{
-			UE_LOG(LogImageDownloader, Log, TEXT("Could not write data to dataset"), *InputFile);
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+				LOCTEXT("HMFunction::Fetch::5", "Internal error: Could not write data to dataset in file {0}.\nError: {1}"),
+				FText::FromString(InputFile),
+				FText::FromString(FString(CPLGetLastErrorMsg()))
+			));
 			GDALClose(Dataset);
 			if (OnComplete) OnComplete(false);
 			return;
