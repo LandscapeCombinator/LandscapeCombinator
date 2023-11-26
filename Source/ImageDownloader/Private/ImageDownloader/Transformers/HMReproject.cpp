@@ -13,7 +13,7 @@ void HMReproject::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<
 {
 	if (OutputCRS == InputCRS)
 	{
-		// no reprojection needed in this case
+		UE_LOG(LogImageDownloader, Log, TEXT("Skipping Reprojection phase as the input files are already in the correct CRS: %s"), *InputCRS);
 		OutputFiles.Append(InputFiles);
 		if (OnComplete) OnComplete(true);
 		return;
