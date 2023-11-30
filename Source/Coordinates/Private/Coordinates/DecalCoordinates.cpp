@@ -13,9 +13,10 @@
 #include "ImageUtils.h"
 #include "Materials/MaterialInstanceConstant.h"
 #include "Factories/MaterialInstanceConstantFactoryNew.h"
-#include "AssetToolsModule.h"
 #include "IAssetTools.h"
+#include "AssetToolsModule.h"
 #include "AssetRegistry/AssetRegistryModule.h"
+#include "UObject/SavePackage.h"
 
 #define LOCTEXT_NAMESPACE "FCoordinatesModule"
 
@@ -80,32 +81,51 @@ void UDecalCoordinates::PlaceDecal()
 	if (!M_GeoDecal)
 	{
 		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("UDecalCoordinates::PlaceDecal::M_GeoDecal", "Could not find material M_GeoDecal.")
+			LOCTEXT("UDecalCoordinates::PlaceDecal::M_GeoDecal", "Coordinates Internal Error: Could not find material M_GeoDecal.")
 		);
 		return;
 	}
 
-	FString MI_GeoDecal_Name = FString("MI_GeoDecal_") + DecalActor->GetActorLabel();
-	UPackage* Package = CreatePackage(*(FString("/Game/") + MI_GeoDecal_Name));
+	FString MI_GeoDecal_Name;
+	FString MI_GeoDecal_PackageName;
+
+	FAssetToolsModule& AssetToolsModule = FModuleManager::Get().LoadModuleChecked<FAssetToolsModule>("AssetTools");
+	AssetToolsModule.Get().CreateUniqueAssetName("/Game/MI_GeoDecal", "", MI_GeoDecal_PackageName, MI_GeoDecal_Name);
+
+	UPackage* MI_GeoDecal_Package = CreatePackage(*MI_GeoDecal_PackageName);
+	if (!MI_GeoDecal_Package)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			LOCTEXT("UDecalCoordinates::PlaceDecal::MI_GeoDecal_Package", "Coordinates Internal Error: Could not create MI_GeoDecal package.")
+		);
+		return;
+	}
+
 	UMaterialInstanceConstantFactoryNew* Factory = NewObject<UMaterialInstanceConstantFactoryNew>();
+	if (!Factory)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			LOCTEXT("UDecalCoordinates::PlaceDecal::Factory", "Coordinates Internal Error: Could not create material instance factory.")
+		);
+		return;
+	}
 	UMaterialInstanceConstant* MI_GeoDecal =
 		(UMaterialInstanceConstant*) Factory->FactoryCreateNew(
 			UMaterialInstanceConstant::StaticClass(),
-			Package,
+			MI_GeoDecal_Package,
 			*MI_GeoDecal_Name,
 			RF_Standalone | RF_Public | RF_Transactional,
 			DecalActor,
 			GWarn
 		);
-	Factory->MarkAsGarbage();
-
-	if (!MI_GeoDecal)
+	if (!Factory)
 	{
 		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("UDecalCoordinates::PlaceDecal::MI_GeoDecal", "Could not create material instance for M_GeoDecal.")
+			LOCTEXT("UDecalCoordinates::PlaceDecal::MI_GeoDecal", "Coordinates Internal Error: Could not create material instance MI_GeoDecal.")
 		);
 		return;
 	}
+	Factory->MarkAsGarbage();
 
 	MI_GeoDecal->SetParentEditorOnly(M_GeoDecal);
 
@@ -114,18 +134,31 @@ void UDecalCoordinates::PlaceDecal()
 
 	if (!GDALInterface::ReadColorsFromFile(ReprojectedImage, Width, Height, Colors))
 	{
-		UE_LOG(LogCoordinates, Error, TEXT("Could not read colors from file %s"), *ReprojectedImage);
+		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			LOCTEXT("UDecalCoordinates::PlaceDecal::ReadColorsFromFile", "Coordinates Internal Error: Could not read colors from file {0}."),
+			FText::FromString(ReprojectedImage)
+		));
 		return;
 	}
+	
+	FString TextureName;
+	FString TexturePackageName;
+	AssetToolsModule.Get().CreateUniqueAssetName("/Game/T_GeoDecal", "", TexturePackageName, TextureName);
 
-	FCreateTexture2DParameters Parameters;
+	UPackage* TexturePackage = CreatePackage(*TexturePackageName);
 	UTexture2D* Texture = FImageUtils::CreateTexture2D(
 		Width, Height, Colors,
-		MI_GeoDecal, FString("T_") + DecalActor->GetActorLabel(),
+		TexturePackage, TextureName,
 		RF_Standalone | RF_Public | RF_Transactional,
-		Parameters
+		FCreateTexture2DParameters()
 	);
+	FAssetRegistryModule::AssetCreated(Texture);
+	TexturePackage->MarkPackageDirty();
 
+	FSavePackageArgs SavePackageArgs;
+	SavePackageArgs.SaveFlags = RF_Standalone | RF_Public | RF_Transactional;
+
+	UPackage::SavePackage(TexturePackage, nullptr, *TexturePackageName, SavePackageArgs);
 
 	FMaterialParameterInfo TextureParam;
 	TextureParam.Name = "Texture";
@@ -135,7 +168,8 @@ void UDecalCoordinates::PlaceDecal()
 	DecalActor->SetDecalMaterial(MI_GeoDecal);
 
 	FAssetRegistryModule::AssetCreated(MI_GeoDecal);
-	Package->MarkPackageDirty();
+	MI_GeoDecal_Package->MarkPackageDirty();
+	UPackage::SavePackage(MI_GeoDecal_Package, nullptr, *MI_GeoDecal_PackageName, SavePackageArgs);
 }
 
 #undef LOCTEXT_NAMESPACE
