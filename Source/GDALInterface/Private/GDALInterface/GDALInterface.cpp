@@ -302,7 +302,7 @@ bool GDALInterface::GetMinMax(FVector2D &MinMax, TArray<FString> Files)
 	return true;
 }
 
-bool GDALInterface::ConvertToPNG(FString& SourceFile, FString& TargetFile, int MinAltitude, int MaxAltitude, int PrecisionPercent)
+bool GDALInterface::ConvertToPNG(FString SourceFile, FString TargetFile, int MinAltitude, int MaxAltitude, int PrecisionPercent)
 {
 	TArray<FString> Args;
 	Args.Add("-scale");
@@ -321,7 +321,7 @@ bool GDALInterface::ConvertToPNG(FString& SourceFile, FString& TargetFile, int M
 	return Translate(SourceFile, TargetFile, Args);
 }
 
-bool GDALInterface::ConvertToPNG(FString& SourceFile, FString& TargetFile)
+bool GDALInterface::ConvertToPNG(FString SourceFile, FString TargetFile)
 {
 	TArray<FString> Args;
 	Args.Add("-ot");
@@ -332,7 +332,7 @@ bool GDALInterface::ConvertToPNG(FString& SourceFile, FString& TargetFile)
 	return Translate(SourceFile, TargetFile, Args);
 }
 
-bool GDALInterface::ChangeResolution(FString& SourceFile, FString& TargetFile, int PrecisionPercent)
+bool GDALInterface::ChangeResolution(FString SourceFile, FString TargetFile, int PrecisionPercent)
 {
 	TArray<FString> Args;
 	Args.Add("-outsize");
@@ -341,7 +341,7 @@ bool GDALInterface::ChangeResolution(FString& SourceFile, FString& TargetFile, i
 	return Translate(SourceFile, TargetFile, Args);
 }
 
-bool GDALInterface::Translate(FString &SourceFile, FString &TargetFile, TArray<FString> Args)
+bool GDALInterface::Translate(FString SourceFile, FString TargetFile, TArray<FString> Args)
 {
 	GDALDatasetH SourceDataset = GDALOpen(TCHAR_TO_UTF8(*SourceFile), GA_ReadOnly);
 
@@ -403,7 +403,7 @@ bool GDALInterface::Translate(FString &SourceFile, FString &TargetFile, TArray<F
 	return true;
 }
 
-bool GDALInterface::Merge(TArray<FString> SourceFiles, FString& TargetFile)
+bool GDALInterface::Merge(TArray<FString> SourceFiles, FString TargetFile)
 {
 	UE_LOG(LogGDALInterface, Log, TEXT("Merging %s into %s"), *FString::Join(SourceFiles, TEXT(", ")), *TargetFile);
 	const int NumFiles = SourceFiles.Num();
@@ -508,7 +508,7 @@ bool GDALInterface::ReadColorsFromFile(FString File, int &OutWidth, int &OutHeig
 	return true;
 }
 
-bool GDALInterface::Warp(TArray<FString> SourceFiles, FString& TargetFile, FString InCRS, FString OutCRS, int NoData)
+bool GDALInterface::Warp(TArray<FString> SourceFiles, FString TargetFile, FString InCRS, FString OutCRS, int NoData)
 {
 	check(SourceFiles.Num() > 0);
 
@@ -520,7 +520,7 @@ bool GDALInterface::Warp(TArray<FString> SourceFiles, FString& TargetFile, FStri
 	}
 }
 
-bool GDALInterface::Warp(FString& SourceFile, FString& TargetFile, TArray<FString> Args)
+bool GDALInterface::Warp(FString SourceFile, FString TargetFile, TArray<FString> Args)
 {
 	UE_LOG(LogGDALInterface, Log, TEXT("Reprojecting using gdalwarp --config GDAL_PAM_ENABLED NO %s \"%s\" \"%s\""),
 		*FString::Join(Args, TEXT(" ")),
@@ -589,7 +589,7 @@ bool GDALInterface::Warp(FString& SourceFile, FString& TargetFile, TArray<FStrin
 	return true;
 }
 
-bool GDALInterface::Warp(FString& SourceFile, FString& TargetFile, FString InCRS, FString OutCRS, int NoData)
+bool GDALInterface::Warp(FString SourceFile, FString TargetFile, FString InCRS, FString OutCRS, int NoData)
 {
 	TArray<FString> Args;
 	Args.Add("-r");

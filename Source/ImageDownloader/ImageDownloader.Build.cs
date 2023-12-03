@@ -29,13 +29,15 @@ public class ImageDownloader : ModuleRules
 				"HTTP",
 				"Projects",
 				"PropertyEditor",
+				"Landscape",
 
 				// Other Dependencies
                 "Coordinates",
                 "GDALInterface",
                 "FileDownloader",
                 "ConcurrencyHelpers",
-                "ConsoleHelpers"
+                "ConsoleHelpers",
+				"LandscapeUtils"
             }
 		);
 	}

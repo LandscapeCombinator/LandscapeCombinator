@@ -205,7 +205,7 @@ void ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent)
 	BuildingOSMUserData->Fields = SplineOSMUserData->Fields;
 	Building->GetRootComponent()->AddAssetUserData(BuildingOSMUserData);
 	
-	Building->SetReceivesDecals(bBuildingsReceivesDecals);
+	Building->SetReceivesDecals(bBuildingsReceiveDecals);
 
 	Building->GenerateBuilding();
 }

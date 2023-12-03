@@ -23,7 +23,7 @@ void ABasicImageDownloader::DownloadImages()
 		return;
 	}
 
-	HMFetcher* Fetcher = ImageDownloader->CreateFetcher(Name, false, false, false, FVector4d::Zero(), { 0, 0 }, nullptr);
+	HMFetcher* Fetcher = ImageDownloader->CreateFetcher(Name, false, false, false, nullptr);
 
 	if (!Fetcher)
 	{

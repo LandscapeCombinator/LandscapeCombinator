@@ -112,6 +112,15 @@ public:
 		if (ImageDownloader) ImageDownloader->SetLargestPossibleCoordinates();
 	}
 
+	/* Click this to set the WMS coordinates from a Location Volume or any other actor*/
+	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeSpawner",
+		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "6")
+	)
+	void SetCoordinatesFromActor()
+	{
+		if (ImageDownloader) ImageDownloader->SetCoordinatesFromActor();
+	}
+
 private:
 	bool IsWMS()
 	{

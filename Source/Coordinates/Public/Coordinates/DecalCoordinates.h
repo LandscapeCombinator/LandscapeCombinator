@@ -24,6 +24,11 @@ public:
 		meta = (DisplayPriority = "5")
 	)
 	void PlaceDecal();
+
+	void PlaceDecal(FVector4d &OutCoordinates);
+
+	static void CreateDecal(UWorld *World, FString Path);
+	static void CreateDecal(UWorld *World, FString Path, FVector4d &OutCoordinates);
 };
 
 #undef LOCTEXT_NAMESPACE

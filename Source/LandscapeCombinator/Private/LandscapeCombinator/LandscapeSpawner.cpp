@@ -95,8 +95,6 @@ void ALandscapeSpawner::SpawnLandscape()
 		true,
 		true,
 		true,
-		FVector4d::Zero(),
-		FIntPoint::ZeroValue,
 		[Altitudes, Coordinates, CRS](HMFetcher *FetcherBeforePNG)
 		{
 			*CRS = FetcherBeforePNG->OutputCRS;

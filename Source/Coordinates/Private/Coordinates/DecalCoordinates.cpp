@@ -22,6 +22,12 @@
 
 void UDecalCoordinates::PlaceDecal()
 {
+	FVector4d Unused;
+	PlaceDecal(Unused);
+}
+
+void UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
+{
 	ADecalActor *DecalActor = Cast<ADecalActor>(GetOwner());
 	if (!DecalActor)
 	{
@@ -67,6 +73,11 @@ void UDecalCoordinates::PlaceDecal()
 	double Top = TopLeft[1];
 	double Right = BottomRight[0];
 	double Bottom = BottomRight[1];
+	
+	OutCoordinates[0] = Left;
+	OutCoordinates[1] = Right;
+	OutCoordinates[2] = Bottom;
+	OutCoordinates[3] = Top;
 
 	double X = (Left + Right) / 2;
 	double Y = (Top + Bottom) / 2;
@@ -90,7 +101,7 @@ void UDecalCoordinates::PlaceDecal()
 	FString MI_GeoDecal_PackageName;
 
 	FAssetToolsModule& AssetToolsModule = FModuleManager::Get().LoadModuleChecked<FAssetToolsModule>("AssetTools");
-	AssetToolsModule.Get().CreateUniqueAssetName("/Game/MI_GeoDecal", "", MI_GeoDecal_PackageName, MI_GeoDecal_Name);
+	AssetToolsModule.Get().CreateUniqueAssetName(FString("/Game/MI_GeoDecal_") + DecalActor->GetActorLabel(), "", MI_GeoDecal_PackageName, MI_GeoDecal_Name);
 
 	UPackage* MI_GeoDecal_Package = CreatePackage(*MI_GeoDecal_PackageName);
 	if (!MI_GeoDecal_Package)
@@ -143,7 +154,7 @@ void UDecalCoordinates::PlaceDecal()
 	
 	FString TextureName;
 	FString TexturePackageName;
-	AssetToolsModule.Get().CreateUniqueAssetName("/Game/T_GeoDecal", "", TexturePackageName, TextureName);
+	AssetToolsModule.Get().CreateUniqueAssetName(FString("/Game/T_GeoDecal_") + DecalActor->GetActorLabel(), "", TexturePackageName, TextureName);
 
 	UPackage* TexturePackage = CreatePackage(*TexturePackageName);
 	UTexture2D* Texture = FImageUtils::CreateTexture2D(
@@ -155,11 +166,6 @@ void UDecalCoordinates::PlaceDecal()
 	FAssetRegistryModule::AssetCreated(Texture);
 	TexturePackage->MarkPackageDirty();
 
-	FSavePackageArgs SavePackageArgs;
-	SavePackageArgs.SaveFlags = RF_Standalone | RF_Public | RF_Transactional;
-
-	UPackage::SavePackage(TexturePackage, nullptr, *TexturePackageName, SavePackageArgs);
-
 	FMaterialParameterInfo TextureParam;
 	TextureParam.Name = "Texture";
 	TextureParam.Association = EMaterialParameterAssociation::GlobalParameter;
@@ -169,7 +175,35 @@ void UDecalCoordinates::PlaceDecal()
 
 	FAssetRegistryModule::AssetCreated(MI_GeoDecal);
 	MI_GeoDecal_Package->MarkPackageDirty();
-	UPackage::SavePackage(MI_GeoDecal_Package, nullptr, *MI_GeoDecal_PackageName, SavePackageArgs);
+}
+
+void UDecalCoordinates::CreateDecal(UWorld* World, FString Path)
+{
+	FVector4d UnusedCoordinates;
+	CreateDecal(World, Path, UnusedCoordinates);
+}
+
+void UDecalCoordinates::CreateDecal(UWorld *World, FString Path, FVector4d &OutCoordinates)
+{
+	ADecalActor* DecalActor = World->SpawnActor<ADecalActor>();
+	if (!DecalActor)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			LOCTEXT("UDecalCoordinates::CreateDecal", "Coordinates Internal Error: Could not spawn a Decal Actor.")
+		);
+		return;
+	}
+	FString BaseName = FPaths::GetBaseFilename(Path);
+	DecalActor->SetActorLabel(FString("Decal_") + BaseName);
+
+	UDecalCoordinates *DecalCoordinates = NewObject<UDecalCoordinates>(DecalActor->GetRootComponent());
+	DecalCoordinates->CreationMethod = EComponentCreationMethod::UserConstructionScript;
+	DecalCoordinates->RegisterComponent();
+	DecalActor->AddInstanceComponent(DecalCoordinates);
+
+	DecalCoordinates->PathToGeoreferencedImage = Path;
+
+	DecalCoordinates->PlaceDecal(OutCoordinates);
 }
 
 #undef LOCTEXT_NAMESPACE

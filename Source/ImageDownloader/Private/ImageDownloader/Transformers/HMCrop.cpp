@@ -12,6 +12,16 @@
 void HMCrop::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
 {
 	OutputCRS = InputCRS;
+
+	if (InputFiles.Num() != 1)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			LOCTEXT("HMCrop::Fetch", "Image Downloader Error: The AdaptResolution and CropCoordinates options are not available for sources that are made of multiple images.")
+		);
+		if (OnComplete) OnComplete(false);
+		return;
+	}
+
 	FString CropFolder = FPaths::Combine(Directories::ImageDownloaderDir(), Name + "-Crop");
 
 	if (!IPlatformFile::GetPlatformPhysical().DeleteDirectoryRecursively(*CropFolder) || !IPlatformFile::GetPlatformPhysical().CreateDirectory(*CropFolder))
@@ -20,16 +30,6 @@ void HMCrop::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(
 		if (OnComplete) OnComplete(false);
 		return;
 	}
-
-	FVector2D Altitudes;
-	if (!GDALInterface::GetMinMax(Altitudes, InputFiles))
-	{
-		if (OnComplete) OnComplete(false);
-		return;
-	}
-
-	double MinAltitude = Altitudes[0];
-	double MaxAltitude = Altitudes[1];
 
 	double South = Coordinates[2];
 	double West = Coordinates[0];
@@ -58,13 +58,16 @@ void HMCrop::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(
 		Args.Add("-t_srs");
 		Args.Add(InputCRS);
 
-		Args.Add("-te");
-		Args.Add(FString::SanitizeFloat(West));
-		Args.Add(FString::SanitizeFloat(South));
-		Args.Add(FString::SanitizeFloat(East));
-		Args.Add(FString::SanitizeFloat(North));
+		if (Coordinates != FVector4d::Zero())
+		{
+			Args.Add("-te");
+			Args.Add(FString::SanitizeFloat(West));
+			Args.Add(FString::SanitizeFloat(South));
+			Args.Add(FString::SanitizeFloat(East));
+			Args.Add(FString::SanitizeFloat(North));
+		}
 
-		if (Pixels[0] != 0 && Pixels[1] != 0)
+		if (Pixels != FIntPoint::ZeroValue)
 		{
 			Args.Add("-ts");
 			Args.Add(FString::FromInt(Pixels[0]));

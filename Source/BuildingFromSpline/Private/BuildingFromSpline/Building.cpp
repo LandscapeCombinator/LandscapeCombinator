@@ -1148,6 +1148,11 @@ void ABuilding::DeleteBuilding()
 {
 	ClearSplineMeshComponents();
 
+	if (IsValid(InstancedDoorsComponent))
+	{
+		InstancedDoorsComponent->ClearInstances();
+	}
+
 	if (IsValid(InstancedWindowsComponent))
 	{
 		InstancedWindowsComponent->ClearInstances();
