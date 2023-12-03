@@ -483,6 +483,10 @@ void UImageDownloader::OnImageSourceChanged(TFunction<void(bool)> OnComplete)
 		CapabilitiesURL = "https://ows.terrestris.de/osm/service?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetCapabilities";
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
 	}
+	else
+	{
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+	}
 }
 
 void UImageDownloader::ResetWMSProvider(TArray<FString> ExcludeCRS, TFunction<bool(FString)> LayerFilter, TFunction<void(bool)> OnComplete)

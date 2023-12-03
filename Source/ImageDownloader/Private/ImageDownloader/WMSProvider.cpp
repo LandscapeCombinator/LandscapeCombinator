@@ -95,6 +95,7 @@ bool FWMSProvider::LoadFromFile(TArray<FString> ExcludeCRS, TFunction<bool(FStri
 
 	while (LayerMatcher.FindNext())
 	{
+
 		FString LayerParams = LayerMatcher.GetCaptureGroup(1);
 		FString Name = LayerMatcher.GetCaptureGroup(2);
 		FString Title = LayerMatcher.GetCaptureGroup(3);
@@ -114,7 +115,7 @@ bool FWMSProvider::LoadFromFile(TArray<FString> ExcludeCRS, TFunction<bool(FStri
 
 		bool bHasAbstract = AbstractMatcher.FindNext();
 		FString Abstract = bHasAbstract ? AbstractMatcher.GetCaptureGroup(1) : Title;
-
+		
 		if (bHasAbstract)
 		{
 			if (Abstract == "<Abstract/>")
@@ -131,7 +132,7 @@ bool FWMSProvider::LoadFromFile(TArray<FString> ExcludeCRS, TFunction<bool(FStri
 				}
 			}
 		}
-
+		
 		if (CRSMatcher.FindNext() && !CRSMatcher.GetCaptureGroup(1).Contains("<Layer>"))
 		{
 			LastCRS = CRSMatcher.GetCaptureGroup(2);
@@ -161,14 +162,24 @@ bool FWMSProvider::LoadFromFile(TArray<FString> ExcludeCRS, TFunction<bool(FStri
 				LastMaxY = 0;
 			}
 		}
-
-		if (LastCRS.IsEmpty()) continue;
+	
+		if (LastCRS.IsEmpty())
+		{
+			LastCRS = "EPSG:4326";
+			LastMinX = 0;
+			LastMaxX = 0;
+			LastMinY = 0;
+			LastMaxY = 0;
+		}
 
 		// For: https://elevation.nationalmap.gov/arcgis/services/3DEPElevation/ImageServer/WMSServer?request=GetCapabilities&service=WMS
 		// The root layer (not queryable) has name 0 and can't be queried, but we still want
 		// to set LastCRS and LastBounds from it for all the sublayers.
 		// We don't want to add the root layer, so we stop (continue) now.
 		if (Name == "0" && !LayerParams.Contains("queryable=\"1\"")) continue;
+
+		// We ignore layers that explicitly contain queryable="0"
+		if (LayerParams.Contains("queryable=\"0\"")) continue;
 
 		Names.Add(Name);
 		Titles.Add(Title);
