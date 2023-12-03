@@ -168,6 +168,16 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
 		meta = (
 			EditCondition = "IsWMS()",
+			EditConditionHides, DisplayPriority = "19"
+		)
+	)
+	/* Select a Location Volume (or any other actor) and click the "Set Coordinates From Actor" button to fill the coordinates automatically. */
+	AActor *WMS_BoundingActor = nullptr;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (
+			EditCondition = "IsWMS()",
 			EditConditionHides, DisplayPriority = "20"
 		)
 	)
@@ -495,17 +505,53 @@ public:
 		meta = (DisplayPriority = "20")
 	)
 	/* Check this if you wish to scale up or down the resolution of your heightmaps. */
-	bool bChangeResolution = false;
+	bool bScaleResolution = false;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Resolution",
-		meta = (EditCondition = "bChangeResolution", EditConditionHides, DisplayPriority = "21")
+		meta = (EditCondition = "bScaleResolution", EditConditionHides, DisplayPriority = "21")
 	)
 	/* When different than 100%, your heightmap resolution will be scaled up or down using GDAL. */
 	int PrecisionPercent = 100;
 
 
+	/**********************
+	 * Adapt to Landscape *
+	 **********************/
+
+	UPROPERTY(
+		EditAnywhere, Category = "LandscapeTexturer|AdaptToLandscape",
+		meta = (DisplayPriority = "1")
+	)
+	/* Check this if you want to resize the image to match the TargetLandscape's resolution. */
+	bool bAdaptResolution = false;
 	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer|AdaptToLandscape",
+		meta = (EditCondition = "bAdaptResolution", EditConditionHides, DisplayPriority = "2")
+	)
+	TObjectPtr<ALandscape> TargetLandscape;
+
+
+	/****************
+	 * Crop to Area *
+	 ****************/
+
+	UPROPERTY(
+		EditAnywhere, Category = "LandscapeTexturer|CropCoordinates",
+		meta = (DisplayPriority = "1")
+	)
+	/* Check this if you want to crop the coordinates following the bounds of CroppingActor (usually a LocationVolume).
+	   This is typically not needed for WMS sources where you choose the coordinates upfront. */
+	bool bCropCoordinates = false;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer|CropCoordinates",
+		meta = (EditCondition = "bCropCoordinates", EditConditionHides, DisplayPriority = "2")
+	)
+	TObjectPtr<AActor> CroppingActor;
+	
+
 	/***********
 	 * Actions *
 	 ***********/
@@ -528,15 +574,21 @@ public:
 	)
 	void ForceReloadWMS() { OnImageSourceChanged(nullptr); }
 
-	/* Click this to set the min and max coordinates to the largest possible bounds */
+	/* Click this to set the WMS coordinates to the largest possible bounds */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "ImageDownloader",
 		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "4")
 	)
 	void SetLargestPossibleCoordinates();
+
+	/* Click this to set the WMS coordinates from a Location Volume or any other actor*/
+	UFUNCTION(BlueprintCallable, CallInEditor, Category = "ImageDownloader",
+		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "5")
+	)
+	void SetCoordinatesFromActor();
 	
 	void PostEditChangeProperty(struct FPropertyChangedEvent&);
 	
-	HMFetcher* CreateFetcher(FString Name, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG, FVector4d CropCoordinates, FIntPoint CropPixels, TFunction<bool(HMFetcher*)> RunBeforePNG);
+	HMFetcher* CreateFetcher(FString Name, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG, TFunction<bool(HMFetcher*)> RunBeforePNG);
 
 	UFUNCTION()
 	bool IsWMS();

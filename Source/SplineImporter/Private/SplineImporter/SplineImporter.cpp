@@ -253,7 +253,7 @@ void ASplineImporter::LoadGDALDatasetFromShortQuery(FString ShortQuery, TFunctio
 	{
 		ALandscape *Landscape = Cast<ALandscape>(ActorOrLandscapeToPlaceSplines);
 
-		if (!ALevelCoordinates::GetLandscapeBounds(Landscape->GetWorld(), Landscape, "EPSG:4326", Coordinates))
+		if (!ALevelCoordinates::GetLandscapeCRSBounds(Landscape, "EPSG:4326", Coordinates))
 		{
 			if (OnComplete) OnComplete(nullptr);
 			return;

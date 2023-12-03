@@ -19,35 +19,24 @@ class LANDSCAPECOMBINATOR_API ALandscapeTexturer : public AActor
 
 public:
 	ALandscapeTexturer();
-	
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer|General",
-		meta = (DisplayPriority = "0")
-	)
-	TObjectPtr<ALandscape> TargetLandscape;
-	
-	UPROPERTY(
-		EditAnywhere, Category = "LandscapeTexturer|General",
-		meta = (DisplayPriority = "1")
-	)
-	/* Check this if you want to force resize the images to have the exact same pixel size as your landscape */
-	bool bResizeImages;
 
 	/***********
 	 * Actions *
 	 ***********/
 	
-	/* Download and prepare PNG images for TargetLandscape on the computer. */
+	/* Download images on the computer. */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeTexturer",
 		meta = (DisplayPriority = "10")
 	)
-	void PrepareImagesForLandscape();
+	void DownloadImages();
+
+	void DownloadImages(TFunction<void(bool)> OnComplete);
 	
-	/* Set the ImageDownloader coordinates using the TargetLandscape LandscapeController component. */
+	/* Download an image and create a decal. */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeTexturer",
-		meta = (DisplayPriority = "11")
+		meta = (DisplayPriority = "10")
 	)
-	void SetCoordinatesFromLandscape();
+	void CreateDecal();
 
 	/* This preserves downloaded files but deleted all transformed images. */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeTexturer",
@@ -76,6 +65,15 @@ public:
 		if (ImageDownloader) ImageDownloader->SetLargestPossibleCoordinates();
 	}
 
+	/* Click this to set the WMS coordinates from a Location Volume or any other actor*/
+	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeTexturer",
+		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "15")
+	)
+	void SetCoordinatesFromActor()
+	{
+		if (ImageDownloader) ImageDownloader->SetCoordinatesFromActor();
+	}
+
 	/********************
 	 * Image Downloader *
 	 ********************/
@@ -85,6 +83,9 @@ public:
 		meta = (DisplayPriority = "20")
 	)
 	TObjectPtr<UImageDownloader> ImageDownloader;
+
+private:
+	HMFetcher* Fetcher = nullptr;
 };
 
 #undef LOCTEXT_NAMESPACE

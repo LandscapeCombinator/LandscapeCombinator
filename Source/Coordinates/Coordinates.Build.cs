@@ -31,10 +31,12 @@ public class Coordinates : ModuleRules
 				"Engine",
 				"AssetTools",
                 "AssetRegistry",
+                "Landscape",
 
 				// Other Dependencies
 				"GDALInterface",
-				"LandscapeUtils"
+				"LandscapeUtils",
+				"FileDownloader"
 			}
 		);
 	}

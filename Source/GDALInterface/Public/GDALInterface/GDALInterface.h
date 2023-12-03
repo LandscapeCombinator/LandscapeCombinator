@@ -32,14 +32,14 @@ public:
 	static bool ConvertCoordinates(FVector4d& OriginalCoordinates, bool bCrop, FVector4d& NewCoordinates, FString InCRS, FString OutCRS);
 	static bool GetPixels(FIntPoint &Pixels, FString File);
 	static bool GetMinMax(FVector2D &MinMax, TArray<FString> Files);
-	static bool ConvertToPNG(FString& SourceFile, FString& TargetFile, int MinAltitude, int MaxAltitude, int PrecisionPercent = 100);
-	static bool ConvertToPNG(FString& SourceFile, FString& TargetFile);
-	static bool ChangeResolution(FString& SourceFile, FString& TargetFile, int PrecisionPercent);
-	static bool Translate(FString &SourceFile, FString &TargetFile, TArray<FString> Args);
-	static bool Warp(FString& SourceFile, FString& TargetFile, FString InCRS, FString OutCRS, int NoData);
-	static bool Warp(TArray<FString> SourceFiles, FString& TargetFolder, FString InCRS, FString OutCRS, int NoData);
-	static bool Warp(FString &SourceFile, FString &TargetFile, TArray<FString> Args);
-	static bool Merge(TArray<FString> SourceFiles, FString& TargetFile);
+	static bool ConvertToPNG(FString SourceFile, FString TargetFile, int MinAltitude, int MaxAltitude, int PrecisionPercent = 100);
+	static bool ConvertToPNG(FString SourceFile, FString TargetFile);
+	static bool ChangeResolution(FString SourceFile, FString TargetFile, int PrecisionPercent);
+	static bool Translate(FString SourceFile, FString TargetFile, TArray<FString> Args);
+	static bool Warp(FString SourceFile, FString TargetFile, FString InCRS, FString OutCRS, int NoData);
+	static bool Warp(TArray<FString> SourceFiles, FString TargetFolder, FString InCRS, FString OutCRS, int NoData);
+	static bool Warp(FString SourceFile, FString TargetFile, TArray<FString> Args);
+	static bool Merge(TArray<FString> SourceFiles, FString TargetFile);
 
 	static bool ReadColorsFromFile(FString File, int &OutWidth, int &OutHeight, TArray<FColor> &OutColors);
 

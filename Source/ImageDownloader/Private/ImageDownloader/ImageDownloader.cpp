@@ -33,6 +33,8 @@
 #include "ImageDownloader/Transformers/HMFunction.h"
 
 #include "Coordinates/LevelCoordinates.h"
+#include "LandscapeUtils/LandscapeUtils.h"
+
 #include "HAL/FileManagerGeneric.h"
 #include "Misc/MessageDialog.h"
 
@@ -182,7 +184,7 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 	}
 }
 
-HMFetcher* UImageDownloader::CreateFetcher(FString Name, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG, FVector4d CropCoordinates, FIntPoint CropPixels, TFunction<bool(HMFetcher*)> RunBeforePNG)
+HMFetcher* UImageDownloader::CreateFetcher(FString Name, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG, TFunction<bool(HMFetcher*)> RunBeforePNG)
 {
 	HMFetcher *Result = CreateInitialFetcher(Name);
 	if (!Result) return nullptr;
@@ -215,9 +217,45 @@ HMFetcher* UImageDownloader::CreateFetcher(FString Name, bool bEnsureOneBand, bo
 		Result = Result->AndRun(RunBeforePNG);
 	}
 
-	if (CropCoordinates != FVector4d::Zero())
+	if (bAdaptResolution || bCropCoordinates)
 	{
-		Result = Result->AndThen(new HMDebugFetcher("FitToLandscape", new HMCrop(Name, CropCoordinates, CropPixels)));
+		FIntPoint ImageSize(0, 0);
+		if (bAdaptResolution)
+		{
+			if (!TargetLandscape)
+			{
+				FMessageDialog::Open(EAppMsgType::Ok,
+					LOCTEXT("UImageDownloader::CreateFetcher::NoLandscape", "Please select a target landscape if you want to resize the image.")
+				);
+				return nullptr;
+			}
+
+			ImageSize.X = TargetLandscape->ComputeComponentCounts().X * TargetLandscape->ComponentSizeQuads + 1;
+			ImageSize.Y = TargetLandscape->ComputeComponentCounts().Y * TargetLandscape->ComponentSizeQuads + 1;
+		}
+
+		FVector4d Coordinates(0, 0, 0, 0);
+		if (bCropCoordinates)
+		{
+			if (!CroppingActor)
+			{
+				FMessageDialog::Open(EAppMsgType::Ok,
+					LOCTEXT("UImageDownloader::CreateFetcher::NoActor", "Please select a Cropping Actor if you want to crop the output image.")
+				);
+				return nullptr;
+			}
+
+			if (!ALevelCoordinates::GetActorCRSBounds(CroppingActor, Coordinates))
+			{
+				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+					LOCTEXT("UImageDownloader::CreateFetcher::NoCoordinates", "Could not compute bounding coordinates of Actor {0}"),
+					FText::FromString(CroppingActor->GetActorLabel())
+				));
+				return nullptr;
+			}
+		}
+
+		Result = Result->AndThen(new HMDebugFetcher("AdaptImage", new HMCrop(Name, Coordinates, ImageSize)));
 	}
 	
 	if (bConvertToPNG)
@@ -226,7 +264,7 @@ HMFetcher* UImageDownloader::CreateFetcher(FString Name, bool bEnsureOneBand, bo
 		Result = Result->AndThen(new HMDebugFetcher("AddMissingTiles", new HMAddMissingTiles()));
 	}
 
-	if (bChangeResolution)
+	if (bScaleResolution)
 	{
 		Result = Result->AndThen(new HMDebugFetcher("Resolution", new HMResolution(Name, PrecisionPercent)));
 	}
@@ -332,6 +370,31 @@ void UImageDownloader::SetLargestPossibleCoordinates()
 	WMS_MinLat = WMS_MinAllowedLat;
 	WMS_MaxLong = WMS_MaxAllowedLong;
 	WMS_MaxLat = WMS_MaxAllowedLat;
+}
+
+void UImageDownloader::SetCoordinatesFromActor()
+{
+	FVector4d Coordinates;
+
+	if (!WMS_BoundingActor)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("UImageDownloader::SetCoordinatesFromActor", "Please select an actor for WMS Bounding Actor."));
+		return;
+	}
+
+	if (!ALevelCoordinates::GetActorCRSBounds(WMS_BoundingActor, WMS_CRS, Coordinates))
+	{
+		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			LOCTEXT("UImageDownloader::SetCoordinatesFromActor::2", "Could not read coordinates from Actor {0}."),
+			FText::FromString(WMS_BoundingActor->GetActorLabel())
+		));
+		return;
+	}
+	
+	WMS_MinLong = Coordinates[0];
+	WMS_MaxLong = Coordinates[1];
+	WMS_MinLat = Coordinates[2];
+	WMS_MaxLat = Coordinates[3];
 }
 
 void UImageDownloader::PostEditChangeProperty(FPropertyChangedEvent& Event)

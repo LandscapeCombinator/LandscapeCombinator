@@ -55,7 +55,7 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
 		meta = (DisplayPriority = "0")
 	)
-	bool bBuildingsReceivesDecals = true;
+	bool bBuildingsReceiveDecals = false;
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
