@@ -55,6 +55,7 @@ ALandscape* LandscapeUtils::SpawnLandscape(TArray<FString> Heightmaps, FString L
 
 	if (Heightmaps.Num() > 1 && !bIsGridBased)
 	{
+		GLevelEditorModeTools().ActivateMode(FBuiltinEditorModes::EM_Default);
 		FMessageDialog::Open(EAppMsgType::Ok,
 			LOCTEXT("GetHeightmapImportDescriptorError", "You must enable World Partition to be able to import multiple heightmap files.")
 		);
@@ -68,6 +69,7 @@ ALandscape* LandscapeUtils::SpawnLandscape(TArray<FString> Heightmaps, FString L
 
 		if (!XYMatcher.FindNext())
 		{
+			GLevelEditorModeTools().ActivateMode(FBuiltinEditorModes::EM_Default);
 			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 				LOCTEXT("MultipleFileImportError", "Heightmap file name %s doesn't match the format: Filename_x0_y0.png."),
 				FText::FromString(HeightmapFile)
@@ -94,8 +96,9 @@ ALandscape* LandscapeUtils::SpawnLandscape(TArray<FString> Heightmaps, FString L
 
 	if (DescriptorResult == ELandscapeImportResult::Error)
 	{
+		GLevelEditorModeTools().ActivateMode(FBuiltinEditorModes::EM_Default);
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("GetHeightmapImportDescriptorError", "Internal Unreal Engine while getting import descriptor for file {0}: {1}"),
+			LOCTEXT("GetHeightmapImportDescriptorError", "Internal Unreal Engine while getting import descriptor for file {0}:\n{1}\nPlease try to rename your file to a simple name without punctuation."),
 			FText::FromString(HeightmapFile),
 			LandscapeImportErrorMessage
 		));
@@ -112,6 +115,7 @@ ALandscape* LandscapeUtils::SpawnLandscape(TArray<FString> Heightmaps, FString L
 
 	if (ImportResult == ELandscapeImportResult::Error)
 	{
+		GLevelEditorModeTools().ActivateMode(FBuiltinEditorModes::EM_Default);
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 			LOCTEXT("GetHeightmapImportDataError", "Internal Unreal Engine while importing {0}: {1}"),
 			FText::FromString(HeightmapFile),
