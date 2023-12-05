@@ -4,11 +4,6 @@
 
 #include "DetailLayoutBuilder.h"
 
-#define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
-
-
-#undef LOCTEXT_NAMESPACE
-
 TSharedRef<IDetailCustomization> FLandscapeTexturerCustomization::MakeInstance()
 {
 	return MakeShareable(new FLandscapeTexturerCustomization);

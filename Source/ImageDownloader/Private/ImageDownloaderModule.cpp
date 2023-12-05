@@ -5,8 +5,6 @@
 
 #include "ImageDownloader/BasicImageDownloaderCustomization.h"
 #include "ImageDownloader/BasicImageDownloader.h"
-
-#define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 	
 IMPLEMENT_MODULE(FImageDownloaderModule, ImageDownloader)
 
