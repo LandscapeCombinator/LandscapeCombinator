@@ -212,11 +212,6 @@ HMFetcher* UImageDownloader::CreateFetcher(FString Name, bool bEnsureOneBand, bo
 		Result = Result->AndThen(new HMDebugFetcher("Reproject", new HMReproject(Name, GlobalCoordinates->CRS)));
 	}
 
-	if (RunBeforePNG)
-	{
-		Result = Result->AndRun(RunBeforePNG);
-	}
-
 	if (bAdaptResolution || bCropCoordinates)
 	{
 		FIntPoint ImageSize(0, 0);
@@ -256,6 +251,11 @@ HMFetcher* UImageDownloader::CreateFetcher(FString Name, bool bEnsureOneBand, bo
 		}
 
 		Result = Result->AndThen(new HMDebugFetcher("AdaptImage", new HMCrop(Name, Coordinates, ImageSize)));
+	}
+
+	if (RunBeforePNG)
+	{
+		Result = Result->AndRun(RunBeforePNG);
 	}
 	
 	if (bConvertToPNG)

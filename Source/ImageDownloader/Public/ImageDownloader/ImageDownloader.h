@@ -520,14 +520,14 @@ public:
 	 **********************/
 
 	UPROPERTY(
-		EditAnywhere, Category = "LandscapeTexturer|AdaptToLandscape",
+		EditAnywhere, Category = "ImageDownloader|AdaptToLandscape",
 		meta = (DisplayPriority = "1")
 	)
 	/* Check this if you want to resize the image to match the TargetLandscape's resolution. */
 	bool bAdaptResolution = false;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer|AdaptToLandscape",
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|AdaptToLandscape",
 		meta = (EditCondition = "bAdaptResolution", EditConditionHides, DisplayPriority = "2")
 	)
 	TObjectPtr<ALandscape> TargetLandscape;
@@ -538,7 +538,7 @@ public:
 	 ****************/
 
 	UPROPERTY(
-		EditAnywhere, Category = "LandscapeTexturer|CropCoordinates",
+		EditAnywhere, Category = "ImageDownloader|CropCoordinates",
 		meta = (DisplayPriority = "1")
 	)
 	/* Check this if you want to crop the coordinates following the bounds of CroppingActor (usually a LocationVolume).
@@ -546,7 +546,7 @@ public:
 	bool bCropCoordinates = false;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer|CropCoordinates",
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|CropCoordinates",
 		meta = (EditCondition = "bCropCoordinates", EditConditionHides, DisplayPriority = "2")
 	)
 	TObjectPtr<AActor> CroppingActor;

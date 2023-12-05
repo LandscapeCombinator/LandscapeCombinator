@@ -274,8 +274,9 @@ bool GDALInterface::GetMinMax(FVector2D &MinMax, TArray<FString> Files)
 		if (!Dataset)
 		{
 			FMessageDialog::Open(EAppMsgType::Ok,
-				FText::Format(LOCTEXT("GetMinMaxError", "Could not open heightmap file '{0}' to compute min/max altitudes."),
-					FText::FromString(File)
+				FText::Format(LOCTEXT("GetMinMaxError", "Could not open heightmap file '{0}' to compute min/max altitudes.\n{1}"),
+					FText::FromString(File),
+					FText::FromString(FString(CPLGetLastErrorMsg()))
 				)
 			);
 			return false;
@@ -286,8 +287,9 @@ bool GDALInterface::GetMinMax(FVector2D &MinMax, TArray<FString> Files)
 		if (GDALComputeRasterMinMax(Dataset->GetRasterBand(1), false, AdfMinMax) != CE_None)
 		{
 			FMessageDialog::Open(EAppMsgType::Ok,
-				FText::Format(LOCTEXT("GetMinMaxError2", "Could not compute min/max altitudes of file '{0}'."),
-					FText::FromString(File)
+				FText::Format(LOCTEXT("GetMinMaxError2", "Could not compute min/max altitudes of file '{0}'.\n{1}"),
+					FText::FromString(File),
+					FText::FromString(FString(CPLGetLastErrorMsg()))
 				)
 			);
 			GDALClose(Dataset);

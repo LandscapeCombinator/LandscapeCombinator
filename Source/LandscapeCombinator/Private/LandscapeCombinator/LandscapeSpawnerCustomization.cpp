@@ -4,11 +4,6 @@
 
 #include "DetailLayoutBuilder.h"
 
-#define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
-
-
-#undef LOCTEXT_NAMESPACE
-
 TSharedRef<IDetailCustomization> FLandscapeSpawnerCustomization::MakeInstance()
 {
 	return MakeShareable(new FLandscapeSpawnerCustomization);
