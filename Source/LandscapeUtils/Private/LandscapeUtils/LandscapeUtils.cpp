@@ -27,8 +27,11 @@ void LandscapeUtils::MakeDataRelativeTo(int SizeX, int SizeY, uint16* Data, uint
 	}
 }
 
-
-ALandscape* LandscapeUtils::SpawnLandscape(TArray<FString> Heightmaps, FString LandscapeLabel, bool bDropData, bool bCreateLandscapeStreamingProxies)
+ALandscape* LandscapeUtils::SpawnLandscape(
+	TArray<FString> Heightmaps, FString LandscapeLabel, bool bCreateLandscapeStreamingProxies,
+	bool bAutoComponents, bool bDropData,
+	int QuadsPerSubsection0, int SectionsPerComponent0, FIntPoint ComponentCount0
+)
 {
 	if (Heightmaps.IsEmpty())
 	{
@@ -130,12 +133,21 @@ ALandscape* LandscapeUtils::SpawnLandscape(TArray<FString> Heightmaps, FString L
 	int SectionsPerComponent = 1;
 	FIntPoint ComponentCount(8, 8);
 
-	FLandscapeImportHelper::ChooseBestComponentSizeForImport(TotalWidth, TotalHeight, QuadsPerSubsection, SectionsPerComponent, ComponentCount);
-
-	if (bDropData)
+	if (bAutoComponents)
 	{
-		ComponentCount[0]--;
-		ComponentCount[1]--;
+		FLandscapeImportHelper::ChooseBestComponentSizeForImport(TotalWidth, TotalHeight, QuadsPerSubsection, SectionsPerComponent, ComponentCount);
+
+		if (bDropData)
+		{
+			ComponentCount[0]--;
+			ComponentCount[1]--;
+		}
+	}
+	else
+	{
+		QuadsPerSubsection = QuadsPerSubsection0;
+		SectionsPerComponent = SectionsPerComponent0;
+		ComponentCount = ComponentCount0;
 	}
 	
 	int SizeX = ComponentCount.X * QuadsPerSubsection * SectionsPerComponent + 1;

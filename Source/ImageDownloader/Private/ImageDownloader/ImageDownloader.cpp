@@ -399,12 +399,9 @@ void UImageDownloader::SetCoordinatesFromActor()
 
 void UImageDownloader::PostEditChangeProperty(FPropertyChangedEvent& Event)
 {
-	ON_SCOPE_EXIT {
-		Super::PostEditChangeProperty(Event);
-	};
-
 	if (!Event.Property)
 	{
+		Super::PostEditChangeProperty(Event);
 		return;
 	}
 
@@ -421,6 +418,13 @@ void UImageDownloader::PostEditChangeProperty(FPropertyChangedEvent& Event)
 	else if (PropertyName == GET_MEMBER_NAME_CHECKED(UImageDownloader, WMS_Title))
 	{
 		OnLayerChanged();
+	}
+	else if (
+		PropertyName == GET_MEMBER_NAME_CHECKED(UImageDownloader, WMS_Coordinates) ||
+		PropertyName == GET_MEMBER_NAME_CHECKED(UImageDownloader, WMS_BoundingActor)
+	)
+	{
+		SetCoordinatesFromActor();
 	}
 
 	Super::PostEditChangeProperty(Event);

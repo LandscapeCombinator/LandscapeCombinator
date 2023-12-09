@@ -15,6 +15,34 @@
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
 
+UENUM(BlueprintType)
+enum class EComponentsMethod : uint8
+{
+	/* Enter the Quads Per Section, Section per Components, and Components Counts manually */
+	Manual,
+
+	/* When the landscape components do not exactly match with the total size of the heightmaps,
+	 * Unreal Engine adds some padding at the border. Check this option if you are willing to
+	 * drop some data at the border in order to make your heightmaps match the landscape
+	 * components. */
+	AutoWithoutBorder,
+	
+	/* Let Unreal Engine decide the component count based on the heightmap resolution. */
+	Auto,
+
+	Preset_8129_8129,
+	Preset_4033_4033,
+	Preset_2017_2017,
+	Preset_1009_1009,
+	Preset_1009_1009_2,
+	Preset_505_505,
+	Preset_505_505_2,
+	Preset_253_253,
+	Preset_253_253_2,
+	Preset_127_127,
+	Preset_127_127_2,
+};
+
 UCLASS(BlueprintType)
 class LANDSCAPECOMBINATOR_API ALandscapeSpawner : public AActor
 {
@@ -45,23 +73,46 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|General",
 		meta = (DisplayPriority = "2")
 	)
-	/* When the landscape components do not exactly match with the total size of the heightmaps,
-	 * Unreal Engine adds some padding at the border. Check this option if you are willing to
-	 * drop some data at the border in order to make your heightmaps match the landscape
-	 * components. */
-	bool bDropData = true;
-
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|General",
-		meta = (DisplayPriority = "3")
-	)
 	/* If you are using World Partition, check this option if you want to create landscape streaming proxies. */
 	/* This is useful if you have a large landscape, but it might slow things down for small landscapes. */
 	bool bCreateLandscapeStreamingProxies = false;
 	
 	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|ComponentCount",
+		meta = (DisplayPriority = "3")
+	)
+	EComponentsMethod ComponentsMethod = EComponentsMethod::AutoWithoutBorder;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|ComponentCount",
+		meta = (
+			EditCondition = "ComponentsMethod != EComponentsMethod::Auto && ComponentsMethod != EComponentsMethod::AutoWithoutBorder",
+			EditConditionHides, DisplayPriority = "4"
+		)
+	)
+	int QuadsPerSubsection;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|ComponentCount",
+		meta = (
+			EditCondition = "ComponentsMethod != EComponentsMethod::Auto && ComponentsMethod != EComponentsMethod::AutoWithoutBorder",
+			EditConditionHides, DisplayPriority = "5"
+		)
+	)
+	int SectionsPerComponent;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|ComponentCount",
+		meta = (
+			EditCondition = "ComponentsMethod != EComponentsMethod::Auto && ComponentsMethod != EComponentsMethod::AutoWithoutBorder",
+			EditConditionHides, DisplayPriority = "6"
+		)
+	)
+	FIntPoint ComponentCount;
+	
+	UPROPERTY(
 		VisibleAnywhere, Category = "LandscapeSpawner",
-		meta = (DisplayPriority = "4")
+		meta = (DisplayPriority = "10")
 	)
 	TObjectPtr<UImageDownloader> ImageDownloader;
 
@@ -120,8 +171,15 @@ public:
 	{
 		if (ImageDownloader) ImageDownloader->SetCoordinatesFromActor();
 	}
+	
+	UFUNCTION()
+	void SetComponentCountFromMethod();
+
+	void PostEditChangeProperty(struct FPropertyChangedEvent&);
 
 private:
+
+	UFUNCTION()
 	bool IsWMS()
 	{
 		return ImageDownloader && ImageDownloader->IsWMS();

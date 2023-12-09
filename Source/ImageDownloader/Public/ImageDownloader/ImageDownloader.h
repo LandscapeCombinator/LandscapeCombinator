@@ -37,6 +37,12 @@ enum class EImageSourceKind : uint8
 	URL
 };
 
+UENUM(BlueprintType)
+enum class EWMSCoordinates: uint8
+{
+	Manual,
+	FromBoundingActor,
+};
 
 UCLASS()
 class IMAGEDOWNLOADER_API UImageDownloader : public UActorComponent
@@ -127,12 +133,32 @@ public:
 		)
 	)
 	FString WMS_SearchCRS = "";
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (
+			EditCondition = "IsWMS()",
+			EditConditionHides, DisplayPriority = "10"
+		)
+	)
+	/* Whether to enter coordinates manually or using a bounding actor. */
+	EWMSCoordinates WMS_Coordinates = EWMSCoordinates::Manual;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (
+			EditCondition = "IsWMS() && WMS_Coordinates == EWMSCoordinates::FromBoundingActor",
+			EditConditionHides, DisplayPriority = "11"
+		)
+	)
+	/* Select a Location Volume (or any other actor) and click the "Set Coordinates From Actor" button to fill the coordinates automatically. */
+	AActor *WMS_BoundingActor = nullptr;
 
 	UPROPERTY(
 		VisibleAnywhere, Category = "ImageDownloader|Source",
 		meta = (
-			EditCondition = "IsWMS()",
-			EditConditionHides, DisplayPriority = "10"
+			EditCondition = "IsWMS() && WMS_Coordinates == EWMSCoordinates::Manual",
+			EditConditionHides, DisplayPriority = "12"
 		)
 	)
 	double WMS_MinAllowedLong;
@@ -140,8 +166,8 @@ public:
 	UPROPERTY(
 		VisibleAnywhere, Category = "ImageDownloader|Source",
 		meta = (
-			EditCondition = "IsWMS()",
-			EditConditionHides, DisplayPriority = "11"
+			EditCondition = "IsWMS() && WMS_Coordinates == EWMSCoordinates::Manual",
+			EditConditionHides, DisplayPriority = "13"
 		)
 	)
 	double WMS_MaxAllowedLong;
@@ -149,8 +175,8 @@ public:
 	UPROPERTY(
 		VisibleAnywhere, Category = "ImageDownloader|Source",
 		meta = (
-			EditCondition = "IsWMS()",
-			EditConditionHides, DisplayPriority = "12"
+			EditCondition = "IsWMS() && WMS_Coordinates == EWMSCoordinates::Manual",
+			EditConditionHides, DisplayPriority = "14"
 		)
 	)
 	double WMS_MinAllowedLat;
@@ -158,8 +184,8 @@ public:
 	UPROPERTY(
 		VisibleAnywhere, Category = "ImageDownloader|Source",
 		meta = (
-			EditCondition = "IsWMS()",
-			EditConditionHides, DisplayPriority = "13"
+			EditCondition = "IsWMS() && WMS_Coordinates == EWMSCoordinates::Manual",
+			EditConditionHides, DisplayPriority = "15"
 		)
 	)
 	double WMS_MaxAllowedLat;
@@ -167,17 +193,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
 		meta = (
-			EditCondition = "IsWMS()",
-			EditConditionHides, DisplayPriority = "19"
-		)
-	)
-	/* Select a Location Volume (or any other actor) and click the "Set Coordinates From Actor" button to fill the coordinates automatically. */
-	AActor *WMS_BoundingActor = nullptr;
-	
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
-		meta = (
-			EditCondition = "IsWMS()",
+			EditCondition = "IsWMS() && WMS_Coordinates == EWMSCoordinates::Manual",
 			EditConditionHides, DisplayPriority = "20"
 		)
 	)
@@ -187,7 +203,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
 		meta = (
-			EditCondition = "IsWMS()",
+			EditCondition = "IsWMS() && WMS_Coordinates == EWMSCoordinates::Manual",
 			EditConditionHides, DisplayPriority = "21"
 		)
 	)
@@ -197,7 +213,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
 		meta = (
-			EditCondition = "IsWMS()",
+			EditCondition = "IsWMS() && WMS_Coordinates == EWMSCoordinates::Manual",
 			EditConditionHides, DisplayPriority = "22"
 		)
 	)
@@ -207,7 +223,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
 		meta = (
-			EditCondition = "IsWMS()",
+			EditCondition = "IsWMS() && WMS_Coordinates == EWMSCoordinates::Manual",
 			EditConditionHides, DisplayPriority = "23"
 		)
 	)
@@ -218,7 +234,7 @@ public:
 		VisibleAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
 		meta = (
 			EditCondition = "IsWMS()",
-			EditConditionHides, DisplayPriority = "24"
+			EditConditionHides, DisplayPriority = "30"
 		)
 	)
 	/* Maximum allowed width from the WMS provider. */
@@ -228,7 +244,7 @@ public:
 		VisibleAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
 		meta = (
 			EditCondition = "IsWMS()",
-			EditConditionHides, DisplayPriority = "25"
+			EditConditionHides, DisplayPriority = "31"
 		)
 	)
 	/* Maximum allowed width from the WMS provider. */
@@ -238,7 +254,7 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
 		meta = (
 			EditCondition = "IsWMS()",
-			EditConditionHides, DisplayPriority = "26"
+			EditConditionHides, DisplayPriority = "32"
 		)
 	)
 	/* Enter desired width for the downloaded heightmap from the WMS API. Smaller or equal than WMS_MaxWidth. */
@@ -248,7 +264,7 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
 		meta = (
 			EditCondition = "IsWMS()",
-			EditConditionHides, DisplayPriority = "27"
+			EditConditionHides, DisplayPriority = "33"
 		)
 	)
 	/* Enter desired height for the downloaded heightmap from the WMS API. Smaller or equal than WMS_MaxHeight. */

@@ -140,7 +140,12 @@ void ALandscapeSpawner::SpawnLandscape()
 					return;
 				}
 
-				ALandscape *CreatedLandscape = LandscapeUtils::SpawnLandscape(Fetcher->OutputFiles, LandscapeLabel, bDropData, bCreateLandscapeStreamingProxies);
+				ALandscape *CreatedLandscape = LandscapeUtils::SpawnLandscape(
+					Fetcher->OutputFiles, LandscapeLabel, bCreateLandscapeStreamingProxies,
+					ComponentsMethod == EComponentsMethod::Auto || ComponentsMethod == EComponentsMethod::AutoWithoutBorder,
+					ComponentsMethod == EComponentsMethod::AutoWithoutBorder,
+					QuadsPerSubsection, SectionsPerComponent, ComponentCount
+				);
 
 				if (CreatedLandscape)	
 				{
@@ -220,6 +225,108 @@ void ALandscapeSpawner::SpawnLandscape()
 	});
 
 	return;
+}
+
+
+void ALandscapeSpawner::SetComponentCountFromMethod()
+{
+	switch (ComponentsMethod)
+	{
+	case EComponentsMethod::Manual:
+		break;
+	case EComponentsMethod::AutoWithoutBorder:
+		break;
+	case EComponentsMethod::Auto:
+		break;
+
+	case EComponentsMethod::Preset_8129_8129:
+		QuadsPerSubsection = 127;
+		SectionsPerComponent = 2;
+		ComponentCount = FIntPoint(32, 32);
+		break;
+
+	case EComponentsMethod::Preset_4033_4033:
+		QuadsPerSubsection = 63;
+		SectionsPerComponent = 2;
+		ComponentCount = FIntPoint(32, 32);
+		break;
+
+	case EComponentsMethod::Preset_2017_2017:
+		QuadsPerSubsection = 63;
+		SectionsPerComponent = 2;
+		ComponentCount = FIntPoint(16, 16);
+		break;
+
+	case EComponentsMethod::Preset_1009_1009:
+		QuadsPerSubsection = 63;
+		SectionsPerComponent = 2;
+		ComponentCount = FIntPoint(8, 8);
+		break;
+
+	case EComponentsMethod::Preset_1009_1009_2:
+		QuadsPerSubsection = 63;
+		SectionsPerComponent = 1;
+		ComponentCount = FIntPoint(16, 16);
+		break;
+
+	case EComponentsMethod::Preset_505_505:
+		QuadsPerSubsection = 63;
+		SectionsPerComponent = 2;
+		ComponentCount = FIntPoint(4, 4);
+		break;
+
+	case EComponentsMethod::Preset_505_505_2:
+		QuadsPerSubsection = 63;
+		SectionsPerComponent = 1;
+		ComponentCount = FIntPoint(8, 8);
+		break;
+
+	case EComponentsMethod::Preset_253_253:
+		QuadsPerSubsection = 63;
+		SectionsPerComponent = 2;
+		ComponentCount = FIntPoint(2, 2);
+		break;
+
+	case EComponentsMethod::Preset_253_253_2:
+		QuadsPerSubsection = 63;
+		SectionsPerComponent = 1;
+		ComponentCount = FIntPoint(4, 4);
+		break;
+
+	case EComponentsMethod::Preset_127_127:
+		QuadsPerSubsection = 63;
+		SectionsPerComponent = 2;
+		ComponentCount = FIntPoint(1, 1);
+		break;
+
+	case EComponentsMethod::Preset_127_127_2:
+		QuadsPerSubsection = 63;
+		SectionsPerComponent = 1;
+		ComponentCount = FIntPoint(2, 2);
+		break;
+
+	default:
+		break;
+	}
+}
+
+
+void ALandscapeSpawner::PostEditChangeProperty(FPropertyChangedEvent& Event)
+{
+	if (!Event.Property)
+	{
+		Super::PostEditChangeProperty(Event);
+		return;
+	}
+
+	FName PropertyName = Event.Property->GetFName();
+
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(ALandscapeSpawner, ComponentsMethod))
+	{
+		SetComponentCountFromMethod();
+	}
+
+	Super::PostEditChangeProperty(Event);
 }
 
 
