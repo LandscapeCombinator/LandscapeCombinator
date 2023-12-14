@@ -5,4 +5,7 @@
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
 
-class FBuildingFromSplineModule : public IModuleInterface {};
+class FBuildingFromSplineModule : public IModuleInterface
+{
+    void StartupModule() override;
+};

@@ -15,13 +15,16 @@
 UENUM(BlueprintType)
 enum class EImageSourceKind : uint8
 {
-	IGN,
+	Select_A_Source,
+
+	IGN_Heightmaps,
+	IGN_Satellite,
 	USGS_3DEPElevation,
 	USGS_Topo,
 	USGS_Imagery,
 	SHOM,
-	OpenStreetMap_FR,
-	Terrestris_OSM,
+	//OpenStreetMap_FR,
+	//Terrestris_OSM,
 	GenericWMS,
 
 	Viewfinder15,

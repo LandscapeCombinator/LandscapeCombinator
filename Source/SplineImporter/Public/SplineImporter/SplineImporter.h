@@ -20,9 +20,9 @@
 
 UENUM(BlueprintType)
 enum ESourceKind: uint8 {
-	Roads,
-	Rivers,
-	Buildings,
+	OSM_Roads,
+	OSM_Rivers,
+	OSM_Buildings,
 	OverpassShortQuery,
 	OverpassQuery,
 	LocalFile
@@ -40,7 +40,7 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
 		meta = (DisplayPriority = "-10")
 	)
-	TEnumAsByte<ESourceKind> SplinesSource = ESourceKind::Roads;
+	TEnumAsByte<ESourceKind> SplinesSource = ESourceKind::OSM_Roads;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
 		meta = (EditCondition = "SplinesSource == ESourceKind::LocalFile", EditConditionHides, DisplayPriority = "-1")
