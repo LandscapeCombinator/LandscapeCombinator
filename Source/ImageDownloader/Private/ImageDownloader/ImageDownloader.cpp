@@ -349,10 +349,11 @@ void UImageDownloader::DeleteAllProcessedImages()
 bool UImageDownloader::IsWMS()
 {
 	return
-		ImageSourceKind == EImageSourceKind::OpenStreetMap_FR ||
-		ImageSourceKind == EImageSourceKind::Terrestris_OSM ||
+		//ImageSourceKind == EImageSourceKind::OpenStreetMap_FR ||
+		//ImageSourceKind == EImageSourceKind::Terrestris_OSM ||
 		ImageSourceKind == EImageSourceKind::GenericWMS ||
-		ImageSourceKind == EImageSourceKind::IGN ||
+		ImageSourceKind == EImageSourceKind::IGN_Heightmaps ||
+		ImageSourceKind == EImageSourceKind::IGN_Satellite ||
 		ImageSourceKind == EImageSourceKind::SHOM ||
 		ImageSourceKind == EImageSourceKind::USGS_Imagery ||
 		ImageSourceKind == EImageSourceKind::USGS_Topo ||
@@ -452,9 +453,14 @@ void UImageDownloader::OnLayerChanged()
 
 void UImageDownloader::OnImageSourceChanged(TFunction<void(bool)> OnComplete)
 {
-	if (ImageSourceKind == EImageSourceKind::IGN)
+	if (ImageSourceKind == EImageSourceKind::IGN_Heightmaps)
 	{
 		CapabilitiesURL = "https://wxs.ign.fr/altimetrie/geoportail/r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+	}
+	else if (ImageSourceKind == EImageSourceKind::IGN_Satellite)
+	{
+		CapabilitiesURL = "https://wxs.ign.fr/satellite/geoportail/r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
 	}
 	else if (ImageSourceKind == EImageSourceKind::SHOM)
@@ -477,16 +483,16 @@ void UImageDownloader::OnImageSourceChanged(TFunction<void(bool)> OnComplete)
 		CapabilitiesURL = "https://basemap.nationalmap.gov/arcgis/services/USGSImageryOnly/MapServer/WMSServer?request=GetCapabilities&service=WMS";
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
 	}
-	else if (ImageSourceKind == EImageSourceKind::OpenStreetMap_FR)
-	{
-		CapabilitiesURL = "https://wms.openstreetmap.fr/wms?request=GetCapabilities&service=WMS";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-	}
-	else if (ImageSourceKind == EImageSourceKind::Terrestris_OSM)
-	{
-		CapabilitiesURL = "https://ows.terrestris.de/osm/service?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetCapabilities";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-	}
+	//else if (ImageSourceKind == EImageSourceKind::OpenStreetMap_FR)
+	//{
+	//	CapabilitiesURL = "https://wms.openstreetmap.fr/wms?request=GetCapabilities&service=WMS";
+	//	ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+	//}
+	//else if (ImageSourceKind == EImageSourceKind::Terrestris_OSM)
+	//{
+	//	CapabilitiesURL = "https://ows.terrestris.de/osm/service?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetCapabilities";
+	//	ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+	//}
 	else
 	{
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
@@ -495,7 +501,22 @@ void UImageDownloader::OnImageSourceChanged(TFunction<void(bool)> OnComplete)
 
 void UImageDownloader::ResetWMSProvider(TArray<FString> ExcludeCRS, TFunction<bool(FString)> LayerFilter, TFunction<void(bool)> OnComplete)
 {
-	if (!CapabilitiesURL.IsEmpty())
+	if (CapabilitiesURL.IsEmpty())
+	{
+		WMS_Abstract = "";
+		WMS_Title = "";
+		WMS_Name = "";
+		WMS_Help = "";
+		WMS_CRS = "";
+		WMS_SearchCRS = "";
+		WMS_MinAllowedLong = 0;
+		WMS_MinAllowedLat = 0;
+		WMS_MaxAllowedLat = 0;
+		WMS_MaxAllowedLong = 0;
+		WMS_MaxWidth = 0;
+		WMS_MaxHeight = 0;
+	}
+	else
 	{
 		WMSProvider.SetFromURL(
 			CapabilitiesURL,

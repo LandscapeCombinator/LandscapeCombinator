@@ -67,6 +67,7 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category = "Building")
 	void GenerateStaticMesh();
+
 	UFUNCTION(BlueprintCallable, Category = "Building")
 	void GenerateVolume();
 	
@@ -103,6 +104,9 @@ private:
 	
 	UPROPERTY(VisibleAnywhere, Category = "Building")
 	TObjectPtr<UInstancedStaticMeshComponent> InstancedWindowsComponent;
+
+	UPROPERTY()
+	FString StaticMeshPath;
 
 	// same as SplineComponent, but all points have the same Z coordinate as the lowest point,
 	// and the points are clockwise (when seen from above in Unreal, which isn't the same as clockwise in TPolygon2

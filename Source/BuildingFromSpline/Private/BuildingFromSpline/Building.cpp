@@ -1206,8 +1206,8 @@ void ABuilding::ClearSplineMeshComponents()
 
 void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 {
-	// static FTotalTimeAndCount AppendBuildingTime, NormalsTime, UVsTime;
-	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AppendBuildingTime);
+	 static FTotalTimeAndCount AppendBuildingTime, NormalsTime, UVsTime;
+	 SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AppendBuildingTime);
 
 	ON_SCOPE_EXIT {
 		ReleaseAllComputeMeshes();
@@ -1250,11 +1250,11 @@ void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 		DynamicMeshComponent->SetMaterial(1, BuildingConfiguration->RoofMaterial);
 	}
 
-	//{
-	//	// SCOPE_LOG_TIME_IN_SECONDS(TEXT("Normals"), &NormalsTime);
+	{
+		SCOPE_LOG_TIME_IN_SECONDS(TEXT("Normals"), &NormalsTime);
 
-	//	UGeometryScriptLibrary_MeshNormalsFunctions::ComputeSplitNormals(TargetMesh, FGeometryScriptSplitNormalsOptions(), FGeometryScriptCalculateNormalsOptions());
-	//}
+		UGeometryScriptLibrary_MeshNormalsFunctions::ComputeSplitNormals(TargetMesh, FGeometryScriptSplitNormalsOptions(), FGeometryScriptCalculateNormalsOptions());
+	}
 
 	if (BuildingConfiguration->bConvertToStaticMesh)
 	{
@@ -1301,21 +1301,23 @@ void ABuilding::GenerateStaticMesh()
 	NaniteSettings.bEnabled = true;
 	NaniteSettings.bPreserveArea = true;
 
-	FString Path;
 	FString Unused;
 
-	UGeometryScriptLibrary_CreateNewAssetFunctions::CreateUniqueNewAssetPathName(FString("/Game"), FString("SM_Building"), Path, Unused, FGeometryScriptUniqueAssetNameOptions(), Outcome);
-
-	if (Outcome != EGeometryScriptOutcomePins::Success)
+	if (StaticMeshPath.IsEmpty())
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("StaticMeshError", "Internal error while creating unique asset path name.")
-		);
-		return;
+		UGeometryScriptLibrary_CreateNewAssetFunctions::CreateUniqueNewAssetPathName(FString("/Game/Buildings"), FString("SM_Building"), StaticMeshPath, Unused, FGeometryScriptUniqueAssetNameOptions(), Outcome);
+
+		if (Outcome != EGeometryScriptOutcomePins::Success)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok,
+				LOCTEXT("StaticMeshError", "Internal error while creating unique asset path name.")
+			);
+			return;
+		}
 	}
 
 	UStaticMesh *StaticMesh = UGeometryScriptLibrary_CreateNewAssetFunctions::CreateNewStaticMeshAssetFromMesh(
-		DynamicMeshComponent->GetDynamicMesh(), Path,
+		DynamicMeshComponent->GetDynamicMesh(), StaticMeshPath,
 		Options, Outcome
 	);
 

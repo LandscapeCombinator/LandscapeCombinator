@@ -13,6 +13,15 @@
 void FWMSProvider::SetFromURL(FString URL, TArray<FString> ExcludeCRS, TFunction<bool(FString)> LayerFilter, TFunction<void(bool)> OnComplete)
 {
 	CapabilitiesURL = URL;
+	
+	Names.Empty();
+	Titles.Empty();
+	Abstracts.Empty();
+	CRSs.Empty();
+	MinXs.Empty();
+	MinYs.Empty();
+	MaxXs.Empty();
+	MaxYs.Empty();
 
 	uint32 Hash = FTextLocalizationResource::HashString(URL);
 	CapabilitiesFile = FPaths::Combine(Directories::DownloadDir(), FString::Format(TEXT("capabilities_{0}.xsd"), { Hash }));

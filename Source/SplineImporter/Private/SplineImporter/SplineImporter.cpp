@@ -282,15 +282,15 @@ void ASplineImporter::LoadGDALDataset(TFunction<void(GDALDataset*)> OnComplete)
 	{
 		LoadGDALDatasetFromShortQuery(OverpassShortQuery, OnComplete);
 	}
-	else if (SplinesSource == ESourceKind::Roads)
+	else if (SplinesSource == ESourceKind::OSM_Roads)
 	{
 		LoadGDALDatasetFromShortQuery(FString("way[\"highway\"][\"highway\"!~\"path\"][\"highway\"!~\"track\"];"), OnComplete);
 	}
-	else if (SplinesSource == ESourceKind::Buildings)
+	else if (SplinesSource == ESourceKind::OSM_Buildings)
 	{
 		LoadGDALDatasetFromShortQuery(FString("way[\"building\"];"), OnComplete);
 	}
-	else if (SplinesSource == ESourceKind::Rivers)
+	else if (SplinesSource == ESourceKind::OSM_Rivers)
 	{
 		LoadGDALDatasetFromShortQuery(FString("way[\"waterway\"=\"river\"];"), OnComplete);
 	}
@@ -633,7 +633,7 @@ void ASplineImporter::AddRegularSpline(
 	if (First == Last) SplineComponent->SetClosedLoop(true);
 		
 
-	if (SplinesSource == ESourceKind::Buildings)
+	if (SplinesSource == ESourceKind::OSM_Buildings)
 	{
 		auto &Points = SplineComponent->SplineCurves.Position.Points;
 		for (FInterpCurvePoint<FVector> &Point : SplineComponent->SplineCurves.Position.Points)
