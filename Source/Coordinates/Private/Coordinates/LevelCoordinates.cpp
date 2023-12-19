@@ -171,7 +171,7 @@ void ALevelCoordinates::CreateWorldMap()
 		FString DownloadedWorldMapPath = FPaths::Combine(CoordinatesDir, "DownloadedWorldMap.tif");
 		FString TempWorldMapPath = FPaths::Combine(CoordinatesDir, "TempWorldMap.tif");
 		FString WorldMapPath = FPaths::Combine(CoordinatesDir, "WorldMap.tif");
-		Download::FromURL(URL, DownloadedWorldMapPath, [this, MinLong, MaxLong, MinLat, MaxLat, DownloadedWorldMapPath, TempWorldMapPath, WorldMapPath](bool bSuccess) {
+		Download::FromURL(URL, DownloadedWorldMapPath, true, [this, MinLong, MaxLong, MinLat, MaxLat, DownloadedWorldMapPath, TempWorldMapPath, WorldMapPath](bool bSuccess) {
 			if (bSuccess)
 			{
 				bool bSuccessWriteCRS =

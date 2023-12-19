@@ -64,19 +64,63 @@ public:
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|General",
-		meta = (DisplayPriority = "1")
+		meta = (DisplayPriority = "2")
 	)
 	/* The scale in the Z-axis of your heightmap, ZScale = 1 corresponds to real-world size. */
 	double ZScale = 1;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|General",
-		meta = (DisplayPriority = "2")
+		meta = (DisplayPriority = "3")
 	)
 	/* If you are using World Partition, check this option if you want to create landscape streaming proxies. */
 	/* This is useful if you have a large landscape, but it might slow things down for small landscapes. */
 	bool bCreateLandscapeStreamingProxies = false;
 	
+	
+
+	/**********
+	 * Decals *
+	 **********/
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Decals",
+		meta = (DisplayPriority = "0")
+	)
+	/* Automatically create decals that cover the landscape from Mapbox Satellite imagery. */
+	bool bCreateMapboxDecals = false;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Decals",
+		meta = (EditCondition = "bCreateMapboxDecals && !IsMapbox()", EditConditionHides, DisplayPriority = "1")
+	)
+	FString Decals_Mapbox_Token = "";
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Decals",
+		meta = (EditCondition = "bCreateMapboxDecals", EditConditionHides, DisplayPriority = "2")
+	)
+	int Decals_Mapbox_Zoom = 9;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Decals",
+		meta = (EditCondition = "bCreateMapboxDecals", EditConditionHides, DisplayPriority = "3")
+	)
+	bool Decals_Mapbox_2x;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Decals",
+		meta = (DisplayPriority = "10")
+	)
+	/* Automatically create decals that cover the landscape from the custom Texture Downloader settings. */
+	bool bCreateCustomDecals = false;
+	
+	
+
+	/********************
+	 * Components Count *
+	 ********************/	
+
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|ComponentCount",
 		meta = (DisplayPriority = "3")
@@ -112,9 +156,18 @@ public:
 	
 	UPROPERTY(
 		VisibleAnywhere, Category = "LandscapeSpawner",
-		meta = (DisplayPriority = "10")
+		meta = (DisplayPriority = "10", ShowOnlyInnerProperties)
 	)
-	TObjectPtr<UImageDownloader> ImageDownloader;
+	TObjectPtr<UImageDownloader> HeightmapDownloader;
+	
+	UPROPERTY(
+		VisibleAnywhere, Category = "LandscapeSpawner",
+		meta = (EditCondition = "bCreateCustomDecals", EditConditionHides, DisplayPriority = "11", ShowOnlyInnerProperties)
+	)
+	TObjectPtr<UImageDownloader> TextureDownloader;
+	
+	UPROPERTY()
+	TObjectPtr<UImageDownloader> MapboxSatelliteDownloader;
 
 	
 	/***********
@@ -133,7 +186,7 @@ public:
 	)
 	void DeleteAllImages()
 	{
-		if (ImageDownloader) ImageDownloader->DeleteAllImages();
+		if (HeightmapDownloader) HeightmapDownloader->DeleteAllImages();
 	}
 
 	/* This preserves downloaded files but deleted all transformed images. */
@@ -142,7 +195,7 @@ public:
 	)
 	void DeleteAllProcessedImages()
 	{
-		if (ImageDownloader) ImageDownloader->DeleteAllProcessedImages();
+		if (HeightmapDownloader) HeightmapDownloader->DeleteAllProcessedImages();
 	}
 
 	/* Click this to force reloading the WMS Provider from the URL */
@@ -151,7 +204,7 @@ public:
 	)
 	void ForceReloadWMS()
 	{
-		if (ImageDownloader) ImageDownloader->ForceReloadWMS();
+		if (HeightmapDownloader) HeightmapDownloader->ForceReloadWMS();
 	}
 
 	/* Click this to set the min and max coordinates to the largest possible bounds */
@@ -160,16 +213,16 @@ public:
 	)
 	void SetLargestPossibleCoordinates()
 	{
-		if (ImageDownloader) ImageDownloader->SetLargestPossibleCoordinates();
+		if (HeightmapDownloader) HeightmapDownloader->SetLargestPossibleCoordinates();
 	}
 
 	/* Click this to set the WMS coordinates from a Location Volume or any other actor*/
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeSpawner",
 		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "6")
 	)
-	void SetCoordinatesFromActor()
+	void SetSourceParameters()
 	{
-		if (ImageDownloader) ImageDownloader->SetCoordinatesFromActor();
+		if (HeightmapDownloader) HeightmapDownloader->SetSourceParameters();
 	}
 	
 	UFUNCTION()
@@ -182,7 +235,13 @@ private:
 	UFUNCTION()
 	bool IsWMS()
 	{
-		return ImageDownloader && ImageDownloader->IsWMS();
+		return HeightmapDownloader && HeightmapDownloader->IsWMS();
+	}
+
+	UFUNCTION()
+	bool IsMapbox()
+	{
+		return HeightmapDownloader && HeightmapDownloader->IsMapbox();
 	}
 };
 

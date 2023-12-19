@@ -1,6 +1,7 @@
 param (
     [string]$PluginVersion,
-    [string]$EngineVersion
+    [string]$EngineVersion,
+    [string]$UEFolder
 )
 
 Set-StrictMode -Version 3
@@ -15,6 +16,11 @@ function New-Archive {
     Write-Output "Preparing archive for $Plugin plugin"
 
     $TempFolder = "TEMP_$Plugin"
+
+    if (Test-Path $TempFolder)
+    {
+        Remove-Item -Force -Recurse $TempFolder
+    }
 
     New-Item -ItemType Directory -Path $TempFolder -Force | Out-Null
 
@@ -108,6 +114,17 @@ function New-Archive {
         Remove-Item -Recurse -Force "$TempFolder/Content/__ExternalActors__"
         Remove-Item -Recurse -Force "$TempFolder/Content/__ExternalObjects__"
         Remove-Item -Force "$TempFolder/Content/LandscapeCombinatorMap.umap"
+    }
+
+    if ($UEFolder)
+    {
+        $UPluginPath = Resolve-Path("$TempFolder/$Plugin.uplugin")
+        New-Item -ItemType Directory -Path "Package_$Plugin" -Force | Out-Null
+        $PackagePath = Resolve-Path("Package_$Plugin")
+        Write-Output "UPlugin Path: $UPluginPath"
+        Write-Output "Package Path: $PackagePath"
+        & "${UEFolder}Engine\Build\BatchFiles\RunUAT.bat" BuildPlugin -Plugin="$UPluginPath" -Package="$PackagePath" -Rocket
+        Remove-Item -Force -Recurse "Package_$Plugin"
     }
 
     Write-Output "Running: 7z a $plugin-v$PluginVersion-UE$EngineVersion.zip $(Resolve-Path "$TempFolder/*" | Select-Object -ExpandProperty Path)"

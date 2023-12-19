@@ -13,11 +13,13 @@
 #include "ImageDownloader/Downloaders/HMViewfinder15Downloader.h"
 #include "ImageDownloader/Downloaders/HMViewfinderDownloader.h"
 #include "ImageDownloader/Downloaders/HMListDownloader.h"
+#include "ImageDownloader/Downloaders/HMXYZ.h"
 
 #include "ImageDownloader/Transformers/HMSwissALTI3DRenamer.h"
 #include "ImageDownloader/Transformers/HMLitto3DGuadeloupeRenamer.h"
 #include "ImageDownloader/Transformers/HMViewfinder15Renamer.h"
 
+#include "ImageDownloader/Transformers/HMDecodeMapbox.h"
 #include "ImageDownloader/Transformers/HMDegreeFilter.h"
 #include "ImageDownloader/Transformers/HMDegreeRenamer.h"
 #include "ImageDownloader/Transformers/HMPreprocess.h"
@@ -26,6 +28,7 @@
 #include "ImageDownloader/Transformers/HMEnsureOneBand.h"
 #include "ImageDownloader/Transformers/HMCrop.h"
 #include "ImageDownloader/Transformers/HMToPNG.h"
+#include "ImageDownloader/Transformers/HMMerge.h"
 #include "ImageDownloader/Transformers/HMReadCRS.h"
 #include "ImageDownloader/Transformers/HMWriteCRS.h"
 #include "ImageDownloader/Transformers/HMConvert.h"
@@ -142,6 +145,12 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 		{
 			if (IsWMS())
 			{
+				// ensure that the coordinates match the bounding actor, in case it has been moved since the last time when the coordinates were set
+				if (ParametersSelection == EParametersSelection::FromBoundingActor && !SetSourceParametersBool(true))
+				{
+					return nullptr;
+				}
+
 				bool bGeoTiff;
 				FString QueryURL, FileExt;
 				bool bSuccess = WMSProvider.CreateURL(
@@ -157,7 +166,7 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 				uint32 Hash = FTextLocalizationResource::HashString(QueryURL);
 				FString FileName = FString::Format(TEXT("WMS_{0}.{1}"), { Hash, FileExt });
 				
-				HMFetcher *WMSFetcher= new HMURL(QueryURL, FileName, RenameCRS(WMS_CRS));
+				HMFetcher *WMSFetcher = new HMURL(QueryURL, FileName, RenameCRS(WMS_CRS));
 
 				if (!WMSFetcher) return nullptr;
 
@@ -167,6 +176,70 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 				{
 					Result = Result->AndThen(new HMDebugFetcher("WMS_WriteCRS", new HMWriteCRS(Name, WMS_Width, WMS_Height, WMS_MinLong, WMS_MaxLong, WMS_MinLat, WMS_MaxLat)));
 				}
+
+				return Result;
+			}
+			else if (IsXYZ())
+			{
+				// ensure that the coordinates match the bounding actor, in case it has been moved since the last time when the coordinates were set
+				if (ParametersSelection == EParametersSelection::FromBoundingActor && !SetSourceParametersBool(true))
+				{
+					return nullptr;
+				}
+				FString Layer, Format;
+				FString URL2;
+				bool bGeoreferenceSlippyTiles2;
+				bool bMaxY_IsNorth2;
+				if (ImageSourceKind == EImageSourceKind::Mapbox_Heightmaps)
+				{
+					Layer = "MapboxTerrainDEMV1";
+					Format = "png";
+					if (Mapbox_2x)
+					{
+						URL2 = FString("https://api.mapbox.com/v4/mapbox.mapbox-terrain-dem-v1/{z}/{x}/{y}@2x.pngraw?access_token=") + Mapbox_Token;
+					}
+					else
+					{
+						URL2 = FString("https://api.mapbox.com/v4/mapbox.mapbox-terrain-dem-v1/{z}/{x}/{y}.pngraw?access_token=") + Mapbox_Token;
+					}
+
+					bGeoreferenceSlippyTiles2 = true;
+					bMaxY_IsNorth2 = false;
+				}
+				else if (ImageSourceKind == EImageSourceKind::Mapbox_Satellite)
+				{
+					Layer = "MapboxSatellite";
+					Format = "jpg";
+					if (Mapbox_2x)
+					{
+						URL2 = FString("https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=") + Mapbox_Token;
+					}
+					else
+					{
+						URL2 = FString("https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}.jpg90?access_token=") + Mapbox_Token;
+					}
+
+					bGeoreferenceSlippyTiles2 = true;
+					bMaxY_IsNorth2 = false;
+				}
+				else
+				{
+					Layer = XYZ_Name;
+					Format = XYZ_Format;
+					URL2 = XYZ_URL;
+					bGeoreferenceSlippyTiles2 = bGeoreferenceSlippyTiles;
+					bMaxY_IsNorth2 = bMaxY_IsNorth;
+				}
+				
+				HMFetcher *Result = new HMDebugFetcher(
+					"XYZ_Download",
+					new HMXYZ(
+						Name, Layer, Format, URL2, XYZ_Zoom, XYZ_MinX, XYZ_MaxX, XYZ_MinY, XYZ_MaxY,
+						bMaxY_IsNorth2, bGeoreferenceSlippyTiles2, ImageSourceKind == EImageSourceKind::Mapbox_Heightmaps,
+						XYZ_CRS
+					),
+					true
+				);
 
 				return Result;
 			}
@@ -360,6 +433,19 @@ bool UImageDownloader::IsWMS()
 		ImageSourceKind == EImageSourceKind::USGS_3DEPElevation;
 }
 
+bool UImageDownloader::IsMapbox()
+{
+	return
+		ImageSourceKind == EImageSourceKind::Mapbox_Heightmaps ||
+		ImageSourceKind == EImageSourceKind::Mapbox_Satellite;
+
+}
+
+bool UImageDownloader::IsXYZ()
+{
+	return IsMapbox() || ImageSourceKind == EImageSourceKind::GenericXYZ;
+}
+
 bool UImageDownloader::HasMultipleLayers()
 {
 	return WMSProvider.Titles.Num() >= 2;
@@ -373,30 +459,173 @@ void UImageDownloader::SetLargestPossibleCoordinates()
 	WMS_MaxLat = WMS_MaxAllowedLat;
 }
 
-void UImageDownloader::SetCoordinatesFromActor()
+void UImageDownloader::SetSourceParameters()
+{
+	SetSourceParametersBool(true);
+}
+
+bool UImageDownloader::SetSourceParametersBool(bool bDialog)
+{
+	if (ParametersSelection == EParametersSelection::Manual) return true;
+
+	if (!IsWMS() && !IsXYZ())
+	{
+		if (bDialog)
+		{
+			FMessageDialog::Open(
+				EAppMsgType::Ok,
+				LOCTEXT("UImageDownloader::SetSourceParameters::0", "This is supported only for WMS and XYZ sources.")
+			);
+		}
+		return false;
+	}
+
+	if (ParametersSelection == EParametersSelection::FromBoundingActor)
+	{
+		return SetSourceParametersFromActor(bDialog);
+	}
+	else if (ParametersSelection == EParametersSelection::FromEPSG4326Coordinates)
+	{
+		return SetSourceParametersFromEPSG4326Coordinates(bDialog);
+	}
+	else
+	{
+		FMessageDialog::Open(
+			EAppMsgType::Ok,
+			LOCTEXT("UImageDownloader::SetSourceParameters::1", "Internal Error: Unsupported parameter selection method.")
+		);
+		return false;
+	}
+}
+
+bool UImageDownloader::SetSourceParametersFromEPSG4326Coordinates(bool bDialog)
+{
+	if (IsWMS())
+	{
+		FVector4d InCoordinates, OutCoordinates;
+		InCoordinates[0] = MinLong;
+		InCoordinates[1] = MaxLong;
+		InCoordinates[2] = MinLat;
+		InCoordinates[3] = MaxLat;
+
+		if (!GDALInterface::ConvertCoordinates(InCoordinates, OutCoordinates, "EPSG:4326", WMS_CRS)) return false;
+
+		WMS_MinLong = OutCoordinates[0];
+		WMS_MaxLong = OutCoordinates[1];
+		WMS_MinLat = OutCoordinates[2];
+		WMS_MaxLat = OutCoordinates[3];
+
+		return true;
+	}
+	else if (IsXYZ())
+	{
+		double MinLatRad = FMath::DegreesToRadians(MinLat);
+		double MaxLatRad = FMath::DegreesToRadians(MaxLat);
+		double n = 1 << XYZ_Zoom;
+		XYZ_MinX = (MinLong + 180) / 360 * n;
+		XYZ_MaxX = (MaxLong + 180) / 360 * n;
+		
+		XYZ_MinY = (1.0 - asinh(FMath::Tan(MaxLatRad)) / UE_PI) / 2.0 * n;
+		XYZ_MaxY = (1.0 - asinh(FMath::Tan(MinLatRad)) / UE_PI) / 2.0 * n;
+
+		//UE_LOG(LogImageDownloader, Log, TEXT("Converting coordinates to tiles"));
+		//UE_LOG(LogImageDownloader, Log, TEXT("n: %f"), n);
+		//UE_LOG(LogImageDownloader, Log, TEXT("MinLong: %f"), MinLong);
+		//UE_LOG(LogImageDownloader, Log, TEXT("MaxLong: %f"), MaxLong);
+		//UE_LOG(LogImageDownloader, Log, TEXT("MinLat: %f"), MinLat);
+		//UE_LOG(LogImageDownloader, Log, TEXT("MaxLat: %f"), MaxLat);
+		//UE_LOG(LogImageDownloader, Log, TEXT("MinLatRad: %f"), MinLatRad);
+		//UE_LOG(LogImageDownloader, Log, TEXT("MaxLatRad: %f"), MaxLatRad);
+		//UE_LOG(LogImageDownloader, Log, TEXT("MinX: %f"), XYZ_MinX);
+		//UE_LOG(LogImageDownloader, Log, TEXT("MaxX: %f"), XYZ_MaxX);
+		//UE_LOG(LogImageDownloader, Log, TEXT("MinY: %f"), XYZ_MinY);
+		//UE_LOG(LogImageDownloader, Log, TEXT("MaxY: %f"), XYZ_MaxY);
+
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+
+bool UImageDownloader::SetSourceParametersFromActor(bool bDialog)
 {
 	FVector4d Coordinates;
 
-	if (!WMS_BoundingActor)
+	if (!ParametersBoundingActor)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("UImageDownloader::SetCoordinatesFromActor", "Please select an actor for WMS Bounding Actor."));
-		return;
+		if (bDialog)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("UImageDownloader::SetSourceParameters", "Please select a bounding actor."));
+		}
+		return false;
 	}
 
-	if (!ALevelCoordinates::GetActorCRSBounds(WMS_BoundingActor, WMS_CRS, Coordinates))
+	UE_LOG(LogImageDownloader, Log, TEXT("Set Source Parameters From Actor %s"), *ParametersBoundingActor->GetActorLabel());
+
+	FString SourceCRS = IsWMS() ? WMS_CRS : "EPSG:4326";
+
+	if (!ALevelCoordinates::GetActorCRSBounds(ParametersBoundingActor, SourceCRS, Coordinates))
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("UImageDownloader::SetCoordinatesFromActor::2", "Could not read coordinates from Actor {0}."),
-			FText::FromString(WMS_BoundingActor->GetActorLabel())
-		));
-		return;
+		if (bDialog)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+				LOCTEXT("UImageDownloader::SetSourceParameters::2", "Could not read coordinates from Actor {0}."),
+				FText::FromString(ParametersBoundingActor->GetActorLabel())
+			));
+		}
+		return false;
 	}
 	
-	WMS_MinLong = Coordinates[0];
-	WMS_MaxLong = Coordinates[1];
-	WMS_MinLat = Coordinates[2];
-	WMS_MaxLat = Coordinates[3];
+	double ActorMinLong = Coordinates[0];
+	double ActorMaxLong = Coordinates[1];
+	double ActorMinLat = Coordinates[2];
+	double ActorMaxLat = Coordinates[3];
+	
+	if (IsWMS())
+	{
+		WMS_MinLong = ActorMinLong;
+		WMS_MaxLong = ActorMaxLong;
+		WMS_MinLat = ActorMinLat;
+		WMS_MaxLat = ActorMaxLat;
+
+		return true;
+	}
+	else if (IsXYZ())
+	{
+		double ActorMinLatRad = FMath::DegreesToRadians(ActorMinLat);
+		double ActorMaxLatRad = FMath::DegreesToRadians(ActorMaxLat);
+		double n = 1 << XYZ_Zoom;
+		XYZ_MinX = (ActorMinLong + 180) / 360 * n;
+		XYZ_MaxX = (ActorMaxLong + 180) / 360 * n;
+		
+		XYZ_MinY = (1.0 - asinh(FMath::Tan(ActorMaxLatRad)) / UE_PI) / 2.0 * n;
+		XYZ_MaxY = (1.0 - asinh(FMath::Tan(ActorMinLatRad)) / UE_PI) / 2.0 * n;
+
+		//UE_LOG(LogImageDownloader, Log, TEXT("Converting coordinates to tiles"));
+		//UE_LOG(LogImageDownloader, Log, TEXT("n: %f"), n);
+		//UE_LOG(LogImageDownloader, Log, TEXT("ActorMinLong: %f"), ActorMinLong);
+		//UE_LOG(LogImageDownloader, Log, TEXT("ActorMaxLong: %f"), ActorMaxLong);
+		//UE_LOG(LogImageDownloader, Log, TEXT("ActorMinLat: %f"), ActorMinLat);
+		//UE_LOG(LogImageDownloader, Log, TEXT("ActorMaxLat: %f"), ActorMaxLat);
+		//UE_LOG(LogImageDownloader, Log, TEXT("ActorMinLatRad: %f"), ActorMinLatRad);
+		//UE_LOG(LogImageDownloader, Log, TEXT("ActorMaxLatRad: %f"), ActorMaxLatRad);
+		//UE_LOG(LogImageDownloader, Log, TEXT("MinX: %f"), XYZ_MinX);
+		//UE_LOG(LogImageDownloader, Log, TEXT("MaxX: %f"), XYZ_MaxX);
+		//UE_LOG(LogImageDownloader, Log, TEXT("MinY: %f"), XYZ_MinY);
+		//UE_LOG(LogImageDownloader, Log, TEXT("MaxY: %f"), XYZ_MaxY);
+
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
+
+#if WITH_EDITOR
 
 void UImageDownloader::PostEditChangeProperty(FPropertyChangedEvent& Event)
 {
@@ -420,16 +649,25 @@ void UImageDownloader::PostEditChangeProperty(FPropertyChangedEvent& Event)
 	{
 		OnLayerChanged();
 	}
+	else if (PropertyName == GET_MEMBER_NAME_CHECKED(UImageDownloader, ParametersSelection))
+	{
+		SetSourceParametersBool(false);
+	}
 	else if (
-		PropertyName == GET_MEMBER_NAME_CHECKED(UImageDownloader, WMS_Coordinates) ||
-		PropertyName == GET_MEMBER_NAME_CHECKED(UImageDownloader, WMS_BoundingActor)
+		PropertyName == GET_MEMBER_NAME_CHECKED(UImageDownloader, ParametersBoundingActor) ||
+		PropertyName == GET_MEMBER_NAME_CHECKED(UImageDownloader, MinLong) ||
+		PropertyName == GET_MEMBER_NAME_CHECKED(UImageDownloader, MaxLong) ||
+		PropertyName == GET_MEMBER_NAME_CHECKED(UImageDownloader, MinLat) ||
+		PropertyName == GET_MEMBER_NAME_CHECKED(UImageDownloader, MaxLat)
 	)
 	{
-		SetCoordinatesFromActor();
+		SetSourceParametersBool(true);
 	}
 
 	Super::PostEditChangeProperty(Event);
 }
+
+#endif
 
 
 void UImageDownloader::OnLayerChanged()
@@ -555,6 +793,94 @@ void UImageDownloader::ResetWMSProvider(TArray<FString> ExcludeCRS, TFunction<bo
 			}
 		);
 	}
+}
+
+void UImageDownloader::DownloadImages(TFunction<void(TArray<FString>)> OnComplete)
+{
+	AActor *Owner = GetOwner();
+	if (!Owner)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			LOCTEXT("UImageDownloader::DownloadImages::NoOwner", "Internal Error: Could not find UImageDownloader Owner.")
+		);
+		if (OnComplete) OnComplete(TArray<FString>());
+		return;
+	}
+	
+	HMFetcher *Fetcher = CreateFetcher(Owner->GetActorLabel(), false, false, false, nullptr);
+
+	if (!Fetcher)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			LOCTEXT("UImageDownloader::DownloadImages::NoFetcher", "Could not make image fetcher.")
+		);
+		if (OnComplete) OnComplete(TArray<FString>());
+		return;
+	}
+
+	Fetcher->Fetch("", {}, [this, Fetcher, OnComplete](bool bSuccess)
+	{
+		if (bSuccess)
+		{
+			if (OnComplete)
+			{
+				OnComplete(Fetcher->OutputFiles);
+			}
+			delete Fetcher;
+			return;
+		}
+		else
+		{
+			delete Fetcher;
+			FMessageDialog::Open(EAppMsgType::Ok,
+				LOCTEXT("UImageDownloader::DownloadImages::Failure", "There was an error while downloading or preparing the files.")
+			);
+			if (OnComplete) OnComplete(TArray<FString>());
+			return;
+		}
+	});
+}
+
+void UImageDownloader::DownloadMergedImage(TFunction<void(FString)> OnComplete)
+{
+	AActor *Owner = GetOwner();
+	if (!Owner)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			LOCTEXT("UImageDownloader::DownloadMergedImage::NoOwner", "Internal Error: Could not find UImageDownloader Owner.")
+		);
+		return;
+	}
+	
+	FString Name = Owner->GetActorLabel();
+	HMFetcher *Fetcher = CreateFetcher(Name, false, false, false, nullptr);
+	Fetcher = Fetcher->AndThen(new HMDebugFetcher("Merge", new HMMerge(Name)));
+
+	if (!Fetcher)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			LOCTEXT("UImageDownloader::DownloadMergedImage::NoFetcher", "Could not make image fetcher.")
+		);
+		return;
+	}
+
+	Fetcher->Fetch("", {}, [this, Fetcher, OnComplete](bool bSuccess)
+	{
+		if (bSuccess && Fetcher->OutputFiles.Num() == 1)
+		{
+			if (OnComplete) OnComplete(Fetcher->OutputFiles[0]);
+			delete Fetcher;
+			return;
+		}
+		else
+		{
+			delete Fetcher;
+			FMessageDialog::Open(EAppMsgType::Ok,
+				LOCTEXT("UImageDownloader::DownloadMergedImage::Failure", "There was an error while downloading or preparing the files.")
+			);
+			return;
+		}
+	});
 }
 
 

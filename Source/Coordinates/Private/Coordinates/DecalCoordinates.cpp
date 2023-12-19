@@ -83,7 +83,7 @@ void UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 	double Y = (Top + Bottom) / 2;
 	double Z = DecalActor->GetActorLocation().Z;
 
-	DecalActor->GetDecal()->DecalSize = FVector(100000, (Bottom - Top) / 2, (Right - Left) / 2);
+	DecalActor->GetDecal()->DecalSize = FVector(10000000, (Bottom - Top) / 2, (Right - Left) / 2);
 	DecalActor->SetActorRotation(FRotator(-90, 0, 0));
 	DecalActor->SetActorLocation(FVector(X, Y, Z));
 

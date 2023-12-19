@@ -2,10 +2,11 @@
 ======
 
 Thanks to all these wonderful websites without which this plugin could not have been made!
-Please check each website license if you need to use their data in commercial projects.
+Please check each website license when using their data.
 
-Heightmap Providers
--------------------
+
+Heightmap and Imagery Providers
+-------------------------------
 
 * `RGE ALTI® 1m France <https://geoservices.ign.fr/rgealti>`_
 
@@ -17,7 +18,9 @@ Heightmap Providers
 
 * `Litto 3D Guadeloupe <https://diffusion.shom.fr/litto3d-guad2016.html>`_
 
-* All the WMS servers such as IGN, SHOM, USGS, OSM, Terrestris, etc.
+* All the WMS servers such as IGN, SHOM, USGS, etc.
+
+* `Mapbox <https://www.mapbox.com/>`_
 
 
 Data for Splines and Procedural Foliage
@@ -38,3 +41,10 @@ EPSG
 ----
 
 * `EPSG.io <https://epsg.io/map#srs=4326>`_ to obtain coordinates on a map.
+
+
+Slippy Tile Explorer
+--------------------
+
+* `Slippy Tile Explorer from Chris Hewett <https://chrishewett.com/blog/slippy-tile-explorer/?>`_
+  to obtain Slippy Tile/XYZ tile numbers from a map.

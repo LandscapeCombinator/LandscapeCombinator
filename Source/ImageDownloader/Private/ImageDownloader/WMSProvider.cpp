@@ -26,7 +26,7 @@ void FWMSProvider::SetFromURL(FString URL, TArray<FString> ExcludeCRS, TFunction
 	uint32 Hash = FTextLocalizationResource::HashString(URL);
 	CapabilitiesFile = FPaths::Combine(Directories::DownloadDir(), FString::Format(TEXT("capabilities_{0}.xsd"), { Hash }));
 
-	Download::FromURL(URL, CapabilitiesFile,
+	Download::FromURL(URL, CapabilitiesFile, true,
 		[this, ExcludeCRS, LayerFilter, OnComplete, URL](bool bSuccess)
 		{
 			if (bSuccess)

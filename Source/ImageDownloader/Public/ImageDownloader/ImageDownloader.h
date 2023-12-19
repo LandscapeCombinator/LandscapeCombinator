@@ -6,7 +6,11 @@
 #include "ImageDownloader/HMFetcher.h"
 #include "ConsoleHelpers/ExternalTool.h"
 
+
 #include "CoreMinimal.h"
+#include "Templates/Function.h"
+#include "GenericPlatform/GenericPlatformMisc.h" 
+#include "Delegates/Delegate.h"
 
 #include "ImageDownloader.generated.h"
 
@@ -27,6 +31,10 @@ enum class EImageSourceKind : uint8
 	//Terrestris_OSM,
 	GenericWMS,
 
+	Mapbox_Heightmaps,
+	Mapbox_Satellite,
+	GenericXYZ,
+
 	Viewfinder15,
 	Viewfinder3,
 	Viewfinder1,
@@ -41,9 +49,10 @@ enum class EImageSourceKind : uint8
 };
 
 UENUM(BlueprintType)
-enum class EWMSCoordinates: uint8
+enum class EParametersSelection: uint8
 {
 	Manual,
+	FromEPSG4326Coordinates,
 	FromBoundingActor,
 };
 
@@ -61,12 +70,160 @@ public:
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
-		meta = (DisplayPriority = "1")
+		meta = (DisplayPriority = "-10")
 	)
 	/* Please select the source from which to download the images. */
 	EImageSourceKind ImageSourceKind;
-
 	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (
+			EditCondition = "IsWMS() || IsXYZ()",
+			EditConditionHides, DisplayPriority = "-9"
+		)
+	)
+	/* Whether to enter coordinates manually or using a bounding actor. */
+	EParametersSelection ParametersSelection = EParametersSelection::Manual;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (
+			EditCondition = "(IsWMS() || IsXYZ()) && ParametersSelection == EParametersSelection::FromBoundingActor",
+			EditConditionHides, DisplayPriority = "-8"
+		)
+	)
+	/* Select a Location Volume (or any other actor) that will be used to compute the WMS coordinates or XYZ tiles.
+	   You can click the "Set Source Parameters From Actor" button to force refresh after you move the actor */
+	AActor *ParametersBoundingActor = nullptr;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (
+			EditCondition = "(IsWMS() || IsXYZ()) && ParametersSelection == EParametersSelection::FromEPSG4326Coordinates",
+			EditConditionHides, DisplayPriority = "-8"
+		)
+	)
+	double MinLong = 0;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (
+			EditCondition = "(IsWMS() || IsXYZ()) && ParametersSelection == EParametersSelection::FromEPSG4326Coordinates",
+			EditConditionHides, DisplayPriority = "-7"
+		)
+	)
+	double MaxLong = 0;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (
+			EditCondition = "(IsWMS() || IsXYZ()) && ParametersSelection == EParametersSelection::FromEPSG4326Coordinates",
+			EditConditionHides, DisplayPriority = "-6"
+		)
+	)
+	double MinLat = 0;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (
+			EditCondition = "(IsWMS() || IsXYZ()) && ParametersSelection == EParametersSelection::FromEPSG4326Coordinates",
+			EditConditionHides, DisplayPriority = "-5"
+		)
+	)
+	double MaxLat = 0;
+
+	/*******
+	 * XYZ *
+	 *******/
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (EditCondition = "IsMapbox()", EditConditionHides, DisplayPriority = "1")
+	)
+	FString Mapbox_Token;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (EditCondition = "IsMapbox()", EditConditionHides, DisplayPriority = "2")
+	)
+	/* Add @2x to the Mapbox query URL, tiles become 512x512 pixels instead of 256x256 pixels */
+	bool Mapbox_2x = true;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (EditCondition = "IsXYZ() && !IsMapbox()", EditConditionHides, DisplayPriority = "3")
+	)
+	FString XYZ_URL;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (EditCondition = "IsXYZ() && !IsMapbox()", EditConditionHides, DisplayPriority = "4")
+	)
+	/* Simple name for the downloaded files. */
+	FString XYZ_Name;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (EditCondition = "IsXYZ() && !IsMapbox()", EditConditionHides, DisplayPriority = "5")
+	)
+	/* File format of the downloaded files (e.g. tif or png or xyz or xyz.gz). If the format contains a dot,
+	   the tile will first be uncompressed using 7-Zip. */
+	FString XYZ_Format;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (EditCondition = "IsXYZ()", EditConditionHides, DisplayPriority = "7")
+	)
+	int XYZ_Zoom;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (EditCondition = "IsXYZ() && ParametersSelection == EParametersSelection::Manual", EditConditionHides, DisplayPriority = "10")
+	)
+	int XYZ_MinX;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (EditCondition = "IsXYZ() && ParametersSelection == EParametersSelection::Manual", EditConditionHides, DisplayPriority = "11")
+	)
+	int XYZ_MaxX;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (EditCondition = "IsXYZ() && ParametersSelection == EParametersSelection::Manual", EditConditionHides, DisplayPriority = "12")
+	)
+	int XYZ_MinY;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (EditCondition = "IsXYZ() && ParametersSelection == EParametersSelection::Manual", EditConditionHides, DisplayPriority = "13")
+	)
+	int XYZ_MaxY;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (EditCondition = "IsXYZ() && !IsMapbox()", EditConditionHides, DisplayPriority = "20")
+	)
+	/* For XYZ or Slippy Tiles, MaxY is usually South, so you can leave this unchecked. */
+	bool bMaxY_IsNorth = false;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (EditCondition = "IsXYZ() && !IsMapbox()", EditConditionHides, DisplayPriority = "21")
+	)
+	/* Add georeference to downloaded files using the Slippy Tile / XYZ convention. */
+	bool bGeoreferenceSlippyTiles = true;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (EditCondition = "IsXYZ() && !IsMapbox() && !bGeoreferenceSlippyTiles", EditConditionHides, DisplayPriority = "22")
+	)
+	/* The coordinate system used by the downloaded files. */
+	FString XYZ_CRS = "";
+
+
+
+
 	/*****************
 	 *  Generic WMS  *
 	 *****************/
@@ -136,31 +293,11 @@ public:
 		)
 	)
 	FString WMS_SearchCRS = "";
-	
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
-		meta = (
-			EditCondition = "IsWMS()",
-			EditConditionHides, DisplayPriority = "10"
-		)
-	)
-	/* Whether to enter coordinates manually or using a bounding actor. */
-	EWMSCoordinates WMS_Coordinates = EWMSCoordinates::Manual;
-	
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
-		meta = (
-			EditCondition = "IsWMS() && WMS_Coordinates == EWMSCoordinates::FromBoundingActor",
-			EditConditionHides, DisplayPriority = "11"
-		)
-	)
-	/* Select a Location Volume (or any other actor) and click the "Set Coordinates From Actor" button to fill the coordinates automatically. */
-	AActor *WMS_BoundingActor = nullptr;
 
 	UPROPERTY(
 		VisibleAnywhere, Category = "ImageDownloader|Source",
 		meta = (
-			EditCondition = "IsWMS() && WMS_Coordinates == EWMSCoordinates::Manual",
+			EditCondition = "IsWMS() && ParametersSelection == EParametersSelection::Manual",
 			EditConditionHides, DisplayPriority = "12"
 		)
 	)
@@ -169,7 +306,7 @@ public:
 	UPROPERTY(
 		VisibleAnywhere, Category = "ImageDownloader|Source",
 		meta = (
-			EditCondition = "IsWMS() && WMS_Coordinates == EWMSCoordinates::Manual",
+			EditCondition = "IsWMS() && ParametersSelection == EParametersSelection::Manual",
 			EditConditionHides, DisplayPriority = "13"
 		)
 	)
@@ -178,7 +315,7 @@ public:
 	UPROPERTY(
 		VisibleAnywhere, Category = "ImageDownloader|Source",
 		meta = (
-			EditCondition = "IsWMS() && WMS_Coordinates == EWMSCoordinates::Manual",
+			EditCondition = "IsWMS() && ParametersSelection == EParametersSelection::Manual",
 			EditConditionHides, DisplayPriority = "14"
 		)
 	)
@@ -187,7 +324,7 @@ public:
 	UPROPERTY(
 		VisibleAnywhere, Category = "ImageDownloader|Source",
 		meta = (
-			EditCondition = "IsWMS() && WMS_Coordinates == EWMSCoordinates::Manual",
+			EditCondition = "IsWMS() && ParametersSelection == EParametersSelection::Manual",
 			EditConditionHides, DisplayPriority = "15"
 		)
 	)
@@ -196,7 +333,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
 		meta = (
-			EditCondition = "IsWMS() && WMS_Coordinates == EWMSCoordinates::Manual",
+			EditCondition = "IsWMS() && ParametersSelection == EParametersSelection::Manual",
 			EditConditionHides, DisplayPriority = "20"
 		)
 	)
@@ -206,7 +343,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
 		meta = (
-			EditCondition = "IsWMS() && WMS_Coordinates == EWMSCoordinates::Manual",
+			EditCondition = "IsWMS() && ParametersSelection == EParametersSelection::Manual",
 			EditConditionHides, DisplayPriority = "21"
 		)
 	)
@@ -216,7 +353,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
 		meta = (
-			EditCondition = "IsWMS() && WMS_Coordinates == EWMSCoordinates::Manual",
+			EditCondition = "IsWMS() && ParametersSelection == EParametersSelection::Manual",
 			EditConditionHides, DisplayPriority = "22"
 		)
 	)
@@ -226,7 +363,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
 		meta = (
-			EditCondition = "IsWMS() && WMS_Coordinates == EWMSCoordinates::Manual",
+			EditCondition = "IsWMS() && ParametersSelection == EParametersSelection::Manual",
 			EditConditionHides, DisplayPriority = "23"
 		)
 	)
@@ -575,6 +712,9 @@ public:
 	 * Actions *
 	 ***********/
 	
+	void DownloadImages(TFunction<void(TArray<FString>)> OnComplete);
+	void DownloadMergedImage(TFunction<void(FString)> OnComplete);
+	
 	/* This deletes all the images, included downloaded files. */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "ImageDownloader",
 		meta = (DisplayPriority = "11")
@@ -603,14 +743,31 @@ public:
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "ImageDownloader",
 		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "5")
 	)
-	void SetCoordinatesFromActor();
+	void SetSourceParameters();
+
+	UFUNCTION()
+	bool SetSourceParametersBool(bool bDialog);
+
+	UFUNCTION()
+	bool SetSourceParametersFromActor(bool bDialog);
+
+	UFUNCTION()
+	bool SetSourceParametersFromEPSG4326Coordinates(bool bDialog);
 	
+#if WITH_EDITOR
 	void PostEditChangeProperty(struct FPropertyChangedEvent&);
+#endif
 	
 	HMFetcher* CreateFetcher(FString Name, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG, TFunction<bool(HMFetcher*)> RunBeforePNG);
 
 	UFUNCTION()
 	bool IsWMS();
+
+	UFUNCTION()
+	bool IsXYZ();
+
+	UFUNCTION()
+	bool IsMapbox();
 
 private:
 

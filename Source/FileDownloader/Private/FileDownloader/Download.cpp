@@ -144,14 +144,14 @@ bool Download::SynchronousFromURLExpecting(FString URL, FString File, int32 Expe
 	return bDownloadResult;
 }
 
-void Download::FromURL(FString URL, FString File, TFunction<void(bool)> OnComplete)
+void Download::FromURL(FString URL, FString File, bool bProgress, TFunction<void(bool)> OnComplete)
 {
 	UE_LOG(LogFileDownloader, Log, TEXT("Downloading from URL '%s' to '%s'"), *URL, *File);
 
 	if (ExpectedSizeCache.Contains(URL))
 	{
 		UE_LOG(LogFileDownloader, Log, TEXT("Cache says expected size for '%s' is '%d'"), *URL, ExpectedSizeCache[URL]);
-		FromURLExpecting(URL, File, ExpectedSizeCache[URL], OnComplete);
+		FromURLExpecting(URL, File, bProgress, ExpectedSizeCache[URL], OnComplete);
 	}
 	else
 	{
@@ -163,9 +163,13 @@ void Download::FromURL(FString URL, FString File, TFunction<void(bool)> OnComple
 		bool *bTriggered = new bool(false);
 
 		FScopedSlowTask *Task = new FScopedSlowTask(0, LOCTEXT("Download::FromURL", "Fetching Content Length from URL"));
-		Task->MakeDialog();
 
-		Request->OnProcessRequestComplete().BindLambda([Task, URL, File, OnComplete, bTriggered](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful) {
+		if (bProgress)
+		{
+			Task->MakeDialog();
+		}
+
+		Request->OnProcessRequestComplete().BindLambda([Task, bProgress, URL, File, OnComplete, bTriggered](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful) {
 			if (*bTriggered) return;
 			*bTriggered = true;
 
@@ -174,11 +178,11 @@ void Download::FromURL(FString URL, FString File, TFunction<void(bool)> OnComple
 			if (bWasSuccessful && Response.IsValid() && EHttpResponseCodes::IsOk(Response->GetResponseCode()))
 			{
 				int64 ExpectedSize = FCString::Atoi64(*Response->GetHeader("Content-Length"));
-				FromURLExpecting(URL, File, ExpectedSize, OnComplete);
+				FromURLExpecting(URL, File, bProgress, ExpectedSize, OnComplete);
 			}
 			else
 			{
-				FromURLExpecting(URL, File, 0, OnComplete);
+				FromURLExpecting(URL, File, bProgress, 0, OnComplete);
 			}
 		});
 		Request->ProcessRequest();
@@ -186,17 +190,12 @@ void Download::FromURL(FString URL, FString File, TFunction<void(bool)> OnComple
 
 }
 
-void Download::FromURLExpecting(FString URL, FString File, int64 ExpectedSize, TFunction<void(bool)> OnComplete)
+void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64 ExpectedSize, TFunction<void(bool)> OnComplete)
 {
 	// make sure we are in game thread to spawn download progress windows
 	AsyncTask(ENamedThreads::GameThread, [=]()
 	{
 		double *Downloaded = new double();
-
-		TSharedPtr<SWindow> Window = SNew(SWindow)
-			.SizingRule(ESizingRule::Autosized)
-			.AutoCenter(EAutoCenter::PrimaryWorkArea)
-			.Title(LOCTEXT("DownloadProgress", "Download Progress"));
 
 		IPlatformFile &PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 
@@ -214,6 +213,11 @@ void Download::FromURLExpecting(FString URL, FString File, int64 ExpectedSize, T
 				UE_LOG(LogFileDownloader, Log, TEXT("File already exists with size %ld but the expected size is %ld. Redownloading"), FileSize, ExpectedSize);
 			}
 		}
+
+		TSharedPtr<SWindow> Window = SNew(SWindow)
+			.SizingRule(ESizingRule::Autosized)
+			.AutoCenter(EAutoCenter::PrimaryWorkArea)
+			.Title(LOCTEXT("DownloadProgress", "Download Progress"));
 
 		TSharedPtr<IHttpRequest> Request = FHttpModule::Get().CreateRequest().ToSharedPtr();
 		Request->SetURL(URL);
@@ -300,10 +304,17 @@ void Download::FromURLExpecting(FString URL, FString File, int64 ExpectedSize, T
 				]
 			]
 		);
+
 		Window->SetOnWindowClosed(FOnWindowClosed::CreateLambda([Request](const TSharedRef<SWindow>& Window) {
 			Request->CancelRequest();
 		}));
-		FSlateApplication::Get().AddWindow(Window.ToSharedRef());
+
+		if (bProgress)
+		{
+			FSlateApplication::Get().AddWindow(Window.ToSharedRef());
+		}
+
+
 		if (Request->GetStatus() != EHttpRequestStatus::Processing)
 		{
 			Window->RequestDestroyWindow();

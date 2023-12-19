@@ -26,29 +26,45 @@ bool GDALInterface::SetWellKnownGeogCRS(OGRSpatialReference& InRs, FString CRS)
 	return true;
 }
 
+bool GDALInterface::HasCRS(FString File)
+{
+	GDALDataset* Dataset = (GDALDataset *) GDALOpen(TCHAR_TO_UTF8(*File), GA_ReadOnly);
 
-bool GDALInterface::SetCRSFromFile(OGRSpatialReference &InRs, FString File)
+	if (!Dataset) return false;
+
+	const char* ProjectionRef = Dataset->GetProjectionRef();
+	OGRSpatialReference UnusedRs;
+	return UnusedRs.importFromWkt(ProjectionRef) != OGRERR_NONE;
+}
+
+bool GDALInterface::SetCRSFromFile(OGRSpatialReference &InRs, FString File, bool bDialog)
 {
 	GDALDataset* Dataset = (GDALDataset *) GDALOpen(TCHAR_TO_UTF8(*File), GA_ReadOnly);
 	if (!Dataset)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("GetSpatialReferenceError", "Unable to open file {0} to read its spatial reference."),
-			FText::FromString(File)
-		));
+		if (bDialog)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+				LOCTEXT("GetSpatialReferenceError", "Unable to open file {0} to read its spatial reference."),
+				FText::FromString(File)
+			));
+		}
 		return false;
 	}
 
-	return SetCRSFromDataset(InRs, Dataset);
+	return SetCRSFromDataset(InRs, Dataset, bDialog);
 }
 
-bool GDALInterface::SetCRSFromDataset(OGRSpatialReference& InRs, GDALDataset* Dataset)
+bool GDALInterface::SetCRSFromDataset(OGRSpatialReference& InRs, GDALDataset* Dataset, bool bDialog)
 {
 	if (!Dataset)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("GetSpatialReferenceError", "Unable to get spatial reference from dataset (null pointer).")
-		);
+		if (bDialog)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok,
+				LOCTEXT("GetSpatialReferenceError", "Unable to get spatial reference from dataset (null pointer).")
+			);
+		}
 		return false;
 	}
 
@@ -57,15 +73,66 @@ bool GDALInterface::SetCRSFromDataset(OGRSpatialReference& InRs, GDALDataset* Da
 
 	if (Err != OGRERR_NONE)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("GetSpatialReferenceError2", "Unable to get spatial reference from dataset (Error {0})."),
-			FText::AsNumber(Err, &FNumberFormattingOptions::DefaultNoGrouping())
-		));
+		if (bDialog)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+				LOCTEXT("GetSpatialReferenceError2", "Unable to get spatial reference from dataset (Error {0})."),
+				FText::AsNumber(Err, &FNumberFormattingOptions::DefaultNoGrouping())
+			));
+		}
 		return false;
 	}
 	InRs.SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
 
 	return true;
+}
+
+bool GDALInterface::AddGeoreference(FString InputFile, FString OutputFile, FString CRS, double MinLong, double MaxLong, double MinLat, double MaxLat)
+{
+	FString TempFile = FPaths::Combine(FPaths::GetPath(InputFile), FPaths::GetBaseFilename(InputFile) + "-Temp.tif");
+
+	FIntPoint Pixels;
+	if (!GetPixels(Pixels, InputFile))
+	{
+		return false;
+	}
+
+	bool bTranslateSuccess =
+		GDALInterface::Translate(InputFile, TempFile, {
+			"-of",
+			"GTiff",
+			"-a_srs",
+			CRS,
+			"-gcp",
+			"0", "0",
+			FString::SanitizeFloat(MinLong), FString::SanitizeFloat(MaxLat),
+			"-gcp",
+			FString::FromInt(Pixels[0] - 1), "0",
+			FString::SanitizeFloat(MaxLong), FString::SanitizeFloat(MaxLat),
+			"-gcp",
+			FString::FromInt(Pixels[0] - 1), FString::FromInt(Pixels[1] - 1),
+			FString::SanitizeFloat(MaxLong), FString::SanitizeFloat(MinLat),
+			"-gcp",
+			"0", FString::FromInt(Pixels[1] - 1),
+			FString::SanitizeFloat(MinLong), FString::SanitizeFloat(MinLat),
+		});
+
+	if (!bTranslateSuccess)
+	{
+		return false;
+	}
+
+	bool bWarpSuccess = GDALInterface::Warp(TempFile, OutputFile, {
+		"-t_srs",
+		CRS,
+		"-ts",
+		FString::FromInt(Pixels[0]),
+		FString::FromInt(Pixels[1])
+	});
+
+	IFileManager::Get().Delete(*TempFile);
+
+	return bWarpSuccess;
 }
 
 bool GDALInterface::SetCRSFromEPSG(OGRSpatialReference& InRs, int EPSG)

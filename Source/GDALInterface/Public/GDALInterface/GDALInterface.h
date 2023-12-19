@@ -22,8 +22,9 @@ class GDALINTERFACE_API GDALInterface
 {
 public:
 	static bool SetWellKnownGeogCRS(OGRSpatialReference &InRs, FString CRS);
-	static bool SetCRSFromFile(OGRSpatialReference &InRs, FString File);
-	static bool SetCRSFromDataset(OGRSpatialReference &InRs, GDALDataset* Dataset);
+	static bool HasCRS(FString File);
+	static bool SetCRSFromFile(OGRSpatialReference &InRs, FString File, bool bDialog = true);
+	static bool SetCRSFromDataset(OGRSpatialReference &InRs, GDALDataset* Dataset, bool bDialog = true);
 	static bool SetCRSFromEPSG(OGRSpatialReference &InRs, int EPSG);
 	static bool SetCRSFromUserInput(OGRSpatialReference &InRs, FString CRS);
 	static bool GetCoordinates(FVector4d& Coordinates, GDALDataset* Dataset);
@@ -40,6 +41,7 @@ public:
 	static bool Warp(TArray<FString> SourceFiles, FString TargetFolder, FString InCRS, FString OutCRS, int NoData);
 	static bool Warp(FString SourceFile, FString TargetFile, TArray<FString> Args);
 	static bool Merge(TArray<FString> SourceFiles, FString TargetFile);
+	static bool AddGeoreference(FString InputFile, FString OutputFile, FString CRS, double MinLong, double MaxLong, double MinLat, double MaxLat);
 
 	static bool ReadColorsFromFile(FString File, int &OutWidth, int &OutHeight, TArray<FColor> &OutColors);
 

@@ -8,23 +8,15 @@ LandscapeTexturer Overview
 
 #. Search for ``LandscapeTexturer`` in the Content Browser, and drag one in your landscape.
 
-#. (Optional) Choose the Landscape for which you want to download satellite (or other) images.
-
-#. Choose the image source that you want in the :ref:`Image Downloader <image-downloader>` component section
+#. Choose the image source that you want in the :ref:`Texturer Downloader <image-downloader>` component
    (the ``LandscapeCombinatorMap`` in the Plugin's Content contains several ``LandscapeTexturer`` examples).
 
-#. (Optinal) Click of ``Set Coordinates From Landscape`` to set the bounding box coordinates from your landscape.
+#. (Optional) In the ``ImageDownloader`` component, you can use the ``Adapt Resolution``
+   so that the image gets resized to the same resolution as a given Landscape.
+   This does not work at the moment for sources that come as tiles, such as Mapbox Satellite. 
 
-#. In the Details Panel of the ``LandscapeTexturer``, click on ``Prepare Images for Landscape``.
+#. (Optional) You can use the ``Crop Coordinates`` option to crop the images
+   to a given actor. This is typically not needed for WMS or XYZ sources where
+   you can choose the coordinates upfront.
 
-#. If successful, there will be a dialog window telling you that a PNG file (or more) was prepared.
-   You can then use this image as a weightmap for your landscape layers, or import it in your project
-   to use the texture as an overlay in the ``M_Landscape`` material.
-
-
-
-LandscapeTexturer Settings
---------------------------
-
-* **Resize Images (bool)**:
-  Check this if you want to force resize the images to have the exact same pixel size as your landscape.
+#. In the Details Panel of the ``LandscapeTexturer``, click on ``Create Decal``.

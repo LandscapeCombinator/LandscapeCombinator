@@ -79,7 +79,7 @@ void HMListDownloader::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunc
 		Lines.Num(),
 		[this, Lines](int i, TFunction<void (bool)> OnCompleteElement)
 		{
-			Download::FromURL(Lines[i], OutputFiles[i], OnCompleteElement);
+			Download::FromURL(Lines[i], OutputFiles[i], true, OnCompleteElement);
 		},
 		OnComplete
 	);

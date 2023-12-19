@@ -63,7 +63,7 @@ public:
 	void CreateWorldMap();
 
 private:
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "LevelCoordinates | WorldMap")
 	void CreateWorldMapFromFile(FString Path);
 };
 

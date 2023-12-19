@@ -5,6 +5,7 @@
 #include "LandscapeCombinator/LandscapeController.h"
 
 #include "ImageDownloader/TilesCounter.h"
+#include "Coordinates/DecalCoordinates.h"
 #include "HeightmapModifier/HeightmapModifier.h"
 #include "HeightmapModifier/BlendLandscape.h"
 #include "LandscapeUtils/LandscapeUtils.h"
@@ -17,7 +18,11 @@ ALandscapeSpawner::ALandscapeSpawner()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
-	ImageDownloader = CreateDefaultSubobject<UImageDownloader>(TEXT("HeightmapDownloader"));
+	HeightmapDownloader = CreateDefaultSubobject<UImageDownloader>(TEXT("HeightmapDownloader"));
+
+	TextureDownloader = CreateDefaultSubobject<UImageDownloader>(TEXT("TextureDownloader"));
+
+	MapboxSatelliteDownloader = CreateDefaultSubobject<UImageDownloader>(TEXT("MapboxSatelliteDownloader"));
 }
 
 bool GetPixels(FIntPoint& InsidePixels, TArray<FString> Files)
@@ -48,7 +53,7 @@ bool GetCmPerPixelForCRS(FString CRS, int &CmPerPixel)
 		CmPerPixel = 11111111;
 		return true;
 	}
-	else if (CRS == "IGNF:LAMB93" || CRS == "EPSG:2154" || CRS == "EPSG:4559" || CRS == "EPSG:2056" || CRS == "EPSG:3857" )
+	else if (CRS == "IGNF:LAMB93" || CRS == "EPSG:2154" || CRS == "EPSG:4559" || CRS == "EPSG:2056" || CRS == "EPSG:3857" || CRS == "EPSG:25832")
 	{
 		CmPerPixel = 100;
 		return true;
@@ -61,10 +66,10 @@ bool GetCmPerPixelForCRS(FString CRS, int &CmPerPixel)
 
 void ALandscapeSpawner::SpawnLandscape()
 {
-	if (!ImageDownloader)
+	if (!HeightmapDownloader)
 	{
 		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("ALandscapeSpawner::SpawnLandscape", "ImageDownloader is not set, you may want to create one, or spawn a new LandscapeTexturer")
+			LOCTEXT("ALandscapeSpawner::SpawnLandscape", "HeightmapDownloader is not set, you may want to create one, or spawn a new LandscapeTexturer")
 		);
 		return;
 	}
@@ -90,7 +95,7 @@ void ALandscapeSpawner::SpawnLandscape()
 	FString *CRS = new FString();
 	FVector4d *Coordinates= new FVector4d();
 
-	HMFetcher* Fetcher = ImageDownloader->CreateFetcher(
+	HMFetcher* Fetcher = HeightmapDownloader->CreateFetcher(
 		LandscapeLabel,
 		true,
 		true,
@@ -188,16 +193,114 @@ void ALandscapeSpawner::SpawnLandscape()
 
 					LandscapeController->AdjustLandscape();
 
+					delete Fetcher;
 					UE_LOG(LogLandscapeCombinator, Log, TEXT("Created Landscape %s successfully."), *LandscapeLabel);
-					FMessageDialog::Open(EAppMsgType::Ok,
-						FText::Format(
-							LOCTEXT("LandscapeCreated", "Landscape {0} was created successfully"),
-							FText::FromString(LandscapeLabel)
-						)
-					);
+
+					if (!bCreateMapboxDecals && !bCreateCustomDecals)
+					{
+						FMessageDialog::Open(EAppMsgType::Ok,
+							FText::Format(
+								LOCTEXT("LandscapeCreated", "Landscape {0} was created successfully"),
+								FText::FromString(LandscapeLabel)
+							)
+						);
+					}
+
+					if (bCreateMapboxDecals)
+					{
+						if (!MapboxSatelliteDownloader)
+						{
+							FMessageDialog::Open(EAppMsgType::Ok,
+								FText::Format(
+									LOCTEXT("NoMapboxSatelliteDownloader", "Internal Error: The Mapbox Satellite Downloader is not set. Please try again with a new Landscape Spawner."),
+									FText::FromString(LandscapeLabel)
+								)
+							);
+							return;
+						}
+
+						MapboxSatelliteDownloader->ImageSourceKind = EImageSourceKind::Mapbox_Satellite;
+						if (HeightmapDownloader && HeightmapDownloader->ImageSourceKind == EImageSourceKind::Mapbox_Heightmaps)
+						{
+							MapboxSatelliteDownloader->Mapbox_Token = HeightmapDownloader->Mapbox_Token;
+						}
+						else
+						{
+							MapboxSatelliteDownloader->Mapbox_Token = Decals_Mapbox_Token;
+						}
+
+						if (HeightmapDownloader && HeightmapDownloader->ImageSourceKind == EImageSourceKind::Mapbox_Heightmaps && HeightmapDownloader->XYZ_Zoom == Decals_Mapbox_Zoom)
+						{
+							MapboxSatelliteDownloader->ParametersSelection = EParametersSelection::Manual;
+							MapboxSatelliteDownloader->XYZ_MinX = HeightmapDownloader->XYZ_MinX;
+							MapboxSatelliteDownloader->XYZ_MaxX = HeightmapDownloader->XYZ_MaxX;
+							MapboxSatelliteDownloader->XYZ_MinY = HeightmapDownloader->XYZ_MinY;
+							MapboxSatelliteDownloader->XYZ_MaxY = HeightmapDownloader->XYZ_MaxY;
+						}
+						else
+						{
+							MapboxSatelliteDownloader->ParametersSelection = EParametersSelection::FromBoundingActor;
+							MapboxSatelliteDownloader->ParametersBoundingActor = CreatedLandscape;
+						}
+						
+						MapboxSatelliteDownloader->Mapbox_2x = Decals_Mapbox_2x;
+						MapboxSatelliteDownloader->XYZ_Zoom = Decals_Mapbox_Zoom;
+
+						//MapboxSatelliteDownloader->DownloadImages([this](TArray<FString> DownloadedImages)
+						//{
+						//	for (auto &DownloadedImage : DownloadedImages)
+						//	{
+						//		UDecalCoordinates::CreateDecal(this->GetWorld(), DownloadedImage);
+						//	}
+
+						MapboxSatelliteDownloader->DownloadMergedImage([this](FString DownloadedImage)
+						{
+							UDecalCoordinates::CreateDecal(this->GetWorld(), DownloadedImage);
+							FMessageDialog::Open(EAppMsgType::Ok,
+								FText::Format(
+									LOCTEXT("LandscapeCreated2", "Landscape {0} was created successfully with Mapbox Decals"),
+									FText::FromString(LandscapeLabel)
+								)
+							);
+						});
+					}
+
+					if (bCreateCustomDecals)
+					{
+						if (!TextureDownloader)
+						{
+							FMessageDialog::Open(EAppMsgType::Ok,
+								FText::Format(
+									LOCTEXT("NoMapboxSatelliteDownloader", "Internal Error: The Texture Downloader is not set. Please try again with a new Landscape Spawner."),
+									FText::FromString(LandscapeLabel)
+								)
+							);
+							delete Fetcher;
+							return;
+						}
+
+						//TextureDownloader->DownloadImages([this](TArray<FString> DownloadedImages)
+						//{
+						//	for (auto &DownloadedImage : DownloadedImages)
+						//	{
+						//		UDecalCoordinates::CreateDecal(this->GetWorld(), DownloadedImage);
+						//	}
+
+						TextureDownloader->DownloadMergedImage([this](FString DownloadedImage)
+						{
+							UDecalCoordinates::CreateDecal(this->GetWorld(), DownloadedImage);
+							FMessageDialog::Open(EAppMsgType::Ok,
+								FText::Format(
+									LOCTEXT("LandscapeCreated3", "Landscape {0} was created successfully with TextureDownloader Decals"),
+									FText::FromString(LandscapeLabel)
+								)
+							);
+						});
+					}
 				}
 				else
 				{
+					delete Fetcher;
 					UE_LOG(LogLandscapeCombinator, Error, TEXT("Could not create Landscape %s."), *LandscapeLabel);
 					FMessageDialog::Open(EAppMsgType::Ok,
 						FText::Format(
@@ -218,10 +321,10 @@ void ALandscapeSpawner::SpawnLandscape()
 					FText::FromString(LandscapeLabel)
 				)
 			);
+
+			delete Fetcher;
+			return;
 		}
-			
-		delete Fetcher;
-		return;
 	});
 
 	return;

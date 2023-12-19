@@ -5,8 +5,8 @@ Image Downloader
 
 The ``ImageDownloader`` component is used in:
 
-* the :ref:`LandscapeSpawner <landscape-spawner>` actor to download heightmaps,
-* the :ref:`LandscapeTexturer <landscape-texturer>` actor download satellite (and other) images for your landscapes,
+* the :ref:`LandscapeSpawner <landscape-spawner>` actor to download heightmaps (``HeightmapDownloader``) and to create textures and decals (``TextureDownloader``),
+* the :ref:`LandscapeTexturer <landscape-texturer>` actor to download satellite (and other) images for your landscapes,
 * the ``BasicImageDownloader`` actor to simply download images.
 
 Here are the sources that are supported by ``ImageDownloader``. Feel free to suggest new sources on:
@@ -26,24 +26,51 @@ Enter the ``MinLong (Left), MaxLong (Right), MinLat (Bottom), MaxLat (Top)``
 coordinates in the given coordinate system, as well as the width and height
 of the image you want to download. To find coordinates, you can use the
 DuckDuckGo link from the Details Panel to search for the correct
-``epsg.io`` map of the layer's coordinate system. 
+``epsg.io`` map of the layer's coordinate system.
+These can also be set automatically from a Bounding Actor (see the ``Parameters Selection`` dropdown).
 
 There are a few preset WMS servers in the ``ImageDownloader``. If you know of a
 WMS server that would be good to have here, please let me know!
 
-* `IGN <https://wxs.ign.fr/altimetrie/geoportail/r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities>`_:
+* `IGN Heightmaps <https://wxs.ign.fr/altimetrie/geoportail/r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities>`_:
   Contains high resolution (1m per pixel) heightmaps for Overseas (e.g. ``RGEALTI-MNT_PYR-ZIP_GLP_WGS84UTM20_WMS`` for Guadeloupe) and European France (``RGEALTI-MNT_PYR-ZIP_FXX_LAMB93_WMS``).
-  Choose ``Width`` to be ``MaxLong - MinLong``, and ``Height`` equals ``MaxLat - MinLat`` to get the best possible resolution.
+  Choose ``Width`` to be ``MaxLong - MinLong``, and ``Height`` equals ``MaxLat - MinLat`` to get the best possible resolution (everything as integers).
 * `SHOM <https://services.data.shom.fr/INSPIRE/wms/r?service=WMS&version=1.3.0&request=GetCapabilities>`_:
   Contains hillshade elevation models, but no heightmaps.
 * `USGS 3DEPElevation <https://elevation.nationalmap.gov/arcgis/services/3DEPElevation/ImageServer/WMSServer?request=GetCapabilities&service=WMS>`_:
   Contains heigthmaps for the US.
 * `USGS Imagery <https://basemap.nationalmap.gov/arcgis/services/USGSImageryOnly/MapServer/WMSServer?request=GetCapabilities&service=WMS>`_:
-  Contains satellite imagery for the whole world.
-* `OpenStreetMap_FR <https://wms.openstreetmap.fr/wms?request=GetCapabilities&service=WMS>`_:
-  Contains OpenStreetMap data.
-* `Terrestris_OSM <https://ows.terrestris.de/osm/service?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetCapabilities>`_:
-  Contains OpenStreetMap data.
+  Contains satellite imagery for the US.
+
+
+XYZ
+~~~
+
+You can use any XYZ URL of the form ``https://url.to/images/{z}/{x}/{y}``.
+Then, by specifying a Zoom level and the minimum/maximum X and Y tiles,
+the image downloader will download.
+
+For servers using Slippy Tiles, you can use
+the `Slippy Tile Explorer <https://chrishewett.com/blog/slippy-tile-explorer/?>`_
+to find the tiles numbers corresponding to the area that you want to download.
+These can also be set automatically from a Bounding Actor or using coordinates
+(see the ``Parameters Selection`` dropdown).
+
+If your server uses a convention different than Slippy Tiles, you should use
+manual ``Parameters Selection``, and you should uncheck
+``Georeference Slippy Tiles``. Make sure that ``MaxY Is North`` is correctly
+checked or unchecked depending on whether Y goes up or down when going north
+in your data. Finally, add the coordinate system of your data.
+
+
+Mapbox
+~~~~~~
+
+Mapbox is one particular XYZ server which is hard-coded. You need to provide
+an API key (that you can obtain for free from a Mapbox account) that will
+be used to download the tiles. Since Mapbox uses Slippy Tiles, the
+``Parameters Selection`` using a Bounding Actor or coordinates works correctly
+here.
 
 
 Viewfinder Panoramas
@@ -109,19 +136,20 @@ This is very high resolution data, 1 meter per pixel, for Guadeloupe. It uses EP
 Local File
 ~~~~~~~~~~
 
-Enter the path to a georeferenced file on your computer.
+Enter the path to a georeferenced file on your computer as well as the coordinate system.
 
 
 Local Folder
 ~~~~~~~~~~~~
 
-Enter the path to a folder containing files named following the ``_x0_y0`` convention.
+Enter the path to a folder containing files named following the ``_x0_y0`` convention,
+as well as the coordinate system.
 
 
 URL
 ~~~
 
-Enter an URL to a georeferenced heightmap.
+Enter an URL to a georeferenced heightmap, as well as the coordinate system.
 
 
 Preprocessing
