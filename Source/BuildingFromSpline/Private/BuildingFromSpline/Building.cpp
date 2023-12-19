@@ -1206,8 +1206,8 @@ void ABuilding::ClearSplineMeshComponents()
 
 void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 {
-	 static FTotalTimeAndCount AppendBuildingTime, NormalsTime, UVsTime;
-	 SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AppendBuildingTime);
+	// static FTotalTimeAndCount AppendBuildingTime, NormalsTime, UVsTime;
+	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AppendBuildingTime);
 
 	ON_SCOPE_EXIT {
 		ReleaseAllComputeMeshes();
@@ -1251,7 +1251,7 @@ void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 	}
 
 	{
-		SCOPE_LOG_TIME_IN_SECONDS(TEXT("Normals"), &NormalsTime);
+		//SCOPE_LOG_TIME_IN_SECONDS(TEXT("Normals"), &NormalsTime);
 
 		UGeometryScriptLibrary_MeshNormalsFunctions::ComputeSplitNormals(TargetMesh, FGeometryScriptSplitNormalsOptions(), FGeometryScriptCalculateNormalsOptions());
 	}
