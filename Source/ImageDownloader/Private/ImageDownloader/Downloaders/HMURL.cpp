@@ -8,5 +8,5 @@ void HMURL::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 {
 	FString FilePath = FPaths::Combine(Directories::DownloadDir(), FileName);
 	OutputFiles.Add(FilePath);
-	Download::FromURL(URL, FilePath, OnComplete);
+	Download::FromURL(URL, FilePath, true, OnComplete);
 }

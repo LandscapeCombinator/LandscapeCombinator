@@ -65,7 +65,7 @@ void HMViewfinderDownloader::Fetch(FString InputCRS, TArray<FString> InputFiles,
 			FString ExtractionDir = FPaths::Combine(ImageDownloaderDir, MegaTile);
 			FString URL = FString::Format(TEXT("{0}{1}.zip"), { BaseURL, MegaTile });
 
-			Download::FromURL(URL, ZipFile, [this, ExtractionDir, ZipFile, MegaTile, OnCompleteElement](bool bWasSuccessful)
+			Download::FromURL(URL, ZipFile, true, [this, ExtractionDir, ZipFile, MegaTile, OnCompleteElement](bool bWasSuccessful)
 			{
 				if (bWasSuccessful)
 				{

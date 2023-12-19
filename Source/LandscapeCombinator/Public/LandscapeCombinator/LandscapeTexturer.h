@@ -23,12 +23,6 @@ public:
 	/***********
 	 * Actions *
 	 ***********/
-	
-	/* Download images on the computer. */
-	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeTexturer",
-		meta = (DisplayPriority = "10")
-	)
-	void DownloadImages();
 
 	void DownloadImages(TFunction<void(bool)> OnComplete);
 	
@@ -69,9 +63,9 @@ public:
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeTexturer",
 		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "15")
 	)
-	void SetCoordinatesFromActor()
+	void SetSourceParameters()
 	{
-		if (ImageDownloader) ImageDownloader->SetCoordinatesFromActor();
+		if (ImageDownloader) ImageDownloader->SetSourceParameters();
 	}
 
 	/********************

@@ -189,7 +189,7 @@ void ASplineImporter::LoadGDALDatasetFromQuery(FString Query, TFunction<void(GDA
 	FString DownloadDir = FPaths::Combine(LandscapeCombinatorDir, "Download");
 	FString XmlFilePath = FPaths::Combine(DownloadDir, FString::Format(TEXT("overpass_query_{0}.xml"), { FTextLocalizationResource::HashString(Query) }));
 
-	Download::FromURL(Query, XmlFilePath,
+	Download::FromURL(Query, XmlFilePath, true,
 		[=, this](bool bWasSuccessful) {
 			if (bWasSuccessful && OnComplete)
 			{

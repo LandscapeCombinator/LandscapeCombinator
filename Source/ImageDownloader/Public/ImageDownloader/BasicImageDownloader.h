@@ -60,9 +60,8 @@ public:
 	/********************
 	 * Image Downloader *
 	 ********************/
-	
 
-	
+
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "BasicImageDownloader",
 		meta = (DisplayPriority = "10")

@@ -101,7 +101,7 @@ ALandscape* LandscapeUtils::SpawnLandscape(
 	{
 		GLevelEditorModeTools().ActivateMode(FBuiltinEditorModes::EM_Default);
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("GetHeightmapImportDescriptorError", "Internal Unreal Engine while getting import descriptor for file {0}:\n{1}\nPlease try to rename your file to a simple name without punctuation."),
+			LOCTEXT("GetHeightmapImportDescriptorError", "Internal Unreal Engine while getting import descriptor for file {0}:\n{1}\nPlease try to rename your Landscape/files to a simple name without numbers or punctuation."),
 			FText::FromString(HeightmapFile),
 			LandscapeImportErrorMessage
 		));

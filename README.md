@@ -25,10 +25,10 @@ For more information, please refer to the [documentation](https://landscapecombi
 # Credit
 
 Thanks to all these wonderful websites without which this plugin could not have been made!
-Please check each website license if you need to use their data in commercial projects.
+Please check each website license when using their data.
 
-Heightmap Providers
--------------------
+Heightmap and Imagery Providers
+-------------------------------
 
 * [RGE ALTI® 1m France](https://geoservices.ign.fr/rgealti)
 
@@ -39,6 +39,10 @@ Heightmap Providers
 * [Viewfinder Panoramas](http://viewfinderpanoramas.org/)
 
 * [Litto 3D Guadeloupe](https://diffusion.shom.fr/litto3d-guad2016.html)
+
+* All the WMS servers such as IGN, SHOM, USGS, etc.
+
+* [Mapbox](https://www.mapbox.com/)
 
 
 Data for Splines and Procedural Foliage

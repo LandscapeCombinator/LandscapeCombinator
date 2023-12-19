@@ -36,14 +36,13 @@ void HMReproject::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<
 		Name + ".tif"
 	);
 
-	UE_LOG(LogImageDownloader, Log, TEXT("Starting reprojection of heightmaps using %s to output %s"), *OutputCRS, *ReprojectedFile);
-
 	FScopedSlowTask *ReprojectTask = new FScopedSlowTask(1, LOCTEXT("WarpTask", "GDAL Interface: Reprojecting File"));
 	ReprojectTask->MakeDialog();
 
-	if (GDALInterface::Warp(InputFiles, ReprojectedFile, InputCRS, OutputCRS, 0))
-	{
-		ReprojectTask->Destroy();
+	bool bWarpSuccess = GDALInterface::Warp(InputFiles, ReprojectedFile, InputCRS, OutputCRS, 0);
+	ReprojectTask->Destroy();
+	if (bWarpSuccess)
+	{	
 		OutputFiles.Add(ReprojectedFile);
 		if (OnComplete) OnComplete(true);
 	}

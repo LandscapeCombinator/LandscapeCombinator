@@ -10,7 +10,7 @@ ABasicImageDownloader::ABasicImageDownloader()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
-	ImageDownloader = CreateDefaultSubobject<UImageDownloader>(TEXT("TextureDownloader"));
+	ImageDownloader = CreateDefaultSubobject<UImageDownloader>(TEXT("ImageDownloader"));
 }
 
 void ABasicImageDownloader::DownloadImages()
@@ -23,34 +23,7 @@ void ABasicImageDownloader::DownloadImages()
 		return;
 	}
 
-	HMFetcher* Fetcher = ImageDownloader->CreateFetcher(Name, false, false, false, nullptr);
-
-	if (!Fetcher)
-	{
-		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("ABasicImageDownloader::DownloadImagesForLandscape::NoFetcher", "Could not make image fetcher.")
-		);
-		return;
-	}
-
-	Fetcher->Fetch("", {}, [Fetcher](bool bSuccess)
-	{
-		if (bSuccess)
-		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-				LOCTEXT("ABasicImageDownloader::DownloadImagesForLandscape::Success", "BasicImageDownloader successfully prepared the following file(s):\n{0}"),
-				FText::FromString(FString::Join(Fetcher->OutputFiles, TEXT("\n")))
-			));
-			return;
-		}
-		else
-		{
-			FMessageDialog::Open(EAppMsgType::Ok,
-				LOCTEXT("ABasicImageDownloader::DownloadImagesForLandscape::Failure", "There was an error while downloading or preparing the files.")
-			);
-			return;
-		}
-	});
+	ImageDownloader->DownloadImages(nullptr);
 }
 
 
