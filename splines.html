@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Importing Splines and Landscape Splines &mdash; Landscape Combinator  documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/custom.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=5929fcd5"></script>
+        <script src="_static/doctools.js?v=888ff710"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Use OpenStreetMap Areas in PCG" href="ogrfilter.html" />
+    <link rel="prev" title="Blending Landscapes" href="blending.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Landscape Combinator
+          </a>
+              <div class="version">
+                0.6.4
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="image-downloader.html">Image Downloader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="landscape-spawner.html">Create Landscapes with LandscapeSpawner</a></li>
+<li class="toctree-l1"><a class="reference internal" href="landscape-texturer.html">Download Images for Landscapes with Landscape Texturer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="landscape-material.html">Landscape Material</a></li>
+<li class="toctree-l1"><a class="reference internal" href="blending.html">Blending Landscapes</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Importing Splines and Landscape Splines</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#splineimporter-overview">SplineImporter Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#landscape-splines">Landscape Splines</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#buildings">Buildings</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="ogrfilter.html">Use OpenStreetMap Areas in PCG</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building From Spline</a></li>
+<li class="toctree-l1"><a class="reference internal" href="credit.html">Credit</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Landscape Combinator</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Importing Splines and Landscape Splines</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/splines.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="importing-splines-and-landscape-splines">
+<span id="splines"></span><h1>Importing Splines and Landscape Splines<a class="headerlink" href="#importing-splines-and-landscape-splines" title="Link to this heading"></a></h1>
+<section id="splineimporter-overview">
+<h2>SplineImporter Overview<a class="headerlink" href="#splineimporter-overview" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>First make sure that you have a <a class="reference internal" href="coordinates.html#coordinates"><span class="std std-ref">Level Coordinates</span></a> actor in your level.</p></li>
+<li><p>Search for <code class="docutils literal notranslate"><span class="pre">SplineImporter</span></code>, which is a C++ class in the Landscape Combinator plugin, and drag it into your level.</p></li>
+<li><p>In the Details Panel, select the splines source as you wish.
+You can either use a premade query, such as Roads, Buildings, or you can write the query yourself using <a class="reference external" href="https://overpass-turbo.eu/">Overpass</a> syntax.
+For instance, the premade query for Roads is the same as using “Overpass Short Query” with the query:
+<code class="docutils literal notranslate"><span class="pre">way[&quot;highway&quot;][&quot;highway&quot;!~&quot;path&quot;][&quot;highway&quot;!~&quot;track&quot;];</span></code>.</p></li>
+<li><p>Select whether you want landscape splines, or regular spline components.</p></li>
+<li><p>Choose an actor on which to spawn the splines (usually a landscape).
+This actor’s area in Unreal will be mapped to a real-world area thanks to the <code class="docutils literal notranslate"><span class="pre">Level</span> <span class="pre">Coordinates</span></code>,
+and the plugin will use this real-world area to search for splines.</p></li>
+<li><p>Press the <code class="docutils literal notranslate"><span class="pre">Generate</span> <span class="pre">Splines</span></code> button.</p></li>
+</ul>
+</section>
+<section id="landscape-splines">
+<h2>Landscape Splines<a class="headerlink" href="#landscape-splines" title="Link to this heading"></a></h2>
+<p>If you have generated landscape splines, you can go to
+<code class="docutils literal notranslate"><span class="pre">Landscape</span> <span class="pre">Mode</span> <span class="pre">&gt;</span> <span class="pre">Manage</span> <span class="pre">&gt;</span> <span class="pre">Splines</span></code> to control the spline parameters as usual.
+You can choose to paint using a layer (fill the <code class="docutils literal notranslate"><span class="pre">Layer</span> <span class="pre">Name</span></code> field in the details panel after selecting all control points and then all segments).
+If you use the <code class="docutils literal notranslate"><span class="pre">MI_Landscape</span></code> material for your landscape, you can try <code class="docutils literal notranslate"><span class="pre">Road</span></code> as a <code class="docutils literal notranslate"><span class="pre">Layer</span> <span class="pre">Name</span></code> to paint roads.</p>
+<p>You can also select all the segments, and then add a mesh on the landscape splines in the Details Panel.</p>
+</section>
+<section id="buildings">
+<h2>Buildings<a class="headerlink" href="#buildings" title="Link to this heading"></a></h2>
+<p>For buildings, it is recommended that you use regular splines (not landscape splines).
+When you generate regular splines, they are added as Spline components in a new <code class="docutils literal notranslate"><span class="pre">SplineCollection</span></code> actor.
+Use the <code class="docutils literal notranslate"><span class="pre">Toggle</span> <span class="pre">Linear</span></code> button to switch between curvy and straight splines.</p>
+<p>Then, drag a <code class="docutils literal notranslate"><span class="pre">BuildingsFromSplines</span></code> actor in your level.
+Select the parameters you want for your buildings (windows and doors meshes, materials, number of floors, etc.).
+You may also enter tags to filter the spline components from which buildings are generated.
+Keep the tags set to <cite>None</cite> if you want to generate buildings on all the spline components
+existing in your level. Once you are satisfied with your settings, press the <code class="docutils literal notranslate"><span class="pre">Generate</span> <span class="pre">Buildings</span></code> button.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="blending.html" class="btn btn-neutral float-left" title="Blending Landscapes" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="ogrfilter.html" class="btn btn-neutral float-right" title="Use OpenStreetMap Areas in PCG" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Landscape Combinator.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

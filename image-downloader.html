@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Image Downloader &mdash; Landscape Combinator  documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/custom.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=5929fcd5"></script>
+        <script src="_static/doctools.js?v=888ff710"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Create Landscapes with LandscapeSpawner" href="landscape-spawner.html" />
+    <link rel="prev" title="Coordinates" href="coordinates.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Landscape Combinator
+          </a>
+              <div class="version">
+                0.6.4
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Image Downloader</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#image-source">Image Source</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#wms">WMS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#xyz">XYZ</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mapbox">Mapbox</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#viewfinder-panoramas">Viewfinder Panoramas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#usgs-1-3">USGS 1/3”</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#swissalti3d-swisstopo">swissALTI3D (©swisstopo)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#litto-3d-guadeloupe">Litto 3D Guadeloupe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#local-file">Local File</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#local-folder">Local Folder</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#url">URL</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#preprocessing">Preprocessing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#resolution-scaling">Resolution Scaling</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="landscape-spawner.html">Create Landscapes with LandscapeSpawner</a></li>
+<li class="toctree-l1"><a class="reference internal" href="landscape-texturer.html">Download Images for Landscapes with Landscape Texturer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="landscape-material.html">Landscape Material</a></li>
+<li class="toctree-l1"><a class="reference internal" href="blending.html">Blending Landscapes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="splines.html">Importing Splines and Landscape Splines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ogrfilter.html">Use OpenStreetMap Areas in PCG</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building From Spline</a></li>
+<li class="toctree-l1"><a class="reference internal" href="credit.html">Credit</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Landscape Combinator</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Image Downloader</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/image-downloader.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="image-downloader">
+<span id="id1"></span><h1>Image Downloader<a class="headerlink" href="#image-downloader" title="Link to this heading"></a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">ImageDownloader</span></code> component is used in:</p>
+<ul class="simple">
+<li><p>the <a class="reference internal" href="landscape-spawner.html#landscape-spawner"><span class="std std-ref">LandscapeSpawner</span></a> actor to download heightmaps (<code class="docutils literal notranslate"><span class="pre">HeightmapDownloader</span></code>) and to create textures and decals (<code class="docutils literal notranslate"><span class="pre">TextureDownloader</span></code>),</p></li>
+<li><p>the <a class="reference internal" href="landscape-texturer.html#landscape-texturer"><span class="std std-ref">LandscapeTexturer</span></a> actor to download satellite (and other) images for your landscapes,</p></li>
+<li><p>the <code class="docutils literal notranslate"><span class="pre">BasicImageDownloader</span></code> actor to simply download images.</p></li>
+</ul>
+<p>Here are the sources that are supported by <code class="docutils literal notranslate"><span class="pre">ImageDownloader</span></code>. Feel free to suggest new sources on:
+<a class="reference external" href="https://github.com/LandscapeCombinator/LandscapeCombinator/issues">GitHub</a>
+and I will do my best to add them.</p>
+<section id="image-source">
+<h2>Image Source<a class="headerlink" href="#image-source" title="Link to this heading"></a></h2>
+<section id="wms">
+<h3>WMS<a class="headerlink" href="#wms" title="Link to this heading"></a></h3>
+<p>You can download images from any WMS server using the <code class="docutils literal notranslate"><span class="pre">Generic</span> <span class="pre">WMS</span></code> source.
+Enter the GetCapabilities URL of a WMS server, and then choose a layer.
+Enter the <code class="docutils literal notranslate"><span class="pre">MinLong</span> <span class="pre">(Left),</span> <span class="pre">MaxLong</span> <span class="pre">(Right),</span> <span class="pre">MinLat</span> <span class="pre">(Bottom),</span> <span class="pre">MaxLat</span> <span class="pre">(Top)</span></code>
+coordinates in the given coordinate system, as well as the width and height
+of the image you want to download. To find coordinates, you can use the
+DuckDuckGo link from the Details Panel to search for the correct
+<code class="docutils literal notranslate"><span class="pre">epsg.io</span></code> map of the layer’s coordinate system.
+These can also be set automatically from a Bounding Actor (see the <code class="docutils literal notranslate"><span class="pre">Parameters</span> <span class="pre">Selection</span></code> dropdown).</p>
+<p>There are a few preset WMS servers in the <code class="docutils literal notranslate"><span class="pre">ImageDownloader</span></code>. If you know of a
+WMS server that would be good to have here, please let me know!</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://wxs.ign.fr/altimetrie/geoportail/r/wms?SERVICE=WMS&amp;VERSION=1.3.0&amp;REQUEST=GetCapabilities">IGN Heightmaps</a>:
+Contains high resolution (1m per pixel) heightmaps for Overseas (e.g. <code class="docutils literal notranslate"><span class="pre">RGEALTI-MNT_PYR-ZIP_GLP_WGS84UTM20_WMS</span></code> for Guadeloupe) and European France (<code class="docutils literal notranslate"><span class="pre">RGEALTI-MNT_PYR-ZIP_FXX_LAMB93_WMS</span></code>).
+Choose <code class="docutils literal notranslate"><span class="pre">Width</span></code> to be <code class="docutils literal notranslate"><span class="pre">MaxLong</span> <span class="pre">-</span> <span class="pre">MinLong</span></code>, and <code class="docutils literal notranslate"><span class="pre">Height</span></code> equals <code class="docutils literal notranslate"><span class="pre">MaxLat</span> <span class="pre">-</span> <span class="pre">MinLat</span></code> to get the best possible resolution (everything as integers).</p></li>
+<li><p><a class="reference external" href="https://services.data.shom.fr/INSPIRE/wms/r?service=WMS&amp;version=1.3.0&amp;request=GetCapabilities">SHOM</a>:
+Contains hillshade elevation models, but no heightmaps.</p></li>
+<li><p><a class="reference external" href="https://elevation.nationalmap.gov/arcgis/services/3DEPElevation/ImageServer/WMSServer?request=GetCapabilities&amp;service=WMS">USGS 3DEPElevation</a>:
+Contains heigthmaps for the US.</p></li>
+<li><p><a class="reference external" href="https://basemap.nationalmap.gov/arcgis/services/USGSImageryOnly/MapServer/WMSServer?request=GetCapabilities&amp;service=WMS">USGS Imagery</a>:
+Contains satellite imagery for the US.</p></li>
+</ul>
+</section>
+<section id="xyz">
+<h3>XYZ<a class="headerlink" href="#xyz" title="Link to this heading"></a></h3>
+<p>You can use any XYZ URL of the form <code class="docutils literal notranslate"><span class="pre">https://url.to/images/{z}/{x}/{y}</span></code>.
+Then, by specifying a Zoom level and the minimum/maximum X and Y tiles,
+the image downloader will download.</p>
+<p>For servers using Slippy Tiles, you can use
+the <a class="reference external" href="https://chrishewett.com/blog/slippy-tile-explorer/?">Slippy Tile Explorer</a>
+to find the tiles numbers corresponding to the area that you want to download.
+These can also be set automatically from a Bounding Actor or using coordinates
+(see the <code class="docutils literal notranslate"><span class="pre">Parameters</span> <span class="pre">Selection</span></code> dropdown).</p>
+<p>If your server uses a convention different than Slippy Tiles, you should use
+manual <code class="docutils literal notranslate"><span class="pre">Parameters</span> <span class="pre">Selection</span></code>, and you should uncheck
+<code class="docutils literal notranslate"><span class="pre">Georeference</span> <span class="pre">Slippy</span> <span class="pre">Tiles</span></code>. Make sure that <code class="docutils literal notranslate"><span class="pre">MaxY</span> <span class="pre">Is</span> <span class="pre">North</span></code> is correctly
+checked or unchecked depending on whether Y goes up or down when going north
+in your data. Finally, add the coordinate system of your data.</p>
+</section>
+<section id="mapbox">
+<h3>Mapbox<a class="headerlink" href="#mapbox" title="Link to this heading"></a></h3>
+<p>Mapbox is one particular XYZ server which is hard-coded. You need to provide
+an API key (that you can obtain for free from a Mapbox account) that will
+be used to download the tiles. Since Mapbox uses Slippy Tiles, the
+<code class="docutils literal notranslate"><span class="pre">Parameters</span> <span class="pre">Selection</span></code> using a Bounding Actor or coordinates works correctly
+here.</p>
+</section>
+<section id="viewfinder-panoramas">
+<h3>Viewfinder Panoramas<a class="headerlink" href="#viewfinder-panoramas" title="Link to this heading"></a></h3>
+<p>Please <a class="reference internal" href="installation.html#installation"><span class="std std-ref">make sure</span></a> that you have 7Z installed if you want to use Viewfinder Panoramas.</p>
+<ul class="simple">
+<li><p><a class="reference external" href="http://viewfinderpanoramas.org/Coverage%20map%20viewfinderpanoramas_org1.htm">Viewfinder Panoramas 1”</a>:
+Highest resolution, around 30 meters per pixel.
+In an <code class="docutils literal notranslate"><span class="pre">ImageDownloader</span></code>, choose “Viewfinder Panoramas 1” and enter the comma-separated list of rectangles (e.g. L31, L32).</p></li>
+<li><p><a class="reference external" href="http://viewfinderpanoramas.org/Coverage%20map%20viewfinderpanoramas_org3.htm">Viewfinder Panoramas 3”</a>:
+Intermadiate resolution, around 90 meters per pixel.
+In an <code class="docutils literal notranslate"><span class="pre">ImageDownloader</span></code>, choose “Viewfinder Panoramas 3” and enter the comma-separated list of rectangles (e.g. L31, L32).</p></li>
+<li><p><a class="reference external" href="http://viewfinderpanoramas.org/Coverage%20map%20viewfinderpanoramas_org15.htm">Viewfinder Panoramas 15”</a>:
+Lowest resolution, around 450 meters per pixel.
+In an <code class="docutils literal notranslate"><span class="pre">ImageDownloader</span></code>, choose “Viewfinder Panoramas 15” and enter the comma-separated list of rectangles (e.g. 15-A, 15-B, 15-G, 15-H).</p></li>
+</ul>
+</section>
+<section id="usgs-1-3">
+<h3>USGS 1/3”<a class="headerlink" href="#usgs-1-3" title="Link to this heading"></a></h3>
+<p>This is 1/3” or around 10 meters per pixel data for the United States.</p>
+<ul class="simple">
+<li><p>Go to the <a class="reference external" href="https://apps.nationalmap.gov/downloader/">USGS National Map Data Download Application</a>.</p></li>
+<li><p>In the Datasets tab, click “Elevation Products (3DEP)”. Unselect everything except “1/3 arc-second DEM” and “Current” underneath.</p></li>
+<li><p>Zoom on the area for which you want to download heightmaps.</p></li>
+<li><p>Click on “Search Products”.</p></li>
+<li><p>In the “Products” tab, you can visualize the tiles that will be downloaded.</p></li>
+<li><p>If you want all the tiles suggested here, click on the TXT button (not CSV) to download the list of links.</p></li>
+<li><p>If you want only some of the tiles, add the ones that you want to your Cart, and click the TXT button here to download the list of links.</p></li>
+<li><p>In the Details Panel of an <code class="docutils literal notranslate"><span class="pre">ImageDownloader</span></code>, choose <code class="docutils literal notranslate"><span class="pre">USGS</span> <span class="pre">One</span> <span class="pre">Third</span></code> as a source, and enter the path to the TXT file on your computer.</p></li>
+</ul>
+</section>
+<section id="swissalti3d-swisstopo">
+<h3>swissALTI3D (©swisstopo)<a class="headerlink" href="#swissalti3d-swisstopo" title="Link to this heading"></a></h3>
+<p>This is very high resolution data, 0.5 meter per pixel, for Switzerland. It uses EPSG 2056.</p>
+<ul class="simple">
+<li><p>Go to the <a class="reference external" href="https://www.swisstopo.admin.ch/en/geodata/height/alti3d.html">swisstopo website</a>.</p></li>
+<li><p>In Section “swissALTI3D - Access to geodata”, choose “Selection by rectangle”.</p></li>
+<li><p>Zoom on the map to the area that you wish to download.</p></li>
+<li><p>Click on “New rectangle”, and draw a rectangle in the area that you want to download.</p></li>
+<li><p>Choose the resolution, 0.5m per pixel is the best resolution but will lead to heavy heightmaps.</p></li>
+<li><p>Click on “Search”.</p></li>
+<li><p>Click on “Export all links” and then on “File ready. Click here to download”.</p></li>
+<li><p>In the Details Panel of an <code class="docutils literal notranslate"><span class="pre">ImageDownloader</span></code>, choose <code class="docutils literal notranslate"><span class="pre">Swiss</span> <span class="pre">ALTI</span> <span class="pre">3D</span></code> as a source, and enter the path to the CSV file on your computer.</p></li>
+</ul>
+</section>
+<section id="litto-3d-guadeloupe">
+<h3>Litto 3D Guadeloupe<a class="headerlink" href="#litto-3d-guadeloupe" title="Link to this heading"></a></h3>
+<p>Please <a class="reference internal" href="installation.html#installation"><span class="std std-ref">make sure</span></a> that you have 7Z installed if you want to use Litto 3D Guadeloupe.
+This is very high resolution data, 1 meter per pixel, for Guadeloupe. It uses EPSG 4559.</p>
+<ul class="simple">
+<li><p>Go to the <a class="reference external" href="https://diffusion.shom.fr/litto3d-guad2016.html">Litto 3D Guadeloupe website</a>.</p></li>
+<li><p>Click on “Télécharger”.</p></li>
+<li><p>Click on the areas that you want to download.</p></li>
+<li><p>Click on “Télécharger la sélection”.</p></li>
+<li><p>Move all the 7z files that you have downloaded into a new folder.</p></li>
+<li><p>In the Details Panel of an <code class="docutils literal notranslate"><span class="pre">ImageDownloader</span></code>, choose <code class="docutils literal notranslate"><span class="pre">Litto</span> <span class="pre">3D</span> <span class="pre">Guadeloupe</span></code> as a source, and enter the path to the new folder on your computer.</p></li>
+</ul>
+</section>
+<section id="local-file">
+<h3>Local File<a class="headerlink" href="#local-file" title="Link to this heading"></a></h3>
+<p>Enter the path to a georeferenced file on your computer as well as the coordinate system.</p>
+</section>
+<section id="local-folder">
+<h3>Local Folder<a class="headerlink" href="#local-folder" title="Link to this heading"></a></h3>
+<p>Enter the path to a folder containing files named following the <code class="docutils literal notranslate"><span class="pre">_x0_y0</span></code> convention,
+as well as the coordinate system.</p>
+</section>
+<section id="url">
+<h3>URL<a class="headerlink" href="#url" title="Link to this heading"></a></h3>
+<p>Enter an URL to a georeferenced heightmap, as well as the coordinate system.</p>
+</section>
+</section>
+<section id="preprocessing">
+<h2>Preprocessing<a class="headerlink" href="#preprocessing" title="Link to this heading"></a></h2>
+<p>You can preprocess downloaded heightmaps using the following options.
+(These options are also available in the <code class="docutils literal notranslate"><span class="pre">HeightmapModifier</span></code> component that is attached to created landscapes).</p>
+<ul class="simple">
+<li><p><strong>Preprocess (bool)</strong>:
+Check this option if you want to run an external binary to prepare the heightmaps right after fetching them.</p></li>
+<li><p><strong>Command (FString)</strong>:
+Enter the name of the binary, which should be in your <code class="docutils literal notranslate"><span class="pre">PATH</span></code>, and which will be used on your heightmap.
+Your processing command must take exactly two arguments: the input file and the output file.</p></li>
+</ul>
+</section>
+<section id="resolution-scaling">
+<h2>Resolution Scaling<a class="headerlink" href="#resolution-scaling" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><strong>Change Resolution (bool)</strong>:
+Check this option if you want to scale your heightmap resolution up or down using GDAL.</p></li>
+<li><p><strong>Precision Percent (int)</strong>:
+Depending on the sizes of your heightmaps, you can use a value under <code class="docutils literal notranslate"><span class="pre">100%</span></code> to make
+importing the landscape faster. For heightmaps which are low resolution, you can use a value
+above <code class="docutils literal notranslate"><span class="pre">100%</span></code> in order to have a better landscape grid size within Unreal Engine to be able
+to paint or sculpt the landscape. Upscaling will however not add details that were not there
+in the original heightmaps.</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="coordinates.html" class="btn btn-neutral float-left" title="Coordinates" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="landscape-spawner.html" class="btn btn-neutral float-right" title="Create Landscapes with LandscapeSpawner" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Landscape Combinator.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

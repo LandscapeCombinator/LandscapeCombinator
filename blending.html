@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blending Landscapes &mdash; Landscape Combinator  documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/custom.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=5929fcd5"></script>
+        <script src="_static/doctools.js?v=888ff710"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Importing Splines and Landscape Splines" href="splines.html" />
+    <link rel="prev" title="Landscape Material" href="landscape-material.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Landscape Combinator
+          </a>
+              <div class="version">
+                0.6.4
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="image-downloader.html">Image Downloader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="landscape-spawner.html">Create Landscapes with LandscapeSpawner</a></li>
+<li class="toctree-l1"><a class="reference internal" href="landscape-texturer.html">Download Images for Landscapes with Landscape Texturer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="landscape-material.html">Landscape Material</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Blending Landscapes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#matterhorn-example">Matterhorn Example</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="splines.html">Importing Splines and Landscape Splines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ogrfilter.html">Use OpenStreetMap Areas in PCG</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building From Spline</a></li>
+<li class="toctree-l1"><a class="reference internal" href="credit.html">Credit</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Landscape Combinator</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Blending Landscapes</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/blending.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="blending-landscapes">
+<span id="blending"></span><h1>Blending Landscapes<a class="headerlink" href="#blending-landscapes" title="Link to this heading"></a></h1>
+<p>If you created a landscape using Landscape Combinator, you will find that the newly created landscape
+has a <code class="docutils literal notranslate"><span class="pre">BlendLandscape</span></code> component. You can also add this component manually on landscapes that you
+created without Landscape Combinator.</p>
+<p>In the <code class="docutils literal notranslate"><span class="pre">BlendLandscape</span></code> component, simply choose the landscape that you want to blend with,
+and click the <code class="docutils literal notranslate"><span class="pre">Blend</span> <span class="pre">With</span> <span class="pre">Landscape</span></code> button.</p>
+<p>You can also explore the <code class="docutils literal notranslate"><span class="pre">Advanced</span> <span class="pre">Blending</span> <span class="pre">Options</span></code>, which let you specify custom curves
+for blending the landscapes.</p>
+<ul>
+<li><div class="line-block">
+<div class="line"><strong>DegradeThisData (pointer to UCurveFloat)</strong>:</div>
+<div class="line">A curve that specifies how the data at the border of this landscape gets degraded into the other landscape.</div>
+<div class="line">The X axis of the curve represents the distance from the border of the overlapping region and goes from 0 (at the border) to (1 at the center).</div>
+<div class="line">The Y axis (Alpha) defines how we compute the new heightmap data:</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">NewData</span> <span class="pre">=</span> <span class="pre">Alpha</span> <span class="pre">*</span> <span class="pre">OldData</span> <span class="pre">+</span> <span class="pre">(1</span> <span class="pre">-</span> <span class="pre">Alpha)</span> <span class="pre">*</span> <span class="pre">OverlappingLandscapeData</span></code></div>
+<div class="line">For example, a curve which is always 1 means that this landscape data is not changed.</div>
+</div>
+</li>
+<li><div class="line-block">
+<div class="line"><strong>DegradeOtherData (pointer to UCurveFloat)</strong>:</div>
+<div class="line">A curve that specifies how the data at the border of a landscape overlapping with this one gets modified.</div>
+<div class="line">The X axis of the curve represents the distance from the border of the overlapping region and goes from 0 (at the border) to (1 at the center).</div>
+<div class="line">The Y axis (Alpha) defines how we compute the new heightmap data of the overlapping landscape.</div>
+<div class="line">For example, a curve which is always 1 means that the overlapping landscape data is not changed.</div>
+<div class="line">In addition, the data of the overlapping landscape will not be changed in the positions where this landscape’s data is equal to <cite>ThisLandscapeNoData</cite>.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">NewData</span> <span class="pre">=</span> <span class="pre">ThisData</span> <span class="pre">==</span> <span class="pre">ThisLandscapeNoData</span> <span class="pre">?</span> <span class="pre">OldData</span> <span class="pre">:</span> <span class="pre">Alpha</span> <span class="pre">*</span> <span class="pre">OldData</span> <span class="pre">+</span> <span class="pre">(1</span> <span class="pre">-</span> <span class="pre">Alpha)</span> <span class="pre">*</span> <span class="pre">OtherLandscapeNoData</span></code></div>
+</div>
+</li>
+<li><div class="line-block">
+<div class="line"><strong>ThisLandscapeNoData (double)</strong>:</div>
+<div class="line">The Z value that this landscape takes when it has no data.</div>
+</div>
+</li>
+<li><div class="line-block">
+<div class="line"><strong>OtherLandscapeNoData (double)</strong>:</div>
+<div class="line">The Z value that the other landscape takes when it has no data.</div>
+</div>
+</li>
+</ul>
+<section id="matterhorn-example">
+<h2>Matterhorn Example<a class="headerlink" href="#matterhorn-example" title="Link to this heading"></a></h2>
+<p>Matterhorn is a mountain at the border of Switzerland and Italy. The swissALTI3D data covering this area
+only has data for the northern flank of the mountain. See the images below for the result of blending this
+landscape with the L32 tile of Viewfinder Panoramas 3”. This example is available in the <code class="docutils literal notranslate"><span class="pre">Matterhorn</span></code> level
+of the plugin.</p>
+<p>Before blending, on the left, there is the Matterhorn peak with missing data from swissALTI3D.
+On the right, this is the L32 tile from Viewfinder Panoramas, with resolution scaled down to 30%.</p>
+<img alt="The Matterhorn peak with missing data from swissALTI3D" src="_images/before_blend2.png" />
+<img alt="The Matternhorn low-resolution data in the L32 landscape" src="_images/before_blend3.png" />
+<img alt="The Matterhorn and L32 landscapes before blending" src="_images/before_blend1.png" />
+<img alt="The Matterhorn and L32 landscapes before blending" src="_images/before_blend4.png" />
+<img alt="The Matterhorn and L32 landscapes before blending" src="_images/before_blend5.png" />
+<p>After blending:</p>
+<img alt="The Matterhorn and L32 landscapes before blending" src="_images/after_blend1.png" />
+<img alt="The Matterhorn and L32 landscapes before blending" src="_images/after_blend2.png" />
+<p>The L32 landscape now has a hole that follows the curve below.
+And the Matterhorn landscape data gets blended with the L32 data at the border.</p>
+<img alt="The L32 landscape after blending" src="_images/after_blend3.png" />
+<img alt="The Matterhorn peak with missing data from swissALTI3D" src="_images/after_blend4.png" />
+<p>The curve for the Matterhorn landscape.</p>
+<img alt="The curve for the Matterhorn landscape" src="_images/curve_other.png" />
+<p>The curve for the L32 landscape.</p>
+<img alt="The curve for the L32 landscape" src="_images/curve_this.png" />
+<p>The Details Panel of the <code class="docutils literal notranslate"><span class="pre">BlendLandscape</span></code> component (on the Matterhorn landscape).</p>
+<img alt="The Details Panel of the ``BlendLandscape`` component (on the Matterhorn landscape)." class="details" src="_images/blend_details.png" />
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="landscape-material.html" class="btn btn-neutral float-left" title="Landscape Material" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="splines.html" class="btn btn-neutral float-right" title="Importing Splines and Landscape Splines" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Landscape Combinator.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
