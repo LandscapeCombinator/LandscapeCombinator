@@ -22,4 +22,18 @@ void UActorCoordinates::MoveActor()
 	Owner->SetActorLocation(FVector(X, Y, Z));
 }
 
+void UActorCoordinates::SetCoordinates()
+{
+	AActor* Owner = GetOwner();
+	if (!Owner) return;
+
+	FVector2D XY, Coordinates;
+	XY.X = Owner->GetActorLocation().X;
+	XY.Y = Owner->GetActorLocation().Y;
+	if (!ALevelCoordinates::GetCRSCoordinatesFromUnrealLocation(Owner->GetWorld(), XY, CRS, Coordinates)) return;
+
+	Longitude = Coordinates[0];
+	Latitude = Coordinates[1];
+}
+
 #undef LOCTEXT_NAMESPACE

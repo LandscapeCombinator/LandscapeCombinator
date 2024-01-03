@@ -68,6 +68,14 @@ bool ALevelCoordinates::GetUnrealCoordinatesFromCRS(UWorld* World, double Longit
 	return true;
 }
 
+bool ALevelCoordinates::GetCRSCoordinatesFromUnrealLocation(UWorld* World, FVector2D Location, FVector2D& OutCoordinates)
+{
+	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World);
+	if (!GlobalCoordinates) return false;
+	GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(Location, OutCoordinates);
+	return true;
+}
+
 bool ALevelCoordinates::GetCRSCoordinatesFromUnrealLocation(UWorld* World, FVector2D Location, FString CRS, FVector2D &OutCoordinates)
 {
 	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World);

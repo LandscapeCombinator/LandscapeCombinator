@@ -246,13 +246,6 @@ void ALandscapeSpawner::SpawnLandscape()
 						MapboxSatelliteDownloader->Mapbox_2x = Decals_Mapbox_2x;
 						MapboxSatelliteDownloader->XYZ_Zoom = Decals_Mapbox_Zoom;
 
-						//MapboxSatelliteDownloader->DownloadImages([this](TArray<FString> DownloadedImages)
-						//{
-						//	for (auto &DownloadedImage : DownloadedImages)
-						//	{
-						//		UDecalCoordinates::CreateDecal(this->GetWorld(), DownloadedImage);
-						//	}
-
 						MapboxSatelliteDownloader->DownloadMergedImage([this](FString DownloadedImage)
 						{
 							UDecalCoordinates::CreateDecal(this->GetWorld(), DownloadedImage);
@@ -278,13 +271,6 @@ void ALandscapeSpawner::SpawnLandscape()
 							delete Fetcher;
 							return;
 						}
-
-						//TextureDownloader->DownloadImages([this](TArray<FString> DownloadedImages)
-						//{
-						//	for (auto &DownloadedImage : DownloadedImages)
-						//	{
-						//		UDecalCoordinates::CreateDecal(this->GetWorld(), DownloadedImage);
-						//	}
 
 						TextureDownloader->DownloadMergedImage([this](FString DownloadedImage)
 						{

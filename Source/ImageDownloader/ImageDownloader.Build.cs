@@ -31,13 +31,14 @@ public class ImageDownloader : ModuleRules
 				"PropertyEditor",
 				"Landscape",
 
-				// Other Dependencies
+				// Landscape Combinator Dependencies
                 "Coordinates",
                 "GDALInterface",
                 "FileDownloader",
                 "ConcurrencyHelpers",
                 "ConsoleHelpers",
-				"LandscapeUtils"
+				"LandscapeUtils",
+				"MapboxHelpers"
             }
 		);
 	}
