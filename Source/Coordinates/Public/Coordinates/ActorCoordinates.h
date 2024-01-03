@@ -39,6 +39,12 @@ public:
 		meta = (DisplayPriority = "5")
 	)
 	void MoveActor();
+
+	/* Set the longitude and the latitude to the current actor position. The level must have a global coordinate system. */
+	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Coordinates",
+		meta = (DisplayPriority = "5")
+	)
+	void SetCoordinates();
 };
 
 #undef LOCTEXT_NAMESPACE

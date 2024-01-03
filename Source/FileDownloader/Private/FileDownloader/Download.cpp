@@ -162,10 +162,11 @@ void Download::FromURL(FString URL, FString File, bool bProgress, TFunction<void
 		Request->SetHeader("User-Agent", "X-UnrealEngine-Agent");
 		bool *bTriggered = new bool(false);
 
-		FScopedSlowTask *Task = new FScopedSlowTask(0, LOCTEXT("Download::FromURL", "Fetching Content Length from URL"));
+		FScopedSlowTask* Task;
 
 		if (bProgress)
 		{
+			Task = new FScopedSlowTask(0, LOCTEXT("Download::FromURL", "Fetching Content Length from URL"));
 			Task->MakeDialog();
 		}
 
@@ -173,7 +174,10 @@ void Download::FromURL(FString URL, FString File, bool bProgress, TFunction<void
 			if (*bTriggered) return;
 			*bTriggered = true;
 
-			Task->Destroy();
+			if (bProgress)
+			{
+				Task->Destroy();
+			}
 
 			if (bWasSuccessful && Response.IsValid() && EHttpResponseCodes::IsOk(Response->GetResponseCode()))
 			{
@@ -214,10 +218,15 @@ void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64
 			}
 		}
 
-		TSharedPtr<SWindow> Window = SNew(SWindow)
-			.SizingRule(ESizingRule::Autosized)
-			.AutoCenter(EAutoCenter::PrimaryWorkArea)
-			.Title(LOCTEXT("DownloadProgress", "Download Progress"));
+		TSharedPtr<SWindow> Window;
+		
+		if (bProgress)
+		{
+			Window = SNew(SWindow)
+				.SizingRule(ESizingRule::Autosized)
+				.AutoCenter(EAutoCenter::PrimaryWorkArea)
+				.Title(LOCTEXT("DownloadProgress", "Download Progress"));
+		}
 
 		TSharedPtr<IHttpRequest> Request = FHttpModule::Get().CreateRequest().ToSharedPtr();
 		Request->SetURL(URL);
@@ -227,7 +236,7 @@ void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64
 			*Downloaded = Received;
 		});
 		bool *bTriggered = new bool(false);
-		Request->OnProcessRequestComplete().BindLambda([URL, File, OnComplete, Window, bTriggered](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
+		Request->OnProcessRequestComplete().BindLambda([URL, File, OnComplete, Window, bTriggered, bProgress](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
 		{
 			if (*bTriggered) return;
 			*bTriggered = true;
@@ -256,66 +265,71 @@ void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64
 					UE_LOG(LogFileDownloader, Error, TEXT("Request was not successful. Error %d."), Response->GetResponseCode());
 				}
 			}
+			
+			if (bProgress)
+			{
+				Window->RequestDestroyWindow();
+			}
+
 			if (OnComplete) OnComplete(DownloadSuccess && SavedFile);
-			Window->RequestDestroyWindow();
 		});
 
 
 		Request->ProcessRequest();
 
-		Window->SetContent(
-			SNew(SBox).Padding(FMargin(30, 30, 30, 30))
-			[
-				SNew(SVerticalBox)
-				+SVerticalBox::Slot().AutoHeight()
-				[
-					SNew(STextBlock).Text(
-						FText::Format(
-							LOCTEXT("DowloadingURL", "Dowloading {0} to {1}."),
-							FText::FromString(Shorten(URL)),
-							FText::FromString(Shorten(File))
-						)
-					).Font(FFileDownloaderStyle::RegularFont())
-				]
-				+SVerticalBox::Slot().AutoHeight().Padding(FMargin(0, 0, 0, 20))
-				[
-					SNew(SProgressBar)
-					.Percent_Lambda([Downloaded, ExpectedSize, Request]() {
-						if (ExpectedSize) return *Downloaded / ExpectedSize;
-						return *Downloaded / MAX_int32;
-					})
-					.RefreshRate(0.1)
-				]
-				+SVerticalBox::Slot().AutoHeight().HAlign(EHorizontalAlignment::HAlign_Center)
-				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot().AutoWidth().HAlign(EHorizontalAlignment::HAlign_Center)
-					[
-						SNew(SButton)
-						.OnClicked_Lambda([Window, Request]()->FReply {
-							Request->CancelRequest();
-							Window->RequestDestroyWindow();
-							return FReply::Handled();
-						})
-						[
-							SNew(STextBlock).Font(FFileDownloaderStyle::RegularFont()).Text(FText::FromString(" Cancel "))
-						]
-					]
-				]
-			]
-		);
-
-		Window->SetOnWindowClosed(FOnWindowClosed::CreateLambda([Request](const TSharedRef<SWindow>& Window) {
-			Request->CancelRequest();
-		}));
-
 		if (bProgress)
 		{
+			Window->SetContent(
+				SNew(SBox).Padding(FMargin(30, 30, 30, 30))
+				[
+					SNew(SVerticalBox)
+						+SVerticalBox::Slot().AutoHeight()
+						[
+							SNew(STextBlock).Text(
+								FText::Format(
+									LOCTEXT("DowloadingURL", "Dowloading {0} to {1}."),
+									FText::FromString(Shorten(URL)),
+									FText::FromString(Shorten(File))
+								)
+							).Font(FFileDownloaderStyle::RegularFont())
+						]
+						+SVerticalBox::Slot().AutoHeight().Padding(FMargin(0, 0, 0, 20))
+						[
+							SNew(SProgressBar)
+								.Percent_Lambda([Downloaded, ExpectedSize, Request]() {
+								if (ExpectedSize) return *Downloaded / ExpectedSize;
+								return *Downloaded / MAX_int32;
+									})
+								.RefreshRate(0.1)
+						]
+						+SVerticalBox::Slot().AutoHeight().HAlign(EHorizontalAlignment::HAlign_Center)
+						[
+							SNew(SHorizontalBox)
+								+ SHorizontalBox::Slot().AutoWidth().HAlign(EHorizontalAlignment::HAlign_Center)
+								[
+									SNew(SButton)
+										.OnClicked_Lambda([Window, Request]()->FReply {
+										Request->CancelRequest();
+										Window->RequestDestroyWindow();
+										return FReply::Handled();
+											})
+										[
+											SNew(STextBlock).Font(FFileDownloaderStyle::RegularFont()).Text(FText::FromString(" Cancel "))
+										]
+								]
+						]
+				]
+			);
+
+			Window->SetOnWindowClosed(FOnWindowClosed::CreateLambda([Request](const TSharedRef<SWindow>& Window) {
+				Request->CancelRequest();
+			}));
+
 			FSlateApplication::Get().AddWindow(Window.ToSharedRef());
 		}
 
 
-		if (Request->GetStatus() != EHttpRequestStatus::Processing)
+		if (bProgress && Request->GetStatus() != EHttpRequestStatus::Processing)
 		{
 			Window->RequestDestroyWindow();
 		}

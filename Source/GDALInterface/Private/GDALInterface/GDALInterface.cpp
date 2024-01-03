@@ -508,6 +508,50 @@ bool GDALInterface::Merge(TArray<FString> SourceFiles, FString TargetFile)
 	return true;
 }
 
+bool GDALInterface::ReadHeightmapFromFile(FString File, int& OutWidth, int& OutHeight, TArray<float>& OutHeightmap)
+{
+	GDALDataset* Dataset = (GDALDataset*)GDALOpen(TCHAR_TO_UTF8(*File), GA_ReadOnly);
+
+	if (!Dataset)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			FText::Format(LOCTEXT("GDALInterface::ReadHeightsFromFile", "Could not open file '{0}' to read heightmap."),
+				FText::FromString(File)
+			)
+		);
+		return false;
+	}
+
+	OutWidth = Dataset->GetRasterXSize();
+	OutHeight = Dataset->GetRasterYSize();
+	int NumBands = Dataset->GetRasterCount();
+
+	if (NumBands != 1)
+	{
+		UE_LOG(LogGDALInterface, Error, TEXT("Could not read heightmap."));
+		return false;
+	}
+
+	UE_LOG(LogGDALInterface, Log, TEXT("Reading heightmap from image %s of size %d x %d"), *File, OutWidth, OutHeight);
+
+	float* Buffer = new float[OutWidth * OutHeight];
+	Dataset->GetRasterBand(1)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, Buffer, OutWidth, OutHeight, GDT_Float32, 0, 0);
+
+	OutHeightmap.Reset();
+	OutHeightmap.SetNum(OutWidth * OutHeight);
+
+	for (int i = 0; i < OutWidth; i++)
+	{
+		for (int j = 0; j < OutHeight; j++)
+		{
+			const int k = i + j * OutWidth;
+			OutHeightmap[k] = Buffer[k];
+		}
+	}
+
+	return true;
+}
+
 bool GDALInterface::ReadColorsFromFile(FString File, int &OutWidth, int &OutHeight, TArray<FColor> &OutColors)
 {
 	GDALDataset *Dataset = (GDALDataset *)GDALOpen(TCHAR_TO_UTF8(*File), GA_ReadOnly);
