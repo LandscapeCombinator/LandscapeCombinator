@@ -35,6 +35,8 @@ enum class EImageSourceKind : uint8
 	Mapbox_Satellite,
 	GenericXYZ,
 
+	Napoli,
+
 	Viewfinder15,
 	Viewfinder3,
 	Viewfinder1,
@@ -70,7 +72,7 @@ public:
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
-		meta = (DisplayPriority = "-10")
+		meta = (DisplayPriority = "-20")
 	)
 	/* Please select the source from which to download the images. */
 	EImageSourceKind ImageSourceKind;
@@ -78,7 +80,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
 		meta = (
-			EditCondition = "IsWMS() || IsXYZ()",
+			EditCondition = "AllowsParametersSelection()",
 			EditConditionHides, DisplayPriority = "-9"
 		)
 	)
@@ -88,7 +90,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
 		meta = (
-			EditCondition = "(IsWMS() || IsXYZ()) && ParametersSelection == EParametersSelection::FromBoundingActor",
+			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromBoundingActor",
 			EditConditionHides, DisplayPriority = "-8"
 		)
 	)
@@ -99,7 +101,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
 		meta = (
-			EditCondition = "(IsWMS() || IsXYZ()) && ParametersSelection == EParametersSelection::FromEPSG4326Coordinates",
+			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromEPSG4326Coordinates",
 			EditConditionHides, DisplayPriority = "-8"
 		)
 	)
@@ -108,7 +110,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
 		meta = (
-			EditCondition = "(IsWMS() || IsXYZ()) && ParametersSelection == EParametersSelection::FromEPSG4326Coordinates",
+			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromEPSG4326Coordinates",
 			EditConditionHides, DisplayPriority = "-7"
 		)
 	)
@@ -117,7 +119,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
 		meta = (
-			EditCondition = "(IsWMS() || IsXYZ()) && ParametersSelection == EParametersSelection::FromEPSG4326Coordinates",
+			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromEPSG4326Coordinates",
 			EditConditionHides, DisplayPriority = "-6"
 		)
 	)
@@ -126,7 +128,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
 		meta = (
-			EditCondition = "(IsWMS() || IsXYZ()) && ParametersSelection == EParametersSelection::FromEPSG4326Coordinates",
+			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromEPSG4326Coordinates",
 			EditConditionHides, DisplayPriority = "-5"
 		)
 	)
@@ -233,9 +235,15 @@ public:
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
-		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::GenericWMS", EditConditionHides, DisplayPriority = "2")
+		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::GenericWMS", EditConditionHides, DisplayPriority = "-10")
 	)
 	FString CapabilitiesURL = "";
+
+	UPROPERTY(
+		EditAnywhere, Category = "ImageDownloader|Source",
+		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::GenericWMS", EditConditionHides, DisplayPriority = "3")
+	)
+	bool WMS_XIsLong = true;
 
 	UPROPERTY(
 		EditAnywhere, Category = "ImageDownloader|Source",
@@ -411,6 +419,51 @@ public:
 	int WMS_Height = 1000;
 
 
+	/**********
+	 * Napoli *
+	 **********/
+
+		UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (
+			EditCondition = "ImageSourceKind == EImageSourceKind::Napoli && ParametersSelection == EParametersSelection::Manual",
+			EditConditionHides, DisplayPriority = "20"
+		)
+	)
+	/* Enter the minimum longitude of the bounding box (left coordinate) using EPSG:32633. */
+	double Napoli_MinLong;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (
+			EditCondition = "ImageSourceKind == EImageSourceKind::Napoli && ParametersSelection == EParametersSelection::Manual",
+			EditConditionHides, DisplayPriority = "21"
+		)
+	)
+	/* Enter the maximum longitude of the bounding box (right coordinate) using EPSG:32633. */
+	double Napoli_MaxLong;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (
+			EditCondition = "ImageSourceKind == EImageSourceKind::Napoli && ParametersSelection == EParametersSelection::Manual",
+			EditConditionHides, DisplayPriority = "22"
+		)
+	)
+	/* Enter the minimum latitude of the bounding box (bottom coordinate) using EPSG:32633. */
+	double Napoli_MinLat;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		meta = (
+			EditCondition = "ImageSourceKind == EImageSourceKind::Napoli && ParametersSelection == EParametersSelection::Manual",
+			EditConditionHides, DisplayPriority = "23"
+		)
+	)
+	/* Enter the maximum latitude of the bounding box (top coordinate) using EPSG:32633. */
+	double Napoli_MaxLat;
+
+
 	/**************************
 	 *  Viewfinder Panoramas  *
 	 **************************/
@@ -496,22 +549,22 @@ public:
 		"Enter C:\\Path\\To\\Folder containing 7z files downloaded from https://diffusion.shom.fr/multiproduct/product/configure/id/108";
 
 	UPROPERTY(
-	        EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
-	        meta = (EditCondition = "ImageSourceKind == EImageSourceKind::Litto3D_Guadeloupe", EditConditionHides, DisplayPriority = "4")
+			EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+			meta = (EditCondition = "ImageSourceKind == EImageSourceKind::Litto3D_Guadeloupe", EditConditionHides, DisplayPriority = "4")
 	)
 	/* Enter C:\Path\To\Folder\ containing 7z files downloaded from https://diffusion.shom.fr/multiproduct/product/configure/id/108 */
 	FString Litto3D_Folder;
 
 	UPROPERTY(
-	        EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
-	        meta = (EditCondition = "ImageSourceKind == EImageSourceKind::Litto3D_Guadeloupe", EditConditionHides, DisplayPriority = "5")
+			EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+			meta = (EditCondition = "ImageSourceKind == EImageSourceKind::Litto3D_Guadeloupe", EditConditionHides, DisplayPriority = "5")
 	)
 	/* Check this if you prefer to use the less precise 5m data instead of 1m data */
 	bool bUse5mData = false;
 
 	UPROPERTY(
-	        EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
-	        meta = (EditCondition = "ImageSourceKind == EImageSourceKind::Litto3D_Guadeloupe", EditConditionHides, DisplayPriority = "6")
+			EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+			meta = (EditCondition = "ImageSourceKind == EImageSourceKind::Litto3D_Guadeloupe", EditConditionHides, DisplayPriority = "6")
 	)
 	/* Check this if the files have already been extracted once. Keep it checked if unsure. */
 	bool bSkipExtraction = false;
@@ -765,6 +818,9 @@ public:
 
 	UFUNCTION()
 	bool IsXYZ();
+
+	UFUNCTION()
+	bool AllowsParametersSelection();
 
 	UFUNCTION()
 	bool IsMapbox();

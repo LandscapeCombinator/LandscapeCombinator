@@ -26,7 +26,8 @@ public class FileDownloader : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
-				"HTTP"
+				"HTTP",
+				"ConcurrencyHelpers"
 			}
 		);
 	}

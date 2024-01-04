@@ -13,6 +13,9 @@ public:
 	static void FromURLExpecting(FString URL, FString File, bool bProgress, int64 ExpectedSize, TFunction<void(bool)> OnComplete);
 	static void FromURL(FString URL, FString File, bool bProgress, TFunction<void(bool)> OnComplete);
 
+	static void DownloadMany(TArray<FString> URLs, TArray<FString> Files, TFunction<void(TArray<FString>)> OnComplete);
+	static void DownloadMany(TArray<FString> URLs, FString Directory, TFunction<void(TArray<FString>)> OnComplete);
+
 	static void AddExpectedSize(FString URL, int32 ExpectedSize);
 	static FString ExpectedSizeCacheFile();
 	static void LoadExpectedSizeCache();

@@ -20,7 +20,7 @@ public:
 	bool LoadFromFile(TArray<FString> ExcludeCRS, TFunction<bool(FString)> NameFilter);
 	
 	bool CreateURL(
-		int Width, int Height, FString Name, FString CRS,
+		int Width, int Height, FString Name, FString CRS, bool XIsLong,
 		double MinAllowedLong, double MaxAllowedLong, double MinAllowedLat, double MaxAllowedLat,
 		double MinLong, double MaxLong, double MinLat, double MaxLat,
 		FString &URL, bool &bGeoTiff, FString &FileExt

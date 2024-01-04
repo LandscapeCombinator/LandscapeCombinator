@@ -1,9 +1,10 @@
 // Copyright 2023 LandscapeCombinator. All Rights Reserved.
 
 #include "ImageDownloader/Downloaders/HMLitto3DGuadeloupe.h"
-#include "ConsoleHelpers/Console.h"
 #include "ImageDownloader/Directories.h"
 #include "ImageDownloader/LogImageDownloader.h"
+
+#include "ConsoleHelpers/Console.h"
 
 #include "HAL/FileManagerGeneric.h"
 #include "Misc/ScopedSlowTask.h"
