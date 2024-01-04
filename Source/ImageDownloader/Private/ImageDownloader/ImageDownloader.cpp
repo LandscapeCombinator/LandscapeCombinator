@@ -14,6 +14,7 @@
 #include "ImageDownloader/Downloaders/HMViewfinderDownloader.h"
 #include "ImageDownloader/Downloaders/HMListDownloader.h"
 #include "ImageDownloader/Downloaders/HMXYZ.h"
+#include "ImageDownloader/Downloaders/HMNapoli.h"
 
 #include "ImageDownloader/Transformers/HMSwissALTI3DRenamer.h"
 #include "ImageDownloader/Transformers/HMLitto3DGuadeloupeRenamer.h"
@@ -145,6 +146,17 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 			return Fetcher1->AndThen(Fetcher2)->AndThen(Fetcher3);
 		}
 
+		case EImageSourceKind::Napoli:
+		{
+			// ensure that the coordinates match the bounding actor, in case it has been moved since the last time when the coordinates were set
+			if (ParametersSelection == EParametersSelection::FromBoundingActor && !SetSourceParametersBool(true))
+			{
+				return nullptr;
+			}
+
+			return new HMDebugFetcher("Napoli", new HMNapoli(Napoli_MinLong, Napoli_MaxLong, Napoli_MinLat, Napoli_MaxLat), true);
+		}
+
 		default:
 		{
 			if (IsWMS())
@@ -159,7 +171,7 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 				FString QueryURL, FileExt;
 				bool bSuccess = WMSProvider.CreateURL(
 					WMS_Width, WMS_Height,
-					WMS_Name, WMS_CRS,
+					WMS_Name, WMS_CRS, WMS_XIsLong,
 					WMS_MinAllowedLong, WMS_MaxAllowedLong, WMS_MinAllowedLat, WMS_MaxAllowedLat,
 					WMS_MinLong, WMS_MaxLong, WMS_MinLat, WMS_MaxLat,
 					QueryURL, bGeoTiff, FileExt
@@ -468,17 +480,22 @@ void UImageDownloader::SetSourceParameters()
 	SetSourceParametersBool(true);
 }
 
+bool UImageDownloader::AllowsParametersSelection()
+{
+	return IsWMS() || IsXYZ() || ImageSourceKind == EImageSourceKind::Napoli;
+}
+
 bool UImageDownloader::SetSourceParametersBool(bool bDialog)
 {
 	if (ParametersSelection == EParametersSelection::Manual) return true;
 
-	if (!IsWMS() && !IsXYZ())
+	if (!AllowsParametersSelection())
 	{
 		if (bDialog)
 		{
 			FMessageDialog::Open(
 				EAppMsgType::Ok,
-				LOCTEXT("UImageDownloader::SetSourceParameters::0", "This is supported only for WMS and XYZ sources.")
+				LOCTEXT("UImageDownloader::SetSourceParameters::0", "This is supported only for WMS, XYZ and Napoli.")
 			);
 		}
 		return false;
@@ -504,7 +521,24 @@ bool UImageDownloader::SetSourceParametersBool(bool bDialog)
 
 bool UImageDownloader::SetSourceParametersFromEPSG4326Coordinates(bool bDialog)
 {
-	if (IsWMS())
+	if (ImageSourceKind == EImageSourceKind::Napoli)
+	{
+		FVector4d InCoordinates, OutCoordinates;
+		InCoordinates[0] = MinLong;
+		InCoordinates[1] = MaxLong;
+		InCoordinates[2] = MinLat;
+		InCoordinates[3] = MaxLat;
+
+		if (!GDALInterface::ConvertCoordinates(InCoordinates, OutCoordinates, "EPSG:4326", "EPSG:32633")) return false;
+
+		Napoli_MinLong = OutCoordinates[0];
+		Napoli_MaxLong = OutCoordinates[1];
+		Napoli_MinLat = OutCoordinates[2];
+		Napoli_MaxLat = OutCoordinates[3];
+
+		return true;
+	}
+	else if (IsWMS())
 	{
 		FVector4d InCoordinates, OutCoordinates;
 		InCoordinates[0] = MinLong;
@@ -569,7 +603,16 @@ bool UImageDownloader::SetSourceParametersFromActor(bool bDialog)
 
 	UE_LOG(LogImageDownloader, Log, TEXT("Set Source Parameters From Actor %s"), *ParametersBoundingActor->GetActorLabel());
 
-	FString SourceCRS = IsWMS() ? WMS_CRS : "EPSG:4326";
+	FString SourceCRS = "EPSG:4326";
+	
+	if (ImageSourceKind == EImageSourceKind::Napoli)
+	{
+		SourceCRS = "EPSG:32633";
+	}
+	else if (IsWMS())
+	{
+		SourceCRS = WMS_CRS;
+	}
 
 	if (!ALevelCoordinates::GetActorCRSBounds(ParametersBoundingActor, SourceCRS, Coordinates))
 	{
@@ -588,6 +631,15 @@ bool UImageDownloader::SetSourceParametersFromActor(bool bDialog)
 	double ActorMinLat = Coordinates[2];
 	double ActorMaxLat = Coordinates[3];
 	
+	if (ImageSourceKind == EImageSourceKind::Napoli)
+	{
+		Napoli_MinLong = ActorMinLong;
+		Napoli_MaxLong = ActorMaxLong;
+		Napoli_MinLat = ActorMinLat;
+		Napoli_MaxLat = ActorMaxLat;
+
+		return true;
+	}
 	if (IsWMS())
 	{
 		WMS_MinLong = ActorMinLong;
@@ -685,10 +737,20 @@ void UImageDownloader::OnLayerChanged()
 	WMS_Name = WMSProvider.Names[LayerIndex];
 	WMS_Help = "Please enter the coordinates using the following CRS:";
 	WMS_CRS = WMSProvider.CRSs[LayerIndex];
-	WMS_MinAllowedLong = WMSProvider.MinXs[LayerIndex];
-	WMS_MaxAllowedLong = WMSProvider.MaxXs[LayerIndex];
-	WMS_MinAllowedLat = WMSProvider.MinYs[LayerIndex];
-	WMS_MaxAllowedLat = WMSProvider.MaxYs[LayerIndex];
+	if (WMS_XIsLong)
+	{
+		WMS_MinAllowedLong = WMSProvider.MinXs[LayerIndex];
+		WMS_MaxAllowedLong = WMSProvider.MaxXs[LayerIndex];
+		WMS_MinAllowedLat = WMSProvider.MinYs[LayerIndex];
+		WMS_MaxAllowedLat = WMSProvider.MaxYs[LayerIndex];
+	}
+	else
+	{
+		WMS_MinAllowedLong = WMSProvider.MinYs[LayerIndex];
+		WMS_MaxAllowedLong = WMSProvider.MaxYs[LayerIndex];
+		WMS_MinAllowedLat = WMSProvider.MinXs[LayerIndex];
+		WMS_MaxAllowedLat = WMSProvider.MaxXs[LayerIndex];
+	}
 	WMS_SearchCRS = FString::Format(TEXT("https://duckduckgo.com/?q={0}+site%3Aepsg.io"), { WMS_CRS });
 	WMS_Abstract = WMSProvider.Abstracts[LayerIndex];
 }
@@ -699,31 +761,37 @@ void UImageDownloader::OnImageSourceChanged(TFunction<void(bool)> OnComplete)
 	{
 		CapabilitiesURL = "https://wxs.ign.fr/altimetrie/geoportail/r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_XIsLong = true;
 	}
 	else if (ImageSourceKind == EImageSourceKind::IGN_Satellite)
 	{
 		CapabilitiesURL = "https://wxs.ign.fr/satellite/geoportail/r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_XIsLong = true;
 	}
 	else if (ImageSourceKind == EImageSourceKind::SHOM)
 	{
 		CapabilitiesURL = "https://services.data.shom.fr/INSPIRE/wms/r?service=WMS&version=1.3.0&request=GetCapabilities";
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_XIsLong = true;
 	}
 	else if (ImageSourceKind == EImageSourceKind::USGS_3DEPElevation)
 	{
 		CapabilitiesURL = "https://elevation.nationalmap.gov/arcgis/services/3DEPElevation/ImageServer/WMSServer?request=GetCapabilities&service=WMS";
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_XIsLong = true;
 	}
 	else if (ImageSourceKind == EImageSourceKind::USGS_Topo)
 	{
 		CapabilitiesURL = "https://basemap.nationalmap.gov/arcgis/services/USGSTopo/MapServer/WMSServer?request=GetCapabilities&service=WMS";
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_XIsLong = true;
 	}
 	else if (ImageSourceKind == EImageSourceKind::USGS_Imagery)
 	{
 		CapabilitiesURL = "https://basemap.nationalmap.gov/arcgis/services/USGSImageryOnly/MapServer/WMSServer?request=GetCapabilities&service=WMS";
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_XIsLong = true;
 	}
 	//else if (ImageSourceKind == EImageSourceKind::OpenStreetMap_FR)
 	//{

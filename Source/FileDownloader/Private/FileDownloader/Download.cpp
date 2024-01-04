@@ -4,6 +4,8 @@
 #include "FileDownloader/LogFileDownloader.h"
 #include "FileDownloader/FileDownloaderStyle.h"
 
+#include "ConcurrencyHelpers/Concurrency.h"
+
 #include "Async/Async.h"
 #include "Http.h"
 #include "Misc/FileHelper.h"
@@ -192,6 +194,58 @@ void Download::FromURL(FString URL, FString File, bool bProgress, TFunction<void
 		Request->ProcessRequest();
 	}
 
+}
+
+void Download::DownloadMany(TArray<FString> URLs, FString Directory, TFunction<void(TArray<FString>)> OnComplete)
+{
+	TArray<FString> Files;
+	for (auto& URL : URLs)
+	{
+		TArray<FString> Elements;
+		int NumElements = URL.ParseIntoArray(Elements, TEXT("/"), true);
+
+		if (NumElements == 0)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok,
+				FText::Format(
+					LOCTEXT("Download::DownloadMany", "URL could not be parsed to extract a file name: {0}"),
+					FText::FromString(URL)
+				)
+			); 
+			if (OnComplete) OnComplete(TArray<FString>());
+			return;
+		}
+
+		FString FileName = Elements[NumElements - 1];
+		FString CleanFileName = FPaths::GetCleanFilename(FileName);
+		
+		FString File = FPaths::Combine(Directory, FPaths::GetCleanFilename(FileName));
+		Files.Add(File);
+	}
+
+	return DownloadMany(URLs, Files, OnComplete);
+}
+
+void Download::DownloadMany(TArray<FString> URLs, TArray<FString> Files, TFunction<void(TArray<FString>)> OnComplete)
+{
+	Concurrency::RunMany(
+		URLs.Num(),
+		[URLs, Files](int i, TFunction<void (bool)> OnCompleteElement)
+		{
+			Download::FromURL(URLs[i], Files[i], true, OnCompleteElement);
+		},
+		[OnComplete, Files](bool bSuccess)
+		{
+			if (bSuccess)
+			{
+				if (OnComplete) OnComplete(Files);
+			}
+			else
+			{
+				if (OnComplete) OnComplete(TArray<FString>());
+			}
+		}
+	);
 }
 
 void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64 ExpectedSize, TFunction<void(bool)> OnComplete)

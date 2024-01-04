@@ -7,6 +7,7 @@
 #include "FileDownloader/Download.h"
 #include "Internationalization/Regex.h"
 #include "Misc/MessageDialog.h"
+#include "Internationalization/TextLocalizationResource.h" 
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
@@ -275,7 +276,7 @@ void FWMSProvider::FindAndSetMaxSize()
 }
 
 bool FWMSProvider::CreateURL(
-	int Width, int Height, FString Name, FString CRS,
+	int Width, int Height, FString Name, FString CRS, bool XIsLong,
 	double MinAllowedLong, double MaxAllowedLong, double MinAllowedLat, double MaxAllowedLat,
 	double MinLong, double MaxLong, double MinLat, double MaxLat,
 	FString &URL, bool &bGeoTiff, FString &FileExt
@@ -398,14 +399,28 @@ bool FWMSProvider::CreateURL(
 	FString ImageFormat = bGeoTiff ? "geotiff" : (bTiff ? "tiff" : "png");
 	FileExt = bGeoTiff || bTiff ? "tif" : "png";
 
-	URL = FString::Format(
-		TEXT("{0}LAYERS={1}&FORMAT=image/{2}&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&CRS={3}&STYLES=&BBOX={4},{5},{6},{7}&WIDTH={8}&HEIGHT={9}"),
-		{
-			GetMapURL, Name, ImageFormat, CRS,
-			MinLong, MinLat, MaxLong, MaxLat,
-			Width, Height
-		}
-	);
+	if (XIsLong)
+	{
+		URL = FString::Format(
+			TEXT("{0}LAYERS={1}&FORMAT=image/{2}&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&CRS={3}&STYLES=&BBOX={4},{5},{6},{7}&WIDTH={8}&HEIGHT={9}"),
+			{
+				GetMapURL, Name, ImageFormat, CRS,
+				MinLong, MinLat, MaxLong, MaxLat,
+				Width, Height
+			}
+		);
+	}
+	else
+	{
+		URL = FString::Format(
+			TEXT("{0}LAYERS={1}&FORMAT=image/{2}&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&CRS={3}&STYLES=&BBOX={4},{5},{6},{7}&WIDTH={8}&HEIGHT={9}"),
+			{
+				GetMapURL, Name, ImageFormat, CRS,
+				MinLat, MinLong, MaxLat, MaxLong,
+				Width, Height
+			}
+		);
+	}
 
 	return true;
 }

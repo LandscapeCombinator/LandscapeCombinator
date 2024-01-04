@@ -23,7 +23,7 @@ void HMListDownloader::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunc
 	{
 		FMessageDialog::Open(EAppMsgType::Ok,
 			FText::Format(
-				LOCTEXT("InterfaceFromKindError", "Could not read file {0}."),
+				LOCTEXT("HMListDownloader::Fetch", "Could not read file {0}."),
 				FText::FromString(ListOfLinks)
 			)
 		); 
@@ -38,7 +38,7 @@ void HMListDownloader::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunc
 	{
 		FMessageDialog::Open(EAppMsgType::Ok,
 			FText::Format(
-				LOCTEXT("InterfaceFromKindError", "File {0} does not contain any link."),
+				LOCTEXT("HMListDownloader::Fetch", "File {0} does not contain any link."),
 				FText::FromString(ListOfLinks)
 			)
 		); 
@@ -60,7 +60,7 @@ void HMListDownloader::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunc
 		{
 			FMessageDialog::Open(EAppMsgType::Ok,
 				FText::Format(
-					LOCTEXT("InterfaceFromKindError", "Line {0} is not a valid link."),
+					LOCTEXT("HMListDownloader::Fetch", "Line {0} is not a valid link."),
 					FText::FromString(ListOfLinks)
 				)
 			); 
