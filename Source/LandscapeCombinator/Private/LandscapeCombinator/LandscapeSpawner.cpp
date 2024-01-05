@@ -53,7 +53,7 @@ bool GetCmPerPixelForCRS(FString CRS, int &CmPerPixel)
 		CmPerPixel = 11111111;
 		return true;
 	}
-	else if (CRS == "IGNF:LAMB93" || CRS == "EPSG:2154" || CRS == "EPSG:4559" || CRS == "EPSG:2056" || CRS == "EPSG:3857" || CRS == "EPSG:25832")
+	else if (CRS == "IGNF:LAMB93" || CRS == "EPSG:2154" || CRS == "EPSG:4559" || CRS == "EPSG:2056" || CRS == "EPSG:3857" || CRS == "EPSG:25832" || CRS == "EPSG:2975")
 	{
 		CmPerPixel = 100;
 		return true;
