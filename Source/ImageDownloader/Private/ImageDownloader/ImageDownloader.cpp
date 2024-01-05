@@ -61,6 +61,10 @@ FString RenameCRS(FString CRS)
 	{
 		return "EPSG:4559";
 	}
+	else if (CRS == "IGNF:RGR92UTM40S")
+	{
+		return "EPSG:2975";
+	}
 	else
 	{
 		return CRS;
