@@ -8,7 +8,7 @@
 
 #define LOCTEXT_NAMESPACE "FConsoleHelpersModule"
 
-bool Console::ExecProcess(const TCHAR* URL, const TCHAR* Params, bool bDebug)
+bool Console::ExecProcess(const TCHAR* URL, const TCHAR* Params, bool bDebug, bool bDialog)
 {
 	FString StdOut, StdErr;
 	int32 ReturnCode;
@@ -16,16 +16,19 @@ bool Console::ExecProcess(const TCHAR* URL, const TCHAR* Params, bool bDebug)
 
 	if (!FPlatformProcess::ExecProcess(URL, Params, &ReturnCode, &StdOut, &StdErr) || ReturnCode != 0)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
-			FText::Format(
-				LOCTEXT("ExecProcessError", "Error while running command '{0} {1}': (Error: {2})\nStdOut:\n{3}\nStdErr:\n{4}"),
-				FText::FromString(URL),
-				FText::FromString(Params),
-				FText::AsNumber(ReturnCode, &FNumberFormattingOptions::DefaultNoGrouping()),
-				FText::FromString(StdOut),
-				FText::FromString(StdErr)
-			)
-		);
+		if (bDialog)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok,
+				FText::Format(
+					LOCTEXT("ExecProcessError", "Error while running command '{0} {1}': (Error: {2})\nStdOut:\n{3}\nStdErr:\n{4}"),
+					FText::FromString(URL),
+					FText::FromString(Params),
+					FText::AsNumber(ReturnCode, &FNumberFormattingOptions::DefaultNoGrouping()),
+					FText::FromString(StdOut),
+					FText::FromString(StdErr)
+				)
+			);
+		}
 		UE_LOG(LogConsoleHelpers, Error, TEXT("Command '%s %s' returned error code %d"), URL, Params, ReturnCode);
 		UE_LOG(LogConsoleHelpers, Error, TEXT("StdOut:\n%s"), *StdOut);
 		UE_LOG(LogConsoleHelpers, Error, TEXT("StdErr:\n%s"), *StdErr);

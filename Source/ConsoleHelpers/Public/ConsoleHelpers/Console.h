@@ -7,5 +7,5 @@
 class CONSOLEHELPERS_API Console
 {
 public:
-	static bool ExecProcess(const TCHAR* URL, const TCHAR* Params, bool Debug = true);
+	static bool ExecProcess(const TCHAR* URL, const TCHAR* Params, bool bDebug = true, bool bDialog = true);
 };

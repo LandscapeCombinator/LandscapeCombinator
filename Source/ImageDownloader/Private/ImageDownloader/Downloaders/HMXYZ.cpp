@@ -49,7 +49,7 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 	if (MinX > MaxX || MinY > MaxY)
 	{
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("HMXYZ::Fetch::Tiles", "For XYZ tiles, MinX ({0}) must be <= than MaxX ({0}), and MinY ({0}) must be <= MaxY ({0})."),
+			LOCTEXT("HMXYZ::Fetch::Tiles", "For XYZ tiles, MinX ({0}) must be <= than MaxX ({1}), and MinY ({2}) must be <= MaxY ({3})."),
 			FText::AsNumber(MinX),
 			FText::AsNumber(MaxX),
 			FText::AsNumber(MinY),
@@ -74,6 +74,22 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 		);
 		if (UserResponse == EAppReturnType::Cancel)
 		{
+			if (OnComplete) OnComplete(false);
+			return;
+		}
+	}
+	
+	if (Format.Contains("."))
+	{
+		if (!Console::ExecProcess(TEXT("7z"), TEXT(""), false, false))
+		{
+			FMessageDialog::Open(EAppMsgType::Ok,
+				LOCTEXT(
+					"MissingRequirement",
+					"Please make sure 7z is installed on your computer and available in your PATH if you want to use a compressed format."
+				)
+			);
+
 			if (OnComplete) OnComplete(false);
 			return;
 		}
@@ -104,26 +120,6 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 			FString DownloadFile = FPaths::Combine(Directories::DownloadDir(), FString::Format(TEXT("{0}-{1}-{2}-{3}.{4}"), { Layer, Zoom, X, Y, Format }));
 			int XOffset = X - MinX;
 			int YOffset = bMaxY_IsNorth ? MaxY - Y : Y - MinY;
-
-			if (Format.Contains("."))
-			{
-				if (!Console::ExecProcess(TEXT("7z"), TEXT(""), false))
-				{
-					if (!(*bShowedDialog))
-					{
-						*bShowedDialog = true;
-						FMessageDialog::Open(EAppMsgType::Ok,
-							LOCTEXT(
-								"MissingRequirement",
-								"Please make sure 7z is installed on your computer and available in your PATH if you want to use a compressed format."
-							)
-						);
-					}
-
-					if (OnCompleteElement) OnCompleteElement(false);
-					return;
-				}
-			}
 
 			FString FileName = FString::Format(TEXT("{0}_x{1}_y{2}"), { Name, XOffset, YOffset });
 
@@ -228,7 +224,7 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 
 		[OnComplete, Task, bShowedDialog](bool bSuccess)
 		{
-			Task->Destroy();
+			AsyncTask(ENamedThreads::GameThread, [Task]() { Task->Destroy(); });
 			if (bShowedDialog) delete(bShowedDialog);
 			if (OnComplete) OnComplete(bSuccess);
 		}
