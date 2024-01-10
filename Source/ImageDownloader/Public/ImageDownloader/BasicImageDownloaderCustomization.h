@@ -1,5 +1,7 @@
 // Copyright 2023 LandscapeCombinator. All Rights Reserved.
 
+#if WITH_EDITOR
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -18,3 +20,5 @@ public:
 };
 
 #undef LOCTEXT_NAMESPACE
+
+#endif

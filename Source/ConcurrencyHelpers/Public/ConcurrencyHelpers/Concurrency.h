@@ -17,15 +17,17 @@ public:
 		UE_LOG(LogTemp, Log, TEXT("Starting %d tasks asynchronously"), NumberOfTasks);
 
 		TFunction<void(bool)> OnCompleteAction = [FinishedTasks, SuccessfulTasks, NumberOfTasks, OnComplete](bool bWasSuccessful) {
-			(*FinishedTasks)++;
+			int FinishedTasksLocal = ++(*FinishedTasks);
 			if (bWasSuccessful) (*SuccessfulTasks)++;
 
-			if (*FinishedTasks == NumberOfTasks) {
+			if (FinishedTasksLocal == NumberOfTasks)
+			{
 				if (OnComplete) OnComplete(*SuccessfulTasks == NumberOfTasks);
 			}
 		};
 
-		for (const T& Element : Elements) {
+		for (const T& Element : Elements)
+		{
 			Async(EAsyncExecution::Thread,
 				[Element, Action, OnCompleteAction]() {
 					Action(Element, OnCompleteAction);

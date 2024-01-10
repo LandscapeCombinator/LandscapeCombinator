@@ -3,7 +3,6 @@
 #include "GDALInterfaceModule.h"
 #include "GDALInterface/LogGDALInterface.h"
 
-#include "Interfaces/IPluginManager.h"
 #include "WorldPartition/LoaderAdapter/LoaderAdapterShape.h"
 #include "WorldPartition/LoaderAdapter/LoaderAdapterActor.h"
 #include "WorldPartition/WorldPartition.h"
@@ -24,19 +23,18 @@ void FGDALInterfaceModule::StartupModule()
 	// GDAL
 	GDALAllRegister();
 	OGRRegisterAll();
-	TSharedPtr<IPlugin> ThisPlugin = IPluginManager::Get().GetModuleOwnerPlugin("GDALInterface");
-	if (!ThisPlugin)
-	{
-		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("FGDALInterfaceModule::StartupModule", "GDALInterface Internal Error: Could not start module.")
-		);
-		return;
-	}
-	PluginDir = FPaths:: ConvertRelativePathToFull(ThisPlugin->GetBaseDir());
-	FString ShareFolder = PluginDir / "Source" / "ThirdParty" / "GDAL" / "share";
+	FString ProjectDir = FPaths:: ConvertRelativePathToFull(FPaths::ProjectDir());
+	FString ShareFolder = ProjectDir / "Binaries" / "Win64" / "Source" / "ThirdParty" / "GDAL" / "share";
 	FString GDALData = (ShareFolder / "gdal").Replace(TEXT("/"), TEXT("\\"));
 	FString PROJData = (ShareFolder / "proj").Replace(TEXT("/"), TEXT("\\"));
 	FString OSMConf = (ShareFolder / "gdal" / "osmconf.ini").Replace(TEXT("/"), TEXT("\\"));
+	
+	if (!FPaths::FileExists(OSMConf))
+	{
+		UE_LOG(LogGDALInterface, Error, TEXT("Failed to load GDALInterface module"));
+		return;
+	}
+
 	UE_LOG(LogGDALInterface, Log, TEXT("GDAL Version: %s"), *FString(GDALVersionInfo("RELEASE_NAME")));
 	UE_LOG(LogGDALInterface, Log, TEXT("Setting GDAL_DATA to: %s"), *GDALData);
 	UE_LOG(LogGDALInterface, Log, TEXT("Setting PROJ_DATA to: %s"), *PROJData);

@@ -27,7 +27,6 @@ public class HeightmapModifier : ModuleRules
 				"InputCore",
 				"EditorFramework",
 				"UnrealEd",
-				"ToolMenus",
 				"CoreUObject",
 				"Foliage",
 				"Engine",

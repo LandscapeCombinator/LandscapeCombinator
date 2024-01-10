@@ -57,11 +57,20 @@ public:
 	)
 	bool bBuildingsReceiveDecals = false;
 	
+	/* Whether the generated buildings are spatially loaded. */
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
+		meta = (DisplayPriority = "1")
+	)
+	bool bBuildingsSpatiallyLoaded = false;
+	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
 		meta = (DisplayPriority = "2")
 	)
 	TObjectPtr<UBuildingConfiguration> BuildingConfiguration;
+
+#if WITH_EDITOR
 
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Buildings",
 		meta = (DisplayPriority = "3")
@@ -73,13 +82,19 @@ public:
 	)
 	void ClearBuildings();
 
+#endif
+
 private:
 	UPROPERTY()
 	TArray<TObjectPtr<ABuilding>> SpawnedBuildings;
 
+#if WITH_EDITOR
+
 	void GenerateBuilding(USplineComponent* SplineComponent);
 	TArray<USplineComponent*> FindSplineComponents();
 	TArray<AActor*> FindActors();
+
+#endif
 };
 
 #undef LOCTEXT_NAMESPACE

@@ -13,13 +13,13 @@
 	"Modules": [
 		{
 			"Name": "GDALInterface",
-			"Type": "Editor",
+			"Type": "Runtime",
 			"LoadingPhase": "Default",
 			"WhitelistPlatforms": [ "Win64" ]
 		},
 		{
 			"Name": "BuildingFromSpline",
-			"Type": "Editor",
+			"Type": "Runtime",
 			"LoadingPhase": "Default",
 			"WhitelistPlatforms": [ "Win64" ]
 		},

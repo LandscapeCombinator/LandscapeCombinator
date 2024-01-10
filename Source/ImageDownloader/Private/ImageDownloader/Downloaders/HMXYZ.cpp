@@ -61,6 +61,24 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 
 	int NumTiles = (MaxX - MinX + 1) * (MaxY - MinY + 1);
 
+	if (NumTiles > 16)
+	{
+		EAppReturnType::Type UserResponse = FMessageDialog::Open(EAppMsgType::OkCancel,
+			FText::Format(
+				LOCTEXT(
+					"HMXYZ::Fetch::ManyTiles",
+					"Your parameters require downloading and processing {0} tiles.\nPress OK if you want to continue, or Cancel."
+				),
+				FText::AsNumber(NumTiles)
+			)
+		);
+		if (UserResponse == EAppReturnType::Cancel)
+		{
+			if (OnComplete) OnComplete(false);
+			return;
+		}
+	}
+
 	bool *bShowedDialog = new bool(false);
 
 	FScopedSlowTask *Task = new FScopedSlowTask(NumTiles,
@@ -202,7 +220,7 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 					}
 
 					Task->EnterProgressFrame(1);
-
+					
 					if (OnCompleteElement) OnCompleteElement(bOneSuccess);
 				}
 			);
