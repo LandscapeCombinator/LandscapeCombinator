@@ -2,6 +2,8 @@
 
 #include "ImageDownloader/BasicImageDownloaderCustomization.h"
 
+#if WITH_EDITOR
+
 #include "DetailLayoutBuilder.h"
 
 TSharedRef<IDetailCustomization> FBasicImageDownloaderCustomization::MakeInstance()
@@ -13,3 +15,5 @@ void FBasicImageDownloaderCustomization::CustomizeDetails(IDetailLayoutBuilder& 
 {
 	DetailBuilder.EditCategory("BasicImageDownloader", FText::GetEmpty(), ECategoryPriority::Important);
 }
+
+#endif

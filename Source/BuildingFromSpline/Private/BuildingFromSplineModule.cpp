@@ -9,10 +9,14 @@
 	
 IMPLEMENT_MODULE(FBuildingFromSplineModule, BuildingFromSpline)
 
+#if WITH_EDITOR
+
 void FBuildingFromSplineModule::StartupModule()
 {
     FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
     PropertyModule.RegisterCustomClassLayout(ABuilding::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FBuildingCustomization::MakeInstance));
 }
+
+#endif
 
 #undef LOCTEXT_NAMESPACE

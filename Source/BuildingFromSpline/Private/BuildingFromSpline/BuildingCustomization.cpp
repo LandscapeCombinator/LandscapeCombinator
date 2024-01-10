@@ -2,6 +2,8 @@
 
 #include "BuildingFromSpline/BuildingCustomization.h"
 
+#if WITH_EDITOR
+
 #include "DetailLayoutBuilder.h"
 
 TSharedRef<IDetailCustomization> FBuildingCustomization::MakeInstance()
@@ -13,3 +15,5 @@ void FBuildingCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailBuilde
 {
 	DetailBuilder.EditCategory("Building", FText::GetEmpty(), ECategoryPriority::Important);
 }
+
+#endif

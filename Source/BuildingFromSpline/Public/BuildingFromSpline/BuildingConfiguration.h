@@ -53,12 +53,12 @@ public:
 	)
 	bool bConvertToVolume = false;
 
-	/* Regenerate the building when a property is modified. */
+	/* Automatically regenerate the building when a property is modified. */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|General",
 		meta = (DisplayPriority = "1")
 	)
-	bool bGenerateWhenModified = true;
+	bool bGenerateWhenModified = false;
 
 	/* Build external walls. */
 	UPROPERTY(

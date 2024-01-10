@@ -6,8 +6,8 @@
 
 #include "Components/SplineComponent.h"
 #include "Components/SplineMeshComponent.h"
+#include "Components/DynamicMeshComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
-#include "DynamicMeshActor.h"
 #include "SegmentTypes.h"
 
 #include "Building.generated.h"
@@ -17,7 +17,7 @@
 using namespace UE::Geometry;
 
 UCLASS(meta = (PrioritizeCategories = "Building"))
-class BUILDINGFROMSPLINE_API ABuilding : public ADynamicMeshActor
+class BUILDINGFROMSPLINE_API ABuilding : public AActor
 {
 	GENERATED_BODY()
 
@@ -38,6 +38,9 @@ public:
 	
 	UPROPERTY(VisibleAnywhere, Category = "Building")
 	TObjectPtr<UStaticMeshComponent> StaticMeshComponent;
+	
+	UPROPERTY(VisibleAnywhere, Category = "Building")
+	TObjectPtr<UDynamicMeshComponent> DynamicMeshComponent;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building",
@@ -46,21 +49,23 @@ public:
 	TObjectPtr<UBuildingConfiguration> BuildingConfiguration;
 
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Building",
-		meta = (DisplayPriority = "5")
-	)
-	void GenerateBuilding();
-
-	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Building",
-		meta = (DisplayPriority = "5")
+		meta = (DisplayPriority = "101")
 	)
 	void DeleteBuilding();
 
+#if WITH_EDITOR
+
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Building",
+		meta = (DisplayPriority = "100")
+	)
+	void GenerateBuilding();
+
+	UFUNCTION(BlueprintCallable, Category = "Building",
 		meta = (DisplayPriority = "5")
 	)
 	void ConvertToStaticMesh();
 
-	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Building",
+	UFUNCTION(BlueprintCallable, Category = "Building",
 		meta = (DisplayPriority = "5")
 	)
 	void ConvertToVolume();
@@ -83,6 +88,7 @@ protected:
 
 	virtual void PostEditChangeProperty(FPropertyChangedEvent &PropertyChangedEvent) override;
 
+#endif
 
 private:
 	const int FloorMaterialID = 0;
@@ -105,12 +111,12 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = "Building")
 	TObjectPtr<UInstancedStaticMeshComponent> InstancedWindowsComponent;
 
-	UPROPERTY()
+	UPROPERTY(DuplicateTransient)
 	FString StaticMeshPath;
 
 	// same as SplineComponent, but all points have the same Z coordinate as the lowest point,
 	// and the points are clockwise (when seen from above in Unreal, which isn't the same as clockwise in TPolygon2
-	// because of inverted Y-axis
+	// because of inverted Y-axis)
 	TObjectPtr<USplineComponent> BaseClockwiseSplineComponent;
 	TArray<FTransform> BaseClockwiseFrames;
 	TArray<double> BaseClockwiseFramesTimes;
@@ -118,6 +124,9 @@ private:
 	TArray<FVector2D> InternalWallPolygon;
 	TArray<FVector2D> ExternalWallPolygon;
 	TArray<int> IndexToInternalIndex;
+
+
+#if WITH_EDITOR
 
 	FVector2D GetIntersection(FVector2D Point1, FVector2D Direction1, FVector2D Point2, FVector2D Direction2);
 	void DeflateFrames(TArray<FTransform> Frames, TArray<FVector2D>& OutOffsetPolygon, TArray<int>& OutIndexToOffsetIndex, double Offset);
@@ -140,7 +149,10 @@ private:
 	void AppendRoof(UDynamicMesh* TargetMesh);
 	bool AppendFloors(UDynamicMesh *TargetMesh);
 	bool AppendSimpleBuilding(UDynamicMesh *TargetMesh);
+
+#endif
 	void ClearSplineMeshComponents();
+
 };
 
 #undef LOCTEXT_NAMESPACE

@@ -18,7 +18,6 @@
 #include "GeometryScript/MeshBooleanFunctions.h"
 #include "GeometryScript/MeshSimplifyFunctions.h"
 #include "GeometryScript/MeshUVFunctions.h"
-#include "GeometryScript/CreateNewAssetUtilityFunctions.h"
 #include "GeometryScript/PolyPathFunctions.h"
 #include "Logging/StructuredLog.h"
 #include "Polygon2.h"
@@ -34,17 +33,32 @@
 
 using namespace UE::Geometry;
 
-ABuilding::ABuilding() : ADynamicMeshActor()
+ABuilding::ABuilding() : AActor()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
+	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("EmptySceneComponent"));
+	RootComponent->SetMobility(EComponentMobility::Static);
+	
+	StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMeshComponent"));
+	StaticMeshComponent->SetMobility(EComponentMobility::Static);
+	StaticMeshComponent->SetupAttachment(RootComponent);
+	
+	DynamicMeshComponent = CreateDefaultSubobject<UDynamicMeshComponent>(TEXT("DynamicMeshComponent"));
 	DynamicMeshComponent->SetMobility(EComponentMobility::Static);
+	DynamicMeshComponent->SetupAttachment(RootComponent);
 	DynamicMeshComponent->SetNumMaterials(0);
 	
 	InstancedDoorsComponent = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("InstancedDoorsComponent"));
+	InstancedDoorsComponent->SetMobility(EComponentMobility::Static);
+	InstancedDoorsComponent->SetupAttachment(RootComponent);
+
 	InstancedWindowsComponent = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("InstancedWindowsComponent"));
+	InstancedWindowsComponent->SetMobility(EComponentMobility::Static);
+	InstancedWindowsComponent->SetupAttachment(RootComponent);
 
 	SplineComponent = CreateDefaultSubobject<USplineComponent>(TEXT("SplineComponent"));
+	SplineComponent->SetMobility(EComponentMobility::Static);
 	SplineComponent->SetupAttachment(RootComponent);
 	SplineComponent->SetClosedLoop(true);
 	SplineComponent->ClearSplinePoints();
@@ -61,21 +75,57 @@ ABuilding::ABuilding() : ADynamicMeshActor()
 	SplineComponent->SetMobility(EComponentMobility::Static);
 
 	BaseClockwiseSplineComponent = CreateDefaultSubobject<USplineComponent>(TEXT("BaseClockwiseSplineComponent"));
+	BaseClockwiseSplineComponent->SetMobility(EComponentMobility::Static);
 	BaseClockwiseSplineComponent->SetupAttachment(RootComponent);
 	BaseClockwiseSplineComponent->SetClosedLoop(true);
 	BaseClockwiseSplineComponent->ClearSplinePoints();
 	BaseClockwiseSplineComponent->SetMobility(EComponentMobility::Static);
 
 	BuildingConfiguration = CreateDefaultSubobject<UBuildingConfiguration>(TEXT("Building Configuration"));
+}
 
-	StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMeshComponent"));
-	StaticMeshComponent->SetupAttachment(RootComponent);
-	StaticMeshComponent->SetMobility(EComponentMobility::Static);
-	StaticMeshComponent->SetMaterial(0, BuildingConfiguration->FloorMaterial);
-	StaticMeshComponent->SetMaterial(1, BuildingConfiguration->CeilingMaterial);
-	StaticMeshComponent->SetMaterial(2, BuildingConfiguration->ExteriorMaterial);
-	StaticMeshComponent->SetMaterial(3, BuildingConfiguration->InteriorMaterial);
-	StaticMeshComponent->SetMaterial(4, BuildingConfiguration->RoofMaterial);
+void ABuilding::DeleteBuilding()
+{
+	ClearSplineMeshComponents();
+
+	if (IsValid(InstancedDoorsComponent))
+	{
+		InstancedDoorsComponent->ClearInstances();
+	}
+
+	if (IsValid(InstancedWindowsComponent))
+	{
+		InstancedWindowsComponent->ClearInstances();
+	}
+	
+	if (IsValid(StaticMeshComponent))
+	{
+		StaticMeshComponent->SetStaticMesh(nullptr);
+	}
+	
+	if (IsValid(DynamicMeshComponent))
+	{
+		DynamicMeshComponent->SetNumMaterials(0);
+		DynamicMeshComponent->GetDynamicMesh()->Reset();
+	}
+
+	if (IsValid(Volume))
+	{
+		Volume->Destroy();
+	}
+}
+
+void ABuilding::ClearSplineMeshComponents()
+{
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("ClearSplineMeshComponents");
+
+	for (auto& SplineMeshComponent : SplineMeshComponents)
+	{
+		if (IsValid(SplineMeshComponent))
+		{
+			SplineMeshComponent->DestroyComponent();
+		}
+	}
 }
 
 void ABuilding::Destroyed()
@@ -84,10 +134,14 @@ void ABuilding::Destroyed()
 	Super::Destroyed();
 }
 
+#if WITH_EDITOR
+
+
+#include "GeometryScript/CreateNewAssetUtilityFunctions.h"
+
 void ABuilding::ComputeBaseVertices()
 {
-	// static FTotalTimeAndCount ComputeBaseVerticesTime;
-	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&ComputeBaseVerticesTime);
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("ComputeBaseVertices");
 
 	int NumPoints = SplineComponent->GetNumberOfSplinePoints();
 	if (NumPoints == 0) return;
@@ -177,8 +231,7 @@ void ABuilding::ComputeBaseVertices()
 
 void ABuilding::ComputeOffsetPolygons()
 {
-	// static FTotalTimeAndCount ComputeOffsetPolygonsTime;
-	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&ComputeOffsetPolygonsTime);
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("ComputeOffsetPolygons");
 
 	/* Initialization */
 
@@ -220,8 +273,7 @@ FVector To3D(FVector2D Vector)
 
 FVector2D ABuilding::GetShiftedPoint(TArray<FTransform> Frames, int Index, double Offset, bool bIsLoop)
 {
-	// static FTotalTimeAndCount GetShiftedPointTime;
-	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&GetShiftedPointTime);
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("GetShiftedPoint");
 
 	int NumFrames = Frames.Num();
 	check(0 <= Index);
@@ -267,8 +319,7 @@ FVector2D ABuilding::GetShiftedPoint(TArray<FTransform> Frames, int Index, doubl
 
 FVector2D ABuilding::GetIntersection(FVector2D Point1, FVector2D Direction1, FVector2D Point2, FVector2D Direction2)
 {
-	// static FTotalTimeAndCount GetIntersectionTime;
-	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&GetIntersectionTime);
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("GetIntersection");
 
 	// Point1.X + t * Direction1.X = Point2.X + t' * Direction2.X
 	// Point1.Y + t * Direction1.Y = Point2.Y + t' * Direction2.Y
@@ -296,8 +347,7 @@ FVector2D ABuilding::GetIntersection(FVector2D Point1, FVector2D Direction1, FVe
 
 void ABuilding::DeflateFrames(TArray<FTransform> Frames, TArray<FVector2D>& OutOffsetPolygon, TArray<int>& OutIndexToOffsetIndex, double Offset)
 {
-	// static FTotalTimeAndCount DeflateFramesTime;
-	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&DeflateFramesTime);
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("DeflateFrames");
 
 	int NumFrames = Frames.Num();
 	int NumVertices = BaseVertices2D.Num();
@@ -348,14 +398,13 @@ void ABuilding::DeflateFrames(TArray<FTransform> Frames, TArray<FVector2D>& OutO
 
 void ABuilding::AppendAlongSpline(UDynamicMesh* TargetMesh, bool bInternalWall, double BeginDistance, double Length, double Height, double ZOffset, int MaterialID)
 {
-	// static FTotalTimeAndCount AppendAlongSplineTime1;
-	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AppendAlongSplineTime1);
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendAlongSplineTime1");
 	
 	TArray<FVector2D> Polygon = MakePolygon(bInternalWall, BeginDistance, Length);
 
 	/* Allocate and build WallMesh */
 
-	UDynamicMesh *WallMesh = AllocateComputeMesh();
+	TObjectPtr<UDynamicMesh> WallMesh = NewObject<UDynamicMesh>(this);
 
 	UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSimpleExtrudePolygon(
 		WallMesh,
@@ -375,17 +424,17 @@ void ABuilding::AppendAlongSpline(UDynamicMesh* TargetMesh, bool bInternalWall, 
 
 	UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(TargetMesh, WallMesh, FTransform(), true);
 
+	WallMesh->MarkAsGarbage();
 }
 
 
 bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 {
-	// static FTotalTimeAndCount AppendFloorsTime;
-	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AppendFloorsTime);
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendFloors");
 
 	/* Create one floor tile in FloorMesh */
 
-	UDynamicMesh *FloorMesh = AllocateComputeMesh();
+	TObjectPtr<UDynamicMesh> FloorMesh = NewObject<UDynamicMesh>(this);
 
 	UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSimpleExtrudePolygon(
 		FloorMesh,
@@ -453,15 +502,16 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 		);
 	}
 
+	FloorMesh->MarkAsGarbage();
+
 	return true;
 }
 
 bool ABuilding::AppendSimpleBuilding(UDynamicMesh* TargetMesh)
 {
-	// static FTotalTimeAndCount AppendSimpleBuildingTime;
-	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AppendSimpleBuildingTime);
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendSimpleBuilding");
 
-	UDynamicMesh *SimpleBuildingMesh = AllocateComputeMesh();
+	TObjectPtr<UDynamicMesh> SimpleBuildingMesh = NewObject<UDynamicMesh>(this);
 
 	UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSimpleExtrudePolygon(
 		SimpleBuildingMesh,
@@ -488,6 +538,7 @@ bool ABuilding::AppendSimpleBuilding(UDynamicMesh* TargetMesh)
 	if (PolygroupIDs.Num() < 4)
 	{
 		UE_LOG(LogBuildingFromSpline, Error, TEXT("Internal error: something went wrong with the simple building materials"));
+		SimpleBuildingMesh->MarkAsGarbage();
 		return false;
 	}
 
@@ -516,6 +567,7 @@ bool ABuilding::AppendSimpleBuilding(UDynamicMesh* TargetMesh)
 		FTransform(FVector(0, 0, MinHeightLocal)),
 		true
 	);
+	SimpleBuildingMesh->MarkAsGarbage();
 
 	if (BuildingConfiguration->DoorMesh)
 	{
@@ -581,14 +633,13 @@ bool ABuilding::AppendSimpleBuilding(UDynamicMesh* TargetMesh)
 			}
 		}
 	}
-
+	
 	return true;
 }
 
 TArray<FVector2D> ABuilding::MakePolygon(bool bInternalWall, double BeginDistance, double Length)
 {
-	// static FTotalTimeAndCount MakePolygonTime;
-	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&MakePolygonTime);
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MakePolygon");
 
 	TArray<FVector2D> Result;
 
@@ -703,8 +754,7 @@ TArray<FVector2D> ABuilding::MakePolygon(bool bInternalWall, double BeginDistanc
 
 void ABuilding::AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, double Length, double Height, double ZOffset)
 {
-	// static FTotalTimeAndCount AddSplineMeshTime;
-	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AddSplineMeshTime);
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AddSplineMesh");
 
 	if (!StaticMesh) return;
 
@@ -739,8 +789,7 @@ void ABuilding::AppendWallsWithHoles(
 	int MaterialID
 )
 {
-	// static FTotalTimeAndCount AppendWallsWithHolesTime1;
-	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AppendWallsWithHolesTime1);
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendWallsWithHolesTime1");
 
 	for (int i = 0; i < SplineComponent->GetNumberOfSplinePoints(); i++)
 	{
@@ -814,8 +863,7 @@ void ABuilding::AppendWallsWithHoles(
 
 void ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 {
-	// static FTotalTimeAndCount AppendWallsWithHolesTime2;
-	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AppendWallsWithHolesTime2);
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendWallsWithHolesTime2");
 
 	double InternalWallHeight = BuildingConfiguration->FloorHeight;
 	if (BuildingConfiguration->bBuildFloorTiles) InternalWallHeight -= BuildingConfiguration->FloorThickness;
@@ -856,7 +904,7 @@ void ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 
 	if (BuildingConfiguration->NumFloors > 1)
 	{
-		UDynamicMesh* WholeFloorMesh = AllocateComputeMesh();
+		TObjectPtr<UDynamicMesh> WholeFloorMesh = NewObject<UDynamicMesh>();
 		
 		TArray<float> HolePositions;
 		AppendWallsWithHoles(
@@ -883,6 +931,7 @@ void ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 				);
 			}
 		}
+		WholeFloorMesh->MarkAsGarbage();
 	}
 	
 	// Inside ExtraWallTop
@@ -927,7 +976,7 @@ void ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 
 	if (BuildingConfiguration->NumFloors > 1)
 	{
-		UDynamicMesh* WholeFloorMesh = AllocateComputeMesh();
+		TObjectPtr<UDynamicMesh> WholeFloorMesh = NewObject<UDynamicMesh>();
 		
 		TArray<float> HolePositions;
 		AppendWallsWithHoles(
@@ -946,6 +995,8 @@ void ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 				true
 			);
 		}
+
+		WholeFloorMesh->MarkAsGarbage();
 	}
 
 	// Outside ExtraWallTop
@@ -962,12 +1013,11 @@ void ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 
 void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 {
-	///	// static FTotalTimeAndCount*/ AppendRoofTime;
-	// S// E_LOG_TIME_FUNC_WITH_GLOBAL(&AppendRoofTime);
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendRoof");
 
 	/* Allocate RoofMesh */
 
-	UDynamicMesh *RoofMesh = AllocateComputeMesh();
+	TObjectPtr<UDynamicMesh> RoofMesh = NewObject<UDynamicMesh>();
 
 	
 	/* Top of the roof */
@@ -1115,12 +1165,13 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 	/* Add the WallMesh to our TargetMesh */
 
 	UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(TargetMesh, RoofMesh, FTransform(), true);
+
+	RoofMesh->MarkAsGarbage();
 }
 
 void ABuilding::ComputeMinMaxHeight()
 {
-	// static FTotalTimeAndCount ComputeMinMaxHeightTime;
-	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&ComputeMinMaxHeightTime);
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("ComputeMinMaxHeight");
 	int NumPoints = SplineComponent->GetNumberOfSplinePoints();
 	MinHeightLocal = MAX_dbl;
 	MinHeightWorld = MAX_dbl;
@@ -1139,78 +1190,30 @@ void ABuilding::ComputeMinMaxHeight()
 void ABuilding::SetReceivesDecals(bool bReceivesDecal)
 {
 	StaticMeshComponent->bReceivesDecals = bReceivesDecal; 
-	GetDynamicMeshComponent()->bReceivesDecals = bReceivesDecal;
+	DynamicMeshComponent->bReceivesDecals = bReceivesDecal;
 	InstancedWindowsComponent->bReceivesDecals = bReceivesDecal;
 	InstancedDoorsComponent->bReceivesDecals = bReceivesDecal;
 }
 
-void ABuilding::DeleteBuilding()
-{
-	ClearSplineMeshComponents();
-
-	if (IsValid(InstancedDoorsComponent))
-	{
-		InstancedDoorsComponent->ClearInstances();
-	}
-
-	if (IsValid(InstancedWindowsComponent))
-	{
-		InstancedWindowsComponent->ClearInstances();
-	}
-	
-	if (IsValid(StaticMeshComponent))
-	{
-		StaticMeshComponent->SetStaticMesh(nullptr);
-	}
-	
-	if (IsValid(DynamicMeshComponent))
-	{
-		DynamicMeshComponent->SetNumMaterials(0);
-		DynamicMeshComponent->GetDynamicMesh()->Reset();
-	}
-
-	if (IsValid(Volume))
-	{
-		Volume->Destroy();
-	}
-}
-
 void ABuilding::GenerateBuilding()
 {
-	// static FTotalTimeAndCount GenerateBuildingTime;
-	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&GenerateBuildingTime);
-
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("GenerateBuilding");
+	
 	DeleteBuilding();
 
 	if (BuildingConfiguration->bUseRandomNumFloors)
 	{
 		BuildingConfiguration->NumFloors = UKismetMathLibrary::RandomIntegerInRange(BuildingConfiguration->MinNumFloors, BuildingConfiguration->MaxNumFloors);
 	}
-
+	
 	AppendBuilding(DynamicMeshComponent->GetDynamicMesh());
-}
-
-void ABuilding::ClearSplineMeshComponents()
-{
-	// static FTotalTimeAndCount ClearSplineMeshComponentsTime;
-	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&ClearSplineMeshComponentsTime);
-
-	for (auto& SplineMeshComponent : SplineMeshComponents)
-	{
-		if (IsValid(SplineMeshComponent))
-		{
-			SplineMeshComponent->DestroyComponent();
-		}
-	}
 }
 
 void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 {
-	// static FTotalTimeAndCount AppendBuildingTime, NormalsTime, UVsTime;
-	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&AppendBuildingTime);
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendBuilding");
 
 	ON_SCOPE_EXIT {
-		ReleaseAllComputeMeshes();
 		BaseClockwiseSplineComponent->ClearSplinePoints();
 	};
 	
@@ -1280,7 +1283,7 @@ void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 		}
 
 	}
-
+	
 	GEditor->NoteSelectionChange();
 }
 
@@ -1292,8 +1295,7 @@ void ABuilding::ConvertToStaticMesh()
 
 void ABuilding::GenerateStaticMesh()
 {
-	// static FTotalTimeAndCount GenerateStaticMeshTime, NormalsTime, UVsTime;
-	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&GenerateStaticMeshTime);
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("GenerateStaticMesh");
 	EGeometryScriptOutcomePins Outcome;
 
 	FGeometryScriptCreateNewStaticMeshAssetOptions Options;
@@ -1329,17 +1331,19 @@ void ABuilding::GenerateStaticMesh()
 		return;
 	}
 
+
+
 	StaticMesh->NaniteSettings = NaniteSettings;
 
 	int NumMaterials = DynamicMeshComponent->GetNumMaterials();
 	TArray<FStaticMaterial> Materials;
-
 	for (int i = 0; i < NumMaterials; i++)
 	{
-		Materials.Add(DynamicMeshComponent->GetMaterial(i));
-		StaticMeshComponent->SetMaterial(i, DynamicMeshComponent->GetMaterial(i));
+		FStaticMaterial Material(DynamicMeshComponent->GetMaterial(i));
+		Materials.Add(Material);
 	}
 	StaticMesh->SetStaticMaterials(Materials);
+	StaticMesh->InitResources(); // calls StaticMesh->UpdateUVChannelData()
 
 	StaticMeshComponent->SetStaticMesh(StaticMesh);
 }
@@ -1352,8 +1356,7 @@ void ABuilding::ConvertToVolume()
 
 void ABuilding::GenerateVolume()
 {
-	// static FTotalTimeAndCount GenerateVolumeTime, NormalsTime, UVsTime;
-	// SCOPE_LOG_TIME_FUNC_WITH_GLOBAL(&GenerateVolumeTime);
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("GenerateVolume");
 
 	if (IsValid(Volume))
 	{
@@ -1395,5 +1398,7 @@ void ABuilding::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEve
 		GenerateBuilding();
 	}
 }
+
+#endif
 
 #undef LOCTEXT_NAMESPACE

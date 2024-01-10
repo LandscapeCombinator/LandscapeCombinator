@@ -30,7 +30,6 @@ public class LandscapeCombinator : ModuleRules
 				"InputCore",
 				"EditorFramework",
 				"UnrealEd",
-				"ToolMenus",
 				"CoreUObject",
 				"Engine",
 				"Slate",

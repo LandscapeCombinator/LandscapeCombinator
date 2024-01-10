@@ -26,7 +26,6 @@ public class Coordinates : ModuleRules
 				"InputCore",
 				"EditorFramework",
 				"UnrealEd",
-				"ToolMenus",
 				"CoreUObject",
 				"Engine",
 				"AssetTools",

@@ -23,21 +23,24 @@ public class BuildingFromSpline : ModuleRules
 			new string[]
 			{
 				// Unreal Engine Dependencies
-				"Projects",
-				"InputCore",
-				"EditorFramework",
-				"UnrealEd",
-				"ToolMenus",
 				"CoreUObject",
 				"Engine",
 				"GeometryCore",
 				"GeometryFramework",
 				"GeometryScriptingCore",
-				"GeometryScriptingEditor",
 
 				// Other Dependencies
 				"OSMUserData"
 			}
 		);
+
+		if (Target.bBuildEditor)
+        {
+            PrivateDependencyModuleNames.Add("UnrealEd");
+            PrivateDependencyModuleNames.Add("PropertyEditor");
+            PrivateDependencyModuleNames.Add("GeometryScriptingEditor");
+		}
+
+
 	}
 }

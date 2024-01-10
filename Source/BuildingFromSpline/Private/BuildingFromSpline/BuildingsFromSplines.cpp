@@ -2,6 +2,7 @@
 // Copyright 2023 LandscapeCombinator. All Rights Reserved.
 
 #include "BuildingFromSpline/BuildingsFromSplines.h"
+
 #include "OSMUserData/OSMUserData.h"
 
 #include "Components/SplineMeshComponent.h"
@@ -30,6 +31,8 @@ ABuildingsFromSplines::ABuildingsFromSplines()
 	BuildingConfiguration->ExternalWallThickness = 1;
 	BuildingConfiguration->bBuildInternalWalls = false;
 }
+
+#if WITH_EDITOR
 
 TArray<AActor*> ABuildingsFromSplines::FindActors()
 {
@@ -206,8 +209,11 @@ void ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent)
 	Building->GetRootComponent()->AddAssetUserData(BuildingOSMUserData);
 	
 	Building->SetReceivesDecals(bBuildingsReceiveDecals);
+	Building->SetIsSpatiallyLoaded(bBuildingsSpatiallyLoaded);
 
 	Building->GenerateBuilding();
 }
+
+#endif
 
 #undef LOCTEXT_NAMESPACE
