@@ -18,7 +18,7 @@ Heightmap and Imagery Providers
 
 * `Litto 3D Guadeloupe <https://diffusion.shom.fr/litto3d-guad2016.html>`_
 
-* All the WMS servers such as IGN, SHOM, USGS, etc.
+* All the WMS and XYZ servers such as IGN, SHOM, USGS, OpenGeoData NRW, etc.
 
 * `Mapbox <https://www.mapbox.com/>`_
 
