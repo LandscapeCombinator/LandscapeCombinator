@@ -14,6 +14,7 @@
 #include "Misc/Paths.h"
 #include "Misc/ScopedSlowTask.h"
 #include "HAL/FileManagerGeneric.h"
+#include "Logging/StructuredLog.h"
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
@@ -39,7 +40,7 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 	
 	if (bGeoreferenceSlippyTiles)
 	{
-		OutputCRS = "EPSG:4326";
+		OutputCRS = "EPSG:3857";
 	}
 	else
 	{
@@ -185,16 +186,16 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 						
 						if (bGeoreferenceSlippyTiles)
 						{
-							double n = 1 << Zoom;
-							double MinLong = X / n * 360.0 - 180;
-							double MaxLong = (X + 1) / n * 360.0 - 180;
-							double MinLatRad = FMath::Atan(FMath::Sinh(UE_PI * (1 - 2 * (Y + 1) / n)));
-							double MaxLatRad = FMath::Atan(FMath::Sinh(UE_PI * (1 - 2 * Y / n)));
-							double MinLat = FMath::RadiansToDegrees(MinLatRad);
-							double MaxLat = FMath::RadiansToDegrees(MaxLatRad);
+							double MinLong, MaxLong, MinLat, MaxLat;
+
+							GDALInterface::XYZTileToEPSG3857(X, Y, Zoom, MinLong, MaxLat);
+							GDALInterface::XYZTileToEPSG3857(X+1, Y+1, Zoom, MaxLong, MinLat);
+
+							UE_LOGFMT(LogTemp, Error, "XYZTileToEPSG {0} {1}; {2} {3}; {4} {5}", X, Y, MinLong, MaxLong, MinLat, MaxLat);
+							//UE_LOGFMT(LogTemp, Error, "XYZTileToEPSG %f %f %f %f", X+1, Y+1, MinLong, MaxLat);
 
 							FString OutputFile = FPaths::Combine(XYZFolder, FileName + ".tif");
-							if (!GDALInterface::AddGeoreference(DecodedFile, OutputFile, "EPSG:4326", MinLong, MaxLong, MinLat, MaxLat))
+							if (!GDALInterface::AddGeoreference(DecodedFile, OutputFile, "EPSG:3857", MinLong, MaxLong, MinLat, MaxLat))
 							{
 								if (OnCompleteElement) OnCompleteElement(false);
 								return;

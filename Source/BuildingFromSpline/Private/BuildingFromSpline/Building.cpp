@@ -37,25 +37,14 @@ ABuilding::ABuilding() : AActor()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
-	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("EmptySceneComponent"));
-	RootComponent->SetMobility(EComponentMobility::Static);
-	
-	StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMeshComponent"));
-	StaticMeshComponent->SetMobility(EComponentMobility::Static);
-	StaticMeshComponent->SetupAttachment(RootComponent);
+	EmptySceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("EmptySceneComponent"));
+	EmptySceneComponent->SetMobility(EComponentMobility::Static);
+	RootComponent = EmptySceneComponent;
 	
 	DynamicMeshComponent = CreateDefaultSubobject<UDynamicMeshComponent>(TEXT("DynamicMeshComponent"));
 	DynamicMeshComponent->SetMobility(EComponentMobility::Static);
 	DynamicMeshComponent->SetupAttachment(RootComponent);
 	DynamicMeshComponent->SetNumMaterials(0);
-	
-	InstancedDoorsComponent = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("InstancedDoorsComponent"));
-	InstancedDoorsComponent->SetMobility(EComponentMobility::Static);
-	InstancedDoorsComponent->SetupAttachment(RootComponent);
-
-	InstancedWindowsComponent = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("InstancedWindowsComponent"));
-	InstancedWindowsComponent->SetMobility(EComponentMobility::Static);
-	InstancedWindowsComponent->SetupAttachment(RootComponent);
 
 	SplineComponent = CreateDefaultSubobject<USplineComponent>(TEXT("SplineComponent"));
 	SplineComponent->SetMobility(EComponentMobility::Static);
@@ -86,21 +75,14 @@ ABuilding::ABuilding() : AActor()
 
 void ABuilding::DeleteBuilding()
 {
-	ClearSplineMeshComponents();
-
-	if (IsValid(InstancedDoorsComponent))
-	{
-		InstancedDoorsComponent->ClearInstances();
-	}
-
-	if (IsValid(InstancedWindowsComponent))
-	{
-		InstancedWindowsComponent->ClearInstances();
-	}
+	DestroySplineMeshComponents();
+	DestroyInstancedStaticMeshComponents();
 	
 	if (IsValid(StaticMeshComponent))
 	{
-		StaticMeshComponent->SetStaticMesh(nullptr);
+		RemoveInstanceComponent(StaticMeshComponent);
+		StaticMeshComponent->DestroyComponent();
+		StaticMeshComponent = nullptr;
 	}
 	
 	if (IsValid(DynamicMeshComponent))
@@ -112,20 +94,39 @@ void ABuilding::DeleteBuilding()
 	if (IsValid(Volume))
 	{
 		Volume->Destroy();
+		Volume = nullptr;
 	}
 }
 
-void ABuilding::ClearSplineMeshComponents()
+void ABuilding::DestroySplineMeshComponents()
 {
-	TRACE_CPUPROFILER_EVENT_SCOPE_STR("ClearSplineMeshComponents");
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("DestroySplineMeshComponents");
 
 	for (auto& SplineMeshComponent : SplineMeshComponents)
 	{
 		if (IsValid(SplineMeshComponent))
 		{
+			RemoveInstanceComponent(SplineMeshComponent);
 			SplineMeshComponent->DestroyComponent();
 		}
 	}
+	SplineMeshComponents.Empty();
+}
+
+void ABuilding::DestroyInstancedStaticMeshComponents()
+{
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("DestroyInstancedStaticMeshComponents");
+
+	for (auto& InstancedStaticMeshComponent : InstancedStaticMeshComponents)
+	{
+		if (IsValid(InstancedStaticMeshComponent))
+		{
+			RemoveInstanceComponent(InstancedStaticMeshComponent);
+			InstancedStaticMeshComponent->ClearInstances();
+			InstancedStaticMeshComponent->DestroyComponent();
+		}
+	}
+	InstancedStaticMeshComponents.Empty();
 }
 
 void ABuilding::Destroyed()
@@ -317,6 +318,84 @@ FVector2D ABuilding::GetShiftedPoint(TArray<FTransform> Frames, int Index, doubl
 	return GetIntersection(PointShift1, WallDirection1, PointShift2, WallDirection2);
 }
 
+void ABuilding::ComputeWindowsPositionsParameterizedByDistance(FWindowsSpecification &WindowsSpecification)
+{
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("ComputeWindowsPositionsParameterizedByDistance");
+
+	if (WindowsSpecification.WindowsPlacement == EWindowsPlacement::ParameterizedByDistance)
+	{
+		WindowsSpecification.WindowsPositions.Empty();
+		for (int i = 0; i < SplineComponent->GetNumberOfSplinePoints(); i++)
+		{
+			float Distance1 = BaseClockwiseSplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineIndexToBaseSplineIndex[i]);
+			float Distance2 = BaseClockwiseSplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineIndexToBaseSplineIndex[i + 1]);
+
+			float TotalDistance = Distance2 - Distance1;
+			float AvailableDistance = TotalDistance - 2 * WindowsSpecification.MinDistanceWindowToCorner;
+
+			if (AvailableDistance >= WindowsSpecification.WindowsWidth)
+			{
+				int NumHoles = 1 + (AvailableDistance - WindowsSpecification.WindowsWidth) / (WindowsSpecification.WindowsWidth + WindowsSpecification.MinDistanceWindowToWindow); // >= 1
+				int NumSpaces = NumHoles - 1; // >= 0
+
+				float BeginOffset = (AvailableDistance - NumHoles * WindowsSpecification.WindowsWidth - NumSpaces * WindowsSpecification.MinDistanceWindowToWindow) / 2; // >= 0
+				float BeginHoleDistance = Distance1 + WindowsSpecification.MinDistanceWindowToCorner + BeginOffset; // >= Distance1 + MinDistanceWindowToCorner
+
+				for (int j = 0; j < NumHoles; j++)
+				{
+					WindowsSpecification.WindowsPositions.Add(BeginHoleDistance + j * (WindowsSpecification.WindowsWidth + WindowsSpecification.MinDistanceWindowToWindow));
+				}
+			}
+		}
+	}
+}
+
+TArray<float> ABuilding::GetSafeWindowsPositions(const TArray<float> &WindowsPositions, float WindowsWidth)
+{
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("GetSafeWindowsPositions");
+
+	const int NumSplinePoints = SplineComponent->GetNumberOfSplinePoints();
+	if (NumSplinePoints == 0)
+	{
+		UE_LOG(LogBuildingFromSpline, Error, TEXT("Attempting to create a building with an empty spline"))
+		return TArray<float>();
+	}
+
+	TArray<float> Result;
+	float LastWindowPosition = -WindowsWidth;
+
+	// point which is right after the next hole position
+	int NextSplinePoint = 0;
+
+	for (auto& WindowPosition : WindowsPositions)
+	{
+		// Move NextSplinePoint to the next spline point after this hole position
+		while (NextSplinePoint < NumSplinePoints && BaseClockwiseSplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineIndexToBaseSplineIndex[NextSplinePoint]) < WindowPosition)
+		{
+			NextSplinePoint++;
+		}
+
+		const float DistanceAtNextSplinePoint = BaseClockwiseSplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineIndexToBaseSplineIndex[NextSplinePoint]);
+
+		if (LastWindowPosition + WindowsWidth > WindowPosition)
+		{
+			UE_LOG(LogBuildingFromSpline, Warning, TEXT("Skipping hole position %f, which is too close to the previous hole position %f"), WindowPosition, LastWindowPosition);
+			continue;
+		}
+
+		if (WindowPosition < 0 || WindowPosition > DistanceAtNextSplinePoint - WindowsWidth)
+		{
+			UE_LOG(LogBuildingFromSpline, Warning, TEXT("Skipping invalid hole position %f, which should be between 0 and %f"), WindowPosition, DistanceAtNextSplinePoint - WindowsWidth);
+			continue;
+		}
+
+		Result.Add(WindowPosition);
+		LastWindowPosition = WindowPosition;
+	}
+
+	return Result;
+}
+
 FVector2D ABuilding::GetIntersection(FVector2D Point1, FVector2D Direction1, FVector2D Point2, FVector2D Direction2)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("GetIntersection");
@@ -398,7 +477,9 @@ void ABuilding::DeflateFrames(TArray<FTransform> Frames, TArray<FVector2D>& OutO
 
 void ABuilding::AppendAlongSpline(UDynamicMesh* TargetMesh, bool bInternalWall, double BeginDistance, double Length, double Height, double ZOffset, int MaterialID)
 {
-	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendAlongSplineTime1");
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendAlongSpline");
+
+	if (Length <= 0) return;
 	
 	TArray<FVector2D> Polygon = MakePolygon(bInternalWall, BeginDistance, Length);
 
@@ -426,7 +507,6 @@ void ABuilding::AppendAlongSpline(UDynamicMesh* TargetMesh, bool bInternalWall, 
 
 	WallMesh->MarkAsGarbage();
 }
-
 
 bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 {
@@ -467,7 +547,7 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 		FloorMesh,
 		FGeometryScriptGroupLayer(),
 		PolygroupIDs[2], // TODO: polygroup ID of the ceiling, is there a way to ensure it?
-		CeilingMaterialID, // new material ID
+		GetCeilingMaterialID(), // new material ID
 		bIsValidPolygroupID,
 		false,
 		nullptr
@@ -493,7 +573,7 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 
 	if (BuildingConfiguration->RoofKind == ERoofKind::Flat)
 	{
-		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(FloorMesh, 0, RoofMaterialID);
+		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(FloorMesh, 0, GetRoofMaterialID());
 	
 		UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(
 			TargetMesh, FloorMesh,
@@ -507,9 +587,9 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 	return true;
 }
 
-bool ABuilding::AppendSimpleBuilding(UDynamicMesh* TargetMesh)
+bool ABuilding::AppendBuildingWithoutInside(UDynamicMesh* TargetMesh)
 {
-	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendSimpleBuilding");
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendBuildingWithoutInside");
 
 	TObjectPtr<UDynamicMesh> SimpleBuildingMesh = NewObject<UDynamicMesh>(this);
 
@@ -524,7 +604,7 @@ bool ABuilding::AppendSimpleBuilding(UDynamicMesh* TargetMesh)
 	);
 
 
-	/* Set the Polygroup ID of ceiling to CeilingMaterialID in SimpleBuildingMesh */
+	/* Set the Polygroup ID of roof in SimpleBuildingMesh */
 
 	FGeometryScriptIndexList PolygroupIDs0;
 	UGeometryScriptLibrary_MeshPolygroupFunctions::GetPolygroupIDsInMesh(
@@ -547,20 +627,24 @@ bool ABuilding::AppendSimpleBuilding(UDynamicMesh* TargetMesh)
 		SimpleBuildingMesh,
 		FGeometryScriptGroupLayer(),
 		PolygroupIDs[0], // TODO: polygroup ID of the sides of the polygon, is there a way to ensure it?
-		0, // new material ID
+		GetExteriorMaterialID(),
 		bIsValidPolygroupID,
 		false,
 		nullptr
 	);
-	UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
-		SimpleBuildingMesh,
-		FGeometryScriptGroupLayer(),
-		PolygroupIDs[3], // TODO: polygroup ID of the top of the polygon, is there a way to ensure it?
-		1, // new material ID
-		bIsValidPolygroupID,
-		false,
-		nullptr
-	);
+
+	if (BuildingConfiguration->RoofKind == ERoofKind::None || BuildingConfiguration->RoofKind == ERoofKind::Flat)
+	{
+		UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
+			SimpleBuildingMesh,
+			FGeometryScriptGroupLayer(),
+			PolygroupIDs[3], // TODO: polygroup ID of the top of the polygon, is there a way to ensure it?
+			GetRoofMaterialID(),
+			bIsValidPolygroupID,
+			false,
+			nullptr
+		);
+	}
 
 	UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(
 		TargetMesh, SimpleBuildingMesh,
@@ -568,71 +652,6 @@ bool ABuilding::AppendSimpleBuilding(UDynamicMesh* TargetMesh)
 		true
 	);
 	SimpleBuildingMesh->MarkAsGarbage();
-
-	if (BuildingConfiguration->DoorMesh)
-	{
-		FBox BoundingBox = BuildingConfiguration->DoorMesh->GetBoundingBox();
-		InstancedDoorsComponent->SetStaticMesh(BuildingConfiguration->DoorMesh);
-		TArray<float> HolePositions;
-		AppendWallsWithHoles(nullptr, false, 0,
-			BuildingConfiguration->MinDistanceDoorToCorner, BuildingConfiguration->MinDistanceDoorToDoor,
-			BuildingConfiguration->DoorsWidth, BuildingConfiguration->DoorsHeight, BuildingConfiguration->DoorsDistanceToFloor,
-			0, false, HolePositions, -1
-		);
-	
-		for (auto& HolePosition : HolePositions)
-		{
-			FVector HoleLocation = BaseClockwiseSplineComponent->GetLocationAtDistanceAlongSpline(HolePosition, ESplineCoordinateSpace::World);
-			FVector HoleTangent = BaseClockwiseSplineComponent->GetTangentAtDistanceAlongSpline(HolePosition, ESplineCoordinateSpace::World);
-			HoleLocation.Z += BuildingConfiguration->ExtraWallBottom + BuildingConfiguration->DoorsDistanceToFloor;
-				
-			FVector Scale(
-				BuildingConfiguration->DoorsWidth / BoundingBox.GetExtent()[0] / 2,
-				1,
-				BuildingConfiguration->DoorsHeight / BoundingBox.GetExtent()[2] / 2
-			);
-
-			FTransform Transform;
-			Transform.SetLocation(HoleLocation);
-			Transform.SetRotation(FQuat::FindBetweenVectors(FVector(1, 0, 0), HoleTangent));
-			Transform.SetScale3D(Scale);
-			InstancedDoorsComponent->AddInstance(Transform, true);
-		}
-	}
-
-	if (BuildingConfiguration->WindowMesh)
-	{
-		FBox BoundingBox = BuildingConfiguration->WindowMesh->GetBoundingBox();
-		InstancedWindowsComponent->SetStaticMesh(BuildingConfiguration->WindowMesh);
-		TArray<float> HolePositions;
-		AppendWallsWithHoles(nullptr, false, 0,
-			BuildingConfiguration->MinDistanceWindowToCorner, BuildingConfiguration->MinDistanceWindowToWindow,
-			BuildingConfiguration->WindowsWidth, BuildingConfiguration->WindowsHeight, BuildingConfiguration->WindowsDistanceToFloor,
-			0, false, HolePositions, -1
-		);
-
-		for (int i = 1; i < BuildingConfiguration->NumFloors; i++)
-		{			
-			for (auto& HolePosition : HolePositions)
-			{
-				FVector HoleLocation = BaseClockwiseSplineComponent->GetLocationAtDistanceAlongSpline(HolePosition, ESplineCoordinateSpace::World);
-				FVector HoleTangent = BaseClockwiseSplineComponent->GetTangentAtDistanceAlongSpline(HolePosition, ESplineCoordinateSpace::World);
-				HoleLocation.Z += BuildingConfiguration->ExtraWallBottom + i * BuildingConfiguration->FloorHeight + BuildingConfiguration->WindowsDistanceToFloor;
-				
-				FVector Scale(
-					BuildingConfiguration->WindowsWidth / BoundingBox.GetExtent()[0] / 2,
-					1,
-					BuildingConfiguration->WindowsHeight / BoundingBox.GetExtent()[2] / 2
-				);
-
-				FTransform Transform;
-				Transform.SetLocation(HoleLocation);
-				Transform.SetRotation(FQuat::FindBetweenVectors(FVector(1, 0, 0), HoleTangent));
-				Transform.SetScale3D(Scale);
-				InstancedWindowsComponent->AddInstance(Transform, true);
-			}
-		}
-	}
 	
 	return true;
 }
@@ -696,7 +715,7 @@ TArray<FVector2D> ABuilding::MakePolygon(bool bInternalWall, double BeginDistanc
 	Add(LastLocation);
 
 	// if nothing was added in the loop, or if the LastLocation is distinct from what was added
-	if (!bAddedPoints || !(To2D(BaseClockwiseFrames[LastIndex % NumFrames].GetLocation()) - LastLocation).IsNearlyZero(MILLIMETER_TOLERANCE))
+	if (Result.Num() >= 2 && (!bAddedPoints || !(To2D(BaseClockwiseFrames[LastIndex % NumFrames].GetLocation()) - LastLocation).IsNearlyZero(MILLIMETER_TOLERANCE)))
 	{
 		// add a shifted location corresponding to LastLocation, on the internal or external wall
 		FVector2D PrevPoint = Result.Last(1);
@@ -727,7 +746,7 @@ TArray<FVector2D> ABuilding::MakePolygon(bool bInternalWall, double BeginDistanc
 	
 	// If the first point is not at the beginning of the spline, and
 	// If nothing was added in the loop, or if the FirstLocation is distinct from what was added
-	if (!bAddedPoints || !(To2D(BaseClockwiseFrames[BeginIndex].GetLocation()) - FirstLocation).IsNearlyZero(MILLIMETER_TOLERANCE))
+	if (Result.Num() >= 2 && (!bAddedPoints || !(To2D(BaseClockwiseFrames[BeginIndex].GetLocation()) - FirstLocation).IsNearlyZero(MILLIMETER_TOLERANCE)))
 	{
 		// add a shifted location corresponding to LastLocation, on the internal or external wall
 		FVector2D NextPoint = Result[1];
@@ -764,6 +783,8 @@ void ABuilding::AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, dou
 	SplineMeshComponent->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
 	SplineMeshComponent->CreationMethod = EComponentCreationMethod::UserConstructionScript;
 	SplineMeshComponent->RegisterComponent();
+	AddInstanceComponent(SplineMeshComponent);
+
 	FVector StartPos = BaseClockwiseSplineComponent->GetLocationAtDistanceAlongSpline(BeginDistance, ESplineCoordinateSpace::Local);
 	FVector StartTangent = BaseClockwiseSplineComponent->GetTangentAtDistanceAlongSpline(BeginDistance, ESplineCoordinateSpace::Local);
 	FVector EndPos = BaseClockwiseSplineComponent->GetLocationAtDistanceAlongSpline(BeginDistance + Length, ESplineCoordinateSpace::Local);
@@ -777,164 +798,178 @@ void ABuilding::AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, dou
 	SplineMeshComponent->SetStartAndEnd(StartPos, StartTangent, EndPos, EndTangent, false);
 	SplineMeshComponent->SetStartScale( { 1, NewScale }, false);
 	SplineMeshComponent->SetEndScale( { 1, NewScale }, false);
-
 	SplineMeshComponent->SetRelativeLocation(FVector(0, 0, ZOffset - MinHeightLocal));
-	this->AddInstanceComponent(SplineMeshComponent);
+}
+
+void ABuilding::AppendWallsWithHoles(
+	UDynamicMesh* TargetMesh, bool bInternalWall, double WallHeight, double ZOffset,
+	FWindowsSpecification &WindowsSpecification, int MaterialID
+)
+{
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendWallsWithHoles1");
+
+	if (WindowsSpecification.bMakeWindowsHoles)
+	{
+		TArray<float> SafeWindowsPositions = GetSafeWindowsPositions(WindowsSpecification.WindowsPositions, WindowsSpecification.WindowsWidth);
+
+		return AppendWallsWithHoles(
+			TargetMesh, bInternalWall, WallHeight,
+			WindowsSpecification.WindowsWidth, WindowsSpecification.WindowsHeight,
+			WindowsSpecification.WindowsDistanceToFloor, ZOffset,
+			SafeWindowsPositions, MaterialID
+		);
+	}
+	else
+	{
+		return AppendWallsWithHoles(
+			TargetMesh, bInternalWall, WallHeight,
+			WindowsSpecification.WindowsWidth, WindowsSpecification.WindowsHeight,
+			WindowsSpecification.WindowsDistanceToFloor, ZOffset,
+			TArray<float>(), MaterialID
+		);
+	}
 }
 
 void ABuilding::AppendWallsWithHoles(
 	UDynamicMesh* TargetMesh, bool bInternalWall, double WallHeight,
-	double MinDistanceHoleToCorner, double MinDistanceHoleToHole, double HolesWidth, double HolesHeight, double HoleDistanceToFloor, double ZOffset,
-	bool bBuildWalls, TArray<float> &OutHolePositions,
+	double WindowsWidth, double HolesHeight, double HoleDistanceToFloor, double ZOffset,
+	const TArray<float> &WindowsPositions,
 	int MaterialID
 )
 {
-	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendWallsWithHolesTime1");
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendWallsWithHoles2");
 
-	for (int i = 0; i < SplineComponent->GetNumberOfSplinePoints(); i++)
+	const int NumSplinePoints = SplineComponent->GetNumberOfSplinePoints();
+	if (NumSplinePoints == 0)
 	{
-		float Distance1 = BaseClockwiseSplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineIndexToBaseSplineIndex[i]);
-		float Distance2 = BaseClockwiseSplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineIndexToBaseSplineIndex[i + 1]);
+		UE_LOG(LogBuildingFromSpline, Error, TEXT("Attempting to create a building with an empty spline"))
+		return;
+	}
 
-		float TotalDistance = Distance2 - Distance1;
-		float AvailableDistance = TotalDistance - 2 * MinDistanceHoleToCorner;
+	if (WindowsWidth < 0)
+	{
+		UE_LOG(LogBuildingFromSpline, Error, TEXT("Attempting to create a building with negative Windows width"))
+		return;
+	}
 
-		if (AvailableDistance >= HolesWidth)
+	if (HolesHeight < 0)
+	{
+		UE_LOG(LogBuildingFromSpline, Error, TEXT("Attempting to create a building with negative Windows height"))
+		return;
+	}
+
+	if (HoleDistanceToFloor < 0)
+	{
+		UE_LOG(LogBuildingFromSpline, Error, TEXT("Attempting to create a building with negative Windows height"))
+		return;
+	}
+
+	if (WallHeight < 0)
+	{
+		UE_LOG(LogBuildingFromSpline, Error, TEXT("Attempting to create a building with negative Windows height"))
+		return;
+	}
+	
+	// before this spline point, all the walls are constructed
+	int PreviousSplinePoint = 0;
+
+	// how much distance along the spline has already been built
+	float CompletedWall = 0;
+
+	// point which is right after the next hole position
+	int NextSplinePoint = 0;
+	
+	const float SplineLength = SplineComponent->GetSplineLength();
+	for (auto& WindowPosition : WindowsPositions)
+	{
+		// Move NextSplinePoint to the next spline point after this hole position
+		while (NextSplinePoint < NumSplinePoints && BaseClockwiseSplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineIndexToBaseSplineIndex[NextSplinePoint]) < WindowPosition)
 		{
-			int NumHoles = 1 + (AvailableDistance - HolesWidth) / (HolesWidth + MinDistanceHoleToHole); // >= 1
-			int NumSpaces = NumHoles - 1; // >= 0
-
-			float BeginOffset = (AvailableDistance - NumHoles * HolesWidth - NumSpaces * MinDistanceHoleToHole) / 2; // >= 0
-			float BeginHoleDistance = Distance1 + MinDistanceHoleToCorner + BeginOffset; // >= Distance1 + MinDistanceHoleToCorner
-			float BeginSpaceDistance = BeginHoleDistance + HolesWidth;
-
-			if (bBuildWalls)
-			{
-				// before the first hole
-				AppendAlongSpline(TargetMesh, bInternalWall, Distance1, MinDistanceHoleToCorner + BeginOffset, WallHeight, ZOffset, MaterialID);
-
-				// in-between holes
-				for (int j = 0; j < NumSpaces; j++)
-				{
-					AppendAlongSpline(TargetMesh, bInternalWall, BeginSpaceDistance + j * (HolesWidth + MinDistanceHoleToHole), MinDistanceHoleToHole, WallHeight, ZOffset, MaterialID);
-				}
-			
-				// after the last hole
-				AppendAlongSpline(
-					TargetMesh, bInternalWall, BeginSpaceDistance + NumSpaces * (HolesWidth + MinDistanceHoleToHole),
-					BeginOffset + MinDistanceHoleToCorner, WallHeight, ZOffset, MaterialID
-				);
-				
-				// below the holes
-				for (int j = 0; j < NumHoles; j++)
-				{
-					AppendAlongSpline(
-						TargetMesh, bInternalWall, BeginHoleDistance + j * (HolesWidth + MinDistanceHoleToHole),
-						HolesWidth, HoleDistanceToFloor, ZOffset, MaterialID
-					);
-				}
-				
-				// above the holes
-				const double RemainingHeight = WallHeight - HoleDistanceToFloor - HolesHeight;
-				if (RemainingHeight > 0)
-				{
-					for (int j = 0; j < NumHoles; j++)
-					{
-						AppendAlongSpline(
-							TargetMesh, bInternalWall, BeginHoleDistance + j * (HolesWidth + MinDistanceHoleToHole),
-							HolesWidth, RemainingHeight, ZOffset + HoleDistanceToFloor + HolesHeight, MaterialID
-						);
-					}
-				}
-			}
-
-			// add holes positions
-			for (int j = 0; j < NumHoles; j++)
-			{
-				OutHolePositions.Add(BeginHoleDistance + j * (HolesWidth + MinDistanceHoleToHole));
-			}
+			NextSplinePoint++;
 		}
-		else if (bBuildWalls)
+		
+		check(NextSplinePoint > PreviousSplinePoint)
+
+		// build missing walls until NextSplinePoint - 1
+		while (PreviousSplinePoint < NextSplinePoint - 1)
 		{
-			AppendAlongSpline(TargetMesh, bInternalWall, Distance1, TotalDistance, WallHeight, ZOffset, MaterialID);
+			PreviousSplinePoint++;
+			const float DistanceAtSplinePoint = BaseClockwiseSplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineIndexToBaseSplineIndex[PreviousSplinePoint]);
+			AppendAlongSpline(TargetMesh, bInternalWall, CompletedWall, DistanceAtSplinePoint - CompletedWall, WallHeight, ZOffset, MaterialID);
+			CompletedWall = DistanceAtSplinePoint;
+		}
+
+		check(NextSplinePoint - 1 == PreviousSplinePoint);
+
+		// build the missing wall section to the hole position
+		AppendAlongSpline(TargetMesh, bInternalWall, CompletedWall, WindowPosition - CompletedWall, WallHeight, ZOffset, MaterialID);
+
+		CompletedWall = WindowPosition;
+
+		// if there is enough space for a hole, we make a hole
+		const float DistanceAlongSplineNextSplinePoint = BaseClockwiseSplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineIndexToBaseSplineIndex[NextSplinePoint]);
+		if (DistanceAlongSplineNextSplinePoint - WindowPosition >= WindowsWidth)
+		{
+			// below the hole
+			AppendAlongSpline(
+				TargetMesh, bInternalWall, WindowPosition,
+				WindowsWidth, HoleDistanceToFloor, ZOffset, MaterialID
+			);
+
+			// above the hole
+			const double RemainingHeight = WallHeight - HoleDistanceToFloor - HolesHeight;
+			if (RemainingHeight > 0)
+			{
+				AppendAlongSpline(
+					TargetMesh, bInternalWall, WindowPosition,
+					WindowsWidth, RemainingHeight, ZOffset + HoleDistanceToFloor + HolesHeight, MaterialID
+				);
+			}
+
+			CompletedWall += WindowsWidth;
 		}
 	}
+
+	// build wall after the last window position
+	while (PreviousSplinePoint < NumSplinePoints)
+	{
+		PreviousSplinePoint++;
+		const float DistanceAtSplinePoint = SplineComponent->GetDistanceAlongSplineAtSplinePoint(PreviousSplinePoint);
+		AppendAlongSpline(TargetMesh, bInternalWall, CompletedWall, DistanceAtSplinePoint - CompletedWall, WallHeight, ZOffset, MaterialID);
+		CompletedWall = DistanceAtSplinePoint;
+	}
+
+	// build the missing wall section to the hole position
+	AppendAlongSpline(TargetMesh, bInternalWall, CompletedWall, SplineLength - CompletedWall, WallHeight, ZOffset, MaterialID);
+
+	// CompletedWall = SplineLength; we're done!
 }
 
 void ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 {
-	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendWallsWithHolesTime2");
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendWallsWithHoles3");
 
-	double InternalWallHeight = BuildingConfiguration->FloorHeight;
-	if (BuildingConfiguration->bBuildFloorTiles) InternalWallHeight -= BuildingConfiguration->FloorThickness;
+	// ExtraWallBottom (inside wall)
 
-	// Inside ExtraWallBottom
-
-	if (BuildingConfiguration->bBuildInternalWalls && BuildingConfiguration->ExtraWallBottom > 0) {
+	if (BuildingConfiguration->bBuildInternalWalls && BuildingConfiguration->ExtraWallBottom > 0)
+	{
 		AppendAlongSpline(
 			TargetMesh, true, 0, BaseClockwiseSplineComponent->GetSplineLength(),
-			BuildingConfiguration->ExtraWallBottom, MinHeightLocal, InteriorMaterialID
+			BuildingConfiguration->ExtraWallBottom, MinHeightLocal, GetInteriorMaterialID()
 		);
 	}
 
-	// Inside Floor 0
+	// ExtraWallBottom (outside wall)
 
-	if (BuildingConfiguration->NumFloors > 0)
+	if (BuildingConfiguration->bBuildExternalWalls && BuildingConfiguration->ExtraWallBottom > 0)
 	{
-		TArray<float> HolePositions;
-		AppendWallsWithHoles(
-			TargetMesh, true, InternalWallHeight,
-			BuildingConfiguration->MinDistanceDoorToCorner, BuildingConfiguration->MinDistanceDoorToDoor,
-			BuildingConfiguration->DoorsWidth, BuildingConfiguration->DoorsHeight, BuildingConfiguration->DoorsDistanceToFloor,
-			MinHeightLocal + BuildingConfiguration->ExtraWallBottom,
-			BuildingConfiguration->bBuildInternalWalls, HolePositions,
-			InteriorMaterialID
+		AppendAlongSpline(
+			TargetMesh, false, 0, BaseClockwiseSplineComponent->GetSplineLength(),
+			BuildingConfiguration->ExtraWallBottom, MinHeightLocal, GetExteriorMaterialID()
 		);
-		for (auto& HolePosition : HolePositions)
-		{
-			AddSplineMesh(
-				BuildingConfiguration->DoorMesh, HolePosition, BuildingConfiguration->DoorsWidth, BuildingConfiguration->DoorsHeight,
-				MinHeightLocal + BuildingConfiguration->ExtraWallBottom + BuildingConfiguration->DoorsDistanceToFloor
-			);
-		}
 	}
 
-
-	// Inside Other Floors
-
-	if (BuildingConfiguration->NumFloors > 1)
-	{
-		TObjectPtr<UDynamicMesh> WholeFloorMesh = NewObject<UDynamicMesh>();
-		
-		TArray<float> HolePositions;
-		AppendWallsWithHoles(
-			WholeFloorMesh, true, InternalWallHeight,
-			BuildingConfiguration->MinDistanceWindowToCorner, BuildingConfiguration->MinDistanceWindowToWindow,
-			BuildingConfiguration->WindowsWidth, BuildingConfiguration->WindowsHeight, BuildingConfiguration->WindowsDistanceToFloor,
-			0,
-			BuildingConfiguration->bBuildInternalWalls, HolePositions,
-			InteriorMaterialID
-		);
-
-		for (int i = 1; i < BuildingConfiguration->NumFloors; i++)
-		{
-			UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(
-				TargetMesh, WholeFloorMesh,
-				FTransform(FVector(0, 0, MinHeightLocal + BuildingConfiguration->ExtraWallBottom + i * BuildingConfiguration->FloorHeight)),
-				true
-			);
-			for (auto& HolePosition : HolePositions)
-			{
-				AddSplineMesh(
-					BuildingConfiguration->WindowMesh, HolePosition, BuildingConfiguration->WindowsWidth, BuildingConfiguration->WindowsHeight,
-					MinHeightLocal + BuildingConfiguration->ExtraWallBottom + i * BuildingConfiguration->FloorHeight + BuildingConfiguration->WindowsDistanceToFloor
-				);
-			}
-		}
-		WholeFloorMesh->MarkAsGarbage();
-	}
-	
-	// Inside ExtraWallTop
+	// ExtraWallTop (inside wall)
 
 	if (BuildingConfiguration->bBuildInternalWalls && BuildingConfiguration->ExtraWallTop > 0)
 	{
@@ -942,89 +977,90 @@ void ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 			TargetMesh, true, 0, BaseClockwiseSplineComponent->GetSplineLength(),
 			BuildingConfiguration->ExtraWallTop,
 			MinHeightLocal + BuildingConfiguration->ExtraWallBottom + BuildingConfiguration->NumFloors * BuildingConfiguration->FloorHeight,
-			InteriorMaterialID
+			GetInteriorMaterialID()
 		);
 	}
 
-
-
-	// Outside ExtraWallBottom
-
-	if (BuildingConfiguration->bBuildExternalWalls && BuildingConfiguration->ExtraWallBottom > 0)
-	{
-		AppendAlongSpline(
-			TargetMesh, false, 0, BaseClockwiseSplineComponent->GetSplineLength(),
-			BuildingConfiguration->ExtraWallBottom, MinHeightLocal, ExteriorMaterialID
-		);
-	}
-
-	// Outside Floor 0
-
-	if (BuildingConfiguration->NumFloors > 0)
-	{
-		TArray<float> HolePositions;
-		AppendWallsWithHoles(
-			TargetMesh, false, BuildingConfiguration->FloorHeight,
-			BuildingConfiguration->MinDistanceDoorToCorner, BuildingConfiguration->MinDistanceDoorToDoor,
-			BuildingConfiguration->DoorsWidth, BuildingConfiguration->DoorsHeight, BuildingConfiguration->DoorsDistanceToFloor,
-			MinHeightLocal + BuildingConfiguration->ExtraWallBottom,
-			BuildingConfiguration->bBuildExternalWalls, HolePositions, ExteriorMaterialID
-		);
-	}
-
-	// Outside Other Floors
-
-	if (BuildingConfiguration->NumFloors > 1)
-	{
-		TObjectPtr<UDynamicMesh> WholeFloorMesh = NewObject<UDynamicMesh>();
-		
-		TArray<float> HolePositions;
-		AppendWallsWithHoles(
-			WholeFloorMesh, false, BuildingConfiguration->FloorHeight,
-			BuildingConfiguration->MinDistanceWindowToCorner, BuildingConfiguration->MinDistanceWindowToWindow,
-			BuildingConfiguration->WindowsWidth, BuildingConfiguration->WindowsHeight, BuildingConfiguration->WindowsDistanceToFloor,
-			0,
-			BuildingConfiguration->bBuildExternalWalls, HolePositions, ExteriorMaterialID
-		);
-
-		for (int i = 1; i < BuildingConfiguration->NumFloors; i++)
-		{
-			UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(
-				TargetMesh, WholeFloorMesh,
-				FTransform(FVector(0, 0, MinHeightLocal + BuildingConfiguration->ExtraWallBottom + i * BuildingConfiguration->FloorHeight)),
-				true
-			);
-		}
-
-		WholeFloorMesh->MarkAsGarbage();
-	}
-
-	// Outside ExtraWallTop
+	// ExtraWallTop (outside wall)
 	
 	if (BuildingConfiguration->bBuildExternalWalls && BuildingConfiguration->ExtraWallTop > 0)
 	{
 		AppendAlongSpline(
 			TargetMesh, false, 0, BaseClockwiseSplineComponent->GetSplineLength(),
 			BuildingConfiguration->ExtraWallTop, MinHeightLocal + BuildingConfiguration->ExtraWallBottom +
-			BuildingConfiguration->NumFloors * BuildingConfiguration->FloorHeight, ExteriorMaterialID
+			BuildingConfiguration->NumFloors * BuildingConfiguration->FloorHeight, GetExteriorMaterialID()
 		);
+	}
+
+
+	double InternalWallHeight = BuildingConfiguration->FloorHeight;
+	if (BuildingConfiguration->bBuildFloorTiles) InternalWallHeight -= BuildingConfiguration->FloorThickness;
+
+	TMap<FWindowsSpecification, UDynamicMesh*> DynamicMeshes;
+
+	auto AddMesh = [this, TargetMesh, InternalWallHeight, &DynamicMeshes](FWindowsSpecification WindowsSpecification, int i)
+	{
+		if (i >= BuildingConfiguration->NumFloors) return;
+
+		if (!DynamicMeshes.Contains(WindowsSpecification))
+		{
+			UDynamicMesh *DynamicMesh = NewObject<UDynamicMesh>(this);
+			DynamicMeshes.Add(WindowsSpecification, DynamicMesh);
+			if (BuildingConfiguration->bBuildInternalWalls)
+			{
+				AppendWallsWithHoles(DynamicMesh, true, InternalWallHeight, 0, WindowsSpecification, GetInteriorMaterialID());
+			}
+			if (BuildingConfiguration->bBuildExternalWalls)
+			{
+				AppendWallsWithHoles(DynamicMesh, false, BuildingConfiguration->FloorHeight, 0, WindowsSpecification, GetExteriorMaterialID());
+			}
+		}
+
+		UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(
+			TargetMesh, DynamicMeshes[WindowsSpecification],
+			FTransform(FVector(0, 0, MinHeightLocal + BuildingConfiguration->ExtraWallBottom + i * BuildingConfiguration->FloorHeight)),
+			true
+		);
+
+		return;
+	};
+
+	int i = 0;
+	for (i = 0; i < BuildingConfiguration->WindowsSpecifications.Num(); i++)
+	{
+		FWindowsSpecification& WindowsSpecification = BuildingConfiguration->WindowsSpecifications[i];
+		AddMesh(WindowsSpecification, i);
+	}
+
+	FWindowsSpecification LastWindowsSpecification;
+	if (i > 0) LastWindowsSpecification = BuildingConfiguration->WindowsSpecifications[i-1];
+
+	for (; i < BuildingConfiguration->NumFloors; i++)
+	{
+		AddMesh(LastWindowsSpecification, i);
+	}
+
+	for (auto& DynamicMesh : DynamicMeshes)
+	{
+		if (IsValid(DynamicMesh.Value))
+		{
+			DynamicMesh.Value->MarkAsGarbage();
+		}
 	}
 }
 
 void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 {
-	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendRoof");
 
 	/* Allocate RoofMesh */
 
-	TObjectPtr<UDynamicMesh> RoofMesh = NewObject<UDynamicMesh>();
-
+	TObjectPtr<UDynamicMesh> RoofMesh = NewObject<UDynamicMesh>(this);
 	
 	/* Top of the roof */
-
+	
 	int NumFrames = BaseClockwiseFrames.Num();
 	if (NumFrames == 0) return;
-
+	
 	const double WallTopHeight = MinHeightLocal + BuildingConfiguration->ExtraWallBottom + BuildingConfiguration->NumFloors * BuildingConfiguration->FloorHeight + BuildingConfiguration->ExtraWallTop;
 	const double RoofTopHeight = WallTopHeight + BuildingConfiguration->RoofHeight;
 
@@ -1033,8 +1069,17 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 
 	TArray<FVector2D> RoofPolygon;
 	TArray<int> IndexToRoofIndex;
-	DeflateFrames(Frames, RoofPolygon, IndexToRoofIndex, BuildingConfiguration->InnerRoofDistance);
 
+	if (BuildingConfiguration->RoofKind == ERoofKind::InnerSpline)
+	{
+		DeflateFrames(Frames, RoofPolygon, IndexToRoofIndex, BuildingConfiguration->InnerRoofDistance);
+	}
+	else
+	{
+		IndexToRoofIndex.Empty();
+		IndexToRoofIndex.SetNum(NumFrames);
+	}
+	
 	if (RoofPolygon.IsEmpty() || BuildingConfiguration->RoofKind == ERoofKind::Point)
 	{
 		double MiddleX = 0;
@@ -1062,7 +1107,7 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 			BuildingConfiguration->RoofThickness
 		);
 
-		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, RoofMaterialID);
+		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, GetRoofMaterialID());
 
 		/* Set the Polygroup ID of ceiling to CeilingMaterialID */
 
@@ -1077,7 +1122,7 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 
 		if (PolygroupIDs.Num() < 3)
 		{
-			UE_LOGFMT(LogBuildingFromSpline, Error, "Internal error: something went wrong with the floor tile materials");
+			UE_LOGFMT(LogBuildingFromSpline, Error, "Internal error: something went wrong with the materials");
 			return;
 		}
 
@@ -1086,18 +1131,18 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 			RoofMesh,
 			FGeometryScriptGroupLayer(),
 			PolygroupIDs[2], // TODO: polygroup ID of the ceiling, is there a way to ensure it?
-			CeilingMaterialID, // new material ID
+			GetCeilingMaterialID(), // new material ID
 			bIsValidPolygroupID,
 			false,
 			nullptr
 		);
 	}
 
-
 	/* Connection from the walls to the roof, outside */
-
+	
 	FTransform BuildingTransform = this->GetTransform();
 
+	FlushPersistentDebugLines(this->GetWorld());
 	TArray<FTransform> SweepPath;
 	for (int i = 0; i < NumFrames; i++)
 	{
@@ -1109,10 +1154,16 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 
 		const FVector UnitDirection = (Target - Source).GetSafeNormal();
 		Source -= UnitDirection * BuildingConfiguration->OuterRoofDistance;
+		
+		const FVector UnitDirectionXY = FVector(UnitDirection.X, UnitDirection.Y, 0);
+		const FVector UnitDirectionYZ = FVector(0, UnitDirection.Y, UnitDirection.Z);
 
 		FTransform NewTransform;
 		NewTransform.SetLocation(Source);
-		NewTransform.SetRotation(FQuat::FindBetweenVectors(FVector(0, 0, 1), UnitDirection));
+		
+		FQuat QuatYaw = FQuat::FindBetweenVectors(FVector(0, 1, 0), UnitDirectionXY);
+		FQuat QuatRoll = FQuat::FindBetweenVectors(FVector(0, 0, 1), UnitDirection);
+		NewTransform.SetRotation(QuatRoll * QuatYaw);
 		NewTransform.SetScale3D(FVector(1, 1, FVector::Distance(Source, Target)));
 
 		SweepPath.Add(NewTransform);
@@ -1122,15 +1173,15 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 	Options.bFlipOrientation = true;
 	UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSweepPolyline(
 		RoofMesh, Options,
-		FTransform(), { {0, 0}, {0, 1} },
+		FTransform(), { {0, 0}, {0, 0.01}, {0, 0.02}, {0, 0.05}, {0, 0.1}, {0, 0.2}, {0, 0.4}, {0, 0.6}, {0, 0.8},  {0, 0.9},  {0, 0.95},  {0, 0.98},  {0, 0.99}, {0, 1} },
 		SweepPath, {}, {}, true
 	);
-	UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, RoofMaterialID);
 
+	UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, GetRoofMaterialID());
 
 	/* Connection from the walls to the roof, inside */
 
-	if (!InternalWallPolygon.IsEmpty())
+	if (BuildingConfiguration->BuildingGeometry == EBuildingGeometry::BuildingWithFloorsAndEmptyInside && !InternalWallPolygon.IsEmpty())
 	{
 		SweepPath.Empty();
 		for (int i = 0; i < NumFrames; i++)
@@ -1155,14 +1206,14 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 		Options.bFlipOrientation = false;
 		UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSweepPolyline(
 			RoofMesh, Options,
-			FTransform(), { {0, 0}, {0, 1} },
+			FTransform(), { {0, 0}, {0, 0.01}, {0, 0.02}, {0, 0.05}, {0, 0.1}, {0, 0.2}, {0, 0.4}, {0, 0.6}, {0, 0.8},  {0, 0.9},  {0, 0.95},  {0, 0.98},  {0, 0.99}, {0, 1} },
 			SweepPath, {}, {}, true
 		);
-		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, InteriorMaterialID);
+		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, GetInteriorMaterialID());
 	}
 	
 
-	/* Add the WallMesh to our TargetMesh */
+	/* Add the RoofMesh to our TargetMesh */
 
 	UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(TargetMesh, RoofMesh, FTransform(), true);
 
@@ -1187,58 +1238,191 @@ void ABuilding::ComputeMinMaxHeight()
 	}
 }
 
-void ABuilding::SetReceivesDecals(bool bReceivesDecal)
+void ABuilding::SetReceivesDecals()
 {
-	StaticMeshComponent->bReceivesDecals = bReceivesDecal; 
-	DynamicMeshComponent->bReceivesDecals = bReceivesDecal;
-	InstancedWindowsComponent->bReceivesDecals = bReceivesDecal;
-	InstancedDoorsComponent->bReceivesDecals = bReceivesDecal;
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("SetReceivesDecals");
+	
+	if (IsValid(StaticMeshComponent)) StaticMeshComponent->bReceivesDecals = BuildingConfiguration->bBuildingReceiveDecals; 
+	if (IsValid(DynamicMeshComponent)) DynamicMeshComponent->bReceivesDecals = BuildingConfiguration->bBuildingReceiveDecals;
+
+	for (auto& SplineMeshComponent : SplineMeshComponents)
+	{
+		if (IsValid(SplineMeshComponent)) SplineMeshComponent->bReceivesDecals = BuildingConfiguration->bBuildingReceiveDecals;
+	}
+
+	for (auto& InstancedStaticMeshComponent : InstancedStaticMeshComponents)
+	{
+		if (IsValid(InstancedStaticMeshComponent)) InstancedStaticMeshComponent->bReceivesDecals = BuildingConfiguration->bBuildingReceiveDecals;
+	}
 }
 
 void ABuilding::GenerateBuilding()
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("GenerateBuilding");
+
+	if (bIsGenerating) return;
+
+	bIsGenerating = true;
 	
 	DeleteBuilding();
 
-	if (BuildingConfiguration->bUseRandomNumFloors)
+	if (!IsValid(BuildingConfiguration))
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			LOCTEXT("NoBuildingConfiguration", "Internal Error: BuildingConfiguration is null.")
+		);
+		return;
+	}
+
+	if (!IsValid(DynamicMeshComponent))
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			LOCTEXT("NoBuildingConfiguration", "Internal Error: DynamicMeshComponent is null.")
+		);
+		return;
+	}
+
+	bool bFetchFromUserData = BuildingConfiguration->AutoComputeNumFloors();
+
+	if (!bFetchFromUserData && BuildingConfiguration->bUseRandomNumFloors)
 	{
 		BuildingConfiguration->NumFloors = UKismetMathLibrary::RandomIntegerInRange(BuildingConfiguration->MinNumFloors, BuildingConfiguration->MaxNumFloors);
 	}
 	
 	AppendBuilding(DynamicMeshComponent->GetDynamicMesh());
+	SetReceivesDecals();
+
+	bIsGenerating = false;
 }
 
-void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
+void ABuilding::AddWindowsMeshes(FWindowsSpecification &WindowsSpecification, int i)
 {
-	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendBuilding");
-
-	ON_SCOPE_EXIT {
-		BaseClockwiseSplineComponent->ClearSplinePoints();
-	};
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AddWindowsMeshes");
 	
-	ComputeMinMaxHeight();
-	ComputeBaseVertices();
+	if (!WindowsSpecification.WindowsMesh) return;
 
-	if (BuildingConfiguration->BuildingKind == EBuildingKind::Custom)
+	if (i >= BuildingConfiguration->NumFloors) return;
+
+	TArray<float> SafeWindowsPositions = GetSafeWindowsPositions(WindowsSpecification.WindowsPositions, WindowsSpecification.WindowsWidth);
+
+	switch (WindowsSpecification.WindowsMeshKind)
+	{
+		case EWindowsMeshKind::None:
+			return;
+
+		case EWindowsMeshKind::InstancedStaticMeshComponent:
+		{
+			UInstancedStaticMeshComponent *ISM = nullptr;
+			if (!MeshToISM.Contains(WindowsSpecification.WindowsMesh))
+			{
+				ISM = NewObject<UInstancedStaticMeshComponent>(RootComponent);
+				ISM->SetStaticMesh(WindowsSpecification.WindowsMesh);
+				ISM->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
+				ISM->CreationMethod = EComponentCreationMethod::UserConstructionScript;
+				ISM->RegisterComponent(); 
+				AddInstanceComponent(ISM);
+				MeshToISM.Add(WindowsSpecification.WindowsMesh, ISM);
+				InstancedStaticMeshComponents.Add(ISM);
+			}
+			else
+			{
+				ISM = MeshToISM[WindowsSpecification.WindowsMesh];
+			}
+
+			if (!ISM)
+			{
+				UE_LOG(LogBuildingFromSpline, Error, TEXT("Could not create ISM for window meshes"));
+				return;
+			}
+			
+			FBox BoundingBox = WindowsSpecification.WindowsMesh->GetBoundingBox();
+			for (auto& WindowPosition : SafeWindowsPositions)
+			{
+				FVector HoleLocation = BaseClockwiseSplineComponent->GetLocationAtDistanceAlongSpline(WindowPosition, ESplineCoordinateSpace::World);
+				FVector HoleTangent = BaseClockwiseSplineComponent->GetTangentAtDistanceAlongSpline(WindowPosition, ESplineCoordinateSpace::World);
+				HoleLocation.Z += BuildingConfiguration->ExtraWallBottom + i * BuildingConfiguration->FloorHeight + WindowsSpecification.WindowsDistanceToFloor;
+				
+				FVector Scale(
+					WindowsSpecification.WindowsWidth/ BoundingBox.GetExtent()[0] / 2,
+					1,
+					WindowsSpecification.WindowsHeight / BoundingBox.GetExtent()[2] / 2
+				);
+
+				FTransform Transform;
+				Transform.SetLocation(HoleLocation);
+				Transform.SetRotation(FQuat::FindBetweenVectors(FVector(1, 0, 0), HoleTangent));
+				Transform.SetScale3D(Scale);
+				ISM->AddInstance(Transform, true);
+			}
+
+			return;
+		}
+
+		case EWindowsMeshKind::SplineMeshComponent:
+		{
+			for (auto& WindowPosition : SafeWindowsPositions)
+			{
+				AddSplineMesh(
+					WindowsSpecification.WindowsMesh, WindowPosition, WindowsSpecification.WindowsWidth, WindowsSpecification.WindowsHeight,
+					MinHeightLocal + BuildingConfiguration->ExtraWallBottom + i * BuildingConfiguration->FloorHeight + WindowsSpecification.WindowsDistanceToFloor
+				);
+			}
+			return;
+		}
+
+		default:
+			return;
+	}
+}
+	
+void ABuilding::AddWindowsMeshes()
+{
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AddWindowsMeshes");
+	
+	MeshToISM.Empty();
+
+	int i;
+	for (i = 0; i < BuildingConfiguration->WindowsSpecifications.Num(); i++)
+	{
+		AddWindowsMeshes(BuildingConfiguration->WindowsSpecifications[i], i);
+	}
+
+	FWindowsSpecification LastWindowsSpecification;
+	if (i > 0) LastWindowsSpecification = BuildingConfiguration->WindowsSpecifications[i-1];
+
+	for (; i < BuildingConfiguration->NumFloors; i++)
+	{
+		AddWindowsMeshes(LastWindowsSpecification, i);
+	}
+}
+
+void ABuilding::AppendBuildingStructure(UDynamicMesh* TargetMesh)
+{
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendBuildingStructure");
+
+	if (BuildingConfiguration->bAutoPadWallBottom)
+	{
+		BuildingConfiguration->ExtraWallBottom = MaxHeightLocal - MinHeightLocal + BuildingConfiguration->PadBottom;
+	}
+
+	if (
+		BuildingConfiguration->BuildingGeometry == EBuildingGeometry::BuildingWithFloorsAndEmptyInside ||
+		BuildingConfiguration->RoofKind == ERoofKind::Point ||
+		BuildingConfiguration->RoofKind == ERoofKind::InnerSpline
+	)
 	{
 		ComputeOffsetPolygons();
+	}
 
+	if (BuildingConfiguration->BuildingGeometry == EBuildingGeometry::BuildingWithFloorsAndEmptyInside)
+	{
 		AppendWallsWithHoles(TargetMesh);
-
+		
 		if (BuildingConfiguration->bBuildFloorTiles || BuildingConfiguration->RoofKind == ERoofKind::Flat)
 		{
 			if (!AppendFloors(TargetMesh)) return;
 		}
 
-		if (
-			BuildingConfiguration->RoofKind == ERoofKind::Point ||
-			BuildingConfiguration->RoofKind == ERoofKind::InnerSpline
-		)
-		{
-			AppendRoof(TargetMesh);
-		}
-	
 		DynamicMeshComponent->SetMaterial(0, BuildingConfiguration->FloorMaterial);
 		DynamicMeshComponent->SetMaterial(1, BuildingConfiguration->CeilingMaterial);
 		DynamicMeshComponent->SetMaterial(2, BuildingConfiguration->ExteriorMaterial);
@@ -1247,14 +1431,38 @@ void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 	}
 	else
 	{
-		AppendSimpleBuilding(TargetMesh);
+		AppendBuildingWithoutInside(TargetMesh);
 
 		DynamicMeshComponent->SetMaterial(0, BuildingConfiguration->ExteriorMaterial);
 		DynamicMeshComponent->SetMaterial(1, BuildingConfiguration->RoofMaterial);
 	}
+}
 
+void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
+{
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendBuilding");
+
+	ComputeMinMaxHeight();
+	ComputeBaseVertices();
+
+	for (auto& WindowsSpecification : BuildingConfiguration->WindowsSpecifications)
 	{
-		//SCOPE_LOG_TIME_IN_SECONDS(TEXT("Normals"), &NormalsTime);
+		ComputeWindowsPositionsParameterizedByDistance(WindowsSpecification);
+	}
+
+	AppendBuildingStructure(TargetMesh);
+		
+	if (
+		BuildingConfiguration->RoofKind == ERoofKind::Point ||
+		BuildingConfiguration->RoofKind == ERoofKind::InnerSpline
+	)
+	{
+		AppendRoof(TargetMesh);
+	}
+
+	
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendBuilding");
 
 		UGeometryScriptLibrary_MeshNormalsFunctions::ComputeSplitNormals(TargetMesh, FGeometryScriptSplitNormalsOptions(), FGeometryScriptCalculateNormalsOptions());
 	}
@@ -1275,7 +1483,7 @@ void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 	}
 
 	{
-		// SCOPE_LOG_TIME_IN_SECONDS(TEXT("UVs"), &UVsTime);
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendBuilding");
 
 		if (BuildingConfiguration->bAutoGenerateXAtlasMeshUVs)
 		{
@@ -1283,12 +1491,19 @@ void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 		}
 
 	}
-	
+
+
+
+
+	AddWindowsMeshes();
+	BaseClockwiseSplineComponent->ClearSplinePoints();
+
 	GEditor->NoteSelectionChange();
 }
 
 void ABuilding::ConvertToStaticMesh()
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("ConvertToStaticMesh");
 	GenerateStaticMesh();
 	DynamicMeshComponent->GetDynamicMesh()->Reset();
 }
@@ -1304,7 +1519,6 @@ void ABuilding::GenerateStaticMesh()
 	NaniteSettings.bPreserveArea = true;
 
 	FString Unused;
-
 	if (StaticMeshPath.IsEmpty())
 	{
 		UGeometryScriptLibrary_CreateNewAssetFunctions::CreateUniqueNewAssetPathName(FString("/Game/Buildings"), FString("SM_Building"), StaticMeshPath, Unused, FGeometryScriptUniqueAssetNameOptions(), Outcome);
@@ -1331,8 +1545,6 @@ void ABuilding::GenerateStaticMesh()
 		return;
 	}
 
-
-
 	StaticMesh->NaniteSettings = NaniteSettings;
 
 	int NumMaterials = DynamicMeshComponent->GetNumMaterials();
@@ -1343,13 +1555,21 @@ void ABuilding::GenerateStaticMesh()
 		Materials.Add(Material);
 	}
 	StaticMesh->SetStaticMaterials(Materials);
-	StaticMesh->InitResources(); // calls StaticMesh->UpdateUVChannelData()
+	StaticMesh->InitResources(); // calls StaticMesh->UpdateUVChannelData() to avoid Error: Ensure condition failed: GetStaticMaterials()[MaterialIndex].UVChannelData.bInitialized
 
+	StaticMeshComponent = NewObject<UStaticMeshComponent>(RootComponent);
 	StaticMeshComponent->SetStaticMesh(StaticMesh);
+	StaticMeshComponent->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
+	StaticMeshComponent->CreationMethod = EComponentCreationMethod::UserConstructionScript;
+	StaticMeshComponent->RegisterComponent();
+
+	AddInstanceComponent(StaticMeshComponent);
 }
 
 void ABuilding::ConvertToVolume()
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("ConvertToVolume");
+
 	GenerateVolume();
 	DynamicMeshComponent->GetDynamicMesh()->Reset();
 }
@@ -1393,7 +1613,7 @@ void ABuilding::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEve
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
-	if (BuildingConfiguration->bGenerateWhenModified)
+	if (IsValid(BuildingConfiguration) && BuildingConfiguration->bGenerateWhenModified)
 	{
 		GenerateBuilding();
 	}

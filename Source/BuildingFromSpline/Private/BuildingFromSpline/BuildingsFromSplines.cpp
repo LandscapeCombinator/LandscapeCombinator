@@ -14,6 +14,8 @@
 #include "Serialization/ObjectAndNameAsStringProxyArchive.h"
 #include "Serialization/ObjectReader.h"
 #include "Serialization/ObjectWriter.h"
+#include "Serialization/DuplicatedDataReader.h"
+#include "Serialization/DuplicatedDataWriter.h"
 #include "TransactionCommon.h" 
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(BuildingsFromSplines)
@@ -26,7 +28,7 @@ ABuildingsFromSplines::ABuildingsFromSplines()
 
 	BuildingConfiguration = CreateDefaultSubobject<UBuildingConfiguration>(TEXT("Building Configuration"));
 
-	BuildingConfiguration->BuildingKind = EBuildingKind::Simple;
+	BuildingConfiguration->BuildingGeometry = EBuildingGeometry::BuildingWithoutInside;
 	BuildingConfiguration->InternalWallThickness = 1;
 	BuildingConfiguration->ExternalWallThickness = 1;
 	BuildingConfiguration->bBuildInternalWalls = false;
@@ -157,17 +159,9 @@ void ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent)
 	Building->SetFolderPath(FName(*(FString("/") + GetActorLabel())));
 	SpawnedBuildings.Add(Building);
 
-	TArray<uint8> BufferData;
-	FMemoryWriter BufferArchive(BufferData);
-	FObjectAndNameAsStringProxyArchive Writer = FObjectAndNameAsStringProxyArchive(BufferArchive, true);
-	BuildingConfiguration->Serialize(Writer);
-
-	FMemoryReader BufferReader = FMemoryReader(BufferData, true);
-	FObjectAndNameAsStringProxyArchive Reader = FObjectAndNameAsStringProxyArchive(BufferReader, true);
-	Building->BuildingConfiguration->Serialize(Reader);
-	// enums are not properly serialized, so we copy them ourselves
-	Building->BuildingConfiguration->BuildingKind = BuildingConfiguration->BuildingKind;
-	Building->BuildingConfiguration->RoofKind = BuildingConfiguration->RoofKind;
+	Building->BuildingConfiguration = NewObject<UBuildingConfiguration>(
+		Building, UBuildingConfiguration::StaticClass(), "DuplicatedBuildingConfiguration", RF_NoFlags, BuildingConfiguration
+	);
 
 	Building->SplineComponent->ClearSplinePoints();
 	for (int i = 0; i < NumPoints; i++)
@@ -176,39 +170,16 @@ void ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent)
 		Building->SplineComponent->SetSplinePointType(i, SplineComponent->GetSplinePointType(i), false);
 	}
 	Building->SplineComponent->UpdateSpline();
-
-	Building->ComputeMinMaxHeight();
-
-	if (bAutoComputeWallBottom)
-	{
-		Building->BuildingConfiguration->ExtraWallBottom = Building->MaxHeightLocal - Building->MinHeightLocal + 100;
-	}
 	
 	UOSMUserData *SplineOSMUserData = Cast<UOSMUserData>(SplineComponent->GetAssetUserDataOfClass(UOSMUserData::StaticClass()));
 
-	if (bAutoComputeNumFloors)
+	if (SplineOSMUserData && Building->GetRootComponent())
 	{
-		if (SplineOSMUserData && SplineOSMUserData->Fields.Contains("height"))
-		{
-			FString HeightString = SplineOSMUserData->Fields["height"];
-			double Height = FCString::Atod(*HeightString);
-			if (Height > 0)
-			{
-				Building->BuildingConfiguration->bUseRandomNumFloors = false;
-				Building->BuildingConfiguration->NumFloors = FMath::Max(1, Height * 100 / Building->BuildingConfiguration->FloorHeight);
-			}
-			else if (!HeightString.IsEmpty())
-			{
-				UE_LOG(LogBuildingFromSpline, Warning, TEXT("Ignoring height field: '%s'"), *HeightString)
-			}
-		}
+		UOSMUserData *BuildingOSMUserData = NewObject<UOSMUserData>(Building->GetRootComponent());
+		BuildingOSMUserData->Fields = SplineOSMUserData->Fields;
+		Building->GetRootComponent()->AddAssetUserData(BuildingOSMUserData);
 	}
 
-	UOSMUserData *BuildingOSMUserData = NewObject<UOSMUserData>(Building->GetRootComponent());
-	BuildingOSMUserData->Fields = SplineOSMUserData->Fields;
-	Building->GetRootComponent()->AddAssetUserData(BuildingOSMUserData);
-	
-	Building->SetReceivesDecals(bBuildingsReceiveDecals);
 	Building->SetIsSpatiallyLoaded(bBuildingsSpatiallyLoaded);
 
 	Building->GenerateBuilding();
