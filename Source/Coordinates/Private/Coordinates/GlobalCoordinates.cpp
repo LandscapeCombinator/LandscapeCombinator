@@ -96,7 +96,7 @@ bool UGlobalCoordinates::GetCRSCoordinatesFromUnrealLocations(FVector4d Location
 	// in Global CRS
 	double xs[2] = { Locations[0] / CmPerLongUnit + WorldOriginLong,  Locations[1] / CmPerLongUnit + WorldOriginLong  };
 	double ys[2] = { Locations[3] / CmPerLatUnit + WorldOriginLat, Locations[2] / CmPerLatUnit + WorldOriginLat };
-	
+
 	// convert to ToCRS
 	OGRSpatialReference InRs, OutRs;
 	if (

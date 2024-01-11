@@ -30,6 +30,7 @@ public class ImageDownloader : ModuleRules
 				"Projects",
 				"PropertyEditor",
 				"Landscape",
+                "DeveloperSettings",
 
 				// Landscape Combinator Dependencies
                 "Coordinates",

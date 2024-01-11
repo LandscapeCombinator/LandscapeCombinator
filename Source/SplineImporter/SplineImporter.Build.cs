@@ -29,7 +29,9 @@ public class SplineImporter : ModuleRules
 				"Landscape",
 				"LandscapeEditor",
 				"UnrealEd",
-				"HTTP",
+                "Slate",
+                "HTTP",
+                "EditorFramework",
 
 				// Other Dependencies
 				"LandscapeUtils",

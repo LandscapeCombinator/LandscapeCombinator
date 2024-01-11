@@ -14,6 +14,7 @@ ALandscapeTexturer::ALandscapeTexturer()
 	PrimaryActorTick.bCanEverTick = false;
 
 	ImageDownloader = CreateDefaultSubobject<UImageDownloader>(TEXT("TextureDownloader"));
+	ImageDownloader->bRemap = false;
 }
 
 void ALandscapeTexturer::CreateDecal()

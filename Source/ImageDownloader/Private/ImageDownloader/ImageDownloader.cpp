@@ -4,6 +4,7 @@
 #include "ImageDownloader/LogImageDownloader.h"
 #include "ImageDownloader/Directories.h"
 #include "ImageDownloader/HMDebugFetcher.h"
+#include "ImageDownloader/ImageDownloaderSettings.h"
 
 #include "ImageDownloader/Downloaders/HMLocalFile.h"
 #include "ImageDownloader/Downloaders/HMLocalFolder.h"
@@ -41,6 +42,7 @@
 
 #include "HAL/FileManagerGeneric.h"
 #include "Misc/MessageDialog.h"
+#include "Logging/StructuredLog.h"
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
@@ -206,37 +208,55 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 				FString URL2;
 				bool bGeoreferenceSlippyTiles2;
 				bool bMaxY_IsNorth2;
-				if (ImageSourceKind == EImageSourceKind::Mapbox_Heightmaps)
+
+
+				if (IsMapbox())
 				{
-					Layer = "MapboxTerrainDEMV1";
-					Format = "png";
-					if (Mapbox_2x)
+					FString MapboxToken2 = GetMapboxToken();
+					if (MapboxToken2.IsEmpty())
 					{
-						URL2 = FString("https://api.mapbox.com/v4/mapbox.mapbox-terrain-dem-v1/{z}/{x}/{y}@2x.pngraw?access_token=") + Mapbox_Token;
+						FMessageDialog::Open(EAppMsgType::Ok,
+							LOCTEXT("MapboxTokenMissing", "Please add a Mapbox Token (can be obtained from a free Mapbox account) in your Project Settings or in the Details Panel.")
+						); 
+						return nullptr;
+					}
+
+					if (ImageSourceKind == EImageSourceKind::Mapbox_Heightmaps)
+					{
+						Layer = "MapboxTerrainDEMV1";
+						Format = "png";
+						if (Mapbox_2x)
+						{
+							URL2 = FString("https://api.mapbox.com/v4/mapbox.mapbox-terrain-dem-v1/{z}/{x}/{y}@2x.pngraw?access_token=") + MapboxToken2;
+						}
+						else
+						{
+							URL2 = FString("https://api.mapbox.com/v4/mapbox.mapbox-terrain-dem-v1/{z}/{x}/{y}.pngraw?access_token=") + MapboxToken2;
+						}
+
+						bGeoreferenceSlippyTiles2 = true;
+						bMaxY_IsNorth2 = false;
+					}
+					else if (ImageSourceKind == EImageSourceKind::Mapbox_Satellite)
+					{
+						Layer = "MapboxSatellite";
+						Format = "jpg";
+						if (Mapbox_2x)
+						{
+							URL2 = FString("https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=") + MapboxToken2;
+						}
+						else
+						{
+							URL2 = FString("https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}.jpg90?access_token=") + MapboxToken2;
+						}
+
+						bGeoreferenceSlippyTiles2 = true;
+						bMaxY_IsNorth2 = false;
 					}
 					else
 					{
-						URL2 = FString("https://api.mapbox.com/v4/mapbox.mapbox-terrain-dem-v1/{z}/{x}/{y}.pngraw?access_token=") + Mapbox_Token;
+						return nullptr;
 					}
-
-					bGeoreferenceSlippyTiles2 = true;
-					bMaxY_IsNorth2 = false;
-				}
-				else if (ImageSourceKind == EImageSourceKind::Mapbox_Satellite)
-				{
-					Layer = "MapboxSatellite";
-					Format = "jpg";
-					if (Mapbox_2x)
-					{
-						URL2 = FString("https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=") + Mapbox_Token;
-					}
-					else
-					{
-						URL2 = FString("https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}.jpg90?access_token=") + Mapbox_Token;
-					}
-
-					bGeoreferenceSlippyTiles2 = true;
-					bMaxY_IsNorth2 = false;
 				}
 				else
 				{
@@ -361,6 +381,24 @@ HMFetcher* UImageDownloader::CreateFetcher(FString Name, bool bEnsureOneBand, bo
 	return Result;
 }
 
+bool UImageDownloader::HasMapboxToken()
+{
+	return !GetDefault<UImageDownloaderSettings>()->Mapbox_Token.IsEmpty();
+}
+
+FString UImageDownloader::GetMapboxToken()
+{
+	FString ProjectSettingsMapboxToken = GetDefault<UImageDownloaderSettings>()->Mapbox_Token;
+	if (!ProjectSettingsMapboxToken.IsEmpty())
+	{
+		return ProjectSettingsMapboxToken;
+	}
+	else
+	{
+		return Mapbox_Token;
+	}
+}
+
 void UImageDownloader::DeleteAllImages()
 {
 	FString ImageDownloaderDir = Directories::ImageDownloaderDir();
@@ -482,7 +520,7 @@ void UImageDownloader::SetSourceParameters()
 
 bool UImageDownloader::AllowsParametersSelection()
 {
-	return IsWMS() || IsXYZ() || ImageSourceKind == EImageSourceKind::Napoli;
+	return IsWMS() || (IsXYZ() && bGeoreferenceSlippyTiles) || ImageSourceKind == EImageSourceKind::Napoli;
 }
 
 bool UImageDownloader::SetSourceParametersBool(bool bDialog)
@@ -555,7 +593,7 @@ bool UImageDownloader::SetSourceParametersFromEPSG4326Coordinates(bool bDialog)
 
 		return true;
 	}
-	else if (IsXYZ())
+	else if (IsXYZ() && bGeoreferenceSlippyTiles)
 	{
 		double MinLatRad = FMath::DegreesToRadians(MinLat);
 		double MaxLatRad = FMath::DegreesToRadians(MaxLat);
@@ -603,7 +641,7 @@ bool UImageDownloader::SetSourceParametersFromActor(bool bDialog)
 
 	UE_LOG(LogImageDownloader, Log, TEXT("Set Source Parameters From Actor %s"), *ParametersBoundingActor->GetActorLabel());
 
-	FString SourceCRS = "EPSG:4326";
+	FString SourceCRS = "";
 	
 	if (ImageSourceKind == EImageSourceKind::Napoli)
 	{
@@ -612,6 +650,22 @@ bool UImageDownloader::SetSourceParametersFromActor(bool bDialog)
 	else if (IsWMS())
 	{
 		SourceCRS = WMS_CRS;
+	}
+	else if (IsXYZ() && bGeoreferenceSlippyTiles)
+	{
+		SourceCRS = "EPSG:3857";
+	}
+
+	if (SourceCRS.IsEmpty())
+	{
+		if (bDialog)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+				LOCTEXT("UImageDownloader::SetSourceParameters::1", "Please make sure that the CRS is not empty."),
+				FText::FromString(ParametersBoundingActor->GetActorLabel())
+			));
+		}
+		return false;
 	}
 
 	if (!ALevelCoordinates::GetActorCRSBounds(ParametersBoundingActor, SourceCRS, Coordinates))
@@ -649,29 +703,10 @@ bool UImageDownloader::SetSourceParametersFromActor(bool bDialog)
 
 		return true;
 	}
-	else if (IsXYZ())
+	else if (IsXYZ() && bGeoreferenceSlippyTiles)
 	{
-		double ActorMinLatRad = FMath::DegreesToRadians(ActorMinLat);
-		double ActorMaxLatRad = FMath::DegreesToRadians(ActorMaxLat);
-		double n = 1 << XYZ_Zoom;
-		XYZ_MinX = (ActorMinLong + 180) / 360 * n;
-		XYZ_MaxX = (ActorMaxLong + 180) / 360 * n;
-		
-		XYZ_MinY = (1.0 - asinh(FMath::Tan(ActorMaxLatRad)) / UE_PI) / 2.0 * n;
-		XYZ_MaxY = (1.0 - asinh(FMath::Tan(ActorMinLatRad)) / UE_PI) / 2.0 * n;
-
-		//UE_LOG(LogImageDownloader, Log, TEXT("Converting coordinates to tiles"));
-		//UE_LOG(LogImageDownloader, Log, TEXT("n: %f"), n);
-		//UE_LOG(LogImageDownloader, Log, TEXT("ActorMinLong: %f"), ActorMinLong);
-		//UE_LOG(LogImageDownloader, Log, TEXT("ActorMaxLong: %f"), ActorMaxLong);
-		//UE_LOG(LogImageDownloader, Log, TEXT("ActorMinLat: %f"), ActorMinLat);
-		//UE_LOG(LogImageDownloader, Log, TEXT("ActorMaxLat: %f"), ActorMaxLat);
-		//UE_LOG(LogImageDownloader, Log, TEXT("ActorMinLatRad: %f"), ActorMinLatRad);
-		//UE_LOG(LogImageDownloader, Log, TEXT("ActorMaxLatRad: %f"), ActorMaxLatRad);
-		//UE_LOG(LogImageDownloader, Log, TEXT("MinX: %f"), XYZ_MinX);
-		//UE_LOG(LogImageDownloader, Log, TEXT("MaxX: %f"), XYZ_MaxX);
-		//UE_LOG(LogImageDownloader, Log, TEXT("MinY: %f"), XYZ_MinY);
-		//UE_LOG(LogImageDownloader, Log, TEXT("MaxY: %f"), XYZ_MaxY);
+		GDALInterface::EPSG3857ToXYZTile(ActorMinLong, ActorMaxLat, XYZ_Zoom, XYZ_MinX, XYZ_MinY);
+		GDALInterface::EPSG3857ToXYZTile(ActorMaxLong, ActorMinLat, XYZ_Zoom, XYZ_MaxX, XYZ_MaxY);
 
 		return true;
 	}

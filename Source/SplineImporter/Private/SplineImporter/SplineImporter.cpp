@@ -8,6 +8,8 @@
 #include "GDALInterface/GDALInterface.h"
 #include "OSMUserData/OSMUserData.h"
 
+#include "LandscapeSplineActor.h"
+#include "ILandscapeSplineInterface.h"
 #include "EditorSupportDelegates.h"
 #include "LandscapeStreamingProxy.h"
 #include "LandscapeSplineControlPoint.h" 
@@ -21,6 +23,7 @@
 #include "Misc/ScopedSlowTask.h"
 #include "Stats/Stats.h"
 #include "Stats/StatsMisc.h"
+#include "ObjectEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
@@ -30,18 +33,65 @@ ASplineImporter::ASplineImporter()
 
 	SetRootComponent(CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent")));
 	RootComponent->SetMobility(EComponentMobility::Static);
+
+	SetOverpassShortQuery();
 }
 
 void ASplineImporter::DeleteSplines()
 {
-	for (auto& SplineCollection : SplineCollections)
+	for (auto& SplineCollection : SplineOwners)
 	{
 		if (IsValid(SplineCollection))
 		{
 			SplineCollection->Destroy();
 		}
 	}
-	SplineCollections.Reset();
+	SplineOwners.Reset();
+}
+
+void ASplineImporter::SetOverpassShortQuery()
+{
+	if (SplinesSource == ESplinesSource::OSM_Roads)
+	{
+		OverpassShortQuery = "way[\"highway\"][\"highway\"!~\"path\"][\"highway\"!~\"track\"];";
+		OverpassShortQueryPreset = OverpassShortQuery;
+	}
+	else if (SplinesSource == ESplinesSource::OSM_Buildings)
+	{
+		OverpassShortQuery = "way[\"building\"];";
+		OverpassShortQueryPreset = OverpassShortQuery;
+	}
+	else if (SplinesSource == ESplinesSource::OSM_Rivers)
+	{
+		OverpassShortQuery = "way[\"waterway\"=\"river\"];";
+		OverpassShortQueryPreset = OverpassShortQuery;
+	}
+	else if (SplinesSource == ESplinesSource::OSM_Forests)
+	{
+		OverpassShortQuery = "way[\"landuse\"=\"forest\"];way[\"natural\"=\"wood\"];";
+		OverpassShortQueryPreset = OverpassShortQuery;
+	}
+	else if (SplinesSource == ESplinesSource::OSM_Beaches)
+	{
+		OverpassShortQuery = "way[\"natural\"=\"beach\"];";
+		OverpassShortQueryPreset = OverpassShortQuery;
+	}
+	else if (SplinesSource == ESplinesSource::OSM_Parks)
+	{
+		OverpassShortQuery = "way[\"leisure\"=\"park\"];";
+		OverpassShortQueryPreset = OverpassShortQuery;
+	}
+}
+
+bool ASplineImporter::IsOverpassPreset()
+{
+	return
+		SplinesSource == ESplinesSource::OSM_Roads ||
+		SplinesSource == ESplinesSource::OSM_Buildings ||
+		SplinesSource == ESplinesSource::OSM_Rivers ||
+		SplinesSource == ESplinesSource::OSM_Forests ||
+		SplinesSource == ESplinesSource::OSM_Beaches ||
+		SplinesSource == ESplinesSource::OSM_Parks;
 }
 
 void ASplineImporter::GenerateSplines()
@@ -133,6 +183,15 @@ void ASplineImporter::GenerateSplines()
 		{
 			TArray<FPointList> PointLists = GDALInterface::GetPointLists(Dataset);
 			GDALClose(Dataset);
+
+			if (PointLists.IsEmpty())
+			{
+				FMessageDialog::Open(EAppMsgType::Ok,
+					LOCTEXT("No splines", "The dataset did not contain any spline, please double check your query.")
+				);
+				return;
+			}
+
 			FCollisionQueryParams CollisionQueryParams = LandscapeUtils::CustomCollisionQueryParams(ActorOrLandscapeToPlaceSplines);
 			UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), true);
 
@@ -270,29 +329,22 @@ void ASplineImporter::LoadGDALDatasetFromShortQuery(FString ShortQuery, TFunctio
 
 void ASplineImporter::LoadGDALDataset(TFunction<void(GDALDataset*)> OnComplete)
 {
-	if (SplinesSource == ESourceKind::LocalFile)
+	if (SplinesSource == ESplinesSource::LocalFile)
 	{
 		if (OnComplete) OnComplete(LoadGDALDatasetFromFile(LocalFile));
 	}
-	else if (SplinesSource == ESourceKind::OverpassQuery)
+	else if (SplinesSource == ESplinesSource::OverpassQuery)
 	{
 		LoadGDALDatasetFromQuery(OverpassQuery, OnComplete);
 	}
-	else if (SplinesSource == ESourceKind::OverpassShortQuery)
+	else if (SplinesSource == ESplinesSource::OverpassShortQuery)
 	{
 		LoadGDALDatasetFromShortQuery(OverpassShortQuery, OnComplete);
 	}
-	else if (SplinesSource == ESourceKind::OSM_Roads)
+	else if (IsOverpassPreset())
 	{
-		LoadGDALDatasetFromShortQuery(FString("way[\"highway\"][\"highway\"!~\"path\"][\"highway\"!~\"track\"];"), OnComplete);
-	}
-	else if (SplinesSource == ESourceKind::OSM_Buildings)
-	{
-		LoadGDALDatasetFromShortQuery(FString("way[\"building\"];"), OnComplete);
-	}
-	else if (SplinesSource == ESourceKind::OSM_Rivers)
-	{
-		LoadGDALDatasetFromShortQuery(FString("way[\"waterway\"=\"river\"];"), OnComplete);
+		SetOverpassShortQuery();
+		LoadGDALDatasetFromShortQuery(OverpassShortQuery, OnComplete);
 	}
 	else
 	{
@@ -308,13 +360,40 @@ void ASplineImporter::GenerateLandscapeSplines(
 	TArray<FPointList> &PointLists
 )
 {
+
 	FString LandscapeLabel = Landscape->GetActorLabel();
-	ULandscapeSplinesComponent *LandscapeSplinesComponent = Landscape->GetSplinesComponent();
+
+	// SplineOwner should be a Landscape Spline Actor when there are Landscape Streaming Proxies
+	// This avoids a Map Check error: "Meshes in LEVEL out of date compared to landscape spline in LEVEL. Rebuild landscape splines"
+	// TODO: create one spline actor per landscape streaming proxy?
+	TArray<ALandscapeStreamingProxy*> LandscapeStreamingProxies = LandscapeUtils::GetLandscapeStreamingProxies(Landscape);
+	ILandscapeSplineInterface* SplineOwner = nullptr;
+	if (LandscapeStreamingProxies.IsEmpty())
+	{
+		SplineOwner = Landscape;
+	}
+	else if (IsValid(Landscape->GetLandscapeInfo()))
+	{
+		SplineOwner = Landscape->GetLandscapeInfo()->CreateSplineActor(Landscape->GetActorLocation());
+	}
+	else
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			FText::Format(
+				LOCTEXT("NoLandscapeSplineActor", "Could not create a landscape spline actor for Landscape {0}."),
+				FText::FromString(LandscapeLabel)
+			)
+		);
+		return;
+	}
+
+
+	ULandscapeSplinesComponent *LandscapeSplinesComponent = SplineOwner->GetSplinesComponent();
 	if (!LandscapeSplinesComponent)
 	{
 		UE_LOG(LogSplineImporter, Log, TEXT("Did not find a landscape splines component. Creating one."));
-		Landscape->CreateSplineComponent();
-		LandscapeSplinesComponent = Landscape->GetSplinesComponent();
+		SplineOwner->CreateSplineComponent();
+		LandscapeSplinesComponent = SplineOwner->GetSplinesComponent();
 	}
 	else
 	{
@@ -331,7 +410,7 @@ void ASplineImporter::GenerateLandscapeSplines(
 		);
 		return;
 	}
-		
+	
 	LandscapeSplinesComponent->Modify();
 	LandscapeSplinesComponent->ShowSplineEditorMesh(true);
 
@@ -370,9 +449,10 @@ void ASplineImporter::GenerateLandscapeSplines(
 	}
 	
 	UE_LOG(LogSplineImporter, Log, TEXT("Added %d segments"), LandscapeSplinesComponent->GetSegments().Num());
-			
-	LandscapeSplinesComponent->AttachToComponent(Landscape->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+	LandscapeSplinesComponent->RebuildAllSplines();
 	LandscapeSplinesComponent->MarkRenderStateDirty();
+	Landscape->RequestSplineLayerUpdate();
+
 	LandscapeSplinesComponent->PostEditChange();
 
 	GEditor->SelectActor(Landscape, true, true);
@@ -416,7 +496,7 @@ void ASplineImporter::AddLandscapeSplinesPoints(
 		double z;
 		if (LandscapeUtils::GetZ(World, CollisionQueryParams, x, y, z))
 		{
-			FVector Location = { x, y, z };
+			FVector Location = FVector(x, y, z) + SplinePointsOffset;
 			FVector LocalLocation = LandscapeSplinesComponent->GetComponentToWorld().InverseTransformPosition(Location);
 			ULandscapeSplineControlPoint* ControlPoint = NewObject<ULandscapeSplineControlPoint>(LandscapeSplinesComponent, NAME_None, RF_Transactional);
 			ControlPoint->Location = LocalLocation;
@@ -483,7 +563,7 @@ void ASplineImporter::AddLandscapeSplines(
 		ControlPoint1->AutoCalcRotation();
 		ControlPoint2->AutoCalcRotation();
 		
-		// Update is Slow
+		// FIXME: Update is Slow
 		//ControlPoint1->UpdateSplinePoints();
 		//ControlPoint2->UpdateSplinePoints();
 	}
@@ -507,23 +587,22 @@ void ASplineImporter::GenerateRegularSplines(
 		return;
 	}
 
-	ASplineCollection *SplineCollection = nullptr;
-	
-	if (bUseSingleCollection)
+	AActor *SplineOwner = nullptr;
+	if (SplineOwnerKind == ESplineOwnerKind::SingleSplineCollection)
 	{
-		SplineCollection = World->SpawnActor<ASplineCollection>();
-		SplineCollection->SetActorLabel("SC_" + this->GetActorLabel());
-		SplineCollection->Tags.Add(SplineCollectionTag);
+		SplineOwner = World->SpawnActor<ASplineCollection>();
+		SplineOwner->SetActorLabel("SC_" + this->GetActorLabel());
 
-		if (!SplineCollection)
+		if (!SplineOwner)
 		{
 			FMessageDialog::Open(EAppMsgType::Ok,
 				LOCTEXT("NoWorld", "Internal error while creating splines. Could not spawn a SplineCollection.")
 			);
 			return;
 		}
-
-		SplineCollections.Add(SplineCollection);
+		
+		SplineOwner->Tags.Add(SplineOwnerTag);
+		SplineOwners.Add(SplineOwner);
 	}
 
 	const int NumLists = PointLists.Num();
@@ -539,41 +618,56 @@ void ASplineImporter::GenerateRegularSplines(
 	for (auto &PointList : PointLists)
 	{
 		i++;
-		if (!bUseSingleCollection)
+		if (SplineOwnerKind == ESplineOwnerKind::ManySplineCollections)
 		{
-			SplineCollection = World->SpawnActor<ASplineCollection>();
-			SplineCollection->SetActorLabel("SC_" + this->GetActorLabel() + FString::FromInt(i));
-			SplineCollection->Tags.Add(SplineCollectionTag);
+			SplineOwner = World->SpawnActor<ASplineCollection>();
 
-			if (!SplineCollection)
+			if (!SplineOwner)
 			{
 				FMessageDialog::Open(EAppMsgType::Ok,
-					LOCTEXT("NoWorld", "Internal error while creating splines. Could not spawn a SplineCollection.")
+					LOCTEXT("SpawnActorFailed", "Internal error while creating splines. Could not spawn a SplineCollection.")
 				);
 				return;
 			}
+			SplineOwner->SetActorLabel("SC_" + this->GetActorLabel() + FString::FromInt(i));
+			SplineOwner->Tags.Add(SplineOwnerTag);
+			SplineOwners.Add(SplineOwner);
+		}
+		else if (SplineOwnerKind == ESplineOwnerKind::CustomActor)
+		{
+			SplineOwner = World->SpawnActor(ActorToSpawn);
 			
-			SplineCollections.Add(SplineCollection);
+			if (!SplineOwner)
+			{
+				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+					LOCTEXT("SpawnActorFailed2", "Internal error while creating splines. Could not spawn {0}."),
+					FText::FromString(ActorToSpawn->GetName())
+				));
+				return;
+			}
+
+			SplineOwner->SetActorLabel(SplineOwner->GetActorLabel() + "_" + FString::FromInt(i));
+			SplineOwner->Tags.Add(SplineOwnerTag);
+			SplineOwners.Add(SplineOwner);
 		}
 		SplinesTask.EnterProgressFrame();
-		AddRegularSpline(Actor, SplineCollection, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointList);
+		AddRegularSpline(SplineOwner, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointList);
 	}
 	
 	GEditor->SelectActor(this, false, true);
-	GEditor->SelectActor(SplineCollection, true, true, true, true);
+	GEditor->SelectActor(SplineOwner, true, true, true, true);
 	GEditor->NoteSelectionChange();
 }
 
 void ASplineImporter::AddRegularSpline(
-	AActor* Actor,
-	ASplineCollection* SplineCollection,
+	AActor* SplineOwner,
 	FCollisionQueryParams CollisionQueryParams,
 	OGRCoordinateTransformation *OGRTransform,
 	UGlobalCoordinates *GlobalCoordinates,
 	FPointList &PointList
 )
 {
-	UWorld *World = Actor->GetWorld();
+	UWorld *World = SplineOwner->GetWorld();
 	
 	int NumPoints = PointList.Points.Num();
 	if (NumPoints == 0) return;
@@ -581,16 +675,44 @@ void ASplineImporter::AddRegularSpline(
 	OGRPoint First = PointList.Points[0];
 	OGRPoint Last = PointList.Points.Last();
 			
-	USplineComponent *SplineComponent = NewObject<USplineComponent>(SplineCollection);
-	SplineCollection->SplineComponents.Add(SplineComponent);
-	SplineComponent->RegisterComponent();
-	SplineComponent->ClearSplinePoints();
-	SplineComponent->SetMobility(EComponentMobility::Static);
+	USplineComponent *SplineComponent = nullptr;
+	if (ASplineCollection* SplineCollection = Cast<ASplineCollection>(SplineOwner))
+	{
+		SplineComponent = NewObject<USplineComponent>(SplineOwner);
+		if (!IsValid(SplineComponent))
+		{
+			FMessageDialog::Open(EAppMsgType::Ok,
+				LOCTEXT("SplineComponentFailed", "Could not create SplineComponent.")
+			);
+			return;
+		}
+		SplineCollection->SplineComponents.Add(SplineComponent);
+		SplineComponent->RegisterComponent();
+		SplineComponent->ClearSplinePoints();
+		SplineComponent->SetMobility(EComponentMobility::Static);
+		SplineOwner->AddInstanceComponent(SplineComponent);
+		SplineComponent->AttachToComponent(SplineOwner->GetRootComponent(), FAttachmentTransformRules::KeepWorldTransform);
+	}
+	else
+	{
+		SplineComponent = SplineOwner->GetComponentByClass<USplineComponent>();
+		if (!IsValid(SplineComponent))
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+				LOCTEXT("SplineComponentFailed", "Could not get valid SplineComponent in {0}."),
+				FText::FromString(ActorToSpawn->GetName())
+			));
+			return;
+		}
+	}
+
 	SplineComponent->ComponentTags.Add(SplineComponentsTag);
 
 	UOSMUserData *OSMUserData = NewObject<UOSMUserData>(SplineComponent);
 	OSMUserData->Fields = PointList.Fields;
 	SplineComponent->AddAssetUserData(OSMUserData);
+
+	SplineComponent->ClearSplinePoints();
 
 	for (int i = 0; i < NumPoints; i++)
 	{
@@ -605,7 +727,7 @@ void ASplineImporter::AddRegularSpline(
 			double ConvertedLatitude = Latitude;
 				
 			if (!OGRTransform->Transform(1, &ConvertedLongitude, &ConvertedLatitude))
-			{	
+			{
 				FMessageDialog::Open(EAppMsgType::Ok,
 					LOCTEXT("NoLandscapeSplinesComponent", "Landscape Combinator Error: Internal error while converting coordinates.")
 				);
@@ -620,7 +742,7 @@ void ASplineImporter::AddRegularSpline(
 			double z;
 			if (LandscapeUtils::GetZ(World, CollisionQueryParams, x, y, z))
 			{
-				FVector Location = { x, y, z };
+				FVector Location = FVector(x, y, z) + SplinePointsOffset;
 				SplineComponent->AddSplinePoint(Location, ESplineCoordinateSpace::World, false);
 			}
 			else
@@ -633,7 +755,7 @@ void ASplineImporter::AddRegularSpline(
 	if (First == Last) SplineComponent->SetClosedLoop(true);
 		
 
-	if (SplinesSource == ESourceKind::OSM_Buildings)
+	if (SplinesSource == ESplinesSource::OSM_Buildings)
 	{
 		auto &Points = SplineComponent->SplineCurves.Position.Points;
 		for (FInterpCurvePoint<FVector> &Point : SplineComponent->SplineCurves.Position.Points)
@@ -644,10 +766,30 @@ void ASplineImporter::AddRegularSpline(
 
 	SplineComponent->UpdateSpline();
 	SplineComponent->bSplineHasBeenEdited = true;
-
-	SplineCollection->AddInstanceComponent(SplineComponent);
-	SplineComponent->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
 }
+
+#if WITH_EDITOR
+
+void ASplineImporter::PostEditChangeProperty(FPropertyChangedEvent& Event)
+{
+	if (!Event.Property)
+	{
+		Super::PostEditChangeProperty(Event);
+		return;
+	}
+
+	FName PropertyName = Event.Property->GetFName();
+
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(ASplineImporter, SplinesSource))
+	{
+		SetOverpassShortQuery();
+	}
+
+	Super::PostEditChangeProperty(Event);
+}
+
+#endif
+
 
 
 #undef LOCTEXT_NAMESPACE

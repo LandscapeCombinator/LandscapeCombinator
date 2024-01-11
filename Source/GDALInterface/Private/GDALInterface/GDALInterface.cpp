@@ -737,6 +737,24 @@ void GDALInterface::AddPointLists(OGRMultiPolygon* MultiPolygon, TArray<FPointLi
 	}
 }
 
+const double Radius = 6378137.0;
+const double HalfPerimeter = PI * Radius;
+const double Perimeter = 2 * HalfPerimeter;
+
+void GDALInterface::XYZTileToEPSG3857(double X, double Y, int Zoom, double& OutLong, double& OutLat)
+{
+	double N = 1 << Zoom;
+	OutLong = X * Perimeter / N - HalfPerimeter;
+	OutLat  = HalfPerimeter - Y * Perimeter / N;
+}
+
+void GDALInterface::EPSG3857ToXYZTile(double Long, double Lat, int Zoom, int& OutX, int& OutY)
+{
+	double N = 1 << Zoom;
+	OutX = (Long + HalfPerimeter) * N / Perimeter;
+	OutY = (HalfPerimeter - Lat) * N / Perimeter;
+}
+
 void GDALInterface::AddPointLists(OGRPolygon* Polygon, TArray<FPointList> &PointLists, TMap<FString, FString> &Fields)
 {
 	for (OGRLinearRing* &LinearRing : Polygon)

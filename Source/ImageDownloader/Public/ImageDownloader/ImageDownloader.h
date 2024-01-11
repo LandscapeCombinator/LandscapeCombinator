@@ -140,8 +140,9 @@ public:
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
-		meta = (EditCondition = "IsMapbox()", EditConditionHides, DisplayPriority = "1")
+		meta = (EditCondition = "IsMapbox() && !HasMapboxToken()", EditConditionHides, DisplayPriority = "1")
 	)
+	/* The Mapbox token can be set in the Project Settings, in Plugins -> Landscape Combinator. */
 	FString Mapbox_Token;
 	
 	UPROPERTY(
@@ -814,6 +815,9 @@ public:
 	HMFetcher* CreateFetcher(FString Name, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG, TFunction<bool(HMFetcher*)> RunBeforePNG);
 
 	UFUNCTION()
+	bool HasMapboxToken();
+
+	UFUNCTION()
 	bool IsWMS();
 
 	UFUNCTION()
@@ -835,7 +839,8 @@ private:
 
 	UFUNCTION()
 	bool HasMultipleLayers();
-
+	
+	FString GetMapboxToken();
 };
 
 #undef LOCTEXT_NAMESPACE

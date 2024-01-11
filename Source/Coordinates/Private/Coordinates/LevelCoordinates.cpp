@@ -187,7 +187,7 @@ void ALevelCoordinates::CreateWorldMap()
 						"-of",
 						"GTiff",
 						"-a_srs",
-						GlobalCoordinates->CRS,
+						"EPSG:4326",
 						"-gcp",
 						"0", "0",
 						FString::SanitizeFloat(MinLong), FString::SanitizeFloat(MaxLat),
@@ -201,7 +201,7 @@ void ALevelCoordinates::CreateWorldMap()
 						"0", FString::FromInt(Height-1),
 						FString::SanitizeFloat(MinLong), FString::SanitizeFloat(MinLat),
 					}) &&
-					GDALInterface::Warp(TempWorldMapPath, WorldMapPath, "", GlobalCoordinates->CRS, 0);
+					GDALInterface::Warp(TempWorldMapPath, WorldMapPath, "", "EPSG:4326", 0);
 
 				if (bSuccessWriteCRS)
 				{
@@ -234,7 +234,7 @@ void ALevelCoordinates::CreateWorldMapFromFile(FString Path)
 	PlaneActor->GetStaticMeshComponent()->SetStaticMesh(LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Plane")));
 	PlaneActor->SetActorLocation(FVector((Coordinates[1] + Coordinates[0]) / 2, (Coordinates[2] + Coordinates[3]) / 2, 0));
 
-	// Z-scale = 1 has weird lighting issues, so we use Z-scale = X-scale
+	// Z-scale = 1 has weird lighting issues when X and Y are large, so we use Z-scale = X-scale
 	PlaneActor->SetActorScale3D(FVector((Coordinates[1] - Coordinates[0]) / 100, (Coordinates[2] - Coordinates[3]) / 100, (Coordinates[1] - Coordinates[0]) / 100));
 }
 

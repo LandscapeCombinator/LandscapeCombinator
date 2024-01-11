@@ -19,23 +19,6 @@ class BUILDINGFROMSPLINE_API ABuildingsFromSplines : public AActor
 public:
 	ABuildingsFromSplines();
 	
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
-		meta = (DisplayPriority = "-5")
-	)
-	/* If true, ExtraWallBottom will be set to be equal to the difference between the maximum and minimum Z
-	   coordinates of spline points + 100 (1 meter). */
-	bool bAutoComputeWallBottom = true;	
-
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
-		meta = (DisplayPriority = "-4")
-	)
-	/* If true, the height is set to the height found in the Asset User Data (*100),
-	   and the number of floors is set to the height divided by the floor height.
-	   This overrides the Random Num Floors and Random Building Height options when the height is available. */
-	bool bAutoComputeNumFloors = true;
-	
 	/* The tag of the actors containing spline components to search for. If None, all actors will be used. */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
@@ -50,17 +33,10 @@ public:
 	)
 	FName SplinesTag;
 	
-	/* Whether the generated buildings can receive decals. */
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
-		meta = (DisplayPriority = "0")
-	)
-	bool bBuildingsReceiveDecals = false;
-	
 	/* Whether the generated buildings are spatially loaded. */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
-		meta = (DisplayPriority = "1")
+		meta = (DisplayPriority = "0")
 	)
 	bool bBuildingsSpatiallyLoaded = false;
 	
@@ -85,7 +61,7 @@ public:
 #endif
 
 private:
-	UPROPERTY()
+	UPROPERTY(DuplicateTransient)
 	TArray<TObjectPtr<ABuilding>> SpawnedBuildings;
 
 #if WITH_EDITOR

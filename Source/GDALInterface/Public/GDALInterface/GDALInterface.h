@@ -50,4 +50,7 @@ public:
 	static void AddPointList(OGRLineString* LineString, TArray<FPointList> &PointLists, TMap<FString, FString> &Fields);
 	static void AddPointLists(OGRPolygon* Polygon, TArray<FPointList> &PointLists, TMap<FString, FString> &Fields);
 	static void AddPointLists(OGRMultiPolygon* MultiPolygon, TArray<FPointList> &PointLists, TMap<FString, FString> &Fields);
+	
+	static void XYZTileToEPSG3857(double X, double Y, int Zoom, double &OutLong, double &OutLat);
+	static void EPSG3857ToXYZTile(double Long, double Lat, int Zoom, int &OutX, int &OutY);
 };

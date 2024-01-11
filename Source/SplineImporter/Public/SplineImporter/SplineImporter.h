@@ -19,13 +19,24 @@
 #define LOCTEXT_NAMESPACE "FSplineImporterModule"
 
 UENUM(BlueprintType)
-enum ESourceKind: uint8 {
+enum class ESplinesSource: uint8 {
 	OSM_Roads,
 	OSM_Rivers,
 	OSM_Buildings,
+	OSM_Forests,
+	OSM_Beaches,
+	OSM_Parks,
 	OverpassShortQuery,
 	OverpassQuery,
 	LocalFile
+};
+
+UENUM(BlueprintType)
+enum class ESplineOwnerKind : uint8
+{
+	SingleSplineCollection,
+	ManySplineCollections,
+	CustomActor
 };
 
 UCLASS()
@@ -40,22 +51,27 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
 		meta = (DisplayPriority = "-10")
 	)
-	TEnumAsByte<ESourceKind> SplinesSource = ESourceKind::OSM_Roads;
+	ESplinesSource SplinesSource = ESplinesSource::OSM_Roads;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
-		meta = (EditCondition = "SplinesSource == ESourceKind::LocalFile", EditConditionHides, DisplayPriority = "-1")
+		meta = (EditCondition = "SplinesSource == ESplinesSource::LocalFile", EditConditionHides, DisplayPriority = "-1")
 	)
 	FString LocalFile;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
-		meta = (EditCondition = "SplinesSource == ESourceKind::OverpassQuery", EditConditionHides, DisplayPriority = "-1")
+		meta = (EditCondition = "SplinesSource == ESplinesSource::OverpassQuery", EditConditionHides, DisplayPriority = "-1")
 	)
 	FString OverpassQuery;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
-		meta = (EditCondition = "SplinesSource == ESourceKind::OverpassShortQuery", EditConditionHides, DisplayPriority = "-1")
+		meta = (EditCondition = "SplinesSource == ESplinesSource::OverpassShortQuery", EditConditionHides, DisplayPriority = "-1")
 	)
 	FString OverpassShortQuery;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Spline Importer",
+		meta = (EditCondition = "IsOverpassPreset()", EditConditionHides, DisplayPriority = "-1")
+	)
+	FString OverpassShortQueryPreset;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
 		meta = (DisplayPriority = "0")
@@ -90,11 +106,18 @@ public:
 	)
 	double LandscapeSplinesStraightness = 1;
 
-	/* Tag to apply to the Spline Collections which are created. */
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
 		meta = (EditCondition = "!bUseLandscapeSplines", EditConditionHides, DisplayPriority = "5")
 	)
-	FName SplineCollectionTag;
+	/* Whether to put the created spline components in a single Spline Collection actor, or use one Spline Collection per actor, or use a custom actor. */
+	ESplineOwnerKind SplineOwnerKind = ESplineOwnerKind::SingleSplineCollection;
+
+	/* Tag to apply to the Spline Owners which are created. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
+		meta = (EditCondition = "!bUseLandscapeSplines", EditConditionHides, DisplayPriority = "5")
+	)
+	FName SplineOwnerTag;
 
 	/* Tag to apply to the Spline Components which are created. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
@@ -102,26 +125,48 @@ public:
 	)
 	FName SplineComponentsTag;
 	
-	/* Put all the Spline Components in the same Spline Collection actor. Untick if you prefer one actor per component. */
+	/* Spawn an actor of this type for each imported spline, and copy the imported spline points to the spawned actor's spline component. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
-		meta = (EditCondition = "!bUseLandscapeSplines", EditConditionHides, DisplayPriority = "7")
+		meta = (EditCondition = "!bUseLandscapeSplines && SplineOwnerKind == ESplineOwnerKind::CustomActor", EditConditionHides, DisplayPriority = "10")
 	)
-	bool bUseSingleCollection = true;
+	TSubclassOf<AActor> ActorToSpawn;
+	
+	/* The name of the property in `ActorToSpawn` where to copy the spline points. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
+		meta = (EditCondition = "!bUseLandscapeSplines && SplineOwnerKind == ESplineOwnerKind::CustomActor", EditConditionHides, DisplayPriority = "11")
+	)
+	FName SplineComponentName;
+	
+	
+	/* An offset which is added to all spline points that are generated. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
+		meta = (DisplayPriority = "100")
+	)
+	FVector SplinePointsOffset;
 
+	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Spline Importer",
+		meta = (DisplayPriority = "-2")
+	)
+	void GenerateSplines();	
 
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Spline Importer",
 		meta = (DisplayPriority = "-1")
 	)
 	void DeleteSplines();
 
-	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Spline Importer",
-		meta = (DisplayPriority = "-1")
-	)
-	void GenerateSplines();
+	void SetOverpassShortQuery();
+
+	UFUNCTION()
+	bool IsOverpassPreset();
+
+
+#if WITH_EDITOR
+	void PostEditChangeProperty(struct FPropertyChangedEvent&);
+#endif
 
 private:
-	UPROPERTY()
-	TArray<AActor*> SplineCollections;
+	UPROPERTY(DuplicateTransient)
+	TArray<AActor*> SplineOwners;
 
 	GDALDataset* LoadGDALDatasetFromFile(FString File);
 	void LoadGDALDataset(TFunction<void(GDALDataset*)> OnComplete);
@@ -165,8 +210,7 @@ private:
 	);
 
 	void AddRegularSpline(
-		AActor* Actor,
-		ASplineCollection* SplineCollection,
+		AActor* SplineOwner,
 		FCollisionQueryParams CollisionQueryParams,
 		OGRCoordinateTransformation *OGRTransform,
 		UGlobalCoordinates *GlobalCoordinates,
