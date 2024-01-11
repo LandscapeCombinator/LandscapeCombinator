@@ -31,6 +31,7 @@ void FGDALInterfaceModule::StartupModule()
 	
 	if (!FPaths::FileExists(OSMConf))
 	{
+		UE_LOG(LogGDALInterface, Error, TEXT("Could not find OSM configuration file: %s"), *OSMConf);
 		UE_LOG(LogGDALInterface, Error, TEXT("Failed to load GDALInterface module"));
 		return;
 	}
