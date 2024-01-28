@@ -27,10 +27,10 @@ public:
 	);
 
 	UPROPERTY();
-	int MaxWidth;
+	int MaxWidth = 0;
 
 	UPROPERTY();
-	int MaxHeight;
+	int MaxHeight = 0;
 
 	UPROPERTY();
 	FString GetMapURL;
