@@ -191,9 +191,6 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 							GDALInterface::XYZTileToEPSG3857(X, Y, Zoom, MinLong, MaxLat);
 							GDALInterface::XYZTileToEPSG3857(X+1, Y+1, Zoom, MaxLong, MinLat);
 
-							UE_LOGFMT(LogTemp, Error, "XYZTileToEPSG {0} {1}; {2} {3}; {4} {5}", X, Y, MinLong, MaxLong, MinLat, MaxLat);
-							//UE_LOGFMT(LogTemp, Error, "XYZTileToEPSG %f %f %f %f", X+1, Y+1, MinLong, MaxLat);
-
 							FString OutputFile = FPaths::Combine(XYZFolder, FileName + ".tif");
 							if (!GDALInterface::AddGeoreference(DecodedFile, OutputFile, "EPSG:3857", MinLong, MaxLong, MinLat, MaxLat))
 							{
