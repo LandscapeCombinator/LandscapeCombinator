@@ -230,8 +230,9 @@ GDALDataset* ASplineImporter::LoadGDALDatasetFromFile(FString File)
 	{
 		FMessageDialog::Open(EAppMsgType::Ok,
 			FText::Format(
-				LOCTEXT("LandscapeNotFound", "Could not load vector file '{0}'."),
-				FText::FromString(File)
+				LOCTEXT("LandscapeNotFound", "Could not load vector file '{0}'.\n{1}"),
+				FText::FromString(File),
+				FText::FromString(FString(CPLGetLastErrorMsg()))
 			)
 		);
 	}
