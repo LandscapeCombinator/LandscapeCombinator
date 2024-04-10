@@ -561,9 +561,15 @@ void ASplineImporter::AddLandscapeSplines(
 		NewSegment->AutoFlipTangents();
 		ControlPoint1->ConnectedSegments.Add(FLandscapeSplineConnection(NewSegment, 0));
 		ControlPoint2->ConnectedSegments.Add(FLandscapeSplineConnection(NewSegment, 1));
+
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4)
+		ControlPoint1->AutoCalcRotation(true);
+		ControlPoint2->AutoCalcRotation(true);
+#else
 		ControlPoint1->AutoCalcRotation();
 		ControlPoint2->AutoCalcRotation();
-		
+#endif
+
 		// FIXME: Update is Slow
 		//ControlPoint1->UpdateSplinePoints();
 		//ControlPoint2->UpdateSplinePoints();

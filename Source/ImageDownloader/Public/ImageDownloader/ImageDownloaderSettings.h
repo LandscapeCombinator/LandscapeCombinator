@@ -17,5 +17,5 @@ public:
 	}
 
 	UPROPERTY(Config, EditAnywhere)
-	FString Mapbox_Token;
+	FString Mapbox_Token = "";
 };

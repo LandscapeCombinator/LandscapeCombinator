@@ -23,6 +23,12 @@ HMFetcher* HMFetcher::AndRun(TFunction<bool(HMFetcher*)> Lambda)
 
 void HMAndThenFetcher::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
 {
+	if (!Fetcher1 || !Fetcher2)
+	{
+		if (OnComplete) OnComplete(false);
+		return;
+	}
+
 	Fetcher1->Fetch(InputCRS, InputFiles, [this, OnComplete](bool bSuccess1)
 	{
 		if (bSuccess1)
