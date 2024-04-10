@@ -10,6 +10,8 @@
 #include "WorldPartition/WorldPartitionActorLoaderInterface.h"
 #include "WorldPartition/WorldPartitionEditorLoaderAdapter.h"
 
+#include "Misc/Paths.h"
+
 #define LOCTEXT_NAMESPACE "FGDALInterfaceModule"
 
 #pragma warning(disable: 4668)

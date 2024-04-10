@@ -9,6 +9,7 @@
 #include "Components/DynamicMeshComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "SegmentTypes.h"
+#include "GameFramework/Volume.h" 
 
 #include "Building.generated.h"
 

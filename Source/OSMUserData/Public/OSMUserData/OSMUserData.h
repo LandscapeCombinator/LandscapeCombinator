@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "Engine/AssetUserData.h"
+
 #include "OSMUserData.generated.h"
 
 #define LOCTEXT_NAMESPACE "FOSMUserDataModule"

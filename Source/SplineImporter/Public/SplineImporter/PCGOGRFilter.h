@@ -66,7 +66,11 @@ public:
 	FString OverpassShortQuery = "nwr[\"landuse\"=\"forest\"];nwr[\"natural\"=\"wood\"];";
 };
 
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4)
 class FPCGOGRFilterElement : public IPCGElement
+#else
+class FPCGOGRFilterElement : public FSimplePCGElement
+#endif
 {
 protected:
 	virtual bool ExecuteInternal(FPCGContext* Context) const override;

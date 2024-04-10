@@ -11,6 +11,7 @@
 #include "Templates/Function.h"
 #include "GenericPlatform/GenericPlatformMisc.h" 
 #include "Delegates/Delegate.h"
+#include "Landscape.h"
 
 #include "ImageDownloader.generated.h"
 
