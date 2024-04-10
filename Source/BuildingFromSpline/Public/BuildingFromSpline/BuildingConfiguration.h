@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "Engine/StaticMesh.h"
+#include "Components/ActorComponent.h" 
+#include "CoreMinimal.h"
+
 #include "BuildingConfiguration.generated.h"
 
 #define LOCTEXT_NAMESPACE "FBuildingFromSplineModule"

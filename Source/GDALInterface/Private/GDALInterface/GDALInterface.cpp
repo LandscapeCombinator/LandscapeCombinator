@@ -5,6 +5,9 @@
 
 #include "Misc/Paths.h"
 #include "Misc/ScopedSlowTask.h"
+#include "Misc/MessageDialog.h"
+
+#include "HAL/FileManager.h" 
 
 #define LOCTEXT_NAMESPACE "FGDALInterfaceModule"
 

@@ -4,6 +4,8 @@
 #include "MapboxHelpers/LogMapboxHelpers.h"
 #include "GDALInterface/GDALInterface.h"
 
+#include "Misc/MessageDialog.h"
+
 #define LOCTEXT_NAMESPACE "FMapboxHelpersModule"
 
 bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, bool *bShowedDialog)
