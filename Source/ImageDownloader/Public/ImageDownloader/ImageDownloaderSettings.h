@@ -16,6 +16,6 @@ public:
 		CategoryName = "Plugins";
 	}
 
-	UPROPERTY(Config, EditAnywhere)
+	UPROPERTY(Config, EditAnywhere, Category = "LandscapeCombinator")
 	FString Mapbox_Token = "";
 };
