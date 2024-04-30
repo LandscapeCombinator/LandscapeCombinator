@@ -5,6 +5,9 @@
 #include "LandscapeCombinator/LandscapeSpawnerCustomization.h"
 #include "LandscapeCombinator/LandscapeTexturer.h"
 #include "LandscapeCombinator/LandscapeTexturerCustomization.h"
+
+#include "PropertyEditorDelegates.h"
+#include "PropertyEditorModule.h"
 	
 IMPLEMENT_MODULE(FLandscapeCombinatorModule, LandscapeCombinator)
 

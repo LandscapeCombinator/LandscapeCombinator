@@ -5,11 +5,15 @@
 #include "BuildingFromSpline/Building.h"
 #include "BuildingFromSpline/BuildingCustomization.h"
 
+
 #define LOCTEXT_NAMESPACE "FBuildingFromSplineModule"
 	
 IMPLEMENT_MODULE(FBuildingFromSplineModule, BuildingFromSpline)
 
 #if WITH_EDITOR
+
+#include "PropertyEditorModule.h"
+#include "PropertyEditorDelegates.h"
 
 void FBuildingFromSplineModule::StartupModule()
 {

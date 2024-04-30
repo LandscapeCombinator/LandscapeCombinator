@@ -164,7 +164,7 @@ void Download::FromURL(FString URL, FString File, bool bProgress, TFunction<void
 		Request->SetHeader("User-Agent", "X-UnrealEngine-Agent");
 		bool *bTriggered = new bool(false);
 
-		FScopedSlowTask* Task;
+		FScopedSlowTask* Task = nullptr;
 
 		if (bProgress)
 		{
@@ -286,7 +286,7 @@ void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64
 		Request->SetURL(URL);
 		Request->SetVerb("GET");
 		Request->SetHeader("User-Agent", "X-UnrealEngine-Agent");
-		Request->OnRequestProgress().BindLambda([Downloaded](FHttpRequestPtr Request, int32 Sent, int32 Received) {
+		Request->OnRequestProgress64().BindLambda([Downloaded](FHttpRequestPtr Request, int64 Sent, int64 Received) {
 			*Downloaded = Received;
 		});
 		bool *bTriggered = new bool(false);

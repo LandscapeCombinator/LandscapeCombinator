@@ -5,7 +5,7 @@
 #include "Engine/DeveloperSettings.h"
 #include "ImageDownloaderSettings.generated.h"
 
-UCLASS(Config=CurrencySystem, meta=(DisplayName="Landscape Combinator"))
+UCLASS(config=EditorPerProjectUserSettings, meta=(DisplayName="Landscape Combinator"))
 class IMAGEDOWNLOADER_API UImageDownloaderSettings : public UDeveloperSettings
 {
 	GENERATED_BODY()
@@ -16,6 +16,6 @@ public:
 		CategoryName = "Plugins";
 	}
 
-	UPROPERTY(Config, EditAnywhere, Category = "LandscapeCombinator")
+	UPROPERTY(config, EditAnywhere, Category = "LandscapeCombinator")
 	FString Mapbox_Token = "";
 };

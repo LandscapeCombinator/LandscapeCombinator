@@ -62,7 +62,7 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 	int SizeX = Dataset->GetRasterXSize();
 	int SizeY = Dataset->GetRasterYSize();
 	
-	uint8* CodeBand = (uint8*) malloc(SizeX * SizeY * (sizeof uint8));
+	uint8* CodeBand = (uint8*) malloc(SizeX * SizeY * (sizeof (uint8)));
 
 	if (!CodeBand)
 	{
@@ -275,9 +275,9 @@ bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile
 	int SizeX = Dataset->GetRasterXSize();
 	int SizeY = Dataset->GetRasterYSize();
 	
-	uint8* RedBand = (uint8*) malloc(SizeX * SizeY * (sizeof uint8));
-	uint8* GreenBand = (uint8*) malloc(SizeX * SizeY * (sizeof uint8));
-	uint8* BlueBand = (uint8*) malloc(SizeX * SizeY * (sizeof uint8));
+	uint8* RedBand = (uint8*) malloc(SizeX * SizeY * (sizeof (uint8)));
+	uint8* GreenBand = (uint8*) malloc(SizeX * SizeY * (sizeof (uint8)));
+	uint8* BlueBand = (uint8*) malloc(SizeX * SizeY * (sizeof (uint8)));
 
 	if (!RedBand || !GreenBand || !BlueBand)
 	{

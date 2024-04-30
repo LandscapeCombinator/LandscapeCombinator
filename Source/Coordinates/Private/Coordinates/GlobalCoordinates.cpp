@@ -2,6 +2,7 @@
 
 #include "Coordinates/GlobalCoordinates.h"
 #include "LandscapeUtils/LandscapeUtils.h"
+#include "CoordinatesModule.h"
 
 #include "Landscape.h"
 
@@ -15,30 +16,16 @@ void UGlobalCoordinates::GetUnrealCoordinatesFromCRS(double Longitude, double La
 
 OGRCoordinateTransformation* UGlobalCoordinates::GetCRSTransformer(FString FromCRS)
 {
-	OGRSpatialReference InRs, OutRs;
-	if (!GDALInterface::SetCRSFromUserInput(InRs, FromCRS) || !GDALInterface::SetCRSFromUserInput(OutRs, CRS))
-	{ 
-		return nullptr;
-	}
-	
-	return OGRCreateCoordinateTransformation(&InRs, &OutRs);
+	return GDALInterface::MakeTransform(FromCRS, CRS);
 }
 
 bool UGlobalCoordinates::GetUnrealCoordinatesFromCRS(double Longitude, double Latitude, FString FromCRS, FVector2D &XY)
 {
 	double ConvertedLongitude = Longitude;
 	double ConvertedLatitude = Latitude;
-	
-	OGRSpatialReference InRs, OutRs;
-	if (
-		!GDALInterface::SetCRSFromUserInput(InRs, FromCRS) ||
-		!GDALInterface::SetCRSFromUserInput(OutRs, CRS) ||
-		!OGRCreateCoordinateTransformation(&InRs, &OutRs)->Transform(1, &ConvertedLongitude, &ConvertedLatitude)
-	)
-	{	
-		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("GetUnrealCoordinatesFromCRS", "Internal error while transforming coordinates.")
-		);
+
+	if (!GDALInterface::ConvertCoordinates(&ConvertedLongitude, &ConvertedLatitude, FromCRS, CRS))
+	{
 		return false;
 	}
 
@@ -63,20 +50,7 @@ bool UGlobalCoordinates::GetCRSCoordinatesFromUnrealLocation(FVector2D Location,
 	OutCoordinates[1] = Location.Y / CmPerLatUnit + WorldOriginLat;
 	
 	// convert to ToCRS
-	OGRSpatialReference InRs, OutRs;
-	if (
-		!GDALInterface::SetCRSFromUserInput(InRs, CRS) ||
-		!GDALInterface::SetCRSFromUserInput(OutRs, ToCRS) ||
-		!OGRCreateCoordinateTransformation(&InRs, &OutRs)->Transform(1, &OutCoordinates[0], &OutCoordinates[1])
-	)
-	{	
-		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("GetCRSCoordinatesFromUnrealLocation", "Internal error while transforming coordinates.")
-		);
-		return false;
-	}
-
-	return true;
+	return GDALInterface::ConvertCoordinates(&OutCoordinates[0], &OutCoordinates[1], ToCRS, CRS);
 }
 
 void UGlobalCoordinates::GetCRSCoordinatesFromUnrealLocations(FVector4d Locations, FVector4d& OutCoordinates)
@@ -97,20 +71,8 @@ bool UGlobalCoordinates::GetCRSCoordinatesFromUnrealLocations(FVector4d Location
 	double xs[2] = { Locations[0] / CmPerLongUnit + WorldOriginLong,  Locations[1] / CmPerLongUnit + WorldOriginLong  };
 	double ys[2] = { Locations[3] / CmPerLatUnit + WorldOriginLat, Locations[2] / CmPerLatUnit + WorldOriginLat };
 
-	// convert to ToCRS
-	OGRSpatialReference InRs, OutRs;
-	if (
-		!GDALInterface::SetCRSFromUserInput(InRs, CRS) ||
-		!GDALInterface::SetCRSFromUserInput(OutRs, ToCRS) ||
-		!OGRCreateCoordinateTransformation(&InRs, &OutRs)->Transform(2, xs, ys)
-	)
-	{	
-		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("GetCRSCoordinatesFromUnrealLocation", "Internal error while transforming coordinates.")
-		);
-		return false;
-	}
-	
+	if (!GDALInterface::ConvertCoordinates2(xs, ys, CRS, ToCRS)) return false;
+
 	OutCoordinates[0] = xs[0];
 	OutCoordinates[1] = xs[1];
 	OutCoordinates[2] = ys[1];
