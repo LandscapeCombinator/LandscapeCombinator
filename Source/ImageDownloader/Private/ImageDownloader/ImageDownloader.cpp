@@ -212,6 +212,14 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 
 				if (IsMapbox())
 				{
+					FMessageDialog::Open(EAppMsgType::Ok,
+						LOCTEXT(
+							"UImageDownloader::CreateInitialFetcher::MapboxWarning",
+							"Please check your Mapbox account to make sure you remain within the free tier.\nRequests can be expensive once you go beyond the free tier.\n"
+							"The 2x option counts for more API requests than usual, maybe 2x."
+						)
+					);
+
 					FString MapboxToken2 = GetMapboxToken();
 					if (MapboxToken2.IsEmpty())
 					{
@@ -828,16 +836,17 @@ void UImageDownloader::OnImageSourceChanged(TFunction<void(bool)> OnComplete)
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
 		WMS_XIsLong = true;
 	}
-	//else if (ImageSourceKind == EImageSourceKind::OpenStreetMap_FR)
-	//{
-	//	CapabilitiesURL = "https://wms.openstreetmap.fr/wms?request=GetCapabilities&service=WMS";
-	//	ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-	//}
-	//else if (ImageSourceKind == EImageSourceKind::Terrestris_OSM)
-	//{
-	//	CapabilitiesURL = "https://ows.terrestris.de/osm/service?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetCapabilities";
-	//	ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-	//}
+	else if (IsMapbox())
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			LOCTEXT(
+				"UImageDownloader::OnImageSourceChanged::MapboxWarning",
+				"Please check your Mapbox account to make sure you remain within the free tier.\nRequests can be expensive once you go beyond the free tier.\n"
+				"The 2x option counts for more API requests than usual, maybe 2x."
+			)
+		);
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+	}
 	else
 	{
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);

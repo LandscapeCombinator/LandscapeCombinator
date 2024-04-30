@@ -88,7 +88,7 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 		return;
 	}
 	
-	uint16* HeightmapData = (uint16*) malloc(SizeX * SizeY * (sizeof uint16));
+	uint16* HeightmapData = (uint16*) malloc(SizeX * SizeY * (sizeof (uint16)));
 	if (!HeightmapData)
 	{
 		FMessageDialog::Open(EAppMsgType::Ok,
@@ -236,7 +236,7 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 		return;
 	}
 	
-	uint16* NewHeightmapData = (uint16*) malloc(SizeX * SizeY * (sizeof uint16));
+	uint16* NewHeightmapData = (uint16*) malloc(SizeX * SizeY * (sizeof (uint16)));
 
 	if (!NewHeightmapData)
 	{

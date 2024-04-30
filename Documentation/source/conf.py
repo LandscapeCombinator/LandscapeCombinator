@@ -7,9 +7,9 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'Landscape Combinator'
-copyright = '2023, Landscape Combinator'
+copyright = '2024, Landscape Combinator'
 author = ''
-version = '0.6.4'
+version = '0.6.5'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

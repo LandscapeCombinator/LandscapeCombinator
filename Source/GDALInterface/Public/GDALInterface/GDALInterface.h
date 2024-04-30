@@ -29,6 +29,11 @@ public:
 	static bool SetCRSFromUserInput(OGRSpatialReference &InRs, FString CRS);
 	static bool GetCoordinates(FVector4d& Coordinates, GDALDataset* Dataset);
 	static bool GetCoordinates(FVector4d& Coordinates, TArray<FString> Files);
+	static OGRCoordinateTransformation *MakeTransform(FString InCRS, FString OutCRS);
+	static bool Transform(OGRCoordinateTransformation* CoordinateTransformation, double *Longitude, double *Latitude);
+	static bool Transform2(OGRCoordinateTransformation* CoordinateTransformation, double *xs, double *ys);
+	static bool ConvertCoordinates(double *Longitude, double *Latitude, FString InCRS, FString OutCRS);
+	static bool ConvertCoordinates2(double *xs, double *ys, FString InCRS, FString OutCRS);
 	static bool ConvertCoordinates(FVector4d& OriginalCoordinates, FVector4d& NewCoordinates, FString InCRS, FString OutCRS);
 	static bool ConvertCoordinates(FVector4d& OriginalCoordinates, bool bCrop, FVector4d& NewCoordinates, FString InCRS, FString OutCRS);
 	static bool GetPixels(FIntPoint &Pixels, FString File);

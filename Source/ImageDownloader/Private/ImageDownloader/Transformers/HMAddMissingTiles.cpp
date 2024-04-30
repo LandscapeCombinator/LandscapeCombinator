@@ -66,7 +66,7 @@ void HMAddMissingTiles::Fetch(FString InputCRS, TArray<FString> InputFiles, TFun
 
 			if (!FFileManagerGeneric::Get().FileExists(*CurrentFile))
 			{
-				UE_LOG(LogImageDownloader, Error, TEXT("Creating missing file: %s"), *CurrentFile);
+				UE_LOG(LogImageDownloader, Log, TEXT("Creating missing file: %s"), *CurrentFile);
 				GDALDataset *Dataset = MEMDriver->Create(
 					"",
 					Pixels[0], Pixels[1],
@@ -77,7 +77,7 @@ void HMAddMissingTiles::Fetch(FString InputCRS, TArray<FString> InputFiles, TFun
 
 				if (!Dataset)
 				{
-					UE_LOG(LogImageDownloader, Log, TEXT("Could not create missing file %s"), *CurrentFile);
+					UE_LOG(LogImageDownloader, Error, TEXT("Could not create missing file %s"), *CurrentFile);
 					if (OnComplete) OnComplete(false);
 					return;
 				}
@@ -86,14 +86,19 @@ void HMAddMissingTiles::Fetch(FString InputCRS, TArray<FString> InputFiles, TFun
 				GUInt16 *Data = (GUInt16*) CPLMalloc(Pixels[0] * Pixels[1] * sizeof(GDT_UInt16));
 				memset(Data, 0, Pixels[0] * Pixels[1] * sizeof(GDT_UInt16));
 
-				Band->RasterIO(GF_Write, 0, 0, Pixels[0], Pixels[1], Data, Pixels[0], Pixels[1], GDT_UInt16, 0, 0);
+				if (Band->RasterIO(GF_Write, 0, 0, Pixels[0], Pixels[1], Data, Pixels[0], Pixels[1], GDT_UInt16, 0, 0) != CE_None)
+				{
+					UE_LOG(LogImageDownloader, Error, TEXT("Could not write data for missing file %s"), *CurrentFile);
+					if (OnComplete) OnComplete(false);
+					return;
+				}
 
 				GDALDataset *PNGDataset = PNGDriver->CreateCopy(TCHAR_TO_UTF8(*CurrentFile), Dataset, 1, nullptr, nullptr, nullptr);
 				GDALClose(Dataset);
 
 				if (!PNGDataset)
 				{
-					UE_LOG(LogImageDownloader, Log, TEXT("Could not create missing file %s"), *CurrentFile);
+					UE_LOG(LogImageDownloader, Error, TEXT("Could not create missing file %s"), *CurrentFile);
 					if (OnComplete) OnComplete(false);
 					return;
 				}

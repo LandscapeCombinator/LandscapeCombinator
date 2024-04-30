@@ -3,31 +3,49 @@
 using UnrealBuildTool;
 using System.IO;
 
+using Microsoft.Extensions.Logging;
+
 public class GDALInterface : ModuleRules
 {
+
 	public GDALInterface(ReadOnlyTargetRules Target) : base(Target)
 	{
 		CppStandard = CppStandardVersion.Cpp20;
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
-		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_2;
+		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
 
 		// GDAL
-		PublicIncludePaths.Add(Path.Combine(PluginDirectory, "Source", "ThirdParty", "GDAL", "include"));
-		PublicAdditionalLibraries.Add(Path.Combine(PluginDirectory, "Source", "ThirdParty", "GDAL", "lib", "gdal.lib"));
 
-		foreach (string DLLFile in Directory.GetFiles(Path.Combine(PluginDirectory, "Source", "ThirdParty", "GDAL", "bin")))
+		string Platform = Target.Platform == UnrealTargetPlatform.Win64 ? "Win64" : "Linux";
+		PublicIncludePaths.Add(Path.Combine(PluginDirectory, "Source", "ThirdParty", "GDAL", Platform, "include"));
+
+
+		if (Target.Platform == UnrealTargetPlatform.Win64)
 		{
-			RuntimeDependencies.Add(Path.Combine("$(BinaryOutputDir)", Path.GetFileName(DLLFile)), DLLFile);
+			PublicAdditionalLibraries.Add(Path.Combine(PluginDirectory, "Source", "ThirdParty", "GDAL", "Win64", "lib", "gdal.lib"));
+
+			foreach (string DLLFile in Directory.GetFiles(Path.Combine(PluginDirectory, "Source", "ThirdParty", "GDAL", "Win64", "bin")))
+			{
+				RuntimeDependencies.Add(Path.Combine("$(BinaryOutputDir)", Path.GetFileName(DLLFile)), DLLFile);
+			}
+		}
+		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		{
+			foreach (string SOFile in Directory.GetFiles(Path.Combine(PluginDirectory, "Source", "ThirdParty", "GDAL", "Linux", "bin"), "*.so"))
+			{
+				PublicAdditionalLibraries.Add(SOFile);
+			}
 		}
 
-		foreach (string File in Directory.GetFiles(Path.Combine(PluginDirectory, "Source", "ThirdParty", "GDAL", "share", "gdal")))
+		// GDAL configuration files common to all platforms
+		foreach (string File in Directory.GetFiles(Path.Combine(PluginDirectory, "Source", "ThirdParty", "GDAL", Platform, "share", "gdal")))
 		{
-			RuntimeDependencies.Add(Path.Combine("$(ProjectDir)", "Binaries", "Win64", "Source", "ThirdParty", "GDAL", "share", "gdal", Path.GetFileName(File)), File);
+			RuntimeDependencies.Add(Path.Combine("$(ProjectDir)", "Binaries", Platform, "Source", "ThirdParty", "GDAL", "share", "gdal", Path.GetFileName(File)), File);
 		}
 
-		foreach (string File in Directory.GetFiles(Path.Combine(PluginDirectory, "Source", "ThirdParty", "GDAL", "share", "proj")))
+		foreach (string File in Directory.GetFiles(Path.Combine(PluginDirectory, "Source", "ThirdParty", "GDAL", Platform, "share", "proj")))
 		{
-			RuntimeDependencies.Add(Path.Combine("$(ProjectDir)", "Binaries", "Win64", "Source", "ThirdParty", "GDAL", "share", "proj", Path.GetFileName(File)), File);
+			RuntimeDependencies.Add(Path.Combine("$(ProjectDir)", "Binaries", Platform, "Source", "ThirdParty", "GDAL", "share", "proj", Path.GetFileName(File)), File);
 		}
 
 		PublicDependencyModuleNames.AddRange(

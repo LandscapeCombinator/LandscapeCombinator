@@ -8,9 +8,9 @@ public class SplineImporter : ModuleRules
 	{
 		CppStandard = CppStandardVersion.Cpp20;
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
-        IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_2;
+		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
 
-        PublicDependencyModuleNames.AddRange(
+		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
 				// Unreal Engine Dependencies
@@ -29,9 +29,9 @@ public class SplineImporter : ModuleRules
 				"Landscape",
 				"LandscapeEditor",
 				"UnrealEd",
-                "Slate",
-                "HTTP",
-                "EditorFramework",
+				"Slate",
+				"HTTP",
+				"EditorFramework",
 
 				// Other Dependencies
 				"LandscapeUtils",

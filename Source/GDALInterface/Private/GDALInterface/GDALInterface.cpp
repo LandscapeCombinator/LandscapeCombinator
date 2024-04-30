@@ -106,18 +106,11 @@ bool GDALInterface::AddGeoreference(FString InputFile, FString OutputFile, FStri
 			"GTiff",
 			"-a_srs",
 			CRS,
-			"-gcp",
-			"0", "0",
-			FString::SanitizeFloat(MinLong), FString::SanitizeFloat(MaxLat),
-			"-gcp",
-			FString::FromInt(Pixels[0] - 1), "0",
-			FString::SanitizeFloat(MaxLong), FString::SanitizeFloat(MaxLat),
-			"-gcp",
-			FString::FromInt(Pixels[0] - 1), FString::FromInt(Pixels[1] - 1),
-			FString::SanitizeFloat(MaxLong), FString::SanitizeFloat(MinLat),
-			"-gcp",
-			"0", FString::FromInt(Pixels[1] - 1),
-			FString::SanitizeFloat(MinLong), FString::SanitizeFloat(MinLat),
+			"-a_ullr",
+			FString::SanitizeFloat(MinLong),
+			FString::SanitizeFloat(MaxLat),
+			FString::SanitizeFloat(MaxLong),
+			FString::SanitizeFloat(MinLat)
 		});
 
 	if (!bTranslateSuccess)
@@ -241,7 +234,7 @@ bool GDALInterface::GetCoordinates(FVector4d& Coordinates, TArray<FString> Files
 		MinCoordHeight = FMath::Min(MinCoordHeight, FileCoordinates[2]);
 		MaxCoordHeight = FMath::Max(MaxCoordHeight, FileCoordinates[3]);
 	}
-	
+
 	Coordinates[0] = MinCoordWidth;
 	Coordinates[1] = MaxCoordWidth;
 	Coordinates[2] = MinCoordHeight;
@@ -249,6 +242,82 @@ bool GDALInterface::GetCoordinates(FVector4d& Coordinates, TArray<FString> Files
 
 	return true;
 }
+
+
+OGRCoordinateTransformation *GDALInterface::MakeTransform(FString InCRS, FString OutCRS)
+{
+	OGRSpatialReference InRs, OutRs;
+	if (
+		!GDALInterface::SetCRSFromUserInput(InRs, InCRS) ||
+		!GDALInterface::SetCRSFromUserInput(OutRs, OutCRS)
+	)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			FText::Format(
+				LOCTEXT("GDALInterface::MakeTransform::1", "Internal error while setting CRS.\n{0}"),
+				FText::FromString(FString(CPLGetLastErrorMsg()))
+			)
+		);
+		return nullptr;
+	}
+
+	OGRCoordinateTransformation *CoordinateTransformation = OGRCreateCoordinateTransformation(&InRs, &OutRs);
+	if (!CoordinateTransformation )
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			FText::Format(
+				LOCTEXT("GDALInterface::MakeTransform::3", "Internal error while creating coordinate transformation.\n{0}"),
+				FText::FromString(FString(CPLGetLastErrorMsg()))
+			)
+		);
+		return nullptr;
+	}
+
+	return CoordinateTransformation;
+}
+
+bool GDALInterface::Transform(OGRCoordinateTransformation* CoordinateTransformation, double *Longitude, double *Latitude)
+{
+	if (!CoordinateTransformation || !CoordinateTransformation->Transform(1, Longitude, Latitude))
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			FText::Format(
+				LOCTEXT("GDALInterface::Transform", "Internal error while transforming coordinates.\n{0}"),
+				FText::FromString(FString(CPLGetLastErrorMsg()))
+			)
+		);
+		return false;
+	}
+	return true;
+}
+
+bool GDALInterface::Transform2(OGRCoordinateTransformation* CoordinateTransformation, double *xs, double *ys)
+{
+	if (!CoordinateTransformation || !CoordinateTransformation->Transform(2, xs, ys))
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			FText::Format(
+				LOCTEXT("GDALInterface::Transform2", "Internal error while transforming coordinates.\n{0}"),
+				FText::FromString(FString(CPLGetLastErrorMsg()))
+			)
+		);
+		return false;
+	}
+	return true;
+}
+
+bool GDALInterface::ConvertCoordinates(double *Longitude, double *Latitude, FString InCRS, FString OutCRS)
+{
+	return Transform(MakeTransform(InCRS, OutCRS), Longitude, Latitude);
+}
+
+bool GDALInterface::ConvertCoordinates2(double *xs, double *ys, FString InCRS, FString OutCRS)
+{
+	return Transform2(MakeTransform(InCRS, OutCRS), xs, ys);
+}
+
+
+	static bool ConvertCoordinates2(double *xs, double *ys, FString InCRS, FString OutCRS);
 
 bool GDALInterface::ConvertCoordinates(FVector4d& OriginalCoordinates, FVector4d& Coordinates, FString InCRS, FString OutCRS)
 {
@@ -283,7 +352,7 @@ bool GDALInterface::ConvertCoordinates(FVector4d& OriginalCoordinates, bool bCro
 
 	double xs[4] = { MinCoordWidth,  MinCoordWidth,  MaxCoordWidth,  MaxCoordWidth };
 	double ys[4] = { MinCoordHeight, MaxCoordHeight, MaxCoordHeight, MinCoordHeight };
-	
+
 	OGRSpatialReference InRs, OutRs;
 	if (!SetCRSFromUserInput(InRs, InCRS) || !SetCRSFromUserInput(OutRs, OutCRS) || !OGRCreateCoordinateTransformation(&InRs, &OutRs)->Transform(4, xs, ys))
 	{
@@ -319,8 +388,9 @@ bool GDALInterface::GetPixels(FIntPoint& Pixels, FString File)
 
 	if (!Dataset) {
 		FMessageDialog::Open(EAppMsgType::Ok,
-			FText::Format(LOCTEXT("GetInsidePixelsError", "Could not open heightmap file '{0}' to read its size."),
-				FText::FromString(File)
+			FText::Format(LOCTEXT("GetInsidePixelsError", "Could not open heightmap file '{0}' to read its size.\n{1}"),
+				FText::FromString(File),
+				FText::FromString(FString(CPLGetLastErrorMsg()))
 			)
 		);
 		return false;
@@ -415,7 +485,8 @@ bool GDALInterface::ChangeResolution(FString SourceFile, FString TargetFile, int
 
 bool GDALInterface::Translate(FString SourceFile, FString TargetFile, TArray<FString> Args)
 {
-	GDALDatasetH SourceDataset = GDALOpen(TCHAR_TO_UTF8(*SourceFile), GA_ReadOnly);
+	UE_LOG(LogGDALInterface, Log, TEXT("Opening SourceFile: '%s'"), *SourceFile);
+	GDALDatasetH SourceDataset = GDALOpen(TCHAR_TO_ANSI(*SourceFile), (GDALAccess) 0);
 
 	if (!SourceDataset)
 	{
@@ -425,6 +496,7 @@ bool GDALInterface::Translate(FString SourceFile, FString TargetFile, TArray<FSt
 		));
 		return false;
 	}
+	UE_LOG(LogGDALInterface, Log, TEXT("Opened SourceFile: '%s'"), *SourceFile);
 
 	char** TranslateArgv = nullptr;
 
@@ -538,7 +610,12 @@ bool GDALInterface::ReadHeightmapFromFile(FString File, int& OutWidth, int& OutH
 	UE_LOG(LogGDALInterface, Log, TEXT("Reading heightmap from image %s of size %d x %d"), *File, OutWidth, OutHeight);
 
 	float* Buffer = new float[OutWidth * OutHeight];
-	Dataset->GetRasterBand(1)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, Buffer, OutWidth, OutHeight, GDT_Float32, 0, 0);
+
+	if (Dataset->GetRasterBand(1)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, Buffer, OutWidth, OutHeight, GDT_Float32, 0, 0) != CE_None)
+	{
+		UE_LOG(LogGDALInterface, Error, TEXT("Could not read heightmap in buffer."));
+		return false;
+	}
 
 	OutHeightmap.Reset();
 	OutHeightmap.SetNum(OutWidth * OutHeight);
@@ -583,25 +660,41 @@ bool GDALInterface::ReadColorsFromFile(FString File, int &OutWidth, int &OutHeig
 	if (NumBands >= 1)
 	{
 		RedBuffer = new uint8_t[OutWidth * OutHeight];
-		Dataset->GetRasterBand(1)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, RedBuffer, OutWidth, OutHeight, GDT_Byte, 0, 0);
+		if (Dataset->GetRasterBand(1)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, RedBuffer, OutWidth, OutHeight, GDT_Byte, 0, 0) != CE_None)
+		{
+			UE_LOG(LogGDALInterface, Error, TEXT("Could not read heightmap in red buffer."));
+			return false;
+		}
 	}
 
 	if (NumBands >= 2)
 	{
 		GreenBuffer = new uint8_t[OutWidth * OutHeight];
-		Dataset->GetRasterBand(2)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, GreenBuffer, OutWidth, OutHeight, GDT_Byte, 0, 0);
+		if (Dataset->GetRasterBand(2)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, GreenBuffer, OutWidth, OutHeight, GDT_Byte, 0, 0) != CE_None)
+		{
+			UE_LOG(LogGDALInterface, Error, TEXT("Could not read heightmap in green buffer."));
+			return false;
+		}
 	}
 
 	if (NumBands >= 3)
 	{
 		BlueBuffer = new uint8_t[OutWidth * OutHeight];
-		Dataset->GetRasterBand(3)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, BlueBuffer, OutWidth, OutHeight, GDT_Byte, 0, 0);
+		if (Dataset->GetRasterBand(3)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, BlueBuffer, OutWidth, OutHeight, GDT_Byte, 0, 0) != CE_None)
+		{
+			UE_LOG(LogGDALInterface, Error, TEXT("Could not read heightmap in blue buffer."));
+			return false;
+		}
 	}
 
 	if (NumBands >= 4)
 	{
 		AlphaBuffer = new uint8_t[OutWidth * OutHeight];
-		Dataset->GetRasterBand(4)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, AlphaBuffer, OutWidth, OutHeight, GDT_Byte, 0, 0);
+		if (Dataset->GetRasterBand(4)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, AlphaBuffer, OutWidth, OutHeight, GDT_Byte, 0, 0) != CE_None)
+		{
+			UE_LOG(LogGDALInterface, Error, TEXT("Could not read heightmap in alpha buffer."));
+			return false;
+		}
 	}
 
 	OutColors.Reset();

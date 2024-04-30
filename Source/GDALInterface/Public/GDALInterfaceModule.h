@@ -10,6 +10,7 @@
 class GDALINTERFACE_API FGDALInterfaceModule : public IModuleInterface
 {
 public:
+	static void SetGDALPaths();
 	virtual void StartupModule() override;
 
 	static inline FString PluginDir = "";

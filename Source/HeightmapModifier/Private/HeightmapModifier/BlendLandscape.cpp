@@ -10,6 +10,7 @@
 #include "LandscapeEdit.h"
 #include "LandscapeDataAccess.h"
 #include "Curves/RichCurve.h"
+#include "ScopedTransaction.h"
 
 
 #define LOCTEXT_NAMESPACE "FHeightmapModifierModule"
@@ -125,7 +126,7 @@ void UBlendLandscape::BlendWithLandscape()
 	{
 		int32 SizeX = Landscape->ComputeComponentCounts().X * Landscape->ComponentSizeQuads + 1;
 		int32 SizeY = Landscape->ComputeComponentCounts().Y * Landscape->ComponentSizeQuads + 1;
-		uint16* OldHeightmapData = (uint16*) malloc(SizeX * SizeY * (sizeof uint16));
+		uint16* OldHeightmapData = (uint16*) malloc(SizeX * SizeY * (sizeof (uint16)));
 		FHeightmapAccessor<false> HeightmapAccessor(Landscape->GetLandscapeInfo());
 		HeightmapAccessor.GetDataFast(0, 0, SizeX - 1, SizeY - 1, OldHeightmapData);
 
@@ -161,14 +162,14 @@ void UBlendLandscape::BlendWithLandscape()
 			*LandscapeToBlendWith->GetActorLabel(), OtherX1, OtherX2, OtherY1, OtherY2
 		);
 
-		uint16* OtherOldHeightmapData = (uint16*) malloc(OtherSizeX * OtherSizeY * (sizeof uint16));
+		uint16* OtherOldHeightmapData = (uint16*) malloc(OtherSizeX * OtherSizeY * (sizeof (uint16)));
 		OtherHeightmapAccessor.GetDataFast(OtherX1, OtherY1, OtherX2, OtherY2, OtherOldHeightmapData);
 
 
 		/* Modify the data of the other landscape */
 		
 		double MaxDistance = ((double) FMath::Min(OtherSizeX, OtherSizeY)) / 2;
-		uint16* OtherNewHeightmapData = (uint16*) malloc(OtherSizeX * OtherSizeY * (sizeof uint16));
+		uint16* OtherNewHeightmapData = (uint16*) malloc(OtherSizeX * OtherSizeY * (sizeof (uint16)));
 		for (int X = 0; X < OtherSizeX; X++)
 		{
 			for (int Y = 0; Y < OtherSizeY; Y++)
@@ -233,7 +234,7 @@ void UBlendLandscape::BlendWithLandscape()
 		/* Modify the data of this landscape */
 		
 		double MaxDistance2 = ((double) FMath::Min(SizeX, SizeY)) / 2;
-		uint16* NewHeightmapData = (uint16*) malloc(SizeX * SizeY * (sizeof uint16));
+		uint16* NewHeightmapData = (uint16*) malloc(SizeX * SizeY * (sizeof (uint16)));
 		for (int X = 0; X < SizeX; X++)
 		{
 			for (int Y = 0; Y < SizeY; Y++)

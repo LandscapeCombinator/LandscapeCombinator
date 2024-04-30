@@ -182,27 +182,7 @@ void ALevelCoordinates::CreateWorldMap()
 		Download::FromURL(URL, DownloadedWorldMapPath, true, [this, MinLong, MaxLong, MinLat, MaxLat, DownloadedWorldMapPath, TempWorldMapPath, WorldMapPath](bool bSuccess) {
 			if (bSuccess)
 			{
-				bool bSuccessWriteCRS =
-					GDALInterface::Translate(DownloadedWorldMapPath, TempWorldMapPath, {
-						"-of",
-						"GTiff",
-						"-a_srs",
-						"EPSG:4326",
-						"-gcp",
-						"0", "0",
-						FString::SanitizeFloat(MinLong), FString::SanitizeFloat(MaxLat),
-						"-gcp",
-						FString::FromInt(Width-1), "0",
-						FString::SanitizeFloat(MaxLong), FString::SanitizeFloat(MaxLat),
-						"-gcp",
-						FString::FromInt(Width-1), FString::FromInt(Height-1),
-						FString::SanitizeFloat(MaxLong), FString::SanitizeFloat(MinLat),
-						"-gcp",
-						"0", FString::FromInt(Height-1),
-						FString::SanitizeFloat(MinLong), FString::SanitizeFloat(MinLat),
-					}) &&
-					GDALInterface::Warp(TempWorldMapPath, WorldMapPath, "", "EPSG:4326", 0);
-
+				bool bSuccessWriteCRS = GDALInterface::AddGeoreference(DownloadedWorldMapPath, WorldMapPath, "EPSG:4326", MinLong, MaxLong, MinLat, MaxLat);
 				if (bSuccessWriteCRS)
 				{
 					CreateWorldMapFromFile(WorldMapPath);
@@ -210,7 +190,7 @@ void ALevelCoordinates::CreateWorldMap()
 				else
 				{
 					FMessageDialog::Open(EAppMsgType::Ok,
-						LOCTEXT("ALevelCoordinates::CreateWorldMap", "Could not wrie coordinate system to world map.")
+						LOCTEXT("ALevelCoordinates::CreateWorldMap", "Could not write coordinate system to world map.")
 					);
 				}
 			}

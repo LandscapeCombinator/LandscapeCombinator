@@ -2,7 +2,7 @@
 	"FileVersion": 3,
 	"Version": 6,
 	"VersionName": "0.6",
-	"EngineVersion": "5.3",
+	"EngineVersion": "5.4",
 	"FriendlyName": "LandscapeCombinator",
 	"Category": "Other",
 	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/product/675e54fcb72f42db82125d5573d0667e",
@@ -15,79 +15,79 @@
 			"Name": "GDALInterface",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64" ]
+			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		},
 		{
 			"Name": "BuildingFromSpline",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64" ]
+			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		},
 		{
 			"Name": "Coordinates",
 			"Type": "Editor",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64" ]
+			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		},
 		{
 			"Name": "FileDownloader",
 			"Type": "Editor",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64" ]
+			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		},
 		{
 			"Name": "ConcurrencyHelpers",
 			"Type": "Editor",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64" ]
+			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		},
 		{
 			"Name": "SplineImporter",
 			"Type": "Editor",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64" ]
+			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		},
 		{
 			"Name": "LandscapeUtils",
 			"Type": "Editor",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64" ]
+			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		},
 		{
 			"Name": "HeightmapModifier",
 			"Type": "Editor",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64" ]
+			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		},
 		{
 			"Name": "ImageDownloader",
 			"Type": "Editor",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64" ]
+			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		},
 		{
 			"Name": "ConsoleHelpers",
 			"Type": "Editor",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64" ]
+			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		},
 		{
 			"Name": "LandscapeCombinator",
 			"Type": "Editor",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64" ]
+			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		},
 		{
 			"Name": "OSMUserData",
 			"Type": "Editor",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64" ]
+			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		},
 		{
 			"Name": "MapboxHelpers",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64" ]
+			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		}
 	],
 	"Plugins": [

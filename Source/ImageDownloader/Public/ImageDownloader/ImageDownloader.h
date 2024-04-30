@@ -28,8 +28,6 @@ enum class EImageSourceKind : uint8
 	USGS_Topo,
 	USGS_Imagery,
 	SHOM,
-	//OpenStreetMap_FR,
-	//Terrestris_OSM,
 	GenericWMS,
 
 	Mapbox_Heightmaps,
@@ -150,8 +148,8 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
 		meta = (EditCondition = "IsMapbox()", EditConditionHides, DisplayPriority = "2")
 	)
-	/* Add @2x to the Mapbox query URL, tiles become 512x512 pixels instead of 256x256 pixels */
-	bool Mapbox_2x = true;
+	/* Add @2x to the Mapbox query URL, tiles become 512x512 pixels instead of 256x256 pixels. This counts for more API requests than usual, maybe 2x. */
+	bool Mapbox_2x = false;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",

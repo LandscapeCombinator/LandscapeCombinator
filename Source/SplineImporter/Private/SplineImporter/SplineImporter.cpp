@@ -24,6 +24,11 @@
 #include "Stats/Stats.h"
 #include "Stats/StatsMisc.h"
 #include "ObjectEditorUtils.h"
+#include "Editor/EditorEngine.h"
+
+#if WITH_EDITOR
+extern UNREALED_API class UEditorEngine* GEditor;
+#endif
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
@@ -481,13 +486,7 @@ void ASplineImporter::AddLandscapeSplinesPoints(
 		double ConvertedLongitude = Point.getX();
 		double ConvertedLatitude = Point.getY();
 
-		if (!OGRTransform->Transform(1, &ConvertedLongitude, &ConvertedLatitude))
-		{	
-			FMessageDialog::Open(EAppMsgType::Ok,
-				LOCTEXT("NoLandscapeSplinesComponent", "Landscape Combinator Error: Internal error while converting coordinates.")
-			);
-			return;
-		}
+		if (!GDALInterface::Transform(OGRTransform, &ConvertedLongitude, &ConvertedLatitude)) return;
 
 		FVector2D XY;
 		GlobalCoordinates->GetUnrealCoordinatesFromCRS(ConvertedLongitude, ConvertedLatitude, XY);
@@ -732,14 +731,8 @@ void ASplineImporter::AddRegularSpline(
 			// copy before converting
 			double ConvertedLongitude = Longitude;
 			double ConvertedLatitude = Latitude;
-				
-			if (!OGRTransform->Transform(1, &ConvertedLongitude, &ConvertedLatitude))
-			{
-				FMessageDialog::Open(EAppMsgType::Ok,
-					LOCTEXT("NoLandscapeSplinesComponent", "Landscape Combinator Error: Internal error while converting coordinates.")
-				);
-				return;
-			}
+
+			if (!GDALInterface::Transform(OGRTransform, &ConvertedLongitude, &ConvertedLatitude)) return;
 			
 			FVector2D XY;
 			GlobalCoordinates->GetUnrealCoordinatesFromCRS(ConvertedLongitude, ConvertedLatitude, XY);

@@ -25,7 +25,6 @@
 #include "Stats/Stats.h"
 #include "Kismet/KismetSystemLibrary.h"
 
-
 #include UE_INLINE_GENERATED_CPP_BY_NAME(Building)
 
 #define LOCTEXT_NAMESPACE "FBuildingFromSplineModule"
@@ -139,6 +138,8 @@ void ABuilding::Destroyed()
 
 
 #include "GeometryScript/CreateNewAssetUtilityFunctions.h"
+#include "Editor/EditorEngine.h"
+extern UNREALED_API class UEditorEngine* GEditor;
 
 void ABuilding::ComputeBaseVertices()
 {

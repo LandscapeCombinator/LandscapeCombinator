@@ -93,7 +93,9 @@ function New-Archive {
         # And the GDAL DLLs from the Binaries folder, otherwise they don't appear in the Engine package
         New-Item -Path "$TempFolder" -Name "Binaries" -ItemType "directory" | Out-Null
         New-Item -Path "$TempFolder/Binaries" -Name "Win64" -ItemType "directory" | Out-Null
-        Copy-Item -Path Binaries/Win64/*.dll -Exclude Unreal* -Destination "$TempFolder/Binaries/Win64" -Force
+        New-Item -Path "$TempFolder/Binaries" -Name "Linux" -ItemType "directory" | Out-Null
+        Copy-Item -Path Source/ThirdParty/GDAL/Win64/bin/* -Destination "$TempFolder/Binaries/Win64" -Force
+        Copy-Item -Path Source/ThirdParty/GDAL/Linux/bin/* -Destination "$TempFolder/Binaries/Linux" -Force
     }
 
 
@@ -103,7 +105,7 @@ function New-Archive {
     {
         $FilterPlugin = Get-Content "$TempFolder/Config/FilterPlugin.ini" -Raw
         $FilterPlugin = $FilterPlugin -replace ".*Examples.*\n.*\n", ""
-        Set-Content "$TempFolder/Config/FilterPlugin.ini" $FilterPlugin    
+        Set-Content "$TempFolder/Config/FilterPlugin.ini" $FilterPlugin
     }
 
 
@@ -123,12 +125,12 @@ function New-Archive {
         $PackagePath = Resolve-Path("Package_$Plugin")
         Write-Output "UPlugin Path: $UPluginPath"
         Write-Output "Package Path: $PackagePath"
-        & "${UEFolder}Engine\Build\BatchFiles\RunUAT.bat" BuildPlugin -Plugin="$UPluginPath" -Package="$PackagePath" -Rocket
+        & "${UEFolder}Engine\Build\BatchFiles\RunUAT.bat" BuildPlugin -TargetPlatforms=Win64+Linux -Plugin="$UPluginPath" -Package="$PackagePath" -Rocket
         Remove-Item -Force -Recurse "Package_$Plugin"
     }
 
-    Write-Output "Running: 7z a $plugin-v$PluginVersion-UE$EngineVersion.zip $(Resolve-Path "$TempFolder/*" | Select-Object -ExpandProperty Path)"
-    & 7z a "$plugin-v$PluginVersion-UE$EngineVersion.zip" (Resolve-Path "$TempFolder/*" | Select-Object -ExpandProperty Path)
+    Write-Output "Running: 7z -snl a $plugin-v$PluginVersion-UE$EngineVersion.zip $(Resolve-Path "$TempFolder/*" | Select-Object -ExpandProperty Path)"
+    & 7z -snl a "$plugin-v$PluginVersion-UE$EngineVersion.zip" (Resolve-Path "$TempFolder/*" | Select-Object -ExpandProperty Path)
 
     Remove-Item -Force -Recurse $TempFolder
 }
