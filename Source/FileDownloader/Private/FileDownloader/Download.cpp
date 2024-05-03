@@ -12,6 +12,7 @@
 #include "HAL/PlatformFileManager.h" 
 #include "Widgets/Notifications/SProgressBar.h"
 #include "Misc/ScopedSlowTask.h"
+#include "Misc/EngineVersionComparison.h"
 
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
@@ -286,7 +287,12 @@ void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64
 		Request->SetURL(URL);
 		Request->SetVerb("GET");
 		Request->SetHeader("User-Agent", "X-UnrealEngine-Agent");
+		
+#if UE_VERSION_OLDER_THAN(5, 4, 0)
+		Request->OnRequestProgress().BindLambda([Downloaded](FHttpRequestPtr Request, int Sent, int Received) {
+#else
 		Request->OnRequestProgress64().BindLambda([Downloaded](FHttpRequestPtr Request, int64 Sent, int64 Received) {
+#endif
 			*Downloaded = Received;
 		});
 		bool *bTriggered = new bool(false);

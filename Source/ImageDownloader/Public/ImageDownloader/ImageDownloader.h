@@ -243,7 +243,7 @@ public:
 		EditAnywhere, Category = "ImageDownloader|Source",
 		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::GenericWMS", EditConditionHides, DisplayPriority = "3")
 	)
-	bool WMS_XIsLong = true;
+	bool WMS_X_IsLong = true;
 
 	UPROPERTY(
 		EditAnywhere, Category = "ImageDownloader|Source",

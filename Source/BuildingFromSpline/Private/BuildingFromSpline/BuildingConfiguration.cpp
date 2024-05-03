@@ -3,6 +3,7 @@
 #include "BuildingFromSpline/BuildingConfiguration.h"
 #include "BuildingFromSpline/BuildingsFromSplines.h"
 
+#include "Materials/MaterialInterface.h"
 #include "OSMUserData/OSMUserData.h"
 
 UBuildingConfiguration::UBuildingConfiguration()

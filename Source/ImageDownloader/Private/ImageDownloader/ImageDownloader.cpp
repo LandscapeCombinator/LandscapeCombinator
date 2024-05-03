@@ -173,7 +173,7 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 				FString QueryURL, FileExt;
 				bool bSuccess = WMSProvider.CreateURL(
 					WMS_Width, WMS_Height,
-					WMS_Name, WMS_CRS, WMS_XIsLong,
+					WMS_Name, WMS_CRS, WMS_X_IsLong,
 					WMS_MinAllowedLong, WMS_MaxAllowedLong, WMS_MinAllowedLat, WMS_MaxAllowedLat,
 					WMS_MinLong, WMS_MaxLong, WMS_MinLat, WMS_MaxLat,
 					QueryURL, bGeoTiff, FileExt
@@ -780,7 +780,7 @@ void UImageDownloader::OnLayerChanged()
 	WMS_Name = WMSProvider.Names[LayerIndex];
 	WMS_Help = "Please enter the coordinates using the following CRS:";
 	WMS_CRS = WMSProvider.CRSs[LayerIndex];
-	if (WMS_XIsLong)
+	if (WMS_X_IsLong)
 	{
 		WMS_MinAllowedLong = WMSProvider.MinXs[LayerIndex];
 		WMS_MaxAllowedLong = WMSProvider.MaxXs[LayerIndex];
@@ -804,37 +804,37 @@ void UImageDownloader::OnImageSourceChanged(TFunction<void(bool)> OnComplete)
 	{
 		CapabilitiesURL = "https://wxs.ign.fr/altimetrie/geoportail/r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_XIsLong = true;
+		WMS_X_IsLong = true;
 	}
 	else if (ImageSourceKind == EImageSourceKind::IGN_Satellite)
 	{
 		CapabilitiesURL = "https://wxs.ign.fr/satellite/geoportail/r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_XIsLong = true;
+		WMS_X_IsLong = true;
 	}
 	else if (ImageSourceKind == EImageSourceKind::SHOM)
 	{
 		CapabilitiesURL = "https://services.data.shom.fr/INSPIRE/wms/r?service=WMS&version=1.3.0&request=GetCapabilities";
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_XIsLong = true;
+		WMS_X_IsLong = true;
 	}
 	else if (ImageSourceKind == EImageSourceKind::USGS_3DEPElevation)
 	{
 		CapabilitiesURL = "https://elevation.nationalmap.gov/arcgis/services/3DEPElevation/ImageServer/WMSServer?request=GetCapabilities&service=WMS";
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_XIsLong = true;
+		WMS_X_IsLong = true;
 	}
 	else if (ImageSourceKind == EImageSourceKind::USGS_Topo)
 	{
 		CapabilitiesURL = "https://basemap.nationalmap.gov/arcgis/services/USGSTopo/MapServer/WMSServer?request=GetCapabilities&service=WMS";
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_XIsLong = true;
+		WMS_X_IsLong = true;
 	}
 	else if (ImageSourceKind == EImageSourceKind::USGS_Imagery)
 	{
 		CapabilitiesURL = "https://basemap.nationalmap.gov/arcgis/services/USGSImageryOnly/MapServer/WMSServer?request=GetCapabilities&service=WMS";
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_XIsLong = true;
+		WMS_X_IsLong = true;
 	}
 	else if (IsMapbox())
 	{
