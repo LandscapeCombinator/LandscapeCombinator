@@ -9,13 +9,6 @@
 #include "Logging/StructuredLog.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/ScopedSlowTask.h"
-#include "Serialization/BufferArchive.h"
-#include "Serialization/MemoryWriter.h"
-#include "Serialization/ObjectAndNameAsStringProxyArchive.h"
-#include "Serialization/ObjectReader.h"
-#include "Serialization/ObjectWriter.h"
-#include "Serialization/DuplicatedDataReader.h"
-#include "Serialization/DuplicatedDataWriter.h"
 #include "TransactionCommon.h" 
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(BuildingsFromSplines)
