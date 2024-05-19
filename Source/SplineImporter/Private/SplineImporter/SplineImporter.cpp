@@ -18,7 +18,6 @@
 #include "Widgets/SWindow.h"
 #include "Misc/CString.h"
 #include "Logging/StructuredLog.h"
-#include "GenericPlatform/GenericPlatformHttp.h"
 #include "Async/Async.h"
 #include "Misc/ScopedSlowTask.h"
 #include "Stats/Stats.h"
@@ -32,17 +31,8 @@ extern UNREALED_API class UEditorEngine* GEditor;
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
-ASplineImporter::ASplineImporter()
-{
-	PrimaryActorTick.bCanEverTick = false;
 
-	SetRootComponent(CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent")));
-	RootComponent->SetMobility(EComponentMobility::Static);
-
-	SetOverpassShortQuery();
-}
-
-void ASplineImporter::DeleteSplines()
+void ASplineImporter::Clear()
 {
 	for (auto& SplineCollection : SplineOwners)
 	{
@@ -56,72 +46,49 @@ void ASplineImporter::DeleteSplines()
 
 void ASplineImporter::SetOverpassShortQuery()
 {
-	if (SplinesSource == ESplinesSource::OSM_Roads)
+	if (Source == EVectorSource::OSM_Roads)
 	{
 		OverpassShortQuery = "way[\"highway\"][\"highway\"!~\"path\"][\"highway\"!~\"track\"];";
-		OverpassShortQueryPreset = OverpassShortQuery;
 	}
-	else if (SplinesSource == ESplinesSource::OSM_Buildings)
+	else if (Source == EVectorSource::OSM_Buildings)
 	{
 		OverpassShortQuery = "way[\"building\"];";
-		OverpassShortQueryPreset = OverpassShortQuery;
 	}
-	else if (SplinesSource == ESplinesSource::OSM_Rivers)
+	else if (Source == EVectorSource::OSM_Rivers)
 	{
 		OverpassShortQuery = "way[\"waterway\"=\"river\"];";
-		OverpassShortQueryPreset = OverpassShortQuery;
 	}
-	else if (SplinesSource == ESplinesSource::OSM_Forests)
+	else if (Source == EVectorSource::OSM_Forests)
 	{
 		OverpassShortQuery = "way[\"landuse\"=\"forest\"];way[\"natural\"=\"wood\"];";
-		OverpassShortQueryPreset = OverpassShortQuery;
 	}
-	else if (SplinesSource == ESplinesSource::OSM_Beaches)
+	else if (Source == EVectorSource::OSM_Beaches)
 	{
 		OverpassShortQuery = "way[\"natural\"=\"beach\"];";
-		OverpassShortQueryPreset = OverpassShortQuery;
 	}
-	else if (SplinesSource == ESplinesSource::OSM_Parks)
+	else if (Source == EVectorSource::OSM_Parks)
 	{
 		OverpassShortQuery = "way[\"leisure\"=\"park\"];";
-		OverpassShortQueryPreset = OverpassShortQuery;
 	}
+
+	Super::SetOverpassShortQuery();
 }
 
-bool ASplineImporter::IsOverpassPreset()
+void ASplineImporter::Import(TFunction<void(bool)> OnComplete)
 {
-	return
-		SplinesSource == ESplinesSource::OSM_Roads ||
-		SplinesSource == ESplinesSource::OSM_Buildings ||
-		SplinesSource == ESplinesSource::OSM_Rivers ||
-		SplinesSource == ESplinesSource::OSM_Forests ||
-		SplinesSource == ESplinesSource::OSM_Beaches ||
-		SplinesSource == ESplinesSource::OSM_Parks;
-}
+	AActor *ActorOrLandscapeToPlaceSplines = ActorOrLandscapeToPlaceSplinesSelection.GetActor(this->GetWorld());
 
-void ASplineImporter::GenerateSplines()
-{
-	if (!ActorOrLandscapeToPlaceSplines)
+	if (!IsValid(ActorOrLandscapeToPlaceSplines))
 	{
 		FMessageDialog::Open(EAppMsgType::Ok,
 			LOCTEXT("ASplineImporter::GenerateSplines::1", "Please select an actor on which to place your splines.")
 		);
+
+		if (OnComplete) OnComplete(false);
 		return;
 	}
 	
-	if (ActorOrLandscapeToPlaceSplines->IsA<ALandscape>())
-	{
-		if (!Cast<ALandscape>(ActorOrLandscapeToPlaceSplines)->LandscapeMaterial)
-		{
-			FMessageDialog::Open(EAppMsgType::Ok,
-				LOCTEXT("ASplineImporter::GenerateSplines::NoMaterial",
-					"Please add a material to your landscape before creating splines."
-				)
-			);
-			return;
-		}
-	}
-	else if (
+	if (
 		!ActorOrLandscapeToPlaceSplines->GetRootComponent() ||
 		ActorOrLandscapeToPlaceSplines->GetRootComponent()->Mobility != EComponentMobility::Static
 	)
@@ -130,6 +97,8 @@ void ASplineImporter::GenerateSplines()
 			LOCTEXT("ASplineImporter::GenerateSplines::NoStatic", "Please make sure that {0}'s mobility is set to static."),
 			FText::FromString(ActorOrLandscapeToPlaceSplines->GetActorLabel())
 		));
+		
+		if (OnComplete) OnComplete(false);
 		return;
 	}
 
@@ -173,17 +142,22 @@ void ASplineImporter::GenerateSplines()
 		);
 	}
 	
-	EAppReturnType::Type UserResponse = FMessageDialog::Open(EAppMsgType::OkCancel, IntroMessage);
-	if (UserResponse == EAppReturnType::Cancel) 
+	if (!bSilentMode)
 	{
-		UE_LOG(LogSplineImporter, Log, TEXT("User cancelled adding landscape splines."));
-		return;
+		EAppReturnType::Type UserResponse = FMessageDialog::Open(EAppMsgType::OkCancel, IntroMessage);
+		if (UserResponse == EAppReturnType::Cancel) 
+		{
+			UE_LOG(LogSplineImporter, Log, TEXT("User cancelled adding landscape splines."));
+
+			if (OnComplete) OnComplete(false);
+			return;
+		}
 	}
 
 	// Delete existing spline collections before generating new ones
-	DeleteSplines();
+	Clear();
 
-	LoadGDALDataset([this, Landscape](GDALDataset* Dataset) {
+	LoadGDALDataset([this, OnComplete, Landscape, ActorOrLandscapeToPlaceSplines](GDALDataset* Dataset) {
 		if (Dataset)
 		{
 			TArray<FPointList> PointLists = GDALInterface::GetPointLists(Dataset);
@@ -192,8 +166,10 @@ void ASplineImporter::GenerateSplines()
 			if (PointLists.IsEmpty())
 			{
 				FMessageDialog::Open(EAppMsgType::Ok,
-					LOCTEXT("No splines", "The dataset did not contain any spline, please double check your query.")
+					LOCTEXT("No splines", "Warning: The dataset did not contain any spline, please double check your query.")
 				);
+
+				if (OnComplete) OnComplete(false);
 				return;
 			}
 
@@ -202,6 +178,7 @@ void ASplineImporter::GenerateSplines()
 
 			if (!GlobalCoordinates)
 			{
+				if (OnComplete) OnComplete(false);
 				return;
 			}
 
@@ -212,6 +189,7 @@ void ASplineImporter::GenerateSplines()
 				FMessageDialog::Open(EAppMsgType::Ok,
 					LOCTEXT("LandscapeNotFound", "Landscape Combinator Error: Could not create OGR Coordinate Transformation.")
 				);
+				if (OnComplete) OnComplete(false);
 				return;
 			}
 
@@ -223,139 +201,14 @@ void ASplineImporter::GenerateSplines()
 			{
 				GenerateRegularSplines(ActorOrLandscapeToPlaceSplines, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
 			}
+			
+			if (OnComplete) OnComplete(true);
+		}
+		else
+		{
+			if (OnComplete) OnComplete(false);
 		}
 	});
-}
-
-GDALDataset* ASplineImporter::LoadGDALDatasetFromFile(FString File)
-{
-	GDALDataset* Dataset = (GDALDataset*) GDALOpenEx(TCHAR_TO_UTF8(*File), GDAL_OF_VECTOR, NULL, NULL, NULL);
-
-	if (!Dataset)
-	{
-		FMessageDialog::Open(EAppMsgType::Ok,
-			FText::Format(
-				LOCTEXT("LandscapeNotFound", "Could not load vector file '{0}'.\n{1}"),
-				FText::FromString(File),
-				FText::FromString(FString(CPLGetLastErrorMsg()))
-			)
-		);
-	}
-
-	return Dataset;
-}
-
-void ASplineImporter::LoadGDALDatasetFromQuery(FString Query, TFunction<void(GDALDataset*)> OnComplete)
-{
-	UE_LOG(LogSplineImporter, Log, TEXT("Adding roads with Overpass query: '%s'"), *Query);
-	UE_LOG(LogSplineImporter, Log, TEXT("Decoded URL: '%s'"), *(FGenericPlatformHttp::UrlDecode(Query)));
-	FString IntermediateDir = FPaths::ConvertRelativePathToFull(FPaths::EngineIntermediateDir());
-	FString LandscapeCombinatorDir = FPaths::Combine(IntermediateDir, "LandscapeCombinator");
-	FString DownloadDir = FPaths::Combine(LandscapeCombinatorDir, "Download");
-	FString XmlFilePath = FPaths::Combine(DownloadDir, FString::Format(TEXT("overpass_query_{0}.xml"), { FTextLocalizationResource::HashString(Query) }));
-
-	Download::FromURL(Query, XmlFilePath, true,
-		[=, this](bool bWasSuccessful) {
-			if (bWasSuccessful && OnComplete)
-			{
-				// working on splines only works in GameThread
-				AsyncTask(ENamedThreads::GameThread, [=, this]() {
-					OnComplete(LoadGDALDatasetFromFile(XmlFilePath));
-				});
-			}
-			else
-			{
-				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-					LOCTEXT("GetSpatialReferenceError", "Unable to get the result for the Overpass query: {0}."),
-					FText::FromString(Query)
-				));
-			}
-			return;
-		}
-	);
-}
-
-void ASplineImporter::LoadGDALDatasetFromShortQuery(FString ShortQuery, TFunction<void(GDALDataset*)> OnComplete)
-{
-	UE_LOG(LogSplineImporter, Log, TEXT("Adding roads with short Overpass query: '%s'"), *ShortQuery);
-	
-	FVector4d Coordinates;
-	if (bRestrictArea)
-	{
-		if (!BoundingActor)
-		{
-			FMessageDialog::Open(EAppMsgType::Ok,
-				LOCTEXT("LoadGDALDatasetFromShortQuery", "Please set BoundingActor to a valid actor, or untick the RestrictArea option")
-			);
-			if (OnComplete) OnComplete(nullptr);
-			return;
-		}
-		FVector Origin, BoxExtent;
-		BoundingActor->GetActorBounds(true, Origin, BoxExtent);
-		if (!ALevelCoordinates::GetCRSCoordinatesFromOriginExtent(BoundingActor->GetWorld(), Origin, BoxExtent, "EPSG:4326", Coordinates))
-		{
-			FMessageDialog::Open(EAppMsgType::Ok,
-				LOCTEXT("LoadGDALDatasetFromShortQuery2", "Internal error while reading coordinates. Make sure that your level coordinates are valid.")
-			);
-			if (OnComplete) OnComplete(nullptr);
-			return;
-		}
-	}
-	else if (!ActorOrLandscapeToPlaceSplines->IsA<ALandscape>())
-	{
-		FVector Origin, BoxExtent;
-		ActorOrLandscapeToPlaceSplines->GetActorBounds(true, Origin, BoxExtent);
-		if (!ALevelCoordinates::GetCRSCoordinatesFromOriginExtent(ActorOrLandscapeToPlaceSplines->GetWorld(), Origin, BoxExtent, "EPSG:4326", Coordinates))
-		{
-			FMessageDialog::Open(EAppMsgType::Ok,
-				LOCTEXT("LoadGDALDatasetFromShortQuery2", "Internal error while reading coordinates. Make sure that your level coordinates are valid.")
-			);
-			if (OnComplete) OnComplete(nullptr);
-			return;
-		}
-	}
-	else
-	{
-		ALandscape *Landscape = Cast<ALandscape>(ActorOrLandscapeToPlaceSplines);
-
-		if (!ALevelCoordinates::GetLandscapeCRSBounds(Landscape, "EPSG:4326", Coordinates))
-		{
-			if (OnComplete) OnComplete(nullptr);
-			return;
-		}
-	}
-
-	// EPSG 4326
-	double South = Coordinates[2];
-	double West = Coordinates[0];
-	double North = Coordinates[3];
-	double East = Coordinates[1];
-	LoadGDALDatasetFromQuery(Overpass::QueryFromShortQuery(South, West, North, East, ShortQuery), OnComplete);
-}
-
-void ASplineImporter::LoadGDALDataset(TFunction<void(GDALDataset*)> OnComplete)
-{
-	if (SplinesSource == ESplinesSource::LocalFile)
-	{
-		if (OnComplete) OnComplete(LoadGDALDatasetFromFile(LocalFile));
-	}
-	else if (SplinesSource == ESplinesSource::OverpassQuery)
-	{
-		LoadGDALDatasetFromQuery(OverpassQuery, OnComplete);
-	}
-	else if (SplinesSource == ESplinesSource::OverpassShortQuery)
-	{
-		LoadGDALDatasetFromShortQuery(OverpassShortQuery, OnComplete);
-	}
-	else if (IsOverpassPreset())
-	{
-		SetOverpassShortQuery();
-		LoadGDALDatasetFromShortQuery(OverpassShortQuery, OnComplete);
-	}
-	else
-	{
-		check(false);
-	}
 }
 
 void ASplineImporter::GenerateLandscapeSplines(
@@ -461,7 +314,7 @@ void ASplineImporter::GenerateLandscapeSplines(
 
 	LandscapeSplinesComponent->PostEditChange();
 
-	GEditor->SelectActor(Landscape, true, true);
+	//GEditor->SelectActor(Landscape, true, true);
 }
 
 void ASplineImporter::AddLandscapeSplinesPoints(
@@ -607,7 +460,7 @@ void ASplineImporter::GenerateRegularSplines(
 			return;
 		}
 		
-		SplineOwner->Tags.Add(SplineOwnerTag);
+		SplineOwner->Tags.Add(SplinesTag);
 		SplineOwners.Add(SplineOwner);
 	}
 
@@ -636,7 +489,7 @@ void ASplineImporter::GenerateRegularSplines(
 				return;
 			}
 			SplineOwner->SetActorLabel("SC_" + this->GetActorLabel() + FString::FromInt(i));
-			SplineOwner->Tags.Add(SplineOwnerTag);
+			SplineOwner->Tags.Add(SplinesTag);
 			SplineOwners.Add(SplineOwner);
 		}
 		else if (SplineOwnerKind == ESplineOwnerKind::CustomActor)
@@ -653,16 +506,16 @@ void ASplineImporter::GenerateRegularSplines(
 			}
 
 			SplineOwner->SetActorLabel(SplineOwner->GetActorLabel() + "_" + FString::FromInt(i));
-			SplineOwner->Tags.Add(SplineOwnerTag);
+			SplineOwner->Tags.Add(SplinesTag);
 			SplineOwners.Add(SplineOwner);
 		}
 		SplinesTask.EnterProgressFrame();
 		AddRegularSpline(SplineOwner, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointList);
 	}
 	
-	GEditor->SelectActor(this, false, true);
-	GEditor->SelectActor(SplineOwner, true, true, true, true);
-	GEditor->NoteSelectionChange();
+	//GEditor->SelectActor(this, false, true);
+	//GEditor->SelectActor(SplineOwner, true, true, true, true);
+	//GEditor->NoteSelectionChange();
 }
 
 void ASplineImporter::AddRegularSpline(
@@ -755,7 +608,7 @@ void ASplineImporter::AddRegularSpline(
 	if (First == Last) SplineComponent->SetClosedLoop(true);
 		
 
-	if (SplinesSource == ESplinesSource::OSM_Buildings)
+	if (Source == EVectorSource::OSM_Buildings)
 	{
 		auto &Points = SplineComponent->SplineCurves.Position.Points;
 		for (FInterpCurvePoint<FVector> &Point : SplineComponent->SplineCurves.Position.Points)
@@ -767,28 +620,6 @@ void ASplineImporter::AddRegularSpline(
 	SplineComponent->UpdateSpline();
 	SplineComponent->bSplineHasBeenEdited = true;
 }
-
-#if WITH_EDITOR
-
-void ASplineImporter::PostEditChangeProperty(FPropertyChangedEvent& Event)
-{
-	if (!Event.Property)
-	{
-		Super::PostEditChangeProperty(Event);
-		return;
-	}
-
-	FName PropertyName = Event.Property->GetFName();
-
-	if (PropertyName == GET_MEMBER_NAME_CHECKED(ASplineImporter, SplinesSource))
-	{
-		SetOverpassShortQuery();
-	}
-
-	Super::PostEditChangeProperty(Event);
-}
-
-#endif
 
 
 

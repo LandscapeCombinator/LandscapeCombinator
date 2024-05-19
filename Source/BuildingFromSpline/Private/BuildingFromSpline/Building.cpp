@@ -90,7 +90,7 @@ void ABuilding::DeleteBuilding()
 		DynamicMeshComponent->GetDynamicMesh()->Reset();
 	}
 
-	if (IsValid(Volume))
+	if (Volume.IsValid())
 	{
 		Volume->Destroy();
 		Volume = nullptr;
@@ -1579,7 +1579,7 @@ void ABuilding::GenerateVolume()
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("GenerateVolume");
 
-	if (IsValid(Volume))
+	if (Volume.IsValid())
 	{
 		Volume->Destroy();
 	}
@@ -1593,6 +1593,14 @@ void ABuilding::GenerateVolume()
 		this->GetActorLabel() + "Volume",
 		Options, Outcome
 	);
+
+	if (Outcome != EGeometryScriptOutcomePins::Success || !Volume.IsValid())
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			LOCTEXT("StaticMeshError", "Internal error while creating volume.")
+		);
+		return;
+	}
 	
 	Volume->SetFolderPath(FName(this->GetFolderPath().ToString() + "Volume"));
 
@@ -1600,14 +1608,6 @@ void ABuilding::GenerateVolume()
 	UOSMUserData *VolumeOSMUserData = NewObject<UOSMUserData>(Volume->GetRootComponent());
 	VolumeOSMUserData->Fields = BuildingOSMUserData->Fields;
 	Volume->GetRootComponent()->AddAssetUserData(VolumeOSMUserData);
-
-	if (Outcome != EGeometryScriptOutcomePins::Success || !Volume)
-	{
-		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("StaticMeshError", "Internal error while creating volume.")
-		);
-		return;
-	}
 }
 
 void ABuilding::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)

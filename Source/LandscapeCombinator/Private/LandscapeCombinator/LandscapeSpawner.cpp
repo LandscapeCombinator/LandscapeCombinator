@@ -11,6 +11,7 @@
 #include "LandscapeUtils/LandscapeUtils.h"
 #include "Coordinates/LevelCoordinates.h"
 #include "Async/Async.h"
+#include "Components/DecalComponent.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
@@ -20,9 +21,7 @@ ALandscapeSpawner::ALandscapeSpawner()
 
 	HeightmapDownloader = CreateDefaultSubobject<UImageDownloader>(TEXT("HeightmapDownloader"));
 
-	TextureDownloader = CreateDefaultSubobject<UImageDownloader>(TEXT("TextureDownloader"));
-
-	MapboxSatelliteDownloader = CreateDefaultSubobject<UImageDownloader>(TEXT("MapboxSatelliteDownloader"));
+	DecalDownloader = CreateDefaultSubobject<UImageDownloader>(TEXT("DecalDownloader"));
 }
 
 bool GetPixels(FIntPoint& InsidePixels, TArray<FString> Files)
@@ -64,17 +63,52 @@ bool GetCmPerPixelForCRS(FString CRS, int &CmPerPixel)
 	}
 }
 
-void ALandscapeSpawner::SpawnLandscape()
+void ALandscapeSpawner::DeleteLandscape()
 {
-	if (!HeightmapDownloader)
+	if (SpawnedLandscape.IsValid())
+	{
+		UE_LOG(LogLandscapeCombinator, Log, TEXT("Destroying spawned landscape."));
+		TArray<ALandscapeStreamingProxy*> LandscapeStreamingProxies = LandscapeUtils::GetLandscapeStreamingProxies(SpawnedLandscape.Get());
+		for (auto &LandscapeStreamingProxy : LandscapeStreamingProxies)
+		{
+			if (IsValid(LandscapeStreamingProxy)) LandscapeStreamingProxy->Destroy();
+		}
+		SpawnedLandscape->Destroy();
+	}
+	else
+	{
+		UE_LOG(LogLandscapeCombinator, Warning, TEXT("No spawned landscape to destroy."));
+	}
+
+	SpawnedLandscape = nullptr;
+
+	if (DecalActor.IsValid())
+	{
+		UE_LOG(LogLandscapeCombinator, Log, TEXT("Destroying decal actor."));
+		DecalActor->Destroy();
+	}
+	else
+	{
+		UE_LOG(LogLandscapeCombinator, Warning, TEXT("No decal actor to destroy."));
+	}
+	DecalActor = nullptr;
+}
+
+void ALandscapeSpawner::SpawnLandscape(TFunction<void(ALandscape*)> OnComplete)
+{
+	if (!IsValid(HeightmapDownloader))
 	{
 		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("ALandscapeSpawner::SpawnLandscape", "HeightmapDownloader is not set, you may want to create one, or spawn a new LandscapeTexturer")
+			LOCTEXT("ALandscapeSpawner::SpawnLandscape", "HeightmapDownloader is not set, you may want to create one, or create a new LandscapeSpawner")
 		);
+
+		if (OnComplete) OnComplete(nullptr);
 		return;
 	}
 
-	if (ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false))
+	HeightmapDownloader->bSilentMode = bSilentMode;
+
+	if (ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false) && !bSilentMode)
 	{
 		EAppReturnType::Type UserResponse = FMessageDialog::Open(EAppMsgType::OkCancel,
 			LOCTEXT(
@@ -87,6 +121,8 @@ void ALandscapeSpawner::SpawnLandscape()
 		if (UserResponse == EAppReturnType::Cancel) 
 		{
 			UE_LOG(LogLandscapeCombinator, Log, TEXT("User cancelled spawning landscape."));
+
+			if (OnComplete) OnComplete(nullptr);
 			return;
 		}
 	}
@@ -115,16 +151,18 @@ void ALandscapeSpawner::SpawnLandscape()
 				LOCTEXT("NoFetcher", "There was an error while creating the fetcher for Landscape {0}."),
 				FText::FromString(LandscapeLabel)
 			)
-		); 
+		);
+		
+		if (OnComplete) OnComplete(nullptr);
 		return;
 	}
 
-	Fetcher->Fetch("", TArray<FString>(), [Fetcher, Altitudes, CRS, Coordinates, this](bool bSuccess)
+	Fetcher->Fetch("", TArray<FString>(), [Fetcher, Altitudes, CRS, Coordinates, OnComplete, this](bool bSuccess)
 	{
 		if (bSuccess)
 		{
 			// GameThread to spawn a landscape
-			AsyncTask(ENamedThreads::GameThread, [bSuccess, Fetcher, Altitudes, CRS, Coordinates, this]()
+			AsyncTask(ENamedThreads::GameThread, [bSuccess, Fetcher, Altitudes, CRS, Coordinates, OnComplete, this]()
 			{
 				int CmPerPixel = 0;
 				TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false);
@@ -142,19 +180,32 @@ void ALandscapeSpawner::SpawnLandscape()
 					);
 					
 					delete Fetcher;
+					if (OnComplete) OnComplete(nullptr);
 					return;
 				}
 
-				ALandscape *CreatedLandscape = LandscapeUtils::SpawnLandscape(
+				SpawnedLandscape = LandscapeUtils::SpawnLandscape(
 					Fetcher->OutputFiles, LandscapeLabel, bCreateLandscapeStreamingProxies,
 					ComponentsMethod == EComponentsMethod::Auto || ComponentsMethod == EComponentsMethod::AutoWithoutBorder,
 					ComponentsMethod == EComponentsMethod::AutoWithoutBorder,
 					QuadsPerSubsection, SectionsPerComponent, ComponentCount
 				);
 
-				if (CreatedLandscape)	
+				SpawnedLandscape->Modify();
+
+				if (SpawnedLandscape.IsValid())	
 				{
-					CreatedLandscape->SetActorLabel(LandscapeLabel);
+					SpawnedLandscape->SetActorLabel(LandscapeLabel);
+					if (!LandscapeTag.IsNone())
+					{
+						SpawnedLandscape->Tags.Add(LandscapeTag);
+					}
+
+					if (IsValid(LandscapeMaterial))
+					{
+						SpawnedLandscape->LandscapeMaterial = LandscapeMaterial;
+						SpawnedLandscape->PostEditChange();
+					}
 
 					if (!GlobalCoordinates)
 					{
@@ -173,17 +224,17 @@ void ALandscapeSpawner::SpawnLandscape()
 						NewGlobalCoordinates->WorldOriginLat = (MinCoordHeight + MaxCoordHeight) / 2;
 					}
 
-					ULandscapeController *LandscapeController = NewObject<ULandscapeController>(CreatedLandscape->GetRootComponent());
+					ULandscapeController *LandscapeController = NewObject<ULandscapeController>(SpawnedLandscape->GetRootComponent());
 					LandscapeController->RegisterComponent();
-					CreatedLandscape->AddInstanceComponent(LandscapeController);
+					SpawnedLandscape->AddInstanceComponent(LandscapeController);
 
-					UHeightmapModifier *HeightmapModifier = NewObject<UHeightmapModifier>(CreatedLandscape->GetRootComponent());
+					UHeightmapModifier *HeightmapModifier = NewObject<UHeightmapModifier>(SpawnedLandscape->GetRootComponent());
 					HeightmapModifier->RegisterComponent();
-					CreatedLandscape->AddInstanceComponent(HeightmapModifier);
+					SpawnedLandscape->AddInstanceComponent(HeightmapModifier);
 
-					UBlendLandscape *BlendLandscape = NewObject<UBlendLandscape>(CreatedLandscape->GetRootComponent());
+					UBlendLandscape *BlendLandscape = NewObject<UBlendLandscape>(SpawnedLandscape->GetRootComponent());
 					BlendLandscape->RegisterComponent();
-					CreatedLandscape->AddInstanceComponent(BlendLandscape);
+					SpawnedLandscape->AddInstanceComponent(BlendLandscape);
 
 					LandscapeController->Coordinates = *Coordinates;
 					LandscapeController->CRS = *CRS;
@@ -196,92 +247,92 @@ void ALandscapeSpawner::SpawnLandscape()
 					delete Fetcher;
 					UE_LOG(LogLandscapeCombinator, Log, TEXT("Created Landscape %s successfully."), *LandscapeLabel);
 
-					if (!bCreateMapboxDecals && !bCreateCustomDecals)
+					switch (DecalCreation)
 					{
-						FMessageDialog::Open(EAppMsgType::Ok,
-							FText::Format(
-								LOCTEXT("LandscapeCreated", "Landscape {0} was created successfully"),
-								FText::FromString(LandscapeLabel)
-							)
-						);
-					}
-
-					if (bCreateMapboxDecals)
-					{
-						if (!MapboxSatelliteDownloader)
+						case EDecalCreation::None:
 						{
-							FMessageDialog::Open(EAppMsgType::Ok,
-								FText::Format(
-									LOCTEXT("NoMapboxSatelliteDownloader", "Internal Error: The Mapbox Satellite Downloader is not set. Please try again with a new Landscape Spawner."),
-									FText::FromString(LandscapeLabel)
-								)
-							);
-							return;
-						}
-
-						MapboxSatelliteDownloader->ImageSourceKind = EImageSourceKind::Mapbox_Satellite;
-						if (HeightmapDownloader && HeightmapDownloader->ImageSourceKind == EImageSourceKind::Mapbox_Heightmaps)
-						{
-							MapboxSatelliteDownloader->Mapbox_Token = HeightmapDownloader->Mapbox_Token;
-						}
-						else
-						{
-							MapboxSatelliteDownloader->Mapbox_Token = Decals_Mapbox_Token;
-						}
-
-						if (HeightmapDownloader && HeightmapDownloader->ImageSourceKind == EImageSourceKind::Mapbox_Heightmaps && HeightmapDownloader->XYZ_Zoom == Decals_Mapbox_Zoom)
-						{
-							MapboxSatelliteDownloader->ParametersSelection = EParametersSelection::Manual;
-							MapboxSatelliteDownloader->XYZ_MinX = HeightmapDownloader->XYZ_MinX;
-							MapboxSatelliteDownloader->XYZ_MaxX = HeightmapDownloader->XYZ_MaxX;
-							MapboxSatelliteDownloader->XYZ_MinY = HeightmapDownloader->XYZ_MinY;
-							MapboxSatelliteDownloader->XYZ_MaxY = HeightmapDownloader->XYZ_MaxY;
-						}
-						else
-						{
-							MapboxSatelliteDownloader->ParametersSelection = EParametersSelection::FromBoundingActor;
-							MapboxSatelliteDownloader->ParametersBoundingActor = CreatedLandscape;
-						}
+							if (!bSilentMode)
+							{
+								FMessageDialog::Open(EAppMsgType::Ok,
+									FText::Format(
+										LOCTEXT("LandscapeCreated", "Landscape {0} was created successfully"),
+										FText::FromString(LandscapeLabel)
+									)
+								);
+							}
 						
-						MapboxSatelliteDownloader->Mapbox_2x = Decals_Mapbox_2x;
-						MapboxSatelliteDownloader->XYZ_Zoom = Decals_Mapbox_Zoom;
-
-						MapboxSatelliteDownloader->DownloadMergedImage([this](FString DownloadedImage)
-						{
-							UDecalCoordinates::CreateDecal(this->GetWorld(), DownloadedImage);
-							FMessageDialog::Open(EAppMsgType::Ok,
-								FText::Format(
-									LOCTEXT("LandscapeCreated2", "Landscape {0} was created successfully with Mapbox Decals"),
-									FText::FromString(LandscapeLabel)
-								)
-							);
-						});
-					}
-
-					if (bCreateCustomDecals)
-					{
-						if (!TextureDownloader)
-						{
-							FMessageDialog::Open(EAppMsgType::Ok,
-								FText::Format(
-									LOCTEXT("NoMapboxSatelliteDownloader", "Internal Error: The Texture Downloader is not set. Please try again with a new Landscape Spawner."),
-									FText::FromString(LandscapeLabel)
-								)
-							);
-							delete Fetcher;
+							if (OnComplete) OnComplete(SpawnedLandscape.Get());
 							return;
 						}
 
-						TextureDownloader->DownloadMergedImage([this](FString DownloadedImage)
+						case EDecalCreation::Mapbox:
+						case EDecalCreation::MapTiler:
 						{
-							UDecalCoordinates::CreateDecal(this->GetWorld(), DownloadedImage);
-							FMessageDialog::Open(EAppMsgType::Ok,
-								FText::Format(
-									LOCTEXT("LandscapeCreated3", "Landscape {0} was created successfully with TextureDownloader Decals"),
-									FText::FromString(LandscapeLabel)
-								)
-							);
-						});
+							if (!IsValid(DecalDownloader))
+							{
+								FMessageDialog::Open(EAppMsgType::Ok,
+									FText::Format(
+										LOCTEXT("NoDecalDownloader", "Internal Error: The Mapbox Satellite Downloader is not set. Please try again with a new Landscape Spawner."),
+										FText::FromString(LandscapeLabel)
+									)
+								);
+
+								if (OnComplete) OnComplete(SpawnedLandscape.Get());
+								return;
+							}
+
+							DecalDownloader->bSilentMode = bSilentMode;
+
+							DecalDownloader->ParametersSelection = EParametersSelection::FromBoundingActor;
+							DecalDownloader->ParametersBoundingActor = SpawnedLandscape.Get();
+
+							if (DecalCreation == EDecalCreation::Mapbox)
+							{
+								DecalDownloader->ImageSourceKind = EImageSourceKind::Mapbox_Satellite;
+								DecalDownloader->Mapbox_Token = Decals_Mapbox_Token;
+								DecalDownloader->Mapbox_2x = Decals_Mapbox_2x;
+								DecalDownloader->XYZ_Zoom = Decals_Mapbox_Zoom;
+							}
+							else if (DecalCreation == EDecalCreation::MapTiler)
+							{
+								DecalDownloader->ImageSourceKind = EImageSourceKind::MapTiler_Satellite;
+								DecalDownloader->MapTiler_Token = Decals_MapTiler_Token;
+								DecalDownloader->XYZ_Zoom = Decals_MapTiler_Zoom;
+							}
+							else
+							{
+								check(false);
+							}
+
+
+							DecalDownloader->DownloadMergedImage([this, OnComplete](FString DownloadedImage)
+							{
+								DecalActor = UDecalCoordinates::CreateDecal(this->GetWorld(), DownloadedImage);
+								if (DecalActor.Get())
+								{
+									DecalActor->GetDecal()->SortOrder = DecalSortOrder;
+								}
+
+								if (!bSilentMode)
+								{
+									FMessageDialog::Open(EAppMsgType::Ok,
+										FText::Format(
+											LOCTEXT("LandscapeCreated2", "Landscape {0} was created successfully with Decals"),
+											FText::FromString(LandscapeLabel)
+										)
+									);
+								}
+
+								if (OnComplete) OnComplete(SpawnedLandscape.Get());
+							});
+							return;
+						}
+
+						default:
+						{
+							check(false)
+							return;
+						}
 					}
 				}
 				else
@@ -294,8 +345,11 @@ void ALandscapeSpawner::SpawnLandscape()
 							FText::FromString(LandscapeLabel)
 						)
 					);
+					
+					if (OnComplete) OnComplete(nullptr);
 				}
 			});
+
 			return;
 		}
 		else
@@ -307,13 +361,19 @@ void ALandscapeSpawner::SpawnLandscape()
 					FText::FromString(LandscapeLabel)
 				)
 			);
-
+			
+			if (OnComplete) OnComplete(nullptr);
 			delete Fetcher;
 			return;
 		}
 	});
 
 	return;
+}
+
+void ALandscapeSpawner::SpawnLandscape()
+{
+	SpawnLandscape(nullptr);
 }
 
 
@@ -416,6 +476,16 @@ void ALandscapeSpawner::PostEditChangeProperty(FPropertyChangedEvent& Event)
 	}
 
 	Super::PostEditChangeProperty(Event);
+}
+
+bool ALandscapeSpawner::HasMapboxToken()
+{
+	return UImageDownloader::HasMapboxToken();
+}
+
+bool ALandscapeSpawner::HasMapTilerToken()
+{
+	return UImageDownloader::HasMapTilerToken();
 }
 
 

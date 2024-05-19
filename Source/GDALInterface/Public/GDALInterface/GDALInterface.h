@@ -26,7 +26,7 @@ public:
 	static bool SetCRSFromFile(OGRSpatialReference &InRs, FString File, bool bDialog = true);
 	static bool SetCRSFromDataset(OGRSpatialReference &InRs, GDALDataset* Dataset, bool bDialog = true);
 	static bool SetCRSFromEPSG(OGRSpatialReference &InRs, int EPSG);
-	static bool SetCRSFromUserInput(OGRSpatialReference &InRs, FString CRS);
+	static bool SetCRSFromUserInput(OGRSpatialReference &InRs, FString CRS, bool bDialog = true);
 	static bool GetCoordinates(FVector4d& Coordinates, GDALDataset* Dataset);
 	static bool GetCoordinates(FVector4d& Coordinates, TArray<FString> Files);
 	static OGRCoordinateTransformation *MakeTransform(FString InCRS, FString OutCRS);
@@ -36,14 +36,15 @@ public:
 	static bool ConvertCoordinates2(double *xs, double *ys, FString InCRS, FString OutCRS);
 	static bool ConvertCoordinates(FVector4d& OriginalCoordinates, FVector4d& NewCoordinates, FString InCRS, FString OutCRS);
 	static bool ConvertCoordinates(FVector4d& OriginalCoordinates, bool bCrop, FVector4d& NewCoordinates, FString InCRS, FString OutCRS);
+	static bool ConvertCoordinates(FVector4d& OriginalCoordinates, bool bCrop, FVector4d& NewCoordinates, OGRSpatialReference InRs, OGRSpatialReference OutRs);
 	static bool GetPixels(FIntPoint &Pixels, FString File);
 	static bool GetMinMax(FVector2D &MinMax, TArray<FString> Files);
 	static bool ConvertToPNG(FString SourceFile, FString TargetFile, int MinAltitude, int MaxAltitude, int PrecisionPercent = 100);
 	static bool ConvertToPNG(FString SourceFile, FString TargetFile);
 	static bool ChangeResolution(FString SourceFile, FString TargetFile, int PrecisionPercent);
 	static bool Translate(FString SourceFile, FString TargetFile, TArray<FString> Args);
-	static bool Warp(FString SourceFile, FString TargetFile, FString InCRS, FString OutCRS, int NoData);
-	static bool Warp(TArray<FString> SourceFiles, FString TargetFolder, FString InCRS, FString OutCRS, int NoData);
+	static bool Warp(FString SourceFile, FString TargetFile, FString InCRS, FString OutCRS, bool bCrop, int NoData);
+	static bool Warp(TArray<FString> SourceFiles, FString TargetFolder, FString InCRS, FString OutCRS, bool bCrop, int NoData);
 	static bool Warp(FString SourceFile, FString TargetFile, TArray<FString> Args);
 	static bool Merge(TArray<FString> SourceFiles, FString TargetFile);
 	static bool AddGeoreference(FString InputFile, FString OutputFile, FString CRS, double MinLong, double MaxLong, double MinLat, double MaxLat);
@@ -58,4 +59,7 @@ public:
 	
 	static void XYZTileToEPSG3857(double X, double Y, int Zoom, double &OutLong, double &OutLat);
 	static void EPSG3857ToXYZTile(double Long, double Lat, int Zoom, int &OutX, int &OutY);
+
+	static GDALDataset* LoadGDALVectorDatasetFromFile(FString File);
+	static void LoadGDALVectorDatasetFromQuery(FString Query, TFunction<void(GDALDataset*)> OnComplete);
 };

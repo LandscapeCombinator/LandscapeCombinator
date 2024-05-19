@@ -49,7 +49,7 @@ void HMToPNG::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void
 
 		if (bScaleAltitude)
 		{
-			if (!GDALInterface::ConvertToPNG(InputFile, PNGFile, MinAltitude, MaxAltitude))
+			if (!GDALInterface::ConvertToPNG(InputFile, PNGFile, MinAltitude - 100, MaxAltitude + 100))
 			{
 				if (OnComplete) OnComplete(false);
 				return;

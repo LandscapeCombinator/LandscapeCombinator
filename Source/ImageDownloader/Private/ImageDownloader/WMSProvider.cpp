@@ -5,9 +5,10 @@
 #include "ImageDownloader/LogImageDownloader.h"
 
 #include "FileDownloader/Download.h"
+
 #include "Internationalization/Regex.h"
-#include "Misc/MessageDialog.h"
 #include "Internationalization/TextLocalizationResource.h" 
+#include "Misc/MessageDialog.h"
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
@@ -287,47 +288,59 @@ bool FWMSProvider::CreateURL(
 	{
 		if (MinLong < MinAllowedLong)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok,
-				LOCTEXT("GenericWMSMinLong", "MinLong is smaller than MinAllowedLong")
-			);
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+				LOCTEXT("GenericWMSMinLong", "MinLong ({0}) is smaller than MinAllowedLong ({1})"),
+				FText::AsNumber(MinLong),
+				FText::AsNumber(MinAllowedLong)
+			));
 			return false;
 		}
 		if (MaxLong > MaxAllowedLong)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok,
-				LOCTEXT("GenericWMSMaxLong", "MaxLong is larger than MaxAllowedLong")
-			);
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+				LOCTEXT("GenericWMSMaxLong", "MaxLong ({0}) is larger than MaxAllowedLong ({1})"),
+				FText::AsNumber(MaxLong),
+				FText::AsNumber(MaxAllowedLong)
+			));
 			return false;
 		}
 		if (MinLat < MinAllowedLat)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok,
-				LOCTEXT("GenericWMSMinLat", "MinLat is smaller than MinAllowedLat")
-			);
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+				LOCTEXT("GenericWMSMinLat", "MinLat ({0}) is smaller than MinAllowedLat ({1})"),
+				FText::AsNumber(MinLat),
+				FText::AsNumber(MinAllowedLat)
+			));
 			return false;
 		}
 		if (MaxLat > MaxAllowedLat)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok,
-				LOCTEXT("GenericWMSMaxLat", "MaxLat is larger than MaxAllowedLat")
-			);
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+				LOCTEXT("GenericWMSMaxLat", "MaxLat ({0}) is larger than MaxAllowedLat ({1})"),
+				FText::AsNumber(MaxLat),
+				FText::AsNumber(MaxAllowedLat)
+			));
 			return false;
 		}
 	}
 
 	if (MinLong >= MaxLong)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("MinMaxLong", "MinLong is larger than MaxLong")
-		);
+		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			LOCTEXT("MinMaxLong", "MinLong ({0}) is larger than MaxLong ({1})"),
+			FText::AsNumber(MinLong),
+			FText::AsNumber(MaxLong)
+		));
 		return false;
 	}
 
 	if (MinLong >= MaxLong)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("MinMaxLat", "MinLat is larger than MaxLat")
-		);
+		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			LOCTEXT("MinMaxLat", "MinLat ({0}) is larger than MaxLat ({1})"),
+			FText::AsNumber(MinLat),
+			FText::AsNumber(MaxLat)
+		));
 		return false;
 	}
 

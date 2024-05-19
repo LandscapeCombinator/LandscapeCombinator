@@ -33,7 +33,7 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 		if (!*bShowedDialog)
 		{
 			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-				LOCTEXT("MapboxHelpers::0", "Expected one band from Mapbox heightmap {0}, but got {1} instead."),
+				LOCTEXT("MapboxHelpers::0", "Expected one band from heightmap {0}, but got {1} instead."),
 				FText::FromString(InputFile),
 				FText::AsNumber(Dataset->GetRasterCount())
 			));
@@ -49,7 +49,7 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 		if (!*bShowedDialog)
 		{
 			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-				LOCTEXT("MapboxHelpers::00", "Expected to have a Color Table in the Mapbox heightmap {0}."),
+				LOCTEXT("MapboxHelpers::00", "Expected to have a Color Table in the heightmap {0}."),
 				FText::FromString(InputFile)
 			));
 			*bShowedDialog = true;
@@ -69,7 +69,7 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 		if (!*bShowedDialog)
 		{
 			FMessageDialog::Open(EAppMsgType::Ok,
-				LOCTEXT("MapboxHelpers::7", "Not enough memory to allocate for decoding mapbox data.")
+				LOCTEXT("MapboxHelpers::7", "Not enough memory to allocate for decoding data.")
 			);
 			*bShowedDialog = true;
 		}
@@ -128,7 +128,7 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 		if (!*bShowedDialog)
 		{
 			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-				LOCTEXT("MapboxHelpers::12", "Not enough memory to allocate for decoding mapbox data."),
+				LOCTEXT("MapboxHelpers::12", "Not enough memory to allocate for decoding data."),
 				FText::FromString(OutputFile)
 			));
 			*bShowedDialog = true;
@@ -263,7 +263,7 @@ bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile
 		if (!*bShowedDialog)
 		{
 			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-				LOCTEXT("MapboxHelpers::0", "Expected at least three bands from Mapbox heightmap {0}, but got {1} instead."),
+				LOCTEXT("MapboxHelpers::0", "Expected at least three bands from heightmap {0}, but got {1} instead."),
 				FText::FromString(InputFile),
 				FText::AsNumber(Dataset->GetRasterCount())
 			));
@@ -284,7 +284,7 @@ bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile
 		if (!*bShowedDialog)
 		{
 			FMessageDialog::Open(EAppMsgType::Ok,
-				LOCTEXT("MapboxHelpers::7", "Not enough memory to allocate for decoding mapbox data.")
+				LOCTEXT("MapboxHelpers::7", "Not enough memory to allocate for decoding data.")
 			);
 			*bShowedDialog = true;
 		}
@@ -350,7 +350,7 @@ bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile
 		if (!*bShowedDialog)
 		{
 			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-				LOCTEXT("MapboxHelpers::12", "Not enough memory to allocate for decoding mapbox data."),
+				LOCTEXT("MapboxHelpers::12", "Not enough memory to allocate for decoding data."),
 				FText::FromString(OutputFile)
 			));
 			*bShowedDialog = true;

@@ -46,6 +46,12 @@ public:
 	)
 	TObjectPtr<UBuildingConfiguration> BuildingConfiguration;
 
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, DuplicateTransient, Category = "Buildings",
+		meta = (EditCondition = "false", EditConditionHides)
+	)
+	TArray<TObjectPtr<ABuilding>> SpawnedBuildings;
+
 #if WITH_EDITOR
 
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Buildings",
@@ -60,9 +66,7 @@ public:
 
 #endif
 
-private:
-	UPROPERTY(DuplicateTransient)
-	TArray<TObjectPtr<ABuilding>> SpawnedBuildings;
+protected:
 
 #if WITH_EDITOR
 

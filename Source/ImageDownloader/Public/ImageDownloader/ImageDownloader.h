@@ -29,9 +29,11 @@ enum class EImageSourceKind : uint8
 	USGS_Imagery,
 	SHOM,
 	GenericWMS,
-
-	Mapbox_Heightmaps,
-	Mapbox_Satellite,
+	
+	MapTiler_Heightmaps UMETA(DisplayName = "MapTiler Heightmaps"),
+	MapTiler_Satellite UMETA(DisplayName = "MapTiler Satellite"),
+	Mapbox_Heightmaps UMETA(DisplayName = "Mapbox Heightmaps"),
+	Mapbox_Satellite UMETA(DisplayName = "Mapbox Satellite"),
 	GenericXYZ,
 
 	Napoli,
@@ -53,6 +55,7 @@ UENUM(BlueprintType)
 enum class EParametersSelection: uint8
 {
 	Manual,
+	FromEPSG4326Box,
 	FromEPSG4326Coordinates,
 	FromBoundingActor,
 };
@@ -65,19 +68,22 @@ class IMAGEDOWNLOADER_API UImageDownloader : public UActorComponent
 public:
 	UImageDownloader();
 
+	UPROPERTY()
+	bool bSilentMode = false;
+
 	/**********************
 	 *  Heightmap Source  *
 	 **********************/
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (DisplayPriority = "-20")
 	)
 	/* Please select the source from which to download the images. */
 	EImageSourceKind ImageSourceKind;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
 			EditCondition = "AllowsParametersSelection()",
 			EditConditionHides, DisplayPriority = "-9"
@@ -87,7 +93,7 @@ public:
 	EParametersSelection ParametersSelection = EParametersSelection::Manual;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
 			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromBoundingActor",
 			EditConditionHides, DisplayPriority = "-8"
@@ -98,127 +104,172 @@ public:
 	AActor *ParametersBoundingActor = nullptr;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromEPSG4326Coordinates",
+			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromEPSG4326Box",
 			EditConditionHides, DisplayPriority = "-8"
 		)
 	)
 	double MinLong = 0;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromEPSG4326Coordinates",
+			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromEPSG4326Box",
 			EditConditionHides, DisplayPriority = "-7"
 		)
 	)
 	double MaxLong = 0;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromEPSG4326Coordinates",
+			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromEPSG4326Box",
 			EditConditionHides, DisplayPriority = "-6"
 		)
 	)
 	double MinLat = 0;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
+		meta = (
+			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromEPSG4326Box",
+			EditConditionHides, DisplayPriority = "-5"
+		)
+	)
+	double MaxLat = 0;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
+		meta = (
+			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromEPSG4326Coordinates",
+			EditConditionHides, DisplayPriority = "-8"
+		)
+	)
+	double Longitude = 0;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
+		meta = (
+			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromEPSG4326Coordinates",
+			EditConditionHides, DisplayPriority = "-7"
+		)
+	)
+	double Latitude = 0;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
+		meta = (
+			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromEPSG4326Coordinates",
+			EditConditionHides, DisplayPriority = "-6"
+		)
+	)
+	// Approximate real-world size in meters
+	double RealWorldWidth = 200;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
 			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromEPSG4326Coordinates",
 			EditConditionHides, DisplayPriority = "-5"
 		)
 	)
-	double MaxLat = 0;
+	// Approximate real-world size in meters
+	double RealWorldHeight = 200;
 
 	/*******
 	 * XYZ *
 	 *******/
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
+		meta = (EditCondition = "IsMapTiler() && !HasMapTilerToken()", EditConditionHides, DisplayPriority = "1")
+	)
+	/* The MapTiler token can be set in the Editor Preferences, in Plugins -> Landscape Combinator. */
+	FString MapTiler_Token;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition = "IsMapbox() && !HasMapboxToken()", EditConditionHides, DisplayPriority = "1")
 	)
-	/* The Mapbox token can be set in the Project Settings, in Plugins -> Landscape Combinator. */
+	/* The Mapbox token can be set in the Editor Preferences, in Plugins -> Landscape Combinator. */
 	FString Mapbox_Token;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition = "IsMapbox()", EditConditionHides, DisplayPriority = "2")
 	)
-	/* Add @2x to the Mapbox query URL, tiles become 512x512 pixels instead of 256x256 pixels. This counts for more API requests than usual, maybe 2x. */
+	/* Add @2x to the Mapbox query URL, tiles become 512x512 pixels instead of 256x256 pixels. This counts for more API requests than usual. */
 	bool Mapbox_2x = false;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
-		meta = (EditCondition = "IsXYZ() && !IsMapbox()", EditConditionHides, DisplayPriority = "3")
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
+		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::GenericXYZ", EditConditionHides, DisplayPriority = "3")
 	)
 	FString XYZ_URL;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
-		meta = (EditCondition = "IsXYZ() && !IsMapbox()", EditConditionHides, DisplayPriority = "4")
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
+		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::GenericXYZ", EditConditionHides, DisplayPriority = "4")
 	)
 	/* Simple name for the downloaded files. */
 	FString XYZ_Name;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
-		meta = (EditCondition = "IsXYZ() && !IsMapbox()", EditConditionHides, DisplayPriority = "5")
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
+		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::GenericXYZ", EditConditionHides, DisplayPriority = "5")
 	)
 	/* File format of the downloaded files (e.g. tif or png or xyz or xyz.gz). If the format contains a dot,
 	   the tile will first be uncompressed using 7-Zip. */
 	FString XYZ_Format;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition = "IsXYZ()", EditConditionHides, DisplayPriority = "7")
 	)
-	int XYZ_Zoom;
+	int XYZ_Zoom = 10;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition = "IsXYZ() && ParametersSelection == EParametersSelection::Manual", EditConditionHides, DisplayPriority = "10")
 	)
 	int XYZ_MinX;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition = "IsXYZ() && ParametersSelection == EParametersSelection::Manual", EditConditionHides, DisplayPriority = "11")
 	)
 	int XYZ_MaxX;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition = "IsXYZ() && ParametersSelection == EParametersSelection::Manual", EditConditionHides, DisplayPriority = "12")
 	)
 	int XYZ_MinY;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition = "IsXYZ() && ParametersSelection == EParametersSelection::Manual", EditConditionHides, DisplayPriority = "13")
 	)
 	int XYZ_MaxY;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
-		meta = (EditCondition = "IsXYZ() && !IsMapbox()", EditConditionHides, DisplayPriority = "20")
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
+		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::GenericXYZ", EditConditionHides, DisplayPriority = "20")
 	)
 	/* For XYZ or Slippy Tiles, MaxY is usually South, so you can leave this unchecked. */
 	bool bMaxY_IsNorth = false;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
-		meta = (EditCondition = "IsXYZ() && !IsMapbox()", EditConditionHides, DisplayPriority = "21")
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
+		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::GenericXYZ", EditConditionHides, DisplayPriority = "21")
 	)
 	/* Add georeference to downloaded files using the Slippy Tile / XYZ convention. */
 	bool bGeoreferenceSlippyTiles = true;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
-		meta = (EditCondition = "IsXYZ() && !IsMapbox() && !bGeoreferenceSlippyTiles", EditConditionHides, DisplayPriority = "22")
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
+		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::GenericXYZ && !bGeoreferenceSlippyTiles", EditConditionHides, DisplayPriority = "22")
 	)
 	/* The coordinate system used by the downloaded files. */
 	FString XYZ_CRS = "";
@@ -234,19 +285,19 @@ public:
 	FWMSProvider WMSProvider;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::GenericWMS", EditConditionHides, DisplayPriority = "-10")
 	)
 	FString CapabilitiesURL = "";
 
 	UPROPERTY(
-		EditAnywhere, Category = "ImageDownloader|Source",
+		EditAnywhere, Category = "Source",
 		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::GenericWMS", EditConditionHides, DisplayPriority = "3")
 	)
 	bool WMS_X_IsLong = true;
 
 	UPROPERTY(
-		EditAnywhere, Category = "ImageDownloader|Source",
+		EditAnywhere, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS() && HasMultipleLayers()",
 			EditConditionHides, GetOptions=GetTitles, DisplayPriority = "4"
@@ -258,7 +309,7 @@ public:
 	TArray<FString> GetTitles();
 	
 	UPROPERTY(
-		VisibleAnywhere, Category = "ImageDownloader|Source",
+		VisibleAnywhere, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS() && HasMultipleLayers()",
 			EditConditionHides, DisplayPriority = "5"
@@ -267,7 +318,7 @@ public:
 	FString WMS_Name = "";
 
 	UPROPERTY(
-		VisibleAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		VisibleAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS() && HasMultipleLayers()",
 			EditConditionHides, DisplayPriority = "6"
@@ -276,7 +327,7 @@ public:
 	FString WMS_Abstract;
 
 	UPROPERTY(
-		VisibleAnywhere, Category = "ImageDownloader|Source",
+		VisibleAnywhere, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS()",
 			EditConditionHides, DisplayPriority = "7"
@@ -285,7 +336,7 @@ public:
 	FString WMS_Help = "";
 
 	UPROPERTY(
-		VisibleAnywhere, Category = "ImageDownloader|Source",
+		VisibleAnywhere, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS()",
 			EditConditionHides, DisplayPriority = "8"
@@ -294,7 +345,7 @@ public:
 	FString WMS_CRS = "";
 
 	UPROPERTY(
-		VisibleAnywhere, Category = "ImageDownloader|Source",
+		VisibleAnywhere, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS()",
 			EditConditionHides, DisplayPriority = "9"
@@ -303,7 +354,7 @@ public:
 	FString WMS_SearchCRS = "";
 
 	UPROPERTY(
-		VisibleAnywhere, Category = "ImageDownloader|Source",
+		VisibleAnywhere, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS() && ParametersSelection == EParametersSelection::Manual",
 			EditConditionHides, DisplayPriority = "12"
@@ -312,7 +363,7 @@ public:
 	double WMS_MinAllowedLong;
 
 	UPROPERTY(
-		VisibleAnywhere, Category = "ImageDownloader|Source",
+		VisibleAnywhere, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS() && ParametersSelection == EParametersSelection::Manual",
 			EditConditionHides, DisplayPriority = "13"
@@ -321,7 +372,7 @@ public:
 	double WMS_MaxAllowedLong;
 
 	UPROPERTY(
-		VisibleAnywhere, Category = "ImageDownloader|Source",
+		VisibleAnywhere, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS() && ParametersSelection == EParametersSelection::Manual",
 			EditConditionHides, DisplayPriority = "14"
@@ -330,7 +381,7 @@ public:
 	double WMS_MinAllowedLat;
 
 	UPROPERTY(
-		VisibleAnywhere, Category = "ImageDownloader|Source",
+		VisibleAnywhere, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS() && ParametersSelection == EParametersSelection::Manual",
 			EditConditionHides, DisplayPriority = "15"
@@ -339,7 +390,7 @@ public:
 	double WMS_MaxAllowedLat;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS() && ParametersSelection == EParametersSelection::Manual",
 			EditConditionHides, DisplayPriority = "20"
@@ -349,7 +400,7 @@ public:
 	double WMS_MinLong;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS() && ParametersSelection == EParametersSelection::Manual",
 			EditConditionHides, DisplayPriority = "21"
@@ -359,7 +410,7 @@ public:
 	double WMS_MaxLong;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS() && ParametersSelection == EParametersSelection::Manual",
 			EditConditionHides, DisplayPriority = "22"
@@ -369,7 +420,7 @@ public:
 	double WMS_MinLat;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS() && ParametersSelection == EParametersSelection::Manual",
 			EditConditionHides, DisplayPriority = "23"
@@ -379,7 +430,7 @@ public:
 	double WMS_MaxLat;
 	
 	UPROPERTY(
-		VisibleAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		VisibleAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS()",
 			EditConditionHides, DisplayPriority = "30"
@@ -389,7 +440,7 @@ public:
 	int WMS_MaxWidth = 0;
 
 	UPROPERTY(
-		VisibleAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		VisibleAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS()",
 			EditConditionHides, DisplayPriority = "31"
@@ -399,20 +450,30 @@ public:
 	int WMS_MaxHeight = 0;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS()",
+			EditCondition = "CanAutoSetSize()",
 			EditConditionHides, DisplayPriority = "32"
+		)
+	)
+	/* Set best size when downloading image from WMS */
+	bool bAutoSetSize = false;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
+		meta = (
+			EditCondition = "IsWMS() && (!CanAutoSetSize() || !bAutoSetSize)",
+			EditConditionHides, DisplayPriority = "33"
 		)
 	)
 	/* Enter desired width for the downloaded heightmap from the WMS API. Smaller or equal than WMS_MaxWidth. */
 	int WMS_Width = 1000;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS()",
-			EditConditionHides, DisplayPriority = "33"
+			EditCondition = "IsWMS() && (!CanAutoSetSize() || !bAutoSetSize)",
+			EditConditionHides, DisplayPriority = "34"
 		)
 	)
 	/* Enter desired height for the downloaded heightmap from the WMS API. Smaller or equal than WMS_MaxHeight. */
@@ -424,7 +485,7 @@ public:
 	 **********/
 
 		UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
 			EditCondition = "ImageSourceKind == EImageSourceKind::Napoli && ParametersSelection == EParametersSelection::Manual",
 			EditConditionHides, DisplayPriority = "20"
@@ -434,7 +495,7 @@ public:
 	double Napoli_MinLong;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
 			EditCondition = "ImageSourceKind == EImageSourceKind::Napoli && ParametersSelection == EParametersSelection::Manual",
 			EditConditionHides, DisplayPriority = "21"
@@ -444,7 +505,7 @@ public:
 	double Napoli_MaxLong;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
 			EditCondition = "ImageSourceKind == EImageSourceKind::Napoli && ParametersSelection == EParametersSelection::Manual",
 			EditConditionHides, DisplayPriority = "22"
@@ -454,7 +515,7 @@ public:
 	double Napoli_MinLat;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
 			EditCondition = "ImageSourceKind == EImageSourceKind::Napoli && ParametersSelection == EParametersSelection::Manual",
 			EditConditionHides, DisplayPriority = "23"
@@ -469,13 +530,13 @@ public:
 	 **************************/
 		
 	UPROPERTY(
-		VisibleAnywhere, Category = "ImageDownloader|Source",
+		VisibleAnywhere, Category = "Source",
 		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::Viewfinder15", EditConditionHides, DisplayPriority = "3")
 	)
 	FString Viewfinder15_Help = "Enter the comma-separated list of rectangles (e.g. 15-A, 15-B, 15-G, 15-H) from http://viewfinderpanoramas.org/Coverage%20map%20viewfinderpanoramas_org15.htm";
 		
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition =
 			"ImageSourceKind == EImageSourceKind::Viewfinder15 || ImageSourceKind == EImageSourceKind::Viewfinder3 || ImageSourceKind == EImageSourceKind::Viewfinder1",
 			EditConditionHides, DisplayPriority = "4"
@@ -484,7 +545,7 @@ public:
 	FString Viewfinder_TilesString;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition =
 			"ImageSourceKind == EImageSourceKind::Viewfinder3 || ImageSourceKind == EImageSourceKind::Viewfinder1",
 			EditConditionHides, DisplayPriority = "5")
@@ -493,7 +554,7 @@ public:
 	bool bFilterDegrees = false;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition =
 			"bFilterDegrees && (ImageSourceKind == EImageSourceKind::Viewfinder3 || ImageSourceKind == EImageSourceKind::Viewfinder1)",
 			EditConditionHides, DisplayPriority = "6")
@@ -501,7 +562,7 @@ public:
 	int FilterMinLong = 0;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition =
 			"bFilterDegrees && (ImageSourceKind == EImageSourceKind::Viewfinder3 || ImageSourceKind == EImageSourceKind::Viewfinder1)",
 			EditConditionHides, DisplayPriority = "7")
@@ -509,7 +570,7 @@ public:
 	int FilterMaxLong = 0;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition =
 			"bFilterDegrees && (ImageSourceKind == EImageSourceKind::Viewfinder3 || ImageSourceKind == EImageSourceKind::Viewfinder1)",
 			EditConditionHides, DisplayPriority = "8")
@@ -517,7 +578,7 @@ public:
 	int FilterMinLat = 0;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition =
 			"bFilterDegrees && (ImageSourceKind == EImageSourceKind::Viewfinder3 || ImageSourceKind == EImageSourceKind::Viewfinder1)",
 			EditConditionHides, DisplayPriority = "9")
@@ -525,13 +586,13 @@ public:
 	int FilterMaxLat = 0;
 		
 	UPROPERTY(
-		VisibleAnywhere, Category = "ImageDownloader|Source",
+		VisibleAnywhere, Category = "Source",
 		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::Viewfinder3", EditConditionHides, DisplayPriority = "3")
 	)
 	FString Viewfinder3_Help = "Enter the comma-separated list of rectangles (e.g. L31, L32) from http://viewfinderpanoramas.org/Coverage%20map%20viewfinderpanoramas_org3.htm";
 		
 	UPROPERTY(
-		VisibleAnywhere, Category = "ImageDownloader|Source",
+		VisibleAnywhere, Category = "Source",
 		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::Viewfinder1", EditConditionHides, DisplayPriority = "3")
 	)
 	FString Viewfinder1_Help = "Enter the comma-separated list of rectangles (e.g. L31, L32) from http://viewfinderpanoramas.org/Coverage%20map%20viewfinderpanoramas_org1.htm";
@@ -542,28 +603,28 @@ public:
 	 ************/
 
 	UPROPERTY(
-		VisibleAnywhere, Category = "ImageDownloader|Source",
+		VisibleAnywhere, Category = "Source",
 		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::Litto3D_Guadeloupe", EditConditionHides, DisplayPriority = "3")
 	)
 	FString Litto3D_Help =
 		"Enter C:\\Path\\To\\Folder containing 7z files downloaded from https://diffusion.shom.fr/multiproduct/product/configure/id/108";
 
 	UPROPERTY(
-			EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+			EditAnywhere, BlueprintReadWrite, Category = "Source",
 			meta = (EditCondition = "ImageSourceKind == EImageSourceKind::Litto3D_Guadeloupe", EditConditionHides, DisplayPriority = "4")
 	)
 	/* Enter C:\Path\To\Folder\ containing 7z files downloaded from https://diffusion.shom.fr/multiproduct/product/configure/id/108 */
 	FString Litto3D_Folder;
 
 	UPROPERTY(
-			EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+			EditAnywhere, BlueprintReadWrite, Category = "Source",
 			meta = (EditCondition = "ImageSourceKind == EImageSourceKind::Litto3D_Guadeloupe", EditConditionHides, DisplayPriority = "5")
 	)
 	/* Check this if you prefer to use the less precise 5m data instead of 1m data */
 	bool bUse5mData = false;
 
 	UPROPERTY(
-			EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+			EditAnywhere, BlueprintReadWrite, Category = "Source",
 			meta = (EditCondition = "ImageSourceKind == EImageSourceKind::Litto3D_Guadeloupe", EditConditionHides, DisplayPriority = "6")
 	)
 	/* Check this if the files have already been extracted once. Keep it checked if unsure. */
@@ -575,7 +636,7 @@ public:
 	 *****************/
 
 	UPROPERTY(
-		VisibleAnywhere, Category = "ImageDownloader|Source",
+		VisibleAnywhere, Category = "Source",
 		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::SwissALTI_3D", EditConditionHides, DisplayPriority = "3")
 	)
 	FString SwissALTI3D_Help =
@@ -583,7 +644,7 @@ public:
 		"Then, enter the path on your computer to the CSV file below.";
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::SwissALTI_3D", EditConditionHides, DisplayPriority = "4")
 	)
 	/* Enter C:\Path\To\ListOfLinks.csv (see documentation for more details) */
@@ -595,7 +656,7 @@ public:
 	 ********************/
 
 	UPROPERTY(
-		VisibleAnywhere, Category = "ImageDownloader|Source",
+		VisibleAnywhere, Category = "Source",
 		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::USGS_OneThird", EditConditionHides, DisplayPriority = "3")
 	)
 	FString USGS_OneThird_Help =
@@ -604,7 +665,7 @@ public:
 		"Then, enter the path on your computer to the TXT file below.";
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::USGS_OneThird", EditConditionHides, DisplayPriority = "4")
 	)
 	/* Enter C:\Path\To\ListOfLinks.txt (see the help above, or the documentation for more details) */
@@ -616,7 +677,7 @@ public:
 	 ***************/
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::LocalFile", EditConditionHides, DisplayPriority = "3")
 	)
 	/* Enter your C:\\Path\\To\\MyHeightmap.tif in GeoTIFF format */
@@ -624,7 +685,7 @@ public:
 
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::LocalFile || ImageSourceKind == EImageSourceKind::LocalFolder || ImageSourceKind == EImageSourceKind::URL", EditConditionHides, DisplayPriority = "3")
 	)
 	/* Enter the name of the CRS of your file(s) (e.g. EPSG:4326) */
@@ -637,7 +698,7 @@ public:
 	 ******************/
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::LocalFolder", EditConditionHides, DisplayPriority = "3")
 	)
 	/* Enter C:\Path\To\Folder\ containing heightmaps following the _x0_y0 convention */
@@ -650,7 +711,7 @@ public:
 	 *******/	
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Source",
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::URL", EditConditionHides, DisplayPriority = "3")
 	)
 	/* Enter URL to a heightmap in GeoTIFF format */
@@ -662,14 +723,14 @@ public:
 	 ***************/
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Remap",
+		EditAnywhere, BlueprintReadWrite, Category = "Remap",
 		meta = (DisplayPriority = "1")
 	)
 	/* Some sources use -99999 as no data. Check this option to remap -99999 to -10 (or any other mapping). */
 	bool bRemap = true;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Remap",
+		EditAnywhere, BlueprintReadWrite, Category = "Remap",
 		meta = (
 			EditCondition = "bRemap",
 			EditConditionHides, DisplayPriority = "2"
@@ -678,7 +739,7 @@ public:
 	float OriginalValue = -99999;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Remap",
+		EditAnywhere, BlueprintReadWrite, Category = "Remap",
 		meta = (
 			EditCondition = "bRemap",
 			EditConditionHides, DisplayPriority = "3"
@@ -692,14 +753,14 @@ public:
 	 *****************/
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Preprocessing",
+		EditAnywhere, BlueprintReadWrite, Category = "Preprocessing",
 		meta = (DisplayPriority = "10")
 	)
 	/* Check this option if you want to run an external binary to prepare the heightmaps right after fetching them. */
 	bool bPreprocess = false;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Preprocessing",
+		EditAnywhere, BlueprintReadWrite, Category = "Preprocessing",
 		meta = (EditCondition = "bPreprocess", EditConditionHides, DisplayPriority = "11")
 	)
 	TObjectPtr<UExternalTool> PreprocessingTool;
@@ -710,14 +771,14 @@ public:
 	 **************/
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Resolution",
+		EditAnywhere, BlueprintReadWrite, Category = "Resolution",
 		meta = (DisplayPriority = "20")
 	)
 	/* Check this if you wish to scale up or down the resolution of your heightmaps. */
 	bool bScaleResolution = false;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|Resolution",
+		EditAnywhere, BlueprintReadWrite, Category = "Resolution",
 		meta = (EditCondition = "bScaleResolution", EditConditionHides, DisplayPriority = "21")
 	)
 	/* When different than 100%, your heightmap resolution will be scaled up or down using GDAL. */
@@ -729,14 +790,14 @@ public:
 	 **********************/
 
 	UPROPERTY(
-		EditAnywhere, Category = "ImageDownloader|AdaptToLandscape",
+		EditAnywhere, Category = "AdaptToLandscape",
 		meta = (DisplayPriority = "1")
 	)
 	/* Check this if you want to resize the image to match the TargetLandscape's resolution. */
 	bool bAdaptResolution = false;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|AdaptToLandscape",
+		EditAnywhere, BlueprintReadWrite, Category = "AdaptToLandscape",
 		meta = (EditCondition = "bAdaptResolution", EditConditionHides, DisplayPriority = "2")
 	)
 	TObjectPtr<ALandscape> TargetLandscape;
@@ -747,7 +808,7 @@ public:
 	 ****************/
 
 	UPROPERTY(
-		EditAnywhere, Category = "ImageDownloader|CropCoordinates",
+		EditAnywhere, Category = "CropCoordinates",
 		meta = (DisplayPriority = "1")
 	)
 	/* Check this if you want to crop the coordinates following the bounds of CroppingActor (usually a LocationVolume).
@@ -755,7 +816,7 @@ public:
 	bool bCropCoordinates = false;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ImageDownloader|CropCoordinates",
+		EditAnywhere, BlueprintReadWrite, Category = "CropCoordinates",
 		meta = (EditCondition = "bCropCoordinates", EditConditionHides, DisplayPriority = "2")
 	)
 	TObjectPtr<AActor> CroppingActor;
@@ -798,13 +859,16 @@ public:
 	)
 	void SetSourceParameters();
 
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable, Category = "ImageDownloader")
 	bool SetSourceParametersBool(bool bDialog);
 
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable, Category = "ImageDownloader")
 	bool SetSourceParametersFromActor(bool bDialog);
 
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable, Category = "ImageDownloader")
+	bool SetSourceParametersFromEPSG4326Box(bool bDialog);
+
+	UFUNCTION(BlueprintCallable, Category = "ImageDownloader")
 	bool SetSourceParametersFromEPSG4326Coordinates(bool bDialog);
 	
 #if WITH_EDITOR
@@ -814,7 +878,10 @@ public:
 	HMFetcher* CreateFetcher(FString Name, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG, TFunction<bool(HMFetcher*)> RunBeforePNG);
 
 	UFUNCTION()
-	bool HasMapboxToken();
+	static bool HasMapboxToken();
+
+	UFUNCTION()
+	static bool HasMapTilerToken();
 
 	UFUNCTION()
 	bool IsWMS();
@@ -826,7 +893,16 @@ public:
 	bool AllowsParametersSelection();
 
 	UFUNCTION()
+	bool CanAutoSetSize();
+
+	UFUNCTION()
+	void AutoSetSize();
+
+	UFUNCTION()
 	bool IsMapbox();
+
+	UFUNCTION()
+	bool IsMapTiler();
 
 private:
 
@@ -840,6 +916,7 @@ private:
 	bool HasMultipleLayers();
 	
 	FString GetMapboxToken();
+	FString GetMapTilerToken();
 };
 
 #undef LOCTEXT_NAMESPACE

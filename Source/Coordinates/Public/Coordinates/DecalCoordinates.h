@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "Engine/DecalActor.h"
+
 #include "DecalCoordinates.generated.h"
 
 #define LOCTEXT_NAMESPACE "FCoordinatesModule"
@@ -27,8 +29,8 @@ public:
 
 	void PlaceDecal(FVector4d &OutCoordinates);
 
-	static void CreateDecal(UWorld *World, FString Path);
-	static void CreateDecal(UWorld *World, FString Path, FVector4d &OutCoordinates);
+	static ADecalActor* CreateDecal(UWorld *World, FString Path);
+	static ADecalActor* CreateDecal(UWorld *World, FString Path, FVector4d &OutCoordinates);
 };
 
 #undef LOCTEXT_NAMESPACE

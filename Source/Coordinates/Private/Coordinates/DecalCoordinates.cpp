@@ -6,7 +6,6 @@
 #include "GDALInterface/GDALInterface.h"
 
 
-#include "Engine/DecalActor.h"
 #include "Components/DecalComponent.h"
 #include "Misc/Paths.h"
 #include "Misc/FileHelper.h"
@@ -53,7 +52,7 @@ void UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 
 	FString ReprojectedImage = FPaths::Combine(FPaths::ProjectSavedDir(), "temp.tif");
 	
-	if (!GDALInterface::Warp(PathToGeoreferencedImage, ReprojectedImage, "", GlobalCoordinates->CRS, 0)) return;
+	if (!GDALInterface::Warp(PathToGeoreferencedImage, ReprojectedImage, "", GlobalCoordinates->CRS, true, 0)) return;
 
 	FVector4d Coordinates;
 	if (!GDALInterface::GetCoordinates(Coordinates, { ReprojectedImage })) return;
@@ -88,7 +87,7 @@ void UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 	DecalActor->SetActorLocation(FVector(X, Y, Z));
 
 
-	UMaterial *M_GeoDecal = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, *FString("/Script/Engine.Material'/LandscapeCombinator/Project/M_GeoDecal.M_GeoDecal'")));
+	UMaterial *M_GeoDecal = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, *FString("/Script/Engine.Material'/LandscapeCombinator/Materials/M_GeoDecal.M_GeoDecal'")));
 	if (!M_GeoDecal)
 	{
 		FMessageDialog::Open(EAppMsgType::Ok,
@@ -177,13 +176,13 @@ void UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 	MI_GeoDecal_Package->MarkPackageDirty();
 }
 
-void UDecalCoordinates::CreateDecal(UWorld* World, FString Path)
+ADecalActor* UDecalCoordinates::CreateDecal(UWorld* World, FString Path)
 {
 	FVector4d UnusedCoordinates;
-	CreateDecal(World, Path, UnusedCoordinates);
+	return CreateDecal(World, Path, UnusedCoordinates);
 }
 
-void UDecalCoordinates::CreateDecal(UWorld *World, FString Path, FVector4d &OutCoordinates)
+ADecalActor* UDecalCoordinates::CreateDecal(UWorld *World, FString Path, FVector4d &OutCoordinates)
 {
 	ADecalActor* DecalActor = World->SpawnActor<ADecalActor>();
 	if (!DecalActor)
@@ -191,7 +190,7 @@ void UDecalCoordinates::CreateDecal(UWorld *World, FString Path, FVector4d &OutC
 		FMessageDialog::Open(EAppMsgType::Ok,
 			LOCTEXT("UDecalCoordinates::CreateDecal", "Coordinates Internal Error: Could not spawn a Decal Actor.")
 		);
-		return;
+		return nullptr;
 	}
 	FString BaseName = FPaths::GetBaseFilename(Path);
 	DecalActor->SetActorLabel(FString("Decal_") + BaseName);
@@ -204,6 +203,8 @@ void UDecalCoordinates::CreateDecal(UWorld *World, FString Path, FVector4d &OutC
 	DecalCoordinates->PathToGeoreferencedImage = Path;
 
 	DecalCoordinates->PlaceDecal(OutCoordinates);
+
+	return DecalActor;
 }
 
 #undef LOCTEXT_NAMESPACE

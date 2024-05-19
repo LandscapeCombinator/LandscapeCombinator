@@ -18,6 +18,12 @@ public:
 	UBlendLandscape();
 	
 	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Meta",
+		meta = (DisplayPriority = "0")
+	)
+	bool bSilentMode = false;
+	
+	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "BlendLandscape",
 		meta = (DisplayPriority = "19")
 	)

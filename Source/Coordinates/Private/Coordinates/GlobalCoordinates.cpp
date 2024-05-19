@@ -35,6 +35,22 @@ bool UGlobalCoordinates::GetUnrealCoordinatesFromCRS(double Longitude, double La
 	return true;
 }
 
+bool UGlobalCoordinates::GetUnrealCoordinatesFromCRS(double Longitude, double Latitude, OGRCoordinateTransformation *CoordinateTransformation, FVector2D &XY)
+{
+	double ConvertedLongitude = Longitude;
+	double ConvertedLatitude = Latitude;
+
+	if (!GDALInterface::Transform(CoordinateTransformation, &ConvertedLongitude, &ConvertedLatitude))
+	{
+		return false;
+	}
+
+	XY[0] = (ConvertedLongitude - WorldOriginLong) * CmPerLongUnit;
+	XY[1] = (ConvertedLatitude - WorldOriginLat) * CmPerLatUnit;
+
+	return true;
+}
+
 
 void UGlobalCoordinates::GetCRSCoordinatesFromUnrealLocation(FVector2D Location, FVector2D& OutCoordinates)
 {
@@ -50,7 +66,17 @@ bool UGlobalCoordinates::GetCRSCoordinatesFromUnrealLocation(FVector2D Location,
 	OutCoordinates[1] = Location.Y / CmPerLatUnit + WorldOriginLat;
 	
 	// convert to ToCRS
-	return GDALInterface::ConvertCoordinates(&OutCoordinates[0], &OutCoordinates[1], ToCRS, CRS);
+	return GDALInterface::ConvertCoordinates(&OutCoordinates[0], &OutCoordinates[1], CRS, ToCRS);
+}
+
+bool UGlobalCoordinates::GetCRSCoordinatesFromUnrealLocation(FVector2D Location, OGRCoordinateTransformation *CoordinateTransformation, FVector2D& OutCoordinates)
+{
+	// in Global CRS
+	OutCoordinates[0] = Location.X / CmPerLongUnit + WorldOriginLong;
+	OutCoordinates[1] = Location.Y / CmPerLatUnit + WorldOriginLat;
+	
+	// convert to ToCRS
+	return GDALInterface::Transform(CoordinateTransformation, &OutCoordinates[0], &OutCoordinates[1]);
 }
 
 void UGlobalCoordinates::GetCRSCoordinatesFromUnrealLocations(FVector4d Locations, FVector4d& OutCoordinates)

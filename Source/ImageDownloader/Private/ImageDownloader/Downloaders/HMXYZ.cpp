@@ -62,7 +62,7 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 
 	int NumTiles = (MaxX - MinX + 1) * (MaxY - MinY + 1);
 
-	if (NumTiles > 16)
+	if (!bSilentMode && NumTiles > 16)
 	{
 		EAppReturnType::Type UserResponse = FMessageDialog::Open(EAppMsgType::OkCancel,
 			FText::Format(

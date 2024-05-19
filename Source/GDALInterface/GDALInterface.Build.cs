@@ -63,6 +63,10 @@ public class GDALInterface : ModuleRules
 				"InputCore",
 				"CoreUObject",
 				"Engine",
+                "HTTP",
+
+				// Other Dependencies
+				"FileDownloader",
 			}
 		);
 	}

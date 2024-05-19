@@ -7,5 +7,17 @@
 
 class FLandscapeCombinatorModule : public IModuleInterface
 {
-    void StartupModule() override;
+public:
+	virtual void StartupModule() override;
+	virtual void ShutdownModule() override;
+	
+
+	void PluginButtonClicked();
+	
+private:
+	//TSharedRef<class SDockTab> OnSpawnPluginTab(const class FSpawnTabArgs& SpawnTabArgs);
+
+	void RegisterMenus();
+    
+	TSharedPtr<class FUICommandList> PluginCommands;
 };
