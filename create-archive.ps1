@@ -109,13 +109,11 @@ function New-Archive {
     }
 
 
-    # Remove LandscapeCombinatorMap from Content folder for all plugins except LandscapeCombinator
+    # Remove Landscape Combinator UI from Content folder for all plugins except LandscapeCombinator
 
     if ($Plugin -ne "LandscapeCombinator")
     {
-        Remove-Item -Recurse -Force "$TempFolder/Content/__ExternalActors__"
-        Remove-Item -Recurse -Force "$TempFolder/Content/__ExternalObjects__"
-        Remove-Item -Force "$TempFolder/Content/LandscapeCombinatorMap.umap"
+        Remove-Item -Recurse -Force "$TempFolder/Content/UI"
     }
 
     if ($UEFolder)
@@ -126,6 +124,7 @@ function New-Archive {
         Write-Output "UPlugin Path: $UPluginPath"
         Write-Output "Package Path: $PackagePath"
         & "${UEFolder}Engine\Build\BatchFiles\RunUAT.bat" BuildPlugin -TargetPlatforms=Win64+Linux -Plugin="$UPluginPath" -Package="$PackagePath" -Rocket
+        Start-Sleep -Seconds 2
         Remove-Item -Force -Recurse "Package_$Plugin"
     }
 

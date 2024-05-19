@@ -39,7 +39,7 @@ void HMReproject::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<
 	FScopedSlowTask *ReprojectTask = new FScopedSlowTask(1, LOCTEXT("WarpTask", "GDAL Interface: Reprojecting File"));
 	ReprojectTask->MakeDialog();
 
-	bool bWarpSuccess = GDALInterface::Warp(InputFiles, ReprojectedFile, InputCRS, OutputCRS, 0);
+	bool bWarpSuccess = GDALInterface::Warp(InputFiles, ReprojectedFile, InputCRS, OutputCRS, true, 0);
 	ReprojectTask->Destroy();
 	if (bWarpSuccess)
 	{	

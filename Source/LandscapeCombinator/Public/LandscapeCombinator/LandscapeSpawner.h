@@ -7,8 +7,10 @@
 
 #include "ConsoleHelpers/ExternalTool.h"
 
+#include "GenericPlatform/GenericPlatformMisc.h"
 #include "CoreMinimal.h"
 #include "Landscape.h"
+#include "Engine/DecalActor.h"
 
 #include "LandscapeSpawner.generated.h"
 
@@ -43,6 +45,14 @@ enum class EComponentsMethod : uint8
 	Preset_127_127_2,
 };
 
+UENUM(BlueprintType)
+enum class EDecalCreation : uint8
+{
+	None,
+	Mapbox,
+	MapTiler UMETA(DisplayName = "MapTiler"),
+};
+
 UCLASS(BlueprintType)
 class LANDSCAPECOMBINATOR_API ALandscapeSpawner : public AActor
 {
@@ -53,30 +63,49 @@ public:
 
 	/********************
 	 * General Settings *
-	 ********************/	
+	 ********************/
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|General",
-		meta = (DisplayPriority = "0")
+		EditAnywhere, BlueprintReadWrite, Category = "Meta",
+		meta = (DisplayPriority = "-1")
+	)
+	bool bSilentMode = false;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "General",
+		meta = (DisplayPriority = "-1")
 	)
 	/* Label of the landscape to create. */
 	FString LandscapeLabel = "SpawnedLandscape";
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|General",
+		EditAnywhere, BlueprintReadWrite, Category = "General",
+		meta = (DisplayPriority = "0")
+	)
+	/* Tag to add on the spawned landscape. */
+	FName LandscapeTag = "lc";
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "General",
+		meta = (DisplayPriority = "1")
+	)
+	/* Material to apply to the landscape */
+	TObjectPtr<UMaterialInterface> LandscapeMaterial = nullptr;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "General",
 		meta = (DisplayPriority = "2")
 	)
 	/* The scale in the Z-axis of your heightmap, ZScale = 1 corresponds to real-world size. */
 	double ZScale = 1;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|General",
+		EditAnywhere, BlueprintReadWrite, Category = "General",
 		meta = (DisplayPriority = "3")
 	)
 	/* If you are using World Partition, check this option if you want to create landscape streaming proxies. */
 	/* This is useful if you have a large landscape, but it might slow things down for small landscapes. */
 	bool bCreateLandscapeStreamingProxies = false;
-	
 	
 
 	/**********
@@ -84,36 +113,46 @@ public:
 	 **********/
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Decals",
-		meta = (DisplayPriority = "0")
+		EditAnywhere, BlueprintReadWrite, Category = "Decals",
+		meta = (DisplayPriority = "-1")
 	)
-	/* Automatically create decals that cover the landscape from Mapbox Satellite imagery. */
-	bool bCreateMapboxDecals = false;
+	EDecalCreation DecalCreation = EDecalCreation::None;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Decals",
-		meta = (EditCondition = "bCreateMapboxDecals && !IsMapbox()", EditConditionHides, DisplayPriority = "1")
+		EditAnywhere, BlueprintReadWrite, Category = "Decals",
+		meta = (EditCondition = "DecalCreation != EDecalCreation::None", EditConditionHides, DisplayPriority = "0")
+	)
+	int DecalSortOrder = 0;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Decals",
+		meta = (EditCondition = "DecalCreation == EDecalCreation::Mapbox && !HasMapboxToken()", EditConditionHides, DisplayPriority = "1")
 	)
 	FString Decals_Mapbox_Token = "";
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Decals",
-		meta = (EditCondition = "bCreateMapboxDecals", EditConditionHides, DisplayPriority = "2")
+		EditAnywhere, BlueprintReadWrite, Category = "Decals",
+		meta = (EditCondition = "DecalCreation == EDecalCreation::Mapbox", EditConditionHides, DisplayPriority = "2")
 	)
 	int Decals_Mapbox_Zoom = 9;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Decals",
-		meta = (EditCondition = "bCreateMapboxDecals", EditConditionHides, DisplayPriority = "3")
+		EditAnywhere, BlueprintReadWrite, Category = "Decals",
+		meta = (EditCondition = "DecalCreation == EDecalCreation::Mapbox", EditConditionHides, DisplayPriority = "3")
 	)
-	bool Decals_Mapbox_2x;
+	bool Decals_Mapbox_2x = false;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Decals",
-		meta = (DisplayPriority = "10")
+		EditAnywhere, BlueprintReadWrite, Category = "Decals",
+		meta = (EditCondition = "DecalCreation == EDecalCreation::MapTiler && !HasMapTilerToken()", EditConditionHides, DisplayPriority = "1")
 	)
-	/* Automatically create decals that cover the landscape from the custom Texture Downloader settings. */
-	bool bCreateCustomDecals = false;
+	FString Decals_MapTiler_Token = "";
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Decals",
+		meta = (EditCondition = "DecalCreation == EDecalCreation::MapTiler", EditConditionHides, DisplayPriority = "2")
+	)
+	int Decals_MapTiler_Zoom = 9;
 	
 	
 
@@ -122,13 +161,13 @@ public:
 	 ********************/	
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|ComponentCount",
+		EditAnywhere, BlueprintReadWrite, Category = "ComponentCount",
 		meta = (DisplayPriority = "3")
 	)
 	EComponentsMethod ComponentsMethod = EComponentsMethod::AutoWithoutBorder;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|ComponentCount",
+		EditAnywhere, BlueprintReadWrite, Category = "ComponentCount",
 		meta = (
 			EditCondition = "ComponentsMethod != EComponentsMethod::Auto && ComponentsMethod != EComponentsMethod::AutoWithoutBorder",
 			EditConditionHides, DisplayPriority = "4"
@@ -137,7 +176,7 @@ public:
 	int QuadsPerSubsection;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|ComponentCount",
+		EditAnywhere, BlueprintReadWrite, Category = "ComponentCount",
 		meta = (
 			EditCondition = "ComponentsMethod != EComponentsMethod::Auto && ComponentsMethod != EComponentsMethod::AutoWithoutBorder",
 			EditConditionHides, DisplayPriority = "5"
@@ -146,7 +185,7 @@ public:
 	int SectionsPerComponent;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|ComponentCount",
+		EditAnywhere, BlueprintReadWrite, Category = "ComponentCount",
 		meta = (
 			EditCondition = "ComponentsMethod != EComponentsMethod::Auto && ComponentsMethod != EComponentsMethod::AutoWithoutBorder",
 			EditConditionHides, DisplayPriority = "6"
@@ -155,19 +194,13 @@ public:
 	FIntPoint ComponentCount;
 	
 	UPROPERTY(
-		VisibleAnywhere, Category = "LandscapeSpawner",
+		VisibleAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner",
 		meta = (DisplayPriority = "10", ShowOnlyInnerProperties)
 	)
-	TObjectPtr<UImageDownloader> HeightmapDownloader;
+	TObjectPtr<UImageDownloader> HeightmapDownloader = nullptr;
 	
-	UPROPERTY(
-		VisibleAnywhere, Category = "LandscapeSpawner",
-		meta = (EditCondition = "bCreateCustomDecals", EditConditionHides, DisplayPriority = "11", ShowOnlyInnerProperties)
-	)
-	TObjectPtr<UImageDownloader> TextureDownloader;
-	
-	UPROPERTY()
-	TObjectPtr<UImageDownloader> MapboxSatelliteDownloader;
+	UPROPERTY(BlueprintReadWrite, Category = "LandscapeSpawner")
+	TObjectPtr<UImageDownloader> DecalDownloader = nullptr;
 
 	
 	/***********
@@ -176,9 +209,17 @@ public:
 	
 	/* Spawn the Landscape. */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeSpawner",
-		meta = (DisplayPriority = "1")
+		meta = (DisplayPriority = "0")
 	)
 	void SpawnLandscape();
+	
+	/* Delete the previously spawned landscape. */
+	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeSpawner",
+		meta = (DisplayPriority = "1")
+	)
+	void DeleteLandscape();
+
+	void SpawnLandscape(TFunction<void(ALandscape*)> OnComplete);
 
 	/* This deletes all the images, included downloaded files. */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeSpawner",
@@ -229,8 +270,20 @@ public:
 	void SetComponentCountFromMethod();
 
 	void PostEditChangeProperty(struct FPropertyChangedEvent&);
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, DuplicateTransient, Category = "LandscapeSpawner",
+		meta = (EditCondition = "false", EditConditionHides)
+	)
+	TWeakObjectPtr<ALandscape> SpawnedLandscape = nullptr;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, DuplicateTransient, Category = "LandscapeSpawner",
+		meta = (EditCondition = "false", EditConditionHides)
+	)
+	TWeakObjectPtr<ADecalActor> DecalActor = nullptr;
 
-private:
+protected:
 
 	UFUNCTION()
 	bool IsWMS()
@@ -243,6 +296,12 @@ private:
 	{
 		return HeightmapDownloader && HeightmapDownloader->IsMapbox();
 	}
+
+	UFUNCTION()
+	static bool HasMapboxToken();
+
+	UFUNCTION()
+	static bool HasMapTilerToken();
 };
 
 #undef LOCTEXT_NAMESPACE

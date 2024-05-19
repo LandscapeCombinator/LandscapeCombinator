@@ -66,7 +66,7 @@ void HMWriteCRS::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<v
 			"0", FString::FromInt(Height-1),
 			FString::SanitizeFloat(MinLong), FString::SanitizeFloat(MinLat),
 		}) &&
-		GDALInterface::Warp(TempFile, OutputFile, "", InputCRS, 0);
+		GDALInterface::Warp(TempFile, OutputFile, "", InputCRS, false, 0);
 
 	if (OnComplete) OnComplete(bSuccess);
 	return;

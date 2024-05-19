@@ -3,6 +3,13 @@
 #include "GDALInterface/GDALInterface.h"
 #include "GDALInterface/LogGDALInterface.h"
 
+#include "FileDownloader/Download.h"
+
+#include "Async/Async.h"
+#include "Async/TaskGraphInterfaces.h"
+#include "Internationalization/Regex.h"
+#include "Internationalization/TextLocalizationResource.h" 
+#include "GenericPlatform/GenericPlatformHttp.h"
 #include "Misc/Paths.h"
 #include "Misc/ScopedSlowTask.h"
 #include "Misc/MessageDialog.h"
@@ -149,18 +156,21 @@ bool GDALInterface::SetCRSFromEPSG(OGRSpatialReference& InRs, int EPSG)
 	return true;
 }
 
-bool GDALInterface::SetCRSFromUserInput(OGRSpatialReference& InRs, FString CRS)
+bool GDALInterface::SetCRSFromUserInput(OGRSpatialReference& InRs, FString CRS, bool bDialog)
 {
 	OGRErr Err = InRs.SetFromUserInput(TCHAR_TO_ANSI(*CRS));
 	if (Err != OGRERR_NONE)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
-			FText::Format(
-				LOCTEXT("StartupModuleError1", "Could not create spatial reference from user input '{0}' (Error {1})."),
-				FText::FromString(CRS),
-				FText::AsNumber(Err, &FNumberFormattingOptions::DefaultNoGrouping())
-			)
-		);
+		if (bDialog)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok,
+				FText::Format(
+					LOCTEXT("StartupModuleError1", "Could not create spatial reference from user input '{0}' (Error {1})."),
+					FText::FromString(CRS),
+					FText::AsNumber(Err, &FNumberFormattingOptions::DefaultNoGrouping())
+				)
+			);
+		}
 		return false;
 	}
 	InRs.SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
@@ -278,11 +288,19 @@ OGRCoordinateTransformation *GDALInterface::MakeTransform(FString InCRS, FString
 
 bool GDALInterface::Transform(OGRCoordinateTransformation* CoordinateTransformation, double *Longitude, double *Latitude)
 {
-	if (!CoordinateTransformation || !CoordinateTransformation->Transform(1, Longitude, Latitude))
+	if (!CoordinateTransformation)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("GDALInterface::Transform", "Invalid Coordinate Transformation"));
+		return false;
+	}
+		
+	if (!CoordinateTransformation->Transform(1, Longitude, Latitude))
 	{
 		FMessageDialog::Open(EAppMsgType::Ok,
 			FText::Format(
-				LOCTEXT("GDALInterface::Transform", "Internal error while transforming coordinates.\n{0}"),
+				LOCTEXT("GDALInterface::Transform", "Internal error while transforming coordinates ({0}, {1}).\n{2}"),
+				FText::AsNumber(*Longitude),
+				FText::AsNumber(*Latitude),
 				FText::FromString(FString(CPLGetLastErrorMsg()))
 			)
 		);
@@ -316,8 +334,13 @@ bool GDALInterface::ConvertCoordinates2(double *xs, double *ys, FString InCRS, F
 	return Transform2(MakeTransform(InCRS, OutCRS), xs, ys);
 }
 
+bool GDALInterface::ConvertCoordinates(FVector4d& OriginalCoordinates, bool bCrop, FVector4d& NewCoordinates, FString InCRS, FString OutCRS)
+{
+	OGRSpatialReference InRs, OutRs;
+	if (!SetCRSFromUserInput(InRs, InCRS) || !SetCRSFromUserInput(OutRs, OutCRS)) return false;
 
-	static bool ConvertCoordinates2(double *xs, double *ys, FString InCRS, FString OutCRS);
+	return ConvertCoordinates(OriginalCoordinates, bCrop, NewCoordinates, InRs, OutRs);
+}
 
 bool GDALInterface::ConvertCoordinates(FVector4d& OriginalCoordinates, FVector4d& Coordinates, FString InCRS, FString OutCRS)
 {
@@ -343,7 +366,7 @@ bool GDALInterface::ConvertCoordinates(FVector4d& OriginalCoordinates, FVector4d
 	return true;
 }
 
-bool GDALInterface::ConvertCoordinates(FVector4d& OriginalCoordinates, bool bCrop, FVector4d& NewCoordinates, FString InCRS, FString OutCRS)
+bool GDALInterface::ConvertCoordinates(FVector4d& OriginalCoordinates, bool bCrop, FVector4d& NewCoordinates, OGRSpatialReference InRs, OGRSpatialReference OutRs)
 {
 	double MinCoordWidth = OriginalCoordinates[0];
 	double MaxCoordWidth = OriginalCoordinates[1];
@@ -353,14 +376,9 @@ bool GDALInterface::ConvertCoordinates(FVector4d& OriginalCoordinates, bool bCro
 	double xs[4] = { MinCoordWidth,  MinCoordWidth,  MaxCoordWidth,  MaxCoordWidth };
 	double ys[4] = { MinCoordHeight, MaxCoordHeight, MaxCoordHeight, MinCoordHeight };
 
-	OGRSpatialReference InRs, OutRs;
-	if (!SetCRSFromUserInput(InRs, InCRS) || !SetCRSFromUserInput(OutRs, OutCRS) || !OGRCreateCoordinateTransformation(&InRs, &OutRs)->Transform(4, xs, ys))
+	if (!OGRCreateCoordinateTransformation(&InRs, &OutRs)->Transform(4, xs, ys))
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("GDALInterface::ConvertCoordinates", "Internal error while transforming coordinates between {0} and {1}."),
-			FText::FromString(InCRS),
-			FText::FromString(OutCRS)
-		));
+		FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("GDALInterface::ConvertCoordinates", "Internal error while transforming coordinates."));
 		return false;
 	}
 
@@ -717,15 +735,15 @@ bool GDALInterface::ReadColorsFromFile(FString File, int &OutWidth, int &OutHeig
 	return true;
 }
 
-bool GDALInterface::Warp(TArray<FString> SourceFiles, FString TargetFile, FString InCRS, FString OutCRS, int NoData)
+bool GDALInterface::Warp(TArray<FString> SourceFiles, FString TargetFile, FString InCRS, FString OutCRS, bool bCrop, int NoData)
 {
 	check(SourceFiles.Num() > 0);
 
-	if (SourceFiles.Num() == 1) return Warp(SourceFiles[0], TargetFile, InCRS, OutCRS, NoData);
+	if (SourceFiles.Num() == 1) return Warp(SourceFiles[0], TargetFile, InCRS, OutCRS, bCrop, NoData);
 	else
 	{
 		FString MergedFile = FPaths::Combine(FPaths::GetPath(TargetFile), FPaths::GetBaseFilename(TargetFile) + ".vrt");
-		return Merge(SourceFiles, MergedFile) && Warp(MergedFile, TargetFile, InCRS, OutCRS, NoData);
+		return Merge(SourceFiles, MergedFile) && Warp(MergedFile, TargetFile, InCRS, OutCRS, bCrop, NoData);
 	}
 }
 
@@ -798,7 +816,7 @@ bool GDALInterface::Warp(FString SourceFile, FString TargetFile, TArray<FString>
 	return true;
 }
 
-bool GDALInterface::Warp(FString SourceFile, FString TargetFile, FString InCRS, FString OutCRS, int NoData)
+bool GDALInterface::Warp(FString SourceFile, FString TargetFile, FString InCRS, FString OutCRS, bool bCrop, int NoData)
 {
 	TArray<FString> Args;
 	Args.Add("-r");
@@ -812,6 +830,25 @@ bool GDALInterface::Warp(FString SourceFile, FString TargetFile, FString InCRS, 
 	Args.Add(TCHAR_TO_UTF8(*OutCRS));
 	Args.Add("-dstnodata");
 	Args.Add(TCHAR_TO_UTF8(*FString::SanitizeFloat(NoData)));
+
+	if (bCrop)
+	{
+		FVector4d Coordinates;
+		FVector4d ConvertedCoordinates;
+		if (!GDALInterface::GetCoordinates(Coordinates, { SourceFile })) return false;
+
+		OGRSpatialReference InRs, OutRs;
+
+		if (!SetCRSFromUserInput(OutRs, OutCRS)) return false;
+		if (!SetCRSFromUserInput(InRs, InCRS, false) && !SetCRSFromFile(InRs, SourceFile, true)) return false;
+		if (!GDALInterface::ConvertCoordinates(Coordinates, true, ConvertedCoordinates, InRs, OutRs)) return false;
+
+		Args.Add("-te");
+		Args.Add(TCHAR_TO_UTF8(*FString::SanitizeFloat(FMath::Min(ConvertedCoordinates[0], ConvertedCoordinates[1]))));
+		Args.Add(TCHAR_TO_UTF8(*FString::SanitizeFloat(FMath::Min(ConvertedCoordinates[2], ConvertedCoordinates[3]))));
+		Args.Add(TCHAR_TO_UTF8(*FString::SanitizeFloat(FMath::Max(ConvertedCoordinates[0], ConvertedCoordinates[1]))));
+		Args.Add(TCHAR_TO_UTF8(*FString::SanitizeFloat(FMath::Max(ConvertedCoordinates[2], ConvertedCoordinates[3]))));
+	}
 
 	return Warp(SourceFile, TargetFile, Args);
 }
@@ -946,5 +983,53 @@ TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset)
 	return PointLists;
 }
 
+GDALDataset* GDALInterface::LoadGDALVectorDatasetFromFile(FString File)
+{
+	GDALDataset* Dataset = (GDALDataset*) GDALOpenEx(TCHAR_TO_UTF8(*File), GDAL_OF_VECTOR, NULL, NULL, NULL);
+
+	if (!Dataset)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			FText::Format(
+				LOCTEXT("FileNotFound", "Could not load vector file '{0}'.\n{1}"),
+				FText::FromString(File),
+				FText::FromString(FString(CPLGetLastErrorMsg()))
+			)
+		);
+	}
+
+	return Dataset;
+}
+
+void GDALInterface::LoadGDALVectorDatasetFromQuery(FString Query, TFunction<void(GDALDataset*)> OnComplete)
+{
+	UE_LOG(LogGDALInterface, Log, TEXT("Adding splines with Overpass query: '%s'"), *Query);
+	UE_LOG(LogGDALInterface, Log, TEXT("Decoded URL: '%s'"), *(FGenericPlatformHttp::UrlDecode(Query)));
+	FString IntermediateDir = FPaths::ConvertRelativePathToFull(FPaths::EngineIntermediateDir());
+	FString LandscapeCombinatorDir = FPaths::Combine(IntermediateDir, "LandscapeCombinator");
+	FString DownloadDir = FPaths::Combine(LandscapeCombinatorDir, "Download");
+	uint32 Hash = FTextLocalizationResource::HashString(Query);
+	FString XmlFilePath = FPaths::Combine(DownloadDir, FString::Format(TEXT("overpass_query_{0}.xml"), { Hash }));
+
+	Download::FromURL(Query, XmlFilePath, true,
+		[Query, XmlFilePath, OnComplete](bool bWasSuccessful) {
+			if (bWasSuccessful && OnComplete)
+			{
+				// working on splines only works in GameThread
+				AsyncTask(ENamedThreads::GameThread, [Query, XmlFilePath, OnComplete]() {
+					OnComplete(LoadGDALVectorDatasetFromFile(XmlFilePath));
+				});
+			}
+			else
+			{
+				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+					LOCTEXT("GetSpatialReferenceError", "Unable to get the result for the Overpass query: {0}."),
+					FText::FromString(Query)
+				));
+			}
+			return;
+		}
+	);
+}
 
 #undef LOCTEXT_NAMESPACE

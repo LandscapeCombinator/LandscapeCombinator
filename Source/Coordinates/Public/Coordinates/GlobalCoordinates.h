@@ -59,7 +59,9 @@ public:
 	OGRCoordinateTransformation *GetCRSTransformer(FString FromCRS);
 	void GetCRSCoordinatesFromUnrealLocation(FVector2D Location, FVector2D& OutCoordinates);
 	void GetUnrealCoordinatesFromCRS(double Longitude, double Latitude, FVector2D &XY);
+	bool GetUnrealCoordinatesFromCRS(double Longitude, double Latitude, OGRCoordinateTransformation *CoordinateTransformation, FVector2D &XY);
 	bool GetCRSCoordinatesFromUnrealLocation(FVector2D Location, FString ToCRS, FVector2D& OutCoordinates);
+	bool GetCRSCoordinatesFromUnrealLocation(FVector2D Location, OGRCoordinateTransformation *CoordinateTransformation, FVector2D& OutCoordinates);
 	void GetCRSCoordinatesFromUnrealLocations(FVector4d Locations, FVector4d& OutCoordinates);
 	bool GetCRSCoordinatesFromUnrealLocations(FVector4d Locations, FString ToCRS, FVector4d& OutCoordinates);
 	bool GetCRSCoordinatesFromFBox(FBox Box, FString ToCRS, FVector4d& OutCoordinates);

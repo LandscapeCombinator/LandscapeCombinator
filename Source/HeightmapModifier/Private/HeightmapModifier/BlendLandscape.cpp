@@ -27,7 +27,7 @@ UBlendLandscape::UBlendLandscape()
 		ZeroKey.LeaveTangent = FLT_MAX;
 		ZeroKey.LeaveTangentWeight = 1;
 
-		OneKey.Time = 1;
+		OneKey.Time = 0.1;
 		OneKey.Value = 1;
 		OneKey.InterpMode = ERichCurveInterpMode::RCIM_Cubic;
 		OneKey.TangentMode = ERichCurveTangentMode::RCTM_User;
@@ -56,7 +56,7 @@ UBlendLandscape::UBlendLandscape()
 		OneKey.InterpMode = ERichCurveInterpMode::RCIM_Cubic;
 		OneKey.TangentMode = ERichCurveTangentMode::RCTM_User;
 		OneKey.TangentWeightMode = ERichCurveTangentWeightMode::RCTWM_WeightedBoth;
-		OneKey.ArriveTangent = -FLT_MAX;
+		OneKey.ArriveTangent = 0;
 		OneKey.ArriveTangentWeight = 1;
 	
 		FRichCurve *OtherCurve = new FRichCurve();
@@ -303,13 +303,17 @@ void UBlendLandscape::BlendWithLandscape()
 		UE_LOG(LogHeightmapModifier, Log, TEXT("Finished blending with Landscape %s (MinX: %d, MaxX: %d, MinY: %d, MaxY: %d)"),
 			*LandscapeToBlendWith->GetActorLabel(), OtherX1, OtherX2, OtherY1, OtherY2
 		);
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT(
-				"UBlendLandscape::BlendWithLandscape::Finished",
-				"Finished blending with Landscape {0}."
-			),
-			FText::FromString(LandscapeToBlendWith->GetActorLabel())
-		));
+
+		if (!bSilentMode)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+				LOCTEXT(
+					"UBlendLandscape::BlendWithLandscape::Finished",
+					"Finished blending with Landscape {0}."
+				),
+				FText::FromString(LandscapeToBlendWith->GetActorLabel())
+			));
+		}
 		return;
 	}
 	else

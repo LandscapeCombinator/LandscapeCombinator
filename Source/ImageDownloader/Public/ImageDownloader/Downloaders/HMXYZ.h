@@ -10,8 +10,14 @@
 class HMXYZ: public HMFetcher
 {
 public:
-	HMXYZ(FString Name0, FString Layer0, FString Format0, FString URL0, int Zoom0, int MinX0, int MaxX0, int MinY0, int MaxY0, bool bMaxY_IsNorth0, bool bGeoreferenceSlippyTiles0, bool bDecodeMapbox0, FString CRS0)
+	HMXYZ(
+		bool bSilentMode0,
+		FString Name0, FString Layer0, FString Format0, FString URL0,
+		int Zoom0, int MinX0, int MaxX0, int MinY0, int MaxY0,
+		bool bMaxY_IsNorth0, bool bGeoreferenceSlippyTiles0, bool bDecodeMapbox0,
+		FString CRS0)
 	{
+		bSilentMode = bSilentMode0;
 		Name = Name0;
 		Layer = Layer0;
 		Format = Format0;
@@ -29,6 +35,7 @@ public:
 	void Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
 
 private:
+	bool bSilentMode;
 	FString Name;
 	FString Layer;
 	FString Format;
