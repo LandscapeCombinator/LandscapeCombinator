@@ -3,6 +3,7 @@
 #pragma once
 
 #include "LogSplineImporter.h"
+#include "SplineImporter/GDALImporter.h"
 #include "SplineImporter/SplineCollection.h"
 #include "Coordinates/LevelCoordinates.h"
 
@@ -19,19 +20,6 @@
 #define LOCTEXT_NAMESPACE "FSplineImporterModule"
 
 UENUM(BlueprintType)
-enum class ESplinesSource: uint8 {
-	OSM_Roads,
-	OSM_Rivers,
-	OSM_Buildings,
-	OSM_Forests,
-	OSM_Beaches,
-	OSM_Parks,
-	OverpassShortQuery,
-	OverpassQuery,
-	LocalFile
-};
-
-UENUM(BlueprintType)
 enum class ESplineOwnerKind : uint8
 {
 	SingleSplineCollection,
@@ -40,57 +28,17 @@ enum class ESplineOwnerKind : uint8
 };
 
 UCLASS()
-class SPLINEIMPORTER_API ASplineImporter : public AActor
+class SPLINEIMPORTER_API ASplineImporter : public AGDALImporter
 {
 	GENERATED_BODY()
 
 public:
-	ASplineImporter();
-
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
-		meta = (DisplayPriority = "-10")
-	)
-	ESplinesSource SplinesSource = ESplinesSource::OSM_Roads;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
-		meta = (EditCondition = "SplinesSource == ESplinesSource::LocalFile", EditConditionHides, DisplayPriority = "-1")
-	)
-	FString LocalFile;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
-		meta = (EditCondition = "SplinesSource == ESplinesSource::OverpassQuery", EditConditionHides, DisplayPriority = "-1")
-	)
-	FString OverpassQuery;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
-		meta = (EditCondition = "SplinesSource == ESplinesSource::OverpassShortQuery", EditConditionHides, DisplayPriority = "-1")
-	)
-	FString OverpassShortQuery;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Spline Importer",
-		meta = (EditCondition = "IsOverpassPreset()", EditConditionHides, DisplayPriority = "-1")
-	)
-	FString OverpassShortQueryPreset;
+	ASplineImporter() : AGDALImporter() {};
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
 		meta = (DisplayPriority = "0")
 	)
 	AActor *ActorOrLandscapeToPlaceSplines = nullptr;
-
-	/* Check this if you don't want to use import splines on the whole area of `ActorToPlaceSplines`.
-	 * Then, set the `BoundingActor` to a cube or another rectangular actor covering the area that you want. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
-		meta = (DisplayPriority = "1")
-	)
-	bool bRestrictArea = false;
-
-	/* Use a cube or another rectangular actor to specify the area on which you want to import splines.
-	 * Splines will be imported on `ActorToPlaceSplines`. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
-		meta = (EditCondition = "bRestrictArea", EditConditionHides, DisplayPriority = "2")
-	)
-	AActor *BoundingActor = nullptr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
 		meta = (DisplayPriority = "3")
@@ -112,12 +60,6 @@ public:
 	)
 	/* Whether to put the created spline components in a single Spline Collection actor, or use one Spline Collection per actor, or use a custom actor. */
 	ESplineOwnerKind SplineOwnerKind = ESplineOwnerKind::SingleSplineCollection;
-
-	/* Tag to apply to the Spline Owners which are created. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
-		meta = (EditCondition = "!bUseLandscapeSplines", EditConditionHides, DisplayPriority = "5")
-	)
-	FName SplineOwnerTag;
 
 	/* Tag to apply to the Spline Components which are created. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Importer",
@@ -144,34 +86,15 @@ public:
 	)
 	FVector SplinePointsOffset;
 
-	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Spline Importer",
-		meta = (DisplayPriority = "-2")
-	)
-	void GenerateSplines();	
+	void Import(TFunction<void(bool)> OnComplete) override;
 
-	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Spline Importer",
-		meta = (DisplayPriority = "-1")
-	)
-	void DeleteSplines();
+	void Clear() override;
 
-	void SetOverpassShortQuery();
+protected:
+	virtual void SetOverpassShortQuery() override;
 
-	UFUNCTION()
-	bool IsOverpassPreset();
-
-
-#if WITH_EDITOR
-	void PostEditChangeProperty(struct FPropertyChangedEvent&);
-#endif
-
-private:
 	UPROPERTY(DuplicateTransient)
 	TArray<AActor*> SplineOwners;
-
-	GDALDataset* LoadGDALDatasetFromFile(FString File);
-	void LoadGDALDataset(TFunction<void(GDALDataset*)> OnComplete);
-	void LoadGDALDatasetFromQuery(FString Query, TFunction<void(GDALDataset*)> OnComplete);
-	void LoadGDALDatasetFromShortQuery(FString ShortQuery, TFunction<void(GDALDataset*)> OnComplete);
 
 	void GenerateLandscapeSplines(
 		ALandscape *Landscape,

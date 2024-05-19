@@ -34,7 +34,7 @@ TArray<AActor*> ABuildingsFromSplines::FindActors()
 	TArray<AActor*> Actors;
 
 	if (ActorsTag.IsNone())
-	{
+	{	
 		UGameplayStatics::GetAllActorsOfClass(this->GetWorld(), AActor::StaticClass(), Actors);
 	}
 	else
@@ -75,7 +75,7 @@ TArray<USplineComponent*> ABuildingsFromSplines::FindSplineComponents()
 	if (Result.Num() == 0)
 	{
 		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("NoSplineComponentTagged", "Could not find spline components with the given tags.")
+			LOCTEXT("NoSplineComponentTagged", "BuildingsFromSplines: Could not find spline components with the given tags.")
 		);
 	}
 	

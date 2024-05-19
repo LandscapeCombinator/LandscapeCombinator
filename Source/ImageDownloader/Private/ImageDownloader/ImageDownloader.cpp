@@ -150,8 +150,7 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 
 		case EImageSourceKind::Napoli:
 		{
-			// ensure that the coordinates match the bounding actor, in case it has been moved since the last time when the coordinates were set
-			if (ParametersSelection == EParametersSelection::FromBoundingActor && !SetSourceParametersBool(true))
+			if (!SetSourceParametersBool(true))
 			{
 				return nullptr;
 			}
@@ -163,11 +162,12 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 		{
 			if (IsWMS())
 			{
-				// ensure that the coordinates match the bounding actor, in case it has been moved since the last time when the coordinates were set
-				if (ParametersSelection == EParametersSelection::FromBoundingActor && !SetSourceParametersBool(true))
+				if (!SetSourceParametersBool(true))
 				{
 					return nullptr;
 				}
+
+				AutoSetSize();
 
 				bool bGeoTiff;
 				FString QueryURL, FileExt;
@@ -199,8 +199,8 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 			}
 			else if (IsXYZ())
 			{
-				// ensure that the coordinates match the bounding actor, in case it has been moved since the last time when the coordinates were set
-				if (ParametersSelection == EParametersSelection::FromBoundingActor && !SetSourceParametersBool(true))
+
+				if (!SetSourceParametersBool(true))
 				{
 					return nullptr;
 				}
@@ -212,19 +212,22 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 
 				if (IsMapbox())
 				{
-					FMessageDialog::Open(EAppMsgType::Ok,
-						LOCTEXT(
-							"UImageDownloader::CreateInitialFetcher::MapboxWarning",
-							"Please check your Mapbox account to make sure you remain within the free tier.\nRequests can be expensive once you go beyond the free tier.\n"
-							"The 2x option counts for more API requests than usual, maybe 2x."
-						)
-					);
+					if (!bSilentMode)
+					{
+						FMessageDialog::Open(EAppMsgType::Ok,
+							LOCTEXT(
+								"UImageDownloader::CreateInitialFetcher::MapboxWarning",
+								"Please check your Mapbox account to make sure you remain within the free tier.\nRequests can be expensive once you go beyond the free tier.\n"
+								"The 2x option counts for more API requests than usual."
+							)
+						);
+					}
 
 					FString MapboxToken2 = GetMapboxToken();
 					if (MapboxToken2.IsEmpty())
 					{
 						FMessageDialog::Open(EAppMsgType::Ok,
-							LOCTEXT("MapboxTokenMissing", "Please add a Mapbox Token (can be obtained from a free Mapbox account) in your Project Settings or in the Details Panel.")
+							LOCTEXT("MapboxTokenMissing", "Please add a Mapbox Token (can be obtained from a free Mapbox account) in your Editor Preferences or in the Details Panel.")
 						); 
 						return nullptr;
 					}
@@ -266,6 +269,50 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 						return nullptr;
 					}
 				}
+				else if (IsMapTiler())
+				{
+					if (!bSilentMode)
+					{
+						FMessageDialog::Open(EAppMsgType::Ok,
+							LOCTEXT(
+								"UImageDownloader::CreateInitialFetcher::MapTilerWarning",
+								"Please check your MapTiler account to make sure you remain within the free tier.\nRequests can be expensive once you go beyond the free tier."
+							)
+						);
+					}
+
+					FString MapTilerToken2 = GetMapTilerToken();
+					if (MapTilerToken2.IsEmpty())
+					{
+						FMessageDialog::Open(EAppMsgType::Ok,
+							LOCTEXT("MapTilerTokenMissing", "Please add a MapTiler Token (can be obtained from a free MapTiler account) in your Editor Preferences or in the Details Panel.")
+						); 
+						return nullptr;
+					}
+
+					if (ImageSourceKind == EImageSourceKind::MapTiler_Heightmaps)
+					{
+						Layer = "MapTilerTerrainRGB";
+						Format = "webp";
+						URL2 = FString("https://api.maptiler.com/tiles/terrain-rgb-v2/{z}/{x}/{y}.webp?key=") + MapTilerToken2;
+
+						bGeoreferenceSlippyTiles2 = true;
+						bMaxY_IsNorth2 = false;
+					}
+					else if (ImageSourceKind == EImageSourceKind::MapTiler_Satellite)
+					{
+						Layer = "MapTilerSatellite";
+						Format = "jpg";
+						URL2 = FString("https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=") + MapTilerToken2;
+
+						bGeoreferenceSlippyTiles2 = true;
+						bMaxY_IsNorth2 = false;
+					}
+					else
+					{
+						return nullptr;
+					}
+				}
 				else
 				{
 					Layer = XYZ_Name;
@@ -278,8 +325,9 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 				HMFetcher *Result = new HMDebugFetcher(
 					"XYZ_Download",
 					new HMXYZ(
+						bSilentMode,
 						Name, Layer, Format, URL2, XYZ_Zoom, XYZ_MinX, XYZ_MaxX, XYZ_MinY, XYZ_MaxY,
-						bMaxY_IsNorth2, bGeoreferenceSlippyTiles2, ImageSourceKind == EImageSourceKind::Mapbox_Heightmaps,
+						bMaxY_IsNorth2, bGeoreferenceSlippyTiles2, ImageSourceKind == EImageSourceKind::MapTiler_Heightmaps || ImageSourceKind == EImageSourceKind::Mapbox_Heightmaps,
 						XYZ_CRS
 					),
 					true
@@ -349,7 +397,7 @@ HMFetcher* UImageDownloader::CreateFetcher(FString Name, bool bEnsureOneBand, bo
 		FVector4d Coordinates(0, 0, 0, 0);
 		if (bCropCoordinates)
 		{
-			if (!CroppingActor)
+			if (!IsValid(CroppingActor))
 			{
 				FMessageDialog::Open(EAppMsgType::Ok,
 					LOCTEXT("UImageDownloader::CreateFetcher::NoActor", "Please select a Cropping Actor if you want to crop the output image.")
@@ -389,9 +437,27 @@ HMFetcher* UImageDownloader::CreateFetcher(FString Name, bool bEnsureOneBand, bo
 	return Result;
 }
 
+bool UImageDownloader::HasMapTilerToken()
+{
+	return !GetDefault<UImageDownloaderSettings>()->MapTiler_Token.IsEmpty();
+}
+
 bool UImageDownloader::HasMapboxToken()
 {
 	return !GetDefault<UImageDownloaderSettings>()->Mapbox_Token.IsEmpty();
+}
+
+FString UImageDownloader::GetMapTilerToken()
+{
+	FString ProjectSettingsMapTilerToken = GetDefault<UImageDownloaderSettings>()->MapTiler_Token;
+	if (!ProjectSettingsMapTilerToken.IsEmpty())
+	{
+		return ProjectSettingsMapTilerToken;
+	}
+	else
+	{
+		return MapTiler_Token;
+	}
 }
 
 FString UImageDownloader::GetMapboxToken()
@@ -484,8 +550,6 @@ void UImageDownloader::DeleteAllProcessedImages()
 bool UImageDownloader::IsWMS()
 {
 	return
-		//ImageSourceKind == EImageSourceKind::OpenStreetMap_FR ||
-		//ImageSourceKind == EImageSourceKind::Terrestris_OSM ||
 		ImageSourceKind == EImageSourceKind::GenericWMS ||
 		ImageSourceKind == EImageSourceKind::IGN_Heightmaps ||
 		ImageSourceKind == EImageSourceKind::IGN_Satellite ||
@@ -503,9 +567,17 @@ bool UImageDownloader::IsMapbox()
 
 }
 
+bool UImageDownloader::IsMapTiler()
+{
+	return
+		ImageSourceKind == EImageSourceKind::MapTiler_Heightmaps ||
+		ImageSourceKind == EImageSourceKind::MapTiler_Satellite;
+
+}
+
 bool UImageDownloader::IsXYZ()
 {
-	return IsMapbox() || ImageSourceKind == EImageSourceKind::GenericXYZ;
+	return IsMapbox() || IsMapTiler() || ImageSourceKind == EImageSourceKind::GenericXYZ;
 }
 
 bool UImageDownloader::HasMultipleLayers()
@@ -531,6 +603,25 @@ bool UImageDownloader::AllowsParametersSelection()
 	return IsWMS() || (IsXYZ() && bGeoreferenceSlippyTiles) || ImageSourceKind == EImageSourceKind::Napoli;
 }
 
+bool UImageDownloader::CanAutoSetSize()
+{
+	return ImageSourceKind == EImageSourceKind::IGN_Heightmaps;
+}
+
+void UImageDownloader::AutoSetSize()
+{
+	if (ImageSourceKind == EImageSourceKind::IGN_Heightmaps)
+	{
+		WMS_MinLat = FMath::RoundToZero(WMS_MinLat);
+		WMS_MaxLat = FMath::RoundToZero(WMS_MaxLat);
+		WMS_MinLong = FMath::RoundToZero(WMS_MinLong);
+		WMS_MaxLong = FMath::RoundToZero(WMS_MaxLong);
+		
+		WMS_Width = WMS_MaxLong - WMS_MinLong;
+		WMS_Height = WMS_MaxLat - WMS_MinLat;
+	}
+}
+
 bool UImageDownloader::SetSourceParametersBool(bool bDialog)
 {
 	if (ParametersSelection == EParametersSelection::Manual) return true;
@@ -551,6 +642,10 @@ bool UImageDownloader::SetSourceParametersBool(bool bDialog)
 	{
 		return SetSourceParametersFromActor(bDialog);
 	}
+	else if (ParametersSelection == EParametersSelection::FromEPSG4326Box)
+	{
+		return SetSourceParametersFromEPSG4326Box(bDialog);
+	}
 	else if (ParametersSelection == EParametersSelection::FromEPSG4326Coordinates)
 	{
 		return SetSourceParametersFromEPSG4326Coordinates(bDialog);
@@ -566,6 +661,17 @@ bool UImageDownloader::SetSourceParametersBool(bool bDialog)
 }
 
 bool UImageDownloader::SetSourceParametersFromEPSG4326Coordinates(bool bDialog)
+{
+	double LongDiff = RealWorldWidth / 40000000 * 360 / 2;
+	double LatDiff  = RealWorldHeight / 40000000 * 360 / 2;
+	MinLong = Longitude - LongDiff;
+	MaxLong = Longitude + LongDiff;
+	MinLat = Latitude - LatDiff;
+	MaxLat = Latitude + LatDiff;
+	return SetSourceParametersFromEPSG4326Box(bDialog);
+}
+
+bool UImageDownloader::SetSourceParametersFromEPSG4326Box(bool bDialog)
 {
 	if (ImageSourceKind == EImageSourceKind::Napoli)
 	{
@@ -802,7 +908,7 @@ void UImageDownloader::OnImageSourceChanged(TFunction<void(bool)> OnComplete)
 {
 	if (ImageSourceKind == EImageSourceKind::IGN_Heightmaps)
 	{
-		CapabilitiesURL = "https://wxs.ign.fr/altimetrie/geoportail/r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
+		CapabilitiesURL = "https://data.geopf.fr/wms-r?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
 		WMS_X_IsLong = true;
 	}
@@ -838,13 +944,29 @@ void UImageDownloader::OnImageSourceChanged(TFunction<void(bool)> OnComplete)
 	}
 	else if (IsMapbox())
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT(
-				"UImageDownloader::OnImageSourceChanged::MapboxWarning",
-				"Please check your Mapbox account to make sure you remain within the free tier.\nRequests can be expensive once you go beyond the free tier.\n"
-				"The 2x option counts for more API requests than usual, maybe 2x."
-			)
-		);
+		if (!bSilentMode)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok,
+				LOCTEXT(
+					"UImageDownloader::OnImageSourceChanged::MapboxWarning",
+					"Please check your Mapbox account to make sure you remain within the free tier.\nRequests can be expensive once you go beyond the free tier.\n"
+					"The 2x option counts for more API requests than usual."
+				)
+			);
+		}
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+	}
+	else if (IsMapTiler())
+	{
+		if (!bSilentMode)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok,
+				LOCTEXT(
+					"UImageDownloader::OnImageSourceChanged::MapboxWarning",
+					"Please check your MapTiler account to make sure you remain within the free tier.\nRequests can be expensive once you go beyond the free tier."
+				)
+			);
+		}
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
 	}
 	else
@@ -914,7 +1036,7 @@ void UImageDownloader::ResetWMSProvider(TArray<FString> ExcludeCRS, TFunction<bo
 void UImageDownloader::DownloadImages(TFunction<void(TArray<FString>)> OnComplete)
 {
 	AActor *Owner = GetOwner();
-	if (!Owner)
+	if (!IsValid(Owner))
 	{
 		FMessageDialog::Open(EAppMsgType::Ok,
 			LOCTEXT("UImageDownloader::DownloadImages::NoOwner", "Internal Error: Could not find UImageDownloader Owner.")
@@ -960,7 +1082,7 @@ void UImageDownloader::DownloadImages(TFunction<void(TArray<FString>)> OnComplet
 void UImageDownloader::DownloadMergedImage(TFunction<void(FString)> OnComplete)
 {
 	AActor *Owner = GetOwner();
-	if (!Owner)
+	if (!IsValid(Owner))
 	{
 		FMessageDialog::Open(EAppMsgType::Ok,
 			LOCTEXT("UImageDownloader::DownloadMergedImage::NoOwner", "Internal Error: Could not find UImageDownloader Owner.")

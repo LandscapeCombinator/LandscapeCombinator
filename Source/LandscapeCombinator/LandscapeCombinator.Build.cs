@@ -28,7 +28,8 @@ public class LandscapeCombinator : ModuleRules
 				// Unreal Engine dependencies
 				"Projects",
 				"InputCore",
-				"EditorFramework",
+                "GeometryFramework",
+                "EditorFramework",
 				"UnrealEd",
 				"CoreUObject",
 				"Engine",
@@ -38,6 +39,7 @@ public class LandscapeCombinator : ModuleRules
 				"Landscape",
 				"LandscapeEditor",
 				"PropertyEditor",
+				"PCG",
 
 				// Other dependencies
                 "Coordinates",
@@ -47,8 +49,8 @@ public class LandscapeCombinator : ModuleRules
                 "HeightmapModifier",
 				"ImageDownloader",
 
-				"SplineImporter", // artificial dependency
-				"BuildingFromSpline" // artificial dependency
+				"SplineImporter",
+				"BuildingFromSpline"
 			}
 		);
 	}

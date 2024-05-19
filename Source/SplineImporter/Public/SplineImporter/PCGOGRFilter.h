@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "OGRGeometry.h"
 #include "CoreMinimal.h"
 #include "PCGPin.h"
 #include "PCGSettings.h"
@@ -9,14 +10,6 @@
 #include "GDALInterface/GDALInterface.h"
 
 #include "PCGOGRFilter.generated.h"
-
-UENUM(BlueprintType)
-enum class EFoliageSourceType : uint8
-{
-	LocalVectorFile,
-	OverpassShortQuery,
-	Forests
-};
 
 UCLASS(BlueprintType, ClassGroup = (Procedural))
 class SPLINEIMPORTER_API UPCGOGRFilterSettings : public UPCGSettings
@@ -37,33 +30,12 @@ protected:
 	virtual FPCGElementPtr CreateElement() const override;
 	//~End UPCGSettings interface
 
-
-	OGRGeometry* GetGeometryFromPath(FString Path) const;
-	OGRGeometry* GetGeometryFromQuery(FString Query) const;
-	OGRGeometry* GetGeometryFromShortQuery(UWorld *World, FBox Bounds, FString ShortQuery) const;
-
 public:
-	OGRGeometry* GetGeometry(UWorld *World, FBox Bounds) const;
-
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = Settings,
-		meta = (DisplayPriority = "0")
+		meta = (DisplayPriority = "0", PCG_Overridable)
 	)
-	EFoliageSourceType FoliageSourceType = EFoliageSourceType::Forests;
-
-
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = Settings,
-		meta = (EditCondition = "FoliageSourceType == EFoliageSourceType::LocalVectorFile", EditConditionHides, DisplayPriority = "1")
-	)
-	FString OSMPath;
-
-
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = Settings,
-		meta = (EditCondition = "FoliageSourceType == EFoliageSourceType::OverpassShortQuery", EditConditionHides, DisplayPriority = "2")
-	)
-	FString OverpassShortQuery = "nwr[\"landuse\"=\"forest\"];nwr[\"natural\"=\"wood\"];";
+	FName GeometryTag;
 };
 
 #if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4)

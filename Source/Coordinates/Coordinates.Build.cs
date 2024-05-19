@@ -35,7 +35,8 @@ public class Coordinates : ModuleRules
 				// Other Dependencies
 				"GDALInterface",
 				"LandscapeUtils",
-				"FileDownloader"
+				"FileDownloader",
+				"Reporter"
 			}
 		);
 	}

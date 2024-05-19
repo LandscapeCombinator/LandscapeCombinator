@@ -3,6 +3,9 @@
 #include "GDALInterface/GDALInterface.h"
 #include "GDALInterface/LogGDALInterface.h"
 
+#include "FileDownloader/Download.h"
+
+#include "GenericPlatform/GenericPlatformHttp.h"
 #include "Misc/Paths.h"
 #include "Misc/ScopedSlowTask.h"
 #include "Misc/MessageDialog.h"
@@ -278,11 +281,19 @@ OGRCoordinateTransformation *GDALInterface::MakeTransform(FString InCRS, FString
 
 bool GDALInterface::Transform(OGRCoordinateTransformation* CoordinateTransformation, double *Longitude, double *Latitude)
 {
-	if (!CoordinateTransformation || !CoordinateTransformation->Transform(1, Longitude, Latitude))
+	if (!CoordinateTransformation)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("GDALInterface::Transform", "Invalid Coordinate Transformation"));
+		return false;
+	}
+		
+	if (!CoordinateTransformation->Transform(1, Longitude, Latitude))
 	{
 		FMessageDialog::Open(EAppMsgType::Ok,
 			FText::Format(
-				LOCTEXT("GDALInterface::Transform", "Internal error while transforming coordinates.\n{0}"),
+				LOCTEXT("GDALInterface::Transform", "Internal error while transforming coordinates ({0}, {1}).\n{2}"),
+				FText::AsNumber(*Longitude),
+				FText::AsNumber(*Latitude),
 				FText::FromString(FString(CPLGetLastErrorMsg()))
 			)
 		);
@@ -315,9 +326,6 @@ bool GDALInterface::ConvertCoordinates2(double *xs, double *ys, FString InCRS, F
 {
 	return Transform2(MakeTransform(InCRS, OutCRS), xs, ys);
 }
-
-
-	static bool ConvertCoordinates2(double *xs, double *ys, FString InCRS, FString OutCRS);
 
 bool GDALInterface::ConvertCoordinates(FVector4d& OriginalCoordinates, FVector4d& Coordinates, FString InCRS, FString OutCRS)
 {
@@ -946,5 +954,52 @@ TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset)
 	return PointLists;
 }
 
+GDALDataset* GDALInterface::LoadGDALVectorDatasetFromFile(FString File)
+{
+	GDALDataset* Dataset = (GDALDataset*) GDALOpenEx(TCHAR_TO_UTF8(*File), GDAL_OF_VECTOR, NULL, NULL, NULL);
+
+	if (!Dataset)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			FText::Format(
+				LOCTEXT("FileNotFound", "Could not load vector file '{0}'.\n{1}"),
+				FText::FromString(File),
+				FText::FromString(FString(CPLGetLastErrorMsg()))
+			)
+		);
+	}
+
+	return Dataset;
+}
+
+void GDALInterface::LoadGDALVectorDatasetFromQuery(FString Query, TFunction<void(GDALDataset*)> OnComplete)
+{
+	UE_LOG(LogGDALInterface, Log, TEXT("Adding splines with Overpass query: '%s'"), *Query);
+	UE_LOG(LogGDALInterface, Log, TEXT("Decoded URL: '%s'"), *(FGenericPlatformHttp::UrlDecode(Query)));
+	FString IntermediateDir = FPaths::ConvertRelativePathToFull(FPaths::EngineIntermediateDir());
+	FString LandscapeCombinatorDir = FPaths::Combine(IntermediateDir, "LandscapeCombinator");
+	FString DownloadDir = FPaths::Combine(LandscapeCombinatorDir, "Download");
+	FString XmlFilePath = FPaths::Combine(DownloadDir, FString::Format(TEXT("overpass_query_{0}.xml"), { FTextLocalizationResource::HashString(Query) }));
+
+	Download::FromURL(Query, XmlFilePath, true,
+		[Query, XmlFilePath, OnComplete](bool bWasSuccessful) {
+			if (bWasSuccessful && OnComplete)
+			{
+				// working on splines only works in GameThread
+				AsyncTask(ENamedThreads::GameThread, [Query, XmlFilePath, OnComplete]() {
+					OnComplete(LoadGDALVectorDatasetFromFile(XmlFilePath));
+				});
+			}
+			else
+			{
+				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+					LOCTEXT("GetSpatialReferenceError", "Unable to get the result for the Overpass query: {0}."),
+					FText::FromString(Query)
+				));
+			}
+			return;
+		}
+	);
+}
 
 #undef LOCTEXT_NAMESPACE

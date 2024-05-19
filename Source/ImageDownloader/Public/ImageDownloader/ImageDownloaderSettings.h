@@ -17,5 +17,8 @@ public:
 	}
 
 	UPROPERTY(config, EditAnywhere, Category = "LandscapeCombinator")
+	FString MapTiler_Token = "";
+
+	UPROPERTY(config, EditAnywhere, Category = "LandscapeCombinator")
 	FString Mapbox_Token = "";
 };
