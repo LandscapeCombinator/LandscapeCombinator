@@ -33,13 +33,13 @@ TArray<AActor*> ABuildingsFromSplines::FindActors()
 {
 	TArray<AActor*> Actors;
 
-	if (ActorsTag.IsNone())
+	if (SplinesTag.IsNone())
 	{	
 		UGameplayStatics::GetAllActorsOfClass(this->GetWorld(), AActor::StaticClass(), Actors);
 	}
 	else
 	{
-		UGameplayStatics::GetAllActorsWithTag(this->GetWorld(), ActorsTag, Actors);
+		UGameplayStatics::GetAllActorsWithTag(this->GetWorld(), SplinesTag, Actors);
 	}
 
 	return Actors;
@@ -53,7 +53,7 @@ TArray<USplineComponent*> ABuildingsFromSplines::FindSplineComponents()
 	
 	for (auto& Actor : FindActors())
 	{
-		if (SplinesTag.IsNone())
+		if (SplineComponentsTag.IsNone())
 		{
 			TArray<USplineComponent*> SplineComponents;
 			Actor->GetComponents<USplineComponent>(SplineComponents, true);
@@ -65,7 +65,7 @@ TArray<USplineComponent*> ABuildingsFromSplines::FindSplineComponents()
 		}
 		else
 		{
-			for (auto &SplineComponent : Actor->GetComponentsByTag(USplineComponent::StaticClass(), SplinesTag))
+			for (auto &SplineComponent : Actor->GetComponentsByTag(USplineComponent::StaticClass(), SplineComponentsTag))
 			{
 				Result.Add(Cast<USplineComponent>(SplineComponent));
 			}

@@ -349,7 +349,7 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 	}
 }
 
-HMFetcher* UImageDownloader::CreateFetcher(FString Name, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG, TFunction<bool(HMFetcher*)> RunBeforePNG)
+HMFetcher* UImageDownloader::CreateFetcher(FString Name, bool bForceMerge, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG, TFunction<bool(HMFetcher*)> RunBeforePNG)
 {
 	HMFetcher *Result = CreateInitialFetcher(Name);
 	if (!Result) return nullptr;
@@ -416,6 +416,11 @@ HMFetcher* UImageDownloader::CreateFetcher(FString Name, bool bEnsureOneBand, bo
 		}
 
 		Result = Result->AndThen(new HMDebugFetcher("AdaptImage", new HMCrop(Name, Coordinates, ImageSize)));
+	}
+
+	if (bForceMerge)
+	{
+		Result = Result->AndThen(new HMDebugFetcher("Merge", new HMMerge(Name)));
 	}
 
 	if (RunBeforePNG)
@@ -1045,7 +1050,7 @@ void UImageDownloader::DownloadImages(TFunction<void(TArray<FString>)> OnComplet
 		return;
 	}
 	
-	HMFetcher *Fetcher = CreateFetcher(Owner->GetActorLabel(), false, false, false, nullptr);
+	HMFetcher *Fetcher = CreateFetcher(Owner->GetActorLabel(), false, false, false, false, nullptr);
 
 	if (!Fetcher)
 	{
@@ -1091,8 +1096,7 @@ void UImageDownloader::DownloadMergedImage(TFunction<void(FString)> OnComplete)
 	}
 	
 	FString Name = Owner->GetActorLabel();
-	HMFetcher *Fetcher = CreateFetcher(Name, false, false, false, nullptr);
-	Fetcher = Fetcher->AndThen(new HMDebugFetcher("Merge", new HMMerge(Name)));
+	HMFetcher *Fetcher = CreateFetcher(Name, true, false, false, false, nullptr);
 
 	if (!Fetcher)
 	{

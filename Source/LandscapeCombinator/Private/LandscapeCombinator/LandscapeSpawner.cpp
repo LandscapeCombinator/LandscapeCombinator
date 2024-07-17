@@ -10,8 +10,19 @@
 #include "HeightmapModifier/BlendLandscape.h"
 #include "LandscapeUtils/LandscapeUtils.h"
 #include "Coordinates/LevelCoordinates.h"
+#include "ImageDownloader/HMDebugFetcher.h"
+#include "ImageDownloader/Transformers/HMMerge.h"
+
 #include "Async/Async.h"
 #include "Components/DecalComponent.h"
+#include "Internationalization/Regex.h"
+#include "Editor.h"
+#include "EditorModes.h"
+#include "EditorModeManager.h"
+#include "Kismet/GameplayStatics.h"
+#include "LandscapeEditorObject.h"
+#include "LandscapeImportHelper.h" 
+#include "LandscapeSubsystem.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
@@ -131,8 +142,16 @@ void ALandscapeSpawner::SpawnLandscape(TFunction<void(ALandscape*)> OnComplete)
 	FString *CRS = new FString();
 	FVector4d *Coordinates= new FVector4d();
 
+	FGlobalTabmanager::Get()->TryInvokeTab(FTabId("LevelEditor"));
+	GLevelEditorModeTools().ActivateMode(FBuiltinEditorModes::EM_Landscape);
+	FEdModeLandscape* LandscapeEdMode = (FEdModeLandscape*) GLevelEditorModeTools().GetActiveMode(FBuiltinEditorModes::EM_Landscape);
+	ULandscapeEditorObject* UISettings = LandscapeEdMode->UISettings;
+	ULandscapeSubsystem* LandscapeSubsystem = LandscapeEdMode->GetWorld()->GetSubsystem<ULandscapeSubsystem>();
+	bool bIsGridBased = LandscapeSubsystem->IsGridBased();
+
 	HMFetcher* Fetcher = HeightmapDownloader->CreateFetcher(
 		LandscapeLabel,
+		!bIsGridBased,
 		true,
 		true,
 		true,
@@ -191,10 +210,9 @@ void ALandscapeSpawner::SpawnLandscape(TFunction<void(ALandscape*)> OnComplete)
 					QuadsPerSubsection, SectionsPerComponent, ComponentCount
 				);
 
-				SpawnedLandscape->Modify();
-
 				if (SpawnedLandscape.IsValid())	
 				{
+					SpawnedLandscape->Modify();
 					SpawnedLandscape->SetActorLabel(LandscapeLabel);
 					if (!LandscapeTag.IsNone())
 					{

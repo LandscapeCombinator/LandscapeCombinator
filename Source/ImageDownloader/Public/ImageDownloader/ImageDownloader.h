@@ -875,7 +875,7 @@ public:
 	void PostEditChangeProperty(struct FPropertyChangedEvent&);
 #endif
 	
-	HMFetcher* CreateFetcher(FString Name, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG, TFunction<bool(HMFetcher*)> RunBeforePNG);
+	HMFetcher* CreateFetcher(FString Name, bool bForceMerge, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG, TFunction<bool(HMFetcher*)> RunBeforePNG);
 
 	UFUNCTION()
 	static bool HasMapboxToken();

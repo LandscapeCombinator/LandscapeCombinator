@@ -4,7 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "PCGVolume.h"
+#include "PCGComponent.h"
 #include "Landscape.h"
+
 #include "SplineImporter/ActorSelection.h"
 #include "LandscapeUtils/LandscapeUtils.h"
 
@@ -19,6 +21,11 @@ class LANDSCAPECOMBINATOR_API ALandscapePCGVolume : public APCGVolume
 
 public:
 
+	ALandscapePCGVolume(const FObjectInitializer& ObjectInitializer) : APCGVolume(ObjectInitializer)
+	{
+		PCGComponent->GenerationTrigger = EPCGComponentGenerationTrigger::GenerateOnDemand;
+	}
+
 	/* Landscape used to automatically set the size of the PCG volume. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapePCGVolume",
 		meta = (DisplayPriority = "0")
@@ -26,18 +33,18 @@ public:
 	FActorSelection LandscapeSelection;
 
 	/* Landscape used to automatically set the size of the PCG volume. */
-	UPROPERTY(BlueprintReadWrite, Category = "LandscapePCGVolume",
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "LandscapePCGVolume",
 		meta = (DisplayPriority = "1")
 	)
 	FVector Position;
 
 	/* Landscape used to automatically set the size of the PCG volume. */
-	UPROPERTY(BlueprintReadWrite, Category = "LandscapePCGVolume",
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "LandscapePCGVolume",
 		meta = (DisplayPriority = "1")
 	)
 	FVector Bounds;
 
-	UFUNCTION(BlueprintCallable, Category = "LandscapePCGVolume")
+	UFUNCTION(CallInEditor, BlueprintCallable, Category = "LandscapePCGVolume")
 	void SetPositionAndBounds();
 };
 

@@ -13,6 +13,13 @@ void HMMerge::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void
 {
 	OutputCRS = InputCRS;
 
+	if (InputFiles.Num() == 1)
+	{
+		OutputFiles.Add(InputFiles[0]);
+		if (OnComplete) OnComplete(true);
+		return;
+	}
+
 	FString MergeFolder = FPaths::Combine(
 		Directories::ImageDownloaderDir(),
 		Name + "-Merge"
