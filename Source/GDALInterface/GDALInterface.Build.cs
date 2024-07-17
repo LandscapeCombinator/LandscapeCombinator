@@ -4,6 +4,7 @@ using UnrealBuildTool;
 using System.IO;
 
 using Microsoft.Extensions.Logging;
+using UnrealBuildTool.Rules;
 
 public class GDALInterface : ModuleRules
 {
@@ -37,17 +38,6 @@ public class GDALInterface : ModuleRules
 			}
 		}
 
-		// GDAL configuration files common to all platforms
-		foreach (string File in Directory.GetFiles(Path.Combine(PluginDirectory, "Source", "ThirdParty", "GDAL", Platform, "share", "gdal")))
-		{
-			RuntimeDependencies.Add(Path.Combine("$(ProjectDir)", "Binaries", Platform, "Source", "ThirdParty", "GDAL", "share", "gdal", Path.GetFileName(File)), File);
-		}
-
-		foreach (string File in Directory.GetFiles(Path.Combine(PluginDirectory, "Source", "ThirdParty", "GDAL", Platform, "share", "proj")))
-		{
-			RuntimeDependencies.Add(Path.Combine("$(ProjectDir)", "Binaries", Platform, "Source", "ThirdParty", "GDAL", "share", "proj", Path.GetFileName(File)), File);
-		}
-
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
@@ -64,6 +54,7 @@ public class GDALInterface : ModuleRules
 				"CoreUObject",
 				"Engine",
                 "HTTP",
+                "Projects",
 
 				// Other Dependencies
 				"FileDownloader",

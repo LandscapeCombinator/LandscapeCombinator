@@ -946,7 +946,6 @@ TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset)
 			return TArray<FPointList>();
 		}
 
-		//FOSMInfo Info = InfoFromFeature(Feature);
 		TMap<FString, FString> Fields = FieldsFromFeature(Feature);
 
 		OGRGeometry* Geometry = Feature->GetGeometryRef();

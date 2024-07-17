@@ -2,14 +2,7 @@
 
 #include "GDALInterfaceModule.h"
 #include "GDALInterface/LogGDALInterface.h"
-
-#include "WorldPartition/LoaderAdapter/LoaderAdapterShape.h"
-#include "WorldPartition/LoaderAdapter/LoaderAdapterActor.h"
-#include "WorldPartition/WorldPartition.h"
-#include "WorldPartition/WorldPartitionLevelHelper.h"
-#include "WorldPartition/WorldPartitionActorLoaderInterface.h"
-#include "WorldPartition/WorldPartitionEditorLoaderAdapter.h"
-
+#include "Interfaces/IPluginManager.h"
 #include "Misc/Paths.h"
 
 #define LOCTEXT_NAMESPACE "FGDALInterfaceModule"
@@ -20,15 +13,37 @@
 #include "gdal_utils.h"
 #pragma warning(default: 4668)
 
+FString GetPluginBaseDir(FString PluginName)
+{
+    TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(PluginName);
+
+    if (Plugin.IsValid()) return Plugin->GetBaseDir();
+	else return "";
+}
+
 void FGDALInterfaceModule::SetGDALPaths()
 {
-	FString ProjectDir = FPaths:: ConvertRelativePathToFull(FPaths::ProjectDir());
+	FString PluginBaseDir = "";
+	PluginBaseDir = GetPluginBaseDir("LandscapeCombinator");
+	if (PluginBaseDir.IsEmpty()) PluginBaseDir = GetPluginBaseDir("ImageDownloader");
+	if (PluginBaseDir.IsEmpty()) PluginBaseDir = GetPluginBaseDir("SplineImporter");
+	if (PluginBaseDir.IsEmpty()) PluginBaseDir = GetPluginBaseDir("Coordinates");
+	if (PluginBaseDir.IsEmpty()) PluginBaseDir = GetPluginBaseDir("HeightmapModifier");
+
+	if (PluginBaseDir.IsEmpty())
+	{
+		UE_LOG(LogGDALInterface, Error, TEXT("Could not find plugin base directory."));
+		return;
+	}
+
+	PluginBaseDir = FPaths::ConvertRelativePathToFull(PluginBaseDir);
+
 	FString ShareFolder = "";
 
 #if PLATFORM_WINDOWS
-  ShareFolder = ProjectDir / "Binaries" / "Win64" / "Source" / "ThirdParty" / "GDAL" / "share";
+	ShareFolder = PluginBaseDir / "Source" / "ThirdParty" / "GDAL" / "Win64" / "share";
 #elif PLATFORM_LINUX
-  ShareFolder = ProjectDir / "Binaries" / "Linux" / "Source" / "ThirdParty" / "GDAL" / "share";
+	ShareFolder = PluginBaseDir / "Source" / "ThirdParty" / "GDAL" / "Linux" / "share";
 #endif
 
 	FString GDALData = (ShareFolder / "gdal");
