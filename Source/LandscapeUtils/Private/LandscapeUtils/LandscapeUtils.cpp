@@ -65,8 +65,9 @@ ALandscape* LandscapeUtils::SpawnLandscape(
 		return NULL;
 	}
 
-	if (bIsGridBased && Heightmaps.Num() > 1)
+	if (Heightmaps.Num() > 1)
 	{
+		check(bIsGridBased);
 		FRegexPattern XYPattern(TEXT("(.*)_x\\d+_y\\d+(\\.[^.]+)"));
 		FRegexMatcher XYMatcher(XYPattern, HeightmapFile);
 

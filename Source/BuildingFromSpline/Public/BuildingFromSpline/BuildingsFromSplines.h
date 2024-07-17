@@ -24,14 +24,14 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
 		meta = (DisplayPriority = "-3")
 	)
-	FName ActorsTag;
+	FName SplinesTag;
 	
 	/* The tag of the Spline Components to use to generate buildings. If None, all spline components will be used. */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
 		meta = (DisplayPriority = "-2")
 	)
-	FName SplinesTag;
+	FName SplineComponentsTag;
 	
 	/* Whether the generated buildings are spatially loaded. */
 	UPROPERTY(

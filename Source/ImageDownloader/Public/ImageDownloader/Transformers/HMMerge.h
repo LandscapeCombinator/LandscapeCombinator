@@ -6,7 +6,7 @@
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-class HMMerge : public HMFetcher
+class IMAGEDOWNLOADER_API HMMerge : public HMFetcher
 {
 public:
 	HMMerge(FString Name0) : Name(Name0) {}

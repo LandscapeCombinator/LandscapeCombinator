@@ -589,9 +589,9 @@ bool GDALInterface::Merge(TArray<FString> SourceFiles, FString TargetFile)
 	if (!DatasetVRT)
 	{
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("GDALInterfaceMergeError", "Could not merge the files {0}. Error {1}."),
+			LOCTEXT("GDALInterfaceMergeError", "Could not merge the files {0}.\n{1}."),
 			FText::FromString(FString::Join(SourceFiles, TEXT(", "))),
-			FText::AsNumber(pbUsageError, &FNumberFormattingOptions::DefaultNoGrouping())
+			FText::FromString(FString(CPLGetLastErrorMsg()))
 		));
 		return false;
 	}

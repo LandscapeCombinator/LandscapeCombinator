@@ -13,6 +13,9 @@ class ULandscapeCombinatorBlueprintLibrary : public UBlueprintFunctionLibrary
 
     UFUNCTION(BlueprintCallable, Category="LandscapeCombinator")
     static void SortByLabel(UPARAM(ref) TArray<AActor*>& Actors);
+
+    UFUNCTION(BlueprintCallable, Category="LandscapeCombinator")
+    static void SetFolderPath(AActor *Actor, FName FolderPath);
 };
 
 
