@@ -939,8 +939,10 @@ TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset)
 	OGRFeature *Feature;
 	OGRLayer *Layer;
 	Feature = Dataset->GetNextFeature(&Layer, nullptr, nullptr, nullptr);
+	int NumFeatures = 0;
 	while (Feature)
 	{
+		NumFeatures += 1;
 		if (FeaturesTask.ShouldCancel())
 		{
 			return TArray<FPointList>();
@@ -976,7 +978,8 @@ TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset)
 		OGRFeature::DestroyFeature(Feature);
 		Feature = Dataset->GetNextFeature(&Layer, nullptr, nullptr, nullptr);
 	}
-
+	
+	UE_LOG(LogGDALInterface, Log, TEXT("Explored %d features"), NumFeatures);
 	UE_LOG(LogGDALInterface, Log, TEXT("Found %d lists of points"), PointLists.Num());
 
 	return PointLists;
@@ -1002,7 +1005,7 @@ GDALDataset* GDALInterface::LoadGDALVectorDatasetFromFile(FString File)
 
 void GDALInterface::LoadGDALVectorDatasetFromQuery(FString Query, TFunction<void(GDALDataset*)> OnComplete)
 {
-	UE_LOG(LogGDALInterface, Log, TEXT("Adding splines with Overpass query: '%s'"), *Query);
+	UE_LOG(LogGDALInterface, Log, TEXT("Loading dataset from Overpass query: '%s'"), *Query);
 	UE_LOG(LogGDALInterface, Log, TEXT("Decoded URL: '%s'"), *(FGenericPlatformHttp::UrlDecode(Query)));
 	FString IntermediateDir = FPaths::ConvertRelativePathToFull(FPaths::EngineIntermediateDir());
 	FString LandscapeCombinatorDir = FPaths::Combine(IntermediateDir, "LandscapeCombinator");
@@ -1010,7 +1013,7 @@ void GDALInterface::LoadGDALVectorDatasetFromQuery(FString Query, TFunction<void
 	uint32 Hash = FTextLocalizationResource::HashString(Query);
 	FString XmlFilePath = FPaths::Combine(DownloadDir, FString::Format(TEXT("overpass_query_{0}.xml"), { Hash }));
 
-	Download::FromURL(Query, XmlFilePath, true,
+	Download::FromURL(Query.Replace(TEXT(" "), TEXT("+")), XmlFilePath, true,
 		[Query, XmlFilePath, OnComplete](bool bWasSuccessful) {
 			if (bWasSuccessful && OnComplete)
 			{
