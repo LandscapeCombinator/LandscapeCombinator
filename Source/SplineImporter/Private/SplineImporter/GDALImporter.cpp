@@ -106,7 +106,10 @@ void AGDALImporter::LoadGDALDataset(TFunction<void(GDALDataset*)> OnComplete)
 	}
 	else if (Source == EVectorSource::OverpassQuery)
 	{
-		GDALInterface::LoadGDALVectorDatasetFromQuery(OverpassQuery, OnComplete);
+		GDALInterface::LoadGDALVectorDatasetFromQuery(
+			FString("https://overpass-api.de/api/interpreter?data=") + OverpassQuery,
+			OnComplete
+		);
 	}
 	else if (Source == EVectorSource::OverpassShortQuery)
 	{
