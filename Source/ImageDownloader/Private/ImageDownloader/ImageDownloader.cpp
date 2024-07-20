@@ -326,6 +326,7 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 					"XYZ_Download",
 					new HMXYZ(
 						bSilentMode,
+						bAllowInvalidTiles,
 						Name, Layer, Format, URL2, XYZ_Zoom, XYZ_MinX, XYZ_MaxX, XYZ_MinY, XYZ_MaxY,
 						bMaxY_IsNorth2, bGeoreferenceSlippyTiles2, ImageSourceKind == EImageSourceKind::MapTiler_Heightmaps || ImageSourceKind == EImageSourceKind::Mapbox_Heightmaps,
 						XYZ_CRS

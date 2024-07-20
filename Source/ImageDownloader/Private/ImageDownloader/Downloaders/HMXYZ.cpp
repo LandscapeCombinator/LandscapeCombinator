@@ -215,7 +215,7 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 
 					Task->EnterProgressFrame(1);
 					
-					if (OnCompleteElement) OnCompleteElement(bOneSuccess);
+					if (OnCompleteElement) OnCompleteElement(bOneSuccess || bAllowInvalidTiles);
 				}
 			);
 		},

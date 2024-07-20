@@ -12,6 +12,7 @@ class HMXYZ: public HMFetcher
 public:
 	HMXYZ(
 		bool bSilentMode0,
+		bool bAllowInvalidTiles0,
 		FString Name0, FString Layer0, FString Format0, FString URL0,
 		int Zoom0, int MinX0, int MaxX0, int MinY0, int MaxY0,
 		bool bMaxY_IsNorth0, bool bGeoreferenceSlippyTiles0, bool bDecodeMapbox0,
@@ -31,11 +32,13 @@ public:
 		bGeoreferenceSlippyTiles = bGeoreferenceSlippyTiles0;
 		CRS = CRS0;
 		bDecodeMapbox = bDecodeMapbox0;
+		bAllowInvalidTiles = bAllowInvalidTiles0;
 	};
 	void Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
 
 private:
 	bool bSilentMode;
+	bool bAllowInvalidTiles;
 	FString Name;
 	FString Layer;
 	FString Format;
