@@ -29,7 +29,7 @@ struct SPLINEIMPORTER_API FActorSelection
 	AActor *Actor = nullptr;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ActorSelection",
-		meta = (DisplayPriority = "2")
+		meta = (EditCondition = "ActorSelectionMode == EActorSelectionMode::ActorTag", EditConditionHides, DisplayPriority = "2")
 	)
 	FName ActorTag;
 
