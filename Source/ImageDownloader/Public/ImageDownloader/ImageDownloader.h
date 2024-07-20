@@ -274,6 +274,13 @@ public:
 	/* The coordinate system used by the downloaded files. */
 	FString XYZ_CRS = "";
 
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
+		meta = (EditCondition = "IsXYZ()", EditConditionHides, DisplayPriority = "23")
+	)
+	/* Ignore errors when the XYZ provider has missing tiles */
+	bool bAllowInvalidTiles = true;
+
 
 
 
