@@ -853,6 +853,22 @@ bool GDALInterface::Warp(FString SourceFile, FString TargetFile, FString InCRS, 
 	return Warp(SourceFile, TargetFile, Args);
 }
 
+TMap<FString, FString> GDALInterface::FieldsFromFeature(OGRFeature* Feature)
+{
+	TMap<FString, FString> Result;
+
+	int n = Feature->GetFieldCount();
+
+	for (int i = 0; i < n; i++)
+	{
+		FString Key = FString(Feature->GetFieldDefnRef(i)->GetNameRef());
+		FString Value = FString(Feature->GetFieldAsString(i));
+		Result.Add(Key, Value);
+	}
+
+	return Result;
+}
+
 void GDALInterface::AddPointLists(OGRMultiPolygon* MultiPolygon, TArray<FPointList> &PointLists, TMap<FString, FString> &Fields)
 {
 	for (OGRPolygon* &Polygon : MultiPolygon)
