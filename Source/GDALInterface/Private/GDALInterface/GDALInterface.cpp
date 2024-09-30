@@ -929,22 +929,6 @@ void GDALInterface::AddPointList(OGRLineString* LineString, TArray<FPointList> &
 	PointLists.Add(NewList);
 }
 
-TMap<FString, FString> FieldsFromFeature(OGRFeature* Feature)
-{
-	TMap<FString, FString> Result;
-
-	int n = Feature->GetFieldCount();
-
-	for (int i = 0; i < n; i++)
-	{
-		FString Key = FString(Feature->GetFieldDefnRef(i)->GetNameRef());
-		FString Value = FString(Feature->GetFieldAsString(i));
-		Result.Add(Key, Value);
-	}
-
-	return Result;
-}
-
 TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset)
 {
 	TArray<FPointList> PointLists;
