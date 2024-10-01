@@ -28,7 +28,6 @@ public class ImageDownloader : ModuleRules
 				"SlateCore",
 				"HTTP",
 				"Projects",
-				"PropertyEditor",
 				"Landscape",
                 "DeveloperSettings",
 

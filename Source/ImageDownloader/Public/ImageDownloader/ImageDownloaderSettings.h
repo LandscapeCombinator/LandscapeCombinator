@@ -16,7 +16,7 @@ public:
 		CategoryName = "Plugins";
 	}
 
-	UPROPERTY(config, EditAnywhere, Category = "LandscapeCombinator")
+	UPROPERTY(config, EditAnywhere, Category = "LandscapeCombinator", meta=(DisplayName="MapTiler Token"))
 	FString MapTiler_Token = "";
 
 	UPROPERTY(config, EditAnywhere, Category = "LandscapeCombinator")

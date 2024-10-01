@@ -13,6 +13,7 @@
 #include "LandscapeDataAccess.h"
 #include "Curves/RichCurve.h"
 #include "Runtime/Launch/Resources/Version.h"
+#include "Misc/MessageDialog.h"
 
 
 #define LOCTEXT_NAMESPACE "FHeightmapModifierModule"
@@ -21,6 +22,8 @@ UHeightmapModifier::UHeightmapModifier()
 {
 	ExternalTool = CreateDefaultSubobject<UExternalTool>(TEXT("External Tool"));
 }
+
+#if WITH_EDITOR
 
 void UHeightmapModifier::ApplyToolToHeightmap()
 {
@@ -33,7 +36,7 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 		return;
 	}
 
-	FString LandscapeLabel = Landscape->GetActorLabel();
+	FString LandscapeLabel = Landscape->GetActorNameOrLabel();
 
 	if (Landscape->IsMaxLayersReached())
 	{
@@ -296,5 +299,7 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 		FText::FromString(LandscapeLabel)
 	));
 }
+
+#endif
 
 #undef LOCTEXT_NAMESPACE

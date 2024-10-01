@@ -44,7 +44,7 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 	TArray<FPCGTaggedData>& Outputs = Context->OutputData.TaggedData;
 
 	TArray<AActor*> Geometries;
-	UGameplayStatics::GetAllActorsOfClassWithTag(Context->SourceComponent->GetWorld(), AOGRGeometry::StaticClass(), Settings->GeometryTag, Geometries);
+	UGameplayStatics::GetAllActorsOfClassWithTag(Cast<UObject>(Context->SourceComponent->GetWorld()), AOGRGeometry::StaticClass(), Settings->GeometryTag, Geometries);
 
 	if (Geometries.Num() == 0)
 	{

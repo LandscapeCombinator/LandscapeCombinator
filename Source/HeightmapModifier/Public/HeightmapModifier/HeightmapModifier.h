@@ -17,8 +17,12 @@ class HEIGHTMAPMODIFIER_API UHeightmapModifier : public UActorComponent
 public:
 	UHeightmapModifier();
 
+#if WITH_EDITOR
+
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "HeightmapModifier|ExternalTool")
 	void ApplyToolToHeightmap();
+
+#endif
 
 	UPROPERTY(EditAnywhere, Category = "HeightmapModifier|ExternalTool",
 		meta = (DisplayPriority = "1")

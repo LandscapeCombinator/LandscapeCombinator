@@ -183,7 +183,10 @@ bool GDALInterface::GetCoordinates(FVector4d& Coordinates, GDALDataset* Dataset)
 
 	double AdfTransform[6];
 	if (Dataset->GetGeoTransform(AdfTransform) != CE_None)
+	{
+		UE_LOG(LogGDALInterface, Error, TEXT("GetGeoTransform failed on GDAL Dataset"));
 		return false;
+	}
 		
 	double LeftCoord	= AdfTransform[0];
 	double RightCoord   = AdfTransform[0] + Dataset->GetRasterXSize()*AdfTransform[1];
@@ -195,6 +198,36 @@ bool GDALInterface::GetCoordinates(FVector4d& Coordinates, GDALDataset* Dataset)
 	Coordinates[2] = BottomCoord;
 	Coordinates[3] = TopCoord;
 	return true;
+}
+
+bool GDALInterface::GetCoordinates(FVector4d& Coordinates, FString File)
+{
+	GDALDataset *Dataset = (GDALDataset *)GDALOpen(TCHAR_TO_UTF8(*File), GA_ReadOnly);
+	if (!Dataset)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			FText::Format(
+				LOCTEXT("GetCoordinatesError", "Could not open file '{0}' to read the coordinates.\n{1}"),
+				FText::FromString(File),
+				FText::FromString(FString(CPLGetLastErrorMsg()))
+			)
+		);
+		return false;
+	}
+
+	bool bSuccess = GDALInterface::GetCoordinates(Coordinates, Dataset);
+	if (!bSuccess)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			FText::Format(
+				LOCTEXT("GetCoordinatesError", "Could not read coordinates from file '{0}'.\n{1}"),
+				FText::FromString(File),
+				FText::FromString(FString(CPLGetLastErrorMsg()))
+			)
+		);
+	}
+	GDALClose(Dataset);
+	return bSuccess;
 }
 
 bool GDALInterface::GetCoordinates(FVector4d& Coordinates, TArray<FString> Files)
@@ -214,31 +247,8 @@ bool GDALInterface::GetCoordinates(FVector4d& Coordinates, TArray<FString> Files
 
 	for (auto& File : Files)
 	{
-		GDALDataset *Dataset = (GDALDataset *)GDALOpen(TCHAR_TO_UTF8(*File), GA_ReadOnly);
-		if (!Dataset)
-		{
-			FMessageDialog::Open(EAppMsgType::Ok,
-				FText::Format(
-					LOCTEXT("GetCoordinatesError", "Could not open heightmap file '{0}' to read the coordinates."),
-					FText::FromString(File)
-				)
-			);
-			return false;
-		}
-
 		FVector4d FileCoordinates;
-		if (!GDALInterface::GetCoordinates(FileCoordinates, Dataset))
-		{
-			GDALClose(Dataset);
-			FMessageDialog::Open(EAppMsgType::Ok,
-				FText::Format(
-					LOCTEXT("GetCoordinatesError", "Could not read coordinates from heightmap file '{0}'."),
-					FText::FromString(File)
-				)
-			);
-			return false;
-		}
-		GDALClose(Dataset);
+		if (!GDALInterface::GetCoordinates(FileCoordinates, File)) return false;
 		MinCoordWidth  = FMath::Min(MinCoordWidth, FileCoordinates[0]);
 		MaxCoordWidth  = FMath::Max(MaxCoordWidth, FileCoordinates[1]);
 		MinCoordHeight = FMath::Min(MinCoordHeight, FileCoordinates[2]);
@@ -596,6 +606,16 @@ bool GDALInterface::Merge(TArray<FString> SourceFiles, FString TargetFile)
 		return false;
 	}
 
+    int bandCount = GDALGetRasterCount(DatasetVRT);
+    for(int i = 1; i <= bandCount; i++)
+    {
+        GDALRasterBandH hBand = GDALGetRasterBand(DatasetVRT, i);
+        if (hBand != NULL)
+        {
+            GDALSetRasterNoDataValue(hBand, 0);
+        }
+    }
+
 	GDALClose(DatasetVRT);
 	UE_LOG(LogGDALInterface, Log, TEXT("Finished merging %s into %s"), *FString::Join(SourceFiles, TEXT(", ")), *TargetFile);
 	return true;
@@ -621,7 +641,8 @@ bool GDALInterface::ReadHeightmapFromFile(FString File, int& OutWidth, int& OutH
 
 	if (NumBands != 1)
 	{
-		UE_LOG(LogGDALInterface, Error, TEXT("Could not read heightmap."));
+		UE_LOG(LogGDALInterface, Error, TEXT("Could not read heightmap, expecting one band and got %d."), NumBands);
+		GDALClose(Dataset);
 		return false;
 	}
 
@@ -631,9 +652,13 @@ bool GDALInterface::ReadHeightmapFromFile(FString File, int& OutWidth, int& OutH
 
 	if (Dataset->GetRasterBand(1)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, Buffer, OutWidth, OutHeight, GDT_Float32, 0, 0) != CE_None)
 	{
+		delete[] Buffer;
+		GDALClose(Dataset);
 		UE_LOG(LogGDALInterface, Error, TEXT("Could not read heightmap in buffer."));
 		return false;
 	}
+
+	GDALClose(Dataset);
 
 	OutHeightmap.Reset();
 	OutHeightmap.SetNum(OutWidth * OutHeight);
@@ -647,13 +672,14 @@ bool GDALInterface::ReadHeightmapFromFile(FString File, int& OutWidth, int& OutH
 		}
 	}
 
+	delete[] Buffer;
+
 	return true;
 }
 
 bool GDALInterface::ReadColorsFromFile(FString File, int &OutWidth, int &OutHeight, TArray<FColor> &OutColors)
 {
 	GDALDataset *Dataset = (GDALDataset *)GDALOpen(TCHAR_TO_UTF8(*File), GA_ReadOnly);
-
 	if (!Dataset)
 	{
 		FMessageDialog::Open(EAppMsgType::Ok,
@@ -675,44 +701,57 @@ bool GDALInterface::ReadColorsFromFile(FString File, int &OutWidth, int &OutHeig
 	uint8_t* BlueBuffer = nullptr;
 	uint8_t* AlphaBuffer = nullptr;
 
+	bool bError = false;
+
 	if (NumBands >= 1)
 	{
 		RedBuffer = new uint8_t[OutWidth * OutHeight];
 		if (Dataset->GetRasterBand(1)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, RedBuffer, OutWidth, OutHeight, GDT_Byte, 0, 0) != CE_None)
 		{
-			UE_LOG(LogGDALInterface, Error, TEXT("Could not read heightmap in red buffer."));
-			return false;
+			UE_LOG(LogGDALInterface, Error, TEXT("Could not read red buffer."));
+			bError = true;
 		}
 	}
 
-	if (NumBands >= 2)
+	if (!bError && NumBands >= 2)
 	{
 		GreenBuffer = new uint8_t[OutWidth * OutHeight];
 		if (Dataset->GetRasterBand(2)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, GreenBuffer, OutWidth, OutHeight, GDT_Byte, 0, 0) != CE_None)
 		{
-			UE_LOG(LogGDALInterface, Error, TEXT("Could not read heightmap in green buffer."));
-			return false;
+			UE_LOG(LogGDALInterface, Error, TEXT("Could not read green buffer."));
+			bError = true;
 		}
 	}
 
-	if (NumBands >= 3)
+	if (!bError && NumBands >= 3)
 	{
 		BlueBuffer = new uint8_t[OutWidth * OutHeight];
 		if (Dataset->GetRasterBand(3)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, BlueBuffer, OutWidth, OutHeight, GDT_Byte, 0, 0) != CE_None)
 		{
-			UE_LOG(LogGDALInterface, Error, TEXT("Could not read heightmap in blue buffer."));
-			return false;
+			UE_LOG(LogGDALInterface, Error, TEXT("Could not read blue buffer."));
+			bError = true;
 		}
 	}
 
-	if (NumBands >= 4)
+	if (!bError && NumBands >= 4)
 	{
 		AlphaBuffer = new uint8_t[OutWidth * OutHeight];
 		if (Dataset->GetRasterBand(4)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, AlphaBuffer, OutWidth, OutHeight, GDT_Byte, 0, 0) != CE_None)
 		{
-			UE_LOG(LogGDALInterface, Error, TEXT("Could not read heightmap in alpha buffer."));
+			UE_LOG(LogGDALInterface, Error, TEXT("Could not read alpha buffer."));
 			return false;
 		}
+	}
+	
+	GDALClose(Dataset);
+
+	if (bError)
+	{
+		if (RedBuffer) delete[] RedBuffer;
+		if (GreenBuffer) delete[] GreenBuffer;
+		if (BlueBuffer) delete[] BlueBuffer;
+		if (AlphaBuffer) delete[] AlphaBuffer;
+		return false;
 	}
 
 	OutColors.Reset();
@@ -732,6 +771,10 @@ bool GDALInterface::ReadColorsFromFile(FString File, int &OutWidth, int &OutHeig
 		}
 	}
 
+	if (RedBuffer) delete[] RedBuffer;
+	if (GreenBuffer) delete[] GreenBuffer;
+	if (BlueBuffer) delete[] BlueBuffer;
+	if (AlphaBuffer) delete[] AlphaBuffer;
 	return true;
 }
 

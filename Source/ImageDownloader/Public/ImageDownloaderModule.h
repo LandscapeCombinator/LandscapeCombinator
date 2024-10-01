@@ -7,5 +7,7 @@
 
 class FImageDownloaderModule : public IModuleInterface
 {
+#if WITH_EDITOR
 	void StartupModule() override;
+#endif
 };

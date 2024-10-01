@@ -13,8 +13,9 @@ public class Coordinates : ModuleRules
         PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"Core"
-			}
+                "Core",
+                "Landscape"
+            }
 		);
 			
 		
@@ -24,13 +25,8 @@ public class Coordinates : ModuleRules
 				// Unreal Dependencies
 				"Projects",
 				"InputCore",
-				"EditorFramework",
-				"UnrealEd",
 				"CoreUObject",
 				"Engine",
-				"AssetTools",
-                "AssetRegistry",
-                "Landscape",
 
 				// Other Dependencies
 				"GDALInterface",
@@ -38,5 +34,5 @@ public class Coordinates : ModuleRules
 				"FileDownloader"
 			}
 		);
-	}
+    }
 }

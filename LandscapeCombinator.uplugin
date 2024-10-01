@@ -25,61 +25,61 @@
 		},
 		{
 			"Name": "Coordinates",
-			"Type": "Editor",
+			"Type": "Runtime",
 			"LoadingPhase": "Default",
 			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		},
 		{
 			"Name": "FileDownloader",
-			"Type": "Editor",
+			"Type": "Runtime",
 			"LoadingPhase": "Default",
 			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		},
 		{
 			"Name": "ConcurrencyHelpers",
-			"Type": "Editor",
+			"Type": "Runtime",
 			"LoadingPhase": "Default",
 			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		},
 		{
 			"Name": "SplineImporter",
-			"Type": "Editor",
+			"Type": "Runtime",
 			"LoadingPhase": "Default",
 			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		},
 		{
 			"Name": "LandscapeUtils",
-			"Type": "Editor",
+			"Type": "Runtime",
 			"LoadingPhase": "Default",
 			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		},
 		{
 			"Name": "HeightmapModifier",
-			"Type": "Editor",
+			"Type": "Runtime",
 			"LoadingPhase": "Default",
 			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		},
 		{
 			"Name": "ImageDownloader",
-			"Type": "Editor",
+			"Type": "Runtime",
 			"LoadingPhase": "Default",
 			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		},
 		{
 			"Name": "ConsoleHelpers",
-			"Type": "Editor",
+			"Type": "Runtime",
 			"LoadingPhase": "Default",
 			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		},
 		{
 			"Name": "LandscapeCombinator",
-			"Type": "Editor",
+			"Type": "Runtime",
 			"LoadingPhase": "Default",
 			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		},
 		{
 			"Name": "OSMUserData",
-			"Type": "Editor",
+			"Type": "Runtime",
 			"LoadingPhase": "Default",
 			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		},

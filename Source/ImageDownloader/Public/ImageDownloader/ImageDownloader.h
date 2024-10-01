@@ -28,6 +28,7 @@ enum class EImageSourceKind : uint8
 	USGS_Topo,
 	USGS_Imagery,
 	SHOM,
+	Australia_LiDAR5m UMETA(DisplayName = "Australia LiDAR 5m"),
 	GenericWMS,
 	
 	MapTiler_Heightmaps UMETA(DisplayName = "MapTiler Heightmaps"),
@@ -183,7 +184,7 @@ public:
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
-		meta = (EditCondition = "IsMapTiler() && !HasMapTilerToken()", EditConditionHides, DisplayPriority = "1")
+		meta = (EditCondition = "IsMapTiler() && !HasMapTilerToken()", EditConditionHides, DisplayPriority = "1", DisplayName = "MapTiler Token")
 	)
 	/* The MapTiler token can be set in the Editor Preferences, in Plugins -> Landscape Combinator. */
 	FString MapTiler_Token;
@@ -834,7 +835,7 @@ public:
 	 ***********/
 	
 	void DownloadImages(TFunction<void(TArray<FString>)> OnComplete);
-	void DownloadMergedImage(TFunction<void(FString)> OnComplete);
+	void DownloadMergedImage(bool bEnsureOneBand, TFunction<void(FString, FString)> OnComplete);
 	
 	/* This deletes all the images, included downloaded files. */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "ImageDownloader",

@@ -9,7 +9,9 @@
 #include "Logging/StructuredLog.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/ScopedSlowTask.h"
+#include "Misc/MessageDialog.h"
 #include "TransactionCommon.h" 
+#include "Engine/World.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(BuildingsFromSplines)
 
@@ -26,8 +28,6 @@ ABuildingsFromSplines::ABuildingsFromSplines()
 	BuildingConfiguration->ExternalWallThickness = 1;
 	BuildingConfiguration->bBuildInternalWalls = false;
 }
-
-#if WITH_EDITOR
 
 TArray<AActor*> ABuildingsFromSplines::FindActors()
 {
@@ -149,7 +149,11 @@ void ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent)
 	}
 
 	ABuilding* Building = GetWorld()->SpawnActor<ABuilding>(Location, RotatorForLargestSegment);
-	Building->SetFolderPath(FName(*(FString("/") + GetActorLabel())));
+
+#if WITH_EDITOR
+	Building->SetFolderPath(FName(*(FString("/") + GetActorNameOrLabel())));
+#endif
+
 	SpawnedBuildings.Add(Building);
 
 	Building->BuildingConfiguration = NewObject<UBuildingConfiguration>(
@@ -173,11 +177,11 @@ void ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent)
 		Building->GetRootComponent()->AddAssetUserData(BuildingOSMUserData);
 	}
 
+#if WITH_EDITOR
 	Building->SetIsSpatiallyLoaded(bBuildingsSpatiallyLoaded);
+#endif
 
 	Building->GenerateBuilding();
 }
-
-#endif
 
 #undef LOCTEXT_NAMESPACE

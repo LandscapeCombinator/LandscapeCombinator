@@ -9,13 +9,13 @@
 #include "Components/DecalComponent.h"
 #include "Misc/Paths.h"
 #include "Misc/FileHelper.h"
+#include "Misc/MessageDialog.h"
 #include "ImageUtils.h"
-#include "Materials/MaterialInstanceConstant.h"
-#include "Factories/MaterialInstanceConstantFactoryNew.h"
-#include "IAssetTools.h"
-#include "AssetToolsModule.h"
-#include "AssetRegistry/AssetRegistryModule.h"
-#include "UObject/SavePackage.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Materials/Material.h"
+#include "Materials/MaterialInterface.h"
+#include "Engine/World.h"
+#include "TextureResource.h"
 
 #define LOCTEXT_NAMESPACE "FCoordinatesModule"
 
@@ -96,51 +96,12 @@ void UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 		return;
 	}
 
-	FString MI_GeoDecal_Name;
-	FString MI_GeoDecal_PackageName;
-
-	FAssetToolsModule& AssetToolsModule = FModuleManager::Get().LoadModuleChecked<FAssetToolsModule>("AssetTools");
-	AssetToolsModule.Get().CreateUniqueAssetName(FString("/Game/MI_GeoDecal_") + DecalActor->GetActorLabel(), "", MI_GeoDecal_PackageName, MI_GeoDecal_Name);
-
-	UPackage* MI_GeoDecal_Package = CreatePackage(*MI_GeoDecal_PackageName);
-	if (!MI_GeoDecal_Package)
-	{
-		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("UDecalCoordinates::PlaceDecal::MI_GeoDecal_Package", "Coordinates Internal Error: Could not create MI_GeoDecal package.")
-		);
-		return;
-	}
-
-	UMaterialInstanceConstantFactoryNew* Factory = NewObject<UMaterialInstanceConstantFactoryNew>();
-	if (!Factory)
-	{
-		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("UDecalCoordinates::PlaceDecal::Factory", "Coordinates Internal Error: Could not create material instance factory.")
-		);
-		return;
-	}
-	UMaterialInstanceConstant* MI_GeoDecal =
-		(UMaterialInstanceConstant*) Factory->FactoryCreateNew(
-			UMaterialInstanceConstant::StaticClass(),
-			MI_GeoDecal_Package,
-			*MI_GeoDecal_Name,
-			RF_Standalone | RF_Public | RF_Transactional,
-			DecalActor,
-			GWarn
-		);
-	if (!Factory)
-	{
-		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("UDecalCoordinates::PlaceDecal::MI_GeoDecal", "Coordinates Internal Error: Could not create material instance MI_GeoDecal.")
-		);
-		return;
-	}
-	Factory->MarkAsGarbage();
-
-	MI_GeoDecal->SetParentEditorOnly(M_GeoDecal);
+	UMaterialInstanceDynamic *MI_GeoDecal = UMaterialInstanceDynamic::Create(M_GeoDecal, this);
 
 	int Width, Height;
 	TArray<FColor> Colors;
+
+	UE_LOG(LogCoordinates, Log, TEXT("Creating decal from file: %s"), *ReprojectedImage);
 
 	if (!GDALInterface::ReadColorsFromFile(ReprojectedImage, Width, Height, Colors))
 	{
@@ -150,30 +111,16 @@ void UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 		));
 		return;
 	}
-	
-	FString TextureName;
-	FString TexturePackageName;
-	AssetToolsModule.Get().CreateUniqueAssetName(FString("/Game/T_GeoDecal_") + DecalActor->GetActorLabel(), "", TexturePackageName, TextureName);
 
-	UPackage* TexturePackage = CreatePackage(*TexturePackageName);
-	UTexture2D* Texture = FImageUtils::CreateTexture2D(
+	Texture = FImageUtils::CreateTexture2D(
 		Width, Height, Colors,
-		TexturePackage, TextureName,
-		RF_Standalone | RF_Public | RF_Transactional,
+		this, FString("T_GeoDecal_") + DecalActor->GetActorLabel(),
+		RF_Public | RF_Transactional,
 		FCreateTexture2DParameters()
 	);
-	FAssetRegistryModule::AssetCreated(Texture);
-	TexturePackage->MarkPackageDirty();
 
-	FMaterialParameterInfo TextureParam;
-	TextureParam.Name = "Texture";
-	TextureParam.Association = EMaterialParameterAssociation::GlobalParameter;
-	TextureParam.Index = INDEX_NONE;
-	MI_GeoDecal->SetTextureParameterValueEditorOnly(TextureParam, Texture);
+	MI_GeoDecal->SetTextureParameterValue(FName("Texture"), Texture);
 	DecalActor->SetDecalMaterial(MI_GeoDecal);
-
-	FAssetRegistryModule::AssetCreated(MI_GeoDecal);
-	MI_GeoDecal_Package->MarkPackageDirty();
 }
 
 ADecalActor* UDecalCoordinates::CreateDecal(UWorld* World, FString Path)
@@ -193,7 +140,10 @@ ADecalActor* UDecalCoordinates::CreateDecal(UWorld *World, FString Path, FVector
 		return nullptr;
 	}
 	FString BaseName = FPaths::GetBaseFilename(Path);
+
+#if WITH_EDITOR
 	DecalActor->SetActorLabel(FString("Decal_") + BaseName);
+#endif
 
 	UDecalCoordinates *DecalCoordinates = NewObject<UDecalCoordinates>(DecalActor->GetRootComponent());
 	DecalCoordinates->CreationMethod = EComponentCreationMethod::UserConstructionScript;

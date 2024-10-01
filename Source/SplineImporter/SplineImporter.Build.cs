@@ -27,10 +27,6 @@ public class SplineImporter : ModuleRules
 				"PCG",
 				"Foliage",
 				"Landscape",
-				"LandscapeEditor",
-				"UnrealEd",
-				"Slate",
-				"EditorFramework",
 
 				// Other Dependencies
 				"LandscapeUtils",

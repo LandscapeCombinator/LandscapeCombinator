@@ -3,8 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Components/ComboBoxString.h"
-#include "Blueprint/UserWidget.h" 
 
 #include "WMSProvider.generated.h"
 

@@ -66,6 +66,7 @@ bool FWMSProvider::LoadFromFile(TArray<FString> ExcludeCRS, TFunction<bool(FStri
 	}
 	
 	TArray<FString> Lines0, Lines;
+	CapabilitiesContent = CapabilitiesContent.Replace(TEXT("\r\n"), TEXT("\n"));
 	CapabilitiesContent.ParseIntoArray(Lines0, TEXT("\n"), true);
 	for (auto& Line : Lines0)
 	{
@@ -143,6 +144,10 @@ bool FWMSProvider::LoadFromFile(TArray<FString> ExcludeCRS, TFunction<bool(FStri
 				}
 			}
 		}
+
+		UE_LOG(LogImageDownloader, Log, TEXT("Found layer %s"), *Name);
+		UE_LOG(LogImageDownloader, Log, TEXT("Title: %s"), *Title);
+		UE_LOG(LogImageDownloader, Log, TEXT("Abstract: %s"), *Abstract);
 		
 		if (CRSMatcher.FindNext() && !CRSMatcher.GetCaptureGroup(1).Contains("<Layer>"))
 		{
@@ -246,7 +251,6 @@ FString FWMSProvider::FindGetMapURL()
 	}
 	else
 	{
-		UE_LOG(LogImageDownloader, Error, TEXT("Could not find GetMap URL"))
 		return "";
 	}
 }

@@ -2,13 +2,14 @@
 
 #include "SplineImporter/ActorSelection.h"
 
+#include "CoreMinimal.h"
 #include "Kismet/GameplayStatics.h"
-
+#include "Misc/MessageDialog.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
 
-AActor* FActorSelection::GetActor(UWorld* World)
+AActor* FActorSelection::GetActor(const UWorld* World)
 {
 	switch (ActorSelectionMode)
 	{
@@ -27,7 +28,7 @@ AActor* FActorSelection::GetActor(UWorld* World)
 		case EActorSelectionMode::ActorTag:
 		{
 			TArray<AActor*> Actors;
-			UGameplayStatics::GetAllActorsOfClassWithTag(World, AActor::StaticClass(), ActorTag, Actors);
+			UGameplayStatics::GetAllActorsOfClassWithTag(Cast<UObject>(World), AActor::StaticClass(), ActorTag, Actors);
 
 			if (Actors.IsEmpty())
 			{

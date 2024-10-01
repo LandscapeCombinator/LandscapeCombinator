@@ -133,17 +133,16 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 
 						if (bDecodeMapbox)
 						{
-							DecodedFile = FPaths::Combine(Directories::DownloadDir(), FString::Format(TEXT("MapboxTerrainDEMV1-{0}-{1}-{2}-decoded.tif"), { Zoom, X, Y }));
+							DecodedFile = FPaths::Combine(Directories::DownloadDir(), FString::Format(TEXT("{0}-{1}-{2}-{3}-decoded.{4}"), { Layer, Zoom, X, Y, Format }));
 							if (!MapboxHelpers::DecodeMapboxThreeBands(DownloadFile, DecodedFile, bShowedDialog))
 							{
-								if (!(*bShowedDialog))
-								{
-									*bShowedDialog = true;
-									FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+								Concurrency::ShowDialog(
+									FText::Format(
 										LOCTEXT("HMXYZ::Fetch::Decode", "Could not decode file {0}."),
 										FText::FromString(DownloadFile)
-									));
-								}
+									),
+									bShowedDialog
+								);
 								if (OnCompleteElement) OnCompleteElement(false);
 								return;
 							}
@@ -167,16 +166,15 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 
 							if (TileFiles.Num() != 1)
 							{
-								if (!(*bShowedDialog))
-								{
-									*bShowedDialog = true;
-									FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+								Concurrency::ShowDialog(
+									FText::Format(
 										LOCTEXT("HMXYZ::Fetch::Extract", "Expected one {0} file inside the archive {1}, but found {2}."),
 										FText::FromString(ImageFormat),
 										FText::FromString(DownloadFile),
 										FText::AsNumber(TileFiles.Num())
-									));
-								}
+									),
+									bShowedDialog
+								);
 								if (OnCompleteElement) OnCompleteElement(false);
 								return;
 							}
@@ -187,7 +185,6 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 						if (bGeoreferenceSlippyTiles)
 						{
 							double MinLong, MaxLong, MinLat, MaxLat;
-
 							GDALInterface::XYZTileToEPSG3857(X, Y, Zoom, MinLong, MaxLat);
 							GDALInterface::XYZTileToEPSG3857(X+1, Y+1, Zoom, MaxLong, MinLat);
 
