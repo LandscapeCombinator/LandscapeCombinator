@@ -13,6 +13,7 @@
 #include "Widgets/Notifications/SProgressBar.h"
 #include "Misc/ScopedSlowTask.h"
 #include "Misc/EngineVersionComparison.h"
+#include "Misc/MessageDialog.h"
 
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
@@ -273,6 +274,7 @@ void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64
 			}
 		}
 
+#if WITH_EDITOR
 		TSharedPtr<SWindow> Window;
 		
 		if (bProgress)
@@ -282,6 +284,7 @@ void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64
 				.AutoCenter(EAutoCenter::PrimaryWorkArea)
 				.Title(LOCTEXT("DownloadProgress", "Download Progress"));
 		}
+#endif
 
 		TSharedPtr<IHttpRequest> Request = FHttpModule::Get().CreateRequest().ToSharedPtr();
 		Request->SetURL(URL);
@@ -296,7 +299,12 @@ void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64
 			*Downloaded = Received;
 		});
 		bool *bTriggered = new bool(false);
+
+#if WITH_EDITOR
 		Request->OnProcessRequestComplete().BindLambda([URL, File, OnComplete, Window, bTriggered, bProgress](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
+#else
+		Request->OnProcessRequestComplete().BindLambda([URL, File, OnComplete, bTriggered, bProgress](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
+#endif
 		{
 			if (*bTriggered) return;
 			*bTriggered = true;
@@ -326,10 +334,12 @@ void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64
 				}
 			}
 			
+#if WITH_EDITOR
 			if (bProgress)
 			{
 				Window->RequestDestroyWindow();
 			}
+#endif
 
 			if (OnComplete) OnComplete(DownloadSuccess && SavedFile);
 		});
@@ -337,6 +347,7 @@ void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64
 
 		Request->ProcessRequest();
 
+#if WITH_EDITOR
 		if (bProgress)
 		{
 			Window->SetContent(
@@ -393,6 +404,8 @@ void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64
 		{
 			Window->RequestDestroyWindow();
 		}
+#endif
+
 	});
 }
 

@@ -33,5 +33,5 @@ struct SPLINEIMPORTER_API FActorSelection
 	)
 	FName ActorTag;
 
-	AActor* GetActor(UWorld *World);
+	AActor* GetActor(const UWorld *World);
 };

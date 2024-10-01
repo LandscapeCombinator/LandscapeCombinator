@@ -28,6 +28,7 @@ public:
 	static bool SetCRSFromEPSG(OGRSpatialReference &InRs, int EPSG);
 	static bool SetCRSFromUserInput(OGRSpatialReference &InRs, FString CRS, bool bDialog = true);
 	static bool GetCoordinates(FVector4d& Coordinates, GDALDataset* Dataset);
+	static bool GetCoordinates(FVector4d& Coordinates, FString File);
 	static bool GetCoordinates(FVector4d& Coordinates, TArray<FString> Files);
 	static OGRCoordinateTransformation *MakeTransform(FString InCRS, FString OutCRS);
 	static bool Transform(OGRCoordinateTransformation* CoordinateTransformation, double *Longitude, double *Latitude);

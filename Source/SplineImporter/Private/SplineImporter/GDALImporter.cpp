@@ -23,7 +23,6 @@
 #include "Stats/Stats.h"
 #include "Stats/StatsMisc.h"
 #include "ObjectEditorUtils.h"
-#include "Editor/EditorEngine.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 

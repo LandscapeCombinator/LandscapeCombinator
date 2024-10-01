@@ -57,12 +57,12 @@ public:
 	)
 	void DeleteBuilding();
 
-#if WITH_EDITOR
-
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Building",
 		meta = (DisplayPriority = "100")
 	)
 	void GenerateBuilding();
+
+#if WITH_EDITOR
 
 	UFUNCTION(BlueprintCallable, Category = "Building",
 		meta = (DisplayPriority = "5")
@@ -79,6 +79,8 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Building")
 	void GenerateVolume();
+
+#endif
 	
 	UFUNCTION(BlueprintCallable, Category = "Building")
 	void AppendBuilding(UDynamicMesh* TargetMesh);
@@ -87,6 +89,8 @@ public:
 
 	UFUNCTION()
 	void SetReceivesDecals();
+
+#if WITH_EDITOR
 
 protected:
 
@@ -153,8 +157,6 @@ private:
 	TArray<int> IndexToInternalIndex;
 	TMap<UStaticMesh*, UInstancedStaticMeshComponent*> MeshToISM;
 
-#if WITH_EDITOR
-
 	FVector2D GetIntersection(FVector2D Point1, FVector2D Direction1, FVector2D Point2, FVector2D Direction2);
 	void DeflateFrames(TArray<FTransform> Frames, TArray<FVector2D>& OutOffsetPolygon, TArray<int>& OutIndexToOffsetIndex, double Offset);
 
@@ -187,7 +189,6 @@ private:
 	void AddWindowsMeshes();
 	void AddWindowsMeshes(FWindowsSpecification &WindowsSpecification, int i);
 
-#endif
 	void DestroySplineMeshComponents();
 	void DestroyInstancedStaticMeshComponents();
 

@@ -52,8 +52,6 @@ public:
 	)
 	TArray<TObjectPtr<ABuilding>> SpawnedBuildings;
 
-#if WITH_EDITOR
-
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Buildings",
 		meta = (DisplayPriority = "3")
 	)
@@ -64,17 +62,11 @@ public:
 	)
 	void ClearBuildings();
 
-#endif
-
 protected:
-
-#if WITH_EDITOR
 
 	void GenerateBuilding(USplineComponent* SplineComponent);
 	TArray<USplineComponent*> FindSplineComponents();
 	TArray<AActor*> FindActors();
-
-#endif
 };
 
 #undef LOCTEXT_NAMESPACE

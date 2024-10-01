@@ -3,6 +3,7 @@
 #include "MapboxHelpers/MapboxHelpers.h"
 #include "MapboxHelpers/LogMapboxHelpers.h"
 #include "GDALInterface/GDALInterface.h"
+#include "ConcurrencyHelpers/Concurrency.h"
 
 #include "Misc/MessageDialog.h"
 
@@ -16,29 +17,27 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 
 	if (!Dataset)
 	{
-		if (!*bShowedDialog)
-		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		Concurrency::ShowDialog(
+			FText::Format(
 				LOCTEXT("MapboxHelpers::6", "Could not read file {0} using GDAL."),
 				FText::FromString(OutputFile)
-			));
-			*bShowedDialog = true;
-		}
+			),
+			bShowedDialog
+		);
 		return false;
 	}
 
 
 	if (Dataset->GetRasterCount() != 1)
 	{
-		if (!*bShowedDialog)
-		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-				LOCTEXT("MapboxHelpers::0", "Expected one band from heightmap {0}, but got {1} instead."),
+		Concurrency::ShowDialog(
+			FText::Format(
+				LOCTEXT("MapboxHelpers::0", "Expected one band from Mapbox heightmap {0}, but got {1} instead."),
 				FText::FromString(InputFile),
 				FText::AsNumber(Dataset->GetRasterCount())
-			));
-			*bShowedDialog = true;
-		}
+			),
+			bShowedDialog
+		);
 		return false;
 	}
 
@@ -46,14 +45,13 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 	GDALColorTable* ColorTable = Dataset->GetRasterBand(1)->GetColorTable();
     if (!ColorTable)
 	{
-		if (!*bShowedDialog)
-		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		Concurrency::ShowDialog(
+			FText::Format(
 				LOCTEXT("MapboxHelpers::00", "Expected to have a Color Table in the heightmap {0}."),
 				FText::FromString(InputFile)
-			));
-			*bShowedDialog = true;
-		}
+			),
+			bShowedDialog
+		);
         GDALClose(Dataset);
         return false;
     }
@@ -66,13 +64,7 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 
 	if (!CodeBand)
 	{
-		if (!*bShowedDialog)
-		{
-			FMessageDialog::Open(EAppMsgType::Ok,
-				LOCTEXT("MapboxHelpers::7", "Not enough memory to allocate for decoding data.")
-			);
-			*bShowedDialog = true;
-		}
+		Concurrency::ShowDialog(LOCTEXT("MapboxHelpers::7", "Not enough memory to allocate for decoding data."), bShowedDialog);
 		GDALClose(Dataset);
 		if (CodeBand) free(CodeBand);
 		return false;
@@ -83,14 +75,13 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 
 	if (ReadErr != CE_None)
 	{
-		if (!*bShowedDialog)
-		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		Concurrency::ShowDialog(
+			FText::Format(
 				LOCTEXT("MapboxHelpers::7", "There was an error while reading heightmap data from file {0}."),
 				FText::FromString(OutputFile)
-			));
-			*bShowedDialog = true;
-		}
+			),
+			bShowedDialog
+		);
 		free(CodeBand);
 		GDALClose(Dataset);
 		return false;
@@ -105,14 +96,8 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 
 	if (!TIFDriver || !MEMDriver)
 	{
-		if (!*bShowedDialog)
-		{
-			FMessageDialog::Open(EAppMsgType::Ok,
-				LOCTEXT("MapboxHelpers::3", "Could not load GDAL drivers.")
-			);
-			*bShowedDialog = true;
-			GDALClose(Dataset);
-		}
+		Concurrency::ShowDialog(LOCTEXT("MapboxHelpers::3", "Could not load GDAL drivers."), bShowedDialog);
+		GDALClose(Dataset);
 		free(CodeBand);
 		return false;
 	}
@@ -125,14 +110,13 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 
 	if (!HeightmapData)
 	{
-		if (!*bShowedDialog)
-		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		Concurrency::ShowDialog(
+			FText::Format(
 				LOCTEXT("MapboxHelpers::12", "Not enough memory to allocate for decoding data."),
 				FText::FromString(OutputFile)
-			));
-			*bShowedDialog = true;
-		}
+			),
+			bShowedDialog
+		);
 		free(CodeBand);
 		return false;
 	}
@@ -146,18 +130,17 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 			const GDALColorEntry *ColorEntry = ColorTable->GetColorEntry(CodeBand[i]);
 			if (!ColorEntry)
 			{
-				if (!*bShowedDialog)
-				{
-					FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+				Concurrency::ShowDialog(
+					FText::Format(
 						LOCTEXT("MapboxHelpers::12", "No Color Entry for X = {0}, Y = {1}, Index = {2}, i = {3}, ColorTable Entry Count: {4}"),
 						FText::AsNumber(X),
 						FText::AsNumber(Y),
 						FText::AsNumber(CodeBand[i]),
 						FText::AsNumber(i),
 						FText::AsNumber(ColorTable->GetColorEntryCount())
-					));
-					*bShowedDialog = true;
-				}
+					),
+					bShowedDialog
+				);
 				free(CodeBand);
 				GDALClose(Dataset);
 				return false;
@@ -184,14 +167,13 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 
 	if (!NewDataset)
 	{
-		if (!*bShowedDialog)
-		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		Concurrency::ShowDialog(
+			FText::Format(
 				LOCTEXT("MapboxHelpers::4", "There was an error while creating a GDAL Dataset."),
 				FText::FromString(InputFile)
-			));
-			*bShowedDialog = true;
-		}
+			),
+			bShowedDialog
+		);
 		free(HeightmapData);
 		return false;
 	}
@@ -200,15 +182,14 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 
 	if (WriteErr != CE_None)
 	{
-		if (!*bShowedDialog)
-		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		Concurrency::ShowDialog(
+			FText::Format(
 				LOCTEXT("MapboxHelpers::5", "There was an error while writing heightmap data to file {0}. (Error: {1})"),
 				FText::FromString(OutputFile),
 				FText::AsNumber(WriteErr, &FNumberFormattingOptions::DefaultNoGrouping())
-			));
-			*bShowedDialog = true;
-		}
+			),
+			bShowedDialog
+		);
 		GDALClose(NewDataset);
 		free(HeightmapData);
 		return false;
@@ -220,15 +201,14 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 
 	if (!TIFDataset)
 	{
-		if (!*bShowedDialog)
-		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		Concurrency::ShowDialog(
+			FText::Format(
 				LOCTEXT("MapboxHelpers::5", "Could not write heightmap to file {0}."),
 				FText::FromString(OutputFile),
 				FText::AsNumber(WriteErr, &FNumberFormattingOptions::DefaultNoGrouping())
-			));
-			*bShowedDialog = true;
-		}
+			),
+			bShowedDialog
+		);
 		free(HeightmapData);
 		return false;
 	}
@@ -247,28 +227,26 @@ bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile
 
 	if (!Dataset)
 	{
-		if (!*bShowedDialog)
-		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		Concurrency::ShowDialog(
+			FText::Format(
 				LOCTEXT("MapboxHelpers::6", "Could not read file {0} using GDAL."),
 				FText::FromString(OutputFile)
-			));
-			*bShowedDialog = true;
-		}
+			),
+			bShowedDialog
+		);
 		return false;
 	}
 
 	if (Dataset->GetRasterCount() < 3)
 	{
-		if (!*bShowedDialog)
-		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		Concurrency::ShowDialog(
+			FText::Format(
 				LOCTEXT("MapboxHelpers::0", "Expected at least three bands from heightmap {0}, but got {1} instead."),
 				FText::FromString(InputFile),
 				FText::AsNumber(Dataset->GetRasterCount())
-			));
-			*bShowedDialog = true;
-		}
+			),
+			bShowedDialog
+		);
 		return false;
 	}
 	
@@ -281,13 +259,10 @@ bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile
 
 	if (!RedBand || !GreenBand || !BlueBand)
 	{
-		if (!*bShowedDialog)
-		{
-			FMessageDialog::Open(EAppMsgType::Ok,
-				LOCTEXT("MapboxHelpers::7", "Not enough memory to allocate for decoding data.")
-			);
-			*bShowedDialog = true;
-		}
+		Concurrency::ShowDialog(
+			LOCTEXT("MapboxHelpers::7", "Not enough memory to allocate for decoding data."),
+			bShowedDialog
+		);
 		GDALClose(Dataset);
 		if (RedBand) free(RedBand);
 		if (GreenBand) free(GreenBand);
@@ -298,21 +273,20 @@ bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile
 	CPLErr ReadErr1 = Dataset->GetRasterBand(1)->RasterIO(GF_Read, 0, 0, SizeX, SizeY, RedBand, SizeX, SizeY, GDT_Byte, 0, 0);
 	CPLErr ReadErr2 = Dataset->GetRasterBand(2)->RasterIO(GF_Read, 0, 0, SizeX, SizeY, GreenBand, SizeX, SizeY, GDT_Byte, 0, 0);
 	CPLErr ReadErr3 = Dataset->GetRasterBand(3)->RasterIO(GF_Read, 0, 0, SizeX, SizeY, BlueBand, SizeX, SizeY, GDT_Byte, 0, 0);
+	GDALClose(Dataset);
 
 	if (ReadErr1 != CE_None || ReadErr2 != CE_None || ReadErr3 != CE_None)
 	{
-		if (!*bShowedDialog)
-		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		Concurrency::ShowDialog(
+			FText::Format(
 				LOCTEXT("MapboxHelpers::7", "There was an error while reading heightmap data from file {0}."),
 				FText::FromString(OutputFile)
-			));
-			*bShowedDialog = true;
-		}
+			),
+			bShowedDialog
+		);
 		free(RedBand);
 		free(GreenBand);
 		free(BlueBand);
-		GDALClose(Dataset);
 		return false;
 	}
 	
@@ -325,14 +299,7 @@ bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile
 
 	if (!TIFDriver || !MEMDriver)
 	{
-		if (!*bShowedDialog)
-		{
-			FMessageDialog::Open(EAppMsgType::Ok,
-				LOCTEXT("MapboxHelpers::3", "Could not load GDAL drivers.")
-			);
-			*bShowedDialog = true;
-			GDALClose(Dataset);
-		}
+		Concurrency::ShowDialog(LOCTEXT("MapboxHelpers::3", "Could not load GDAL drivers."), bShowedDialog);
 		free(RedBand);
 		free(GreenBand);
 		free(BlueBand);
@@ -347,14 +314,13 @@ bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile
 
 	if (!HeightmapData)
 	{
-		if (!*bShowedDialog)
-		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		Concurrency::ShowDialog(
+			FText::Format(
 				LOCTEXT("MapboxHelpers::12", "Not enough memory to allocate for decoding data."),
 				FText::FromString(OutputFile)
-			));
-			*bShowedDialog = true;
-		}
+			),
+			bShowedDialog
+		);
 		free(RedBand);
 		free(GreenBand);
 		free(BlueBand);
@@ -376,10 +342,7 @@ bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile
 	free(RedBand);
 	free(GreenBand);
 	free(BlueBand);
-	GDALClose(Dataset);
 	
-
-
 	GDALDataset *NewDataset = MEMDriver->Create(
 		"",
 		SizeX, SizeY,
@@ -391,14 +354,13 @@ bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile
 
 	if (!NewDataset)
 	{
-		if (!*bShowedDialog)
-		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		Concurrency::ShowDialog(
+			FText::Format(
 				LOCTEXT("MapboxHelpers::4", "There was an error while creating a GDAL Dataset."),
 				FText::FromString(InputFile)
-			));
-			*bShowedDialog = true;
-		}
+			),
+			bShowedDialog
+		);
 		free(HeightmapData);
 		return false;
 	}
@@ -407,35 +369,32 @@ bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile
 
 	if (WriteErr != CE_None)
 	{
-		if (!*bShowedDialog)
-		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		Concurrency::ShowDialog(
+			FText::Format(
 				LOCTEXT("MapboxHelpers::5", "There was an error while writing heightmap data to file {0}. (Error: {1})"),
 				FText::FromString(OutputFile),
 				FText::AsNumber(WriteErr, &FNumberFormattingOptions::DefaultNoGrouping())
-			));
-			*bShowedDialog = true;
-		}
+			),
+			bShowedDialog
+		);
 		GDALClose(NewDataset);
 		free(HeightmapData);
 		return false;
 	}
-
 
 	GDALDataset *TIFDataset = TIFDriver->CreateCopy(TCHAR_TO_UTF8(*OutputFile), NewDataset, 1, nullptr, nullptr, nullptr);
 	GDALClose(NewDataset);
 
 	if (!TIFDataset)
 	{
-		if (!*bShowedDialog)
-		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		Concurrency::ShowDialog(
+			FText::Format(
 				LOCTEXT("MapboxHelpers::5", "Could not write heightmap to file {0}."),
 				FText::FromString(OutputFile),
 				FText::AsNumber(WriteErr, &FNumberFormattingOptions::DefaultNoGrouping())
-			));
-			*bShowedDialog = true;
-		}
+			),
+			bShowedDialog
+		);
 		free(HeightmapData);
 		return false;
 	}

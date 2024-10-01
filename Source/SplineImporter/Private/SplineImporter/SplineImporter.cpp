@@ -23,11 +23,7 @@
 #include "Stats/Stats.h"
 #include "Stats/StatsMisc.h"
 #include "ObjectEditorUtils.h"
-#include "Editor/EditorEngine.h"
-
-#if WITH_EDITOR
-extern UNREALED_API class UEditorEngine* GEditor;
-#endif
+#include "Engine/World.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
@@ -95,7 +91,7 @@ void ASplineImporter::Import(TFunction<void(bool)> OnComplete)
 	{
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 			LOCTEXT("ASplineImporter::GenerateSplines::NoStatic", "Please make sure that {0}'s mobility is set to static."),
-			FText::FromString(ActorOrLandscapeToPlaceSplines->GetActorLabel())
+			FText::FromString(ActorOrLandscapeToPlaceSplines->GetActorNameOrLabel())
 		));
 		
 		if (OnComplete) OnComplete(false);
@@ -104,7 +100,7 @@ void ASplineImporter::Import(TFunction<void(bool)> OnComplete)
 
 	FText IntroMessage;
 	ALandscape *Landscape = nullptr;
-	FString ActorOrLandscapeToPlaceSplinesLabel = ActorOrLandscapeToPlaceSplines->GetActorLabel();
+	FString ActorOrLandscapeToPlaceSplinesLabel = ActorOrLandscapeToPlaceSplines->GetActorNameOrLabel();
 
 	if (bUseLandscapeSplines)
 	{
@@ -193,6 +189,7 @@ void ASplineImporter::Import(TFunction<void(bool)> OnComplete)
 				return;
 			}
 
+#if WITH_EDITOR
 			if (bUseLandscapeSplines)
 			{
 				GenerateLandscapeSplines(Landscape, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
@@ -201,7 +198,18 @@ void ASplineImporter::Import(TFunction<void(bool)> OnComplete)
 			{
 				GenerateRegularSplines(ActorOrLandscapeToPlaceSplines, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
 			}
-			
+#else
+
+			if (bUseLandscapeSplines)
+			{
+				UE_LOG(LogSplineImporter, Error, TEXT("Cannot create landscape splines at runtime"));
+				if (OnComplete) OnComplete(false);
+				return;
+			}
+			GenerateRegularSplines(ActorOrLandscapeToPlaceSplines, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
+
+#endif
+
 			if (OnComplete) OnComplete(true);
 		}
 		else
@@ -211,222 +219,7 @@ void ASplineImporter::Import(TFunction<void(bool)> OnComplete)
 	});
 }
 
-void ASplineImporter::GenerateLandscapeSplines(
-	ALandscape *Landscape,
-	FCollisionQueryParams CollisionQueryParams,
-	OGRCoordinateTransformation *OGRTransform,
-	UGlobalCoordinates *GlobalCoordinates,
-	TArray<FPointList> &PointLists
-)
-{
-
-	FString LandscapeLabel = Landscape->GetActorLabel();
-
-	// SplineOwner should be a Landscape Spline Actor when there are Landscape Streaming Proxies
-	// This avoids a Map Check error: "Meshes in LEVEL out of date compared to landscape spline in LEVEL. Rebuild landscape splines"
-	// TODO: create one spline actor per landscape streaming proxy?
-	TArray<ALandscapeStreamingProxy*> LandscapeStreamingProxies = LandscapeUtils::GetLandscapeStreamingProxies(Landscape);
-	ILandscapeSplineInterface* SplineOwner = nullptr;
-	if (LandscapeStreamingProxies.IsEmpty())
-	{
-		SplineOwner = Landscape;
-	}
-	else if (IsValid(Landscape->GetLandscapeInfo()))
-	{
-		SplineOwner = Landscape->GetLandscapeInfo()->CreateSplineActor(Landscape->GetActorLocation());
-	}
-	else
-	{
-		FMessageDialog::Open(EAppMsgType::Ok,
-			FText::Format(
-				LOCTEXT("NoLandscapeSplineActor", "Could not create a landscape spline actor for Landscape {0}."),
-				FText::FromString(LandscapeLabel)
-			)
-		);
-		return;
-	}
-
-
-	ULandscapeSplinesComponent *LandscapeSplinesComponent = SplineOwner->GetSplinesComponent();
-	if (!LandscapeSplinesComponent)
-	{
-		UE_LOG(LogSplineImporter, Log, TEXT("Did not find a landscape splines component. Creating one."));
-		SplineOwner->CreateSplineComponent();
-		LandscapeSplinesComponent = SplineOwner->GetSplinesComponent();
-	}
-	else
-	{
-		UE_LOG(LogSplineImporter, Log, TEXT("Found a landscape splines component"));
-	}
-
-	if (!LandscapeSplinesComponent)
-	{
-		FMessageDialog::Open(EAppMsgType::Ok,
-			FText::Format(
-				LOCTEXT("NoLandscapeSplinesComponent", "Could not create a landscape splines component for Landscape {0}."),
-				FText::FromString(LandscapeLabel)
-			)
-		);
-		return;
-	}
-	
-	LandscapeSplinesComponent->Modify();
-	LandscapeSplinesComponent->ShowSplineEditorMesh(true);
-
-	TMap<FVector2D, ULandscapeSplineControlPoint*> Points;
-	
-	const int NumLists = PointLists.Num();
-	FScopedSlowTask PointsTask = FScopedSlowTask(NumLists,
-		FText::Format(
-			LOCTEXT("PointsTask", "Adding points from {0} lines"),
-			FText::AsNumber(NumLists)
-		)
-	);
-	PointsTask.MakeDialog();
-
-	for (auto &PointList : PointLists)
-	{
-		PointsTask.EnterProgressFrame();
-		AddLandscapeSplinesPoints(Landscape, CollisionQueryParams, OGRTransform, GlobalCoordinates, LandscapeSplinesComponent, PointList, Points);
-	}
-
-	UE_LOG(LogSplineImporter, Log, TEXT("Found %d control points"), Points.Num());
-	
-	FScopedSlowTask LandscapeSplinesTask = FScopedSlowTask(NumLists,
-		FText::Format(
-			LOCTEXT("PointsTask", "Adding landscape splines from {0} lines and {1} points"),
-			FText::AsNumber(NumLists),
-			FText::AsNumber(Points.Num())
-		)
-	);
-	LandscapeSplinesTask.MakeDialog();
-	
-	for (auto &PointList : PointLists)
-	{
-		LandscapeSplinesTask.EnterProgressFrame();
-		AddLandscapeSplines(Landscape, CollisionQueryParams, OGRTransform, GlobalCoordinates, LandscapeSplinesComponent, PointList, Points);
-	}
-	
-	UE_LOG(LogSplineImporter, Log, TEXT("Added %d segments"), LandscapeSplinesComponent->GetSegments().Num());
-	LandscapeSplinesComponent->RebuildAllSplines();
-	LandscapeSplinesComponent->MarkRenderStateDirty();
-	Landscape->RequestSplineLayerUpdate();
-
-	LandscapeSplinesComponent->PostEditChange();
-
-	//GEditor->SelectActor(Landscape, true, true);
-}
-
-void ASplineImporter::AddLandscapeSplinesPoints(
-	ALandscape* Landscape,
-	FCollisionQueryParams CollisionQueryParams,
-	OGRCoordinateTransformation *OGRTransform,
-	UGlobalCoordinates *GlobalCoordinates,
-	ULandscapeSplinesComponent* LandscapeSplinesComponent,
-	FPointList &PointList,
-	TMap<FVector2D, ULandscapeSplineControlPoint*> &ControlPoints
-)
-{
-	UWorld *World = Landscape->GetWorld();
-	FTransform WorldToComponent = LandscapeSplinesComponent->GetComponentToWorld().Inverse();
-
-	for (OGRPoint &Point : PointList.Points)
-	{
-		double Longitude = Point.getX();
-		double Latitude = Point.getY();
-		
-		// copy before converting
-		double ConvertedLongitude = Point.getX();
-		double ConvertedLatitude = Point.getY();
-
-		if (!GDALInterface::Transform(OGRTransform, &ConvertedLongitude, &ConvertedLatitude)) return;
-
-		FVector2D XY;
-		GlobalCoordinates->GetUnrealCoordinatesFromCRS(ConvertedLongitude, ConvertedLatitude, XY);
-
-		double x = XY[0]; 
-		double y = XY[1];
-		double z;
-		if (LandscapeUtils::GetZ(World, CollisionQueryParams, x, y, z))
-		{
-			FVector Location = FVector(x, y, z) + SplinePointsOffset;
-			FVector LocalLocation = LandscapeSplinesComponent->GetComponentToWorld().InverseTransformPosition(Location);
-			ULandscapeSplineControlPoint* ControlPoint = NewObject<ULandscapeSplineControlPoint>(LandscapeSplinesComponent, NAME_None, RF_Transactional);
-			ControlPoint->Location = LocalLocation;
-			LandscapeSplinesComponent->GetControlPoints().Add(ControlPoint);
-			ControlPoint->LayerName = "Road";
-			ControlPoint->Width = 300; // half-width in cm
-			ControlPoint->SideFalloff = 200;
-			ControlPoints.Add( { Longitude, Latitude } , ControlPoint);
-		}
-		else
-		{
-			UE_LOG(LogSplineImporter, Warning, TEXT("No collision for point %f, %f"), x, y);
-		}
-	}
-}
-
-void ASplineImporter::AddLandscapeSplines(
-	ALandscape* Landscape,
-	FCollisionQueryParams CollisionQueryParams,
-	OGRCoordinateTransformation *OGRTransform,
-	UGlobalCoordinates *GlobalCoordinates,
-	ULandscapeSplinesComponent* LandscapeSplinesComponent,
-	FPointList &PointList,
-	TMap<FVector2D, ULandscapeSplineControlPoint*> &Points
-)
-{	
-	int NumPoints = PointList.Points.Num();
-	for (int i = 0; i < NumPoints - 1; i++)
-	{
-		OGRPoint Point1 = PointList.Points[i];
-		OGRPoint Point2 = PointList.Points[i + 1];
-
-		FVector2D OGRLocation1 = { Point1.getX(), Point1.getY() };
-		FVector2D OGRLocation2 = { Point2.getX(), Point2.getY() };
-
-		// this may happen when GetZ returned false in `AddPoints`
-		if (!Points.Contains(OGRLocation1) || !Points.Contains(OGRLocation2))
-		{
-			continue;
-		}
-
-		ULandscapeSplineControlPoint *ControlPoint1 = Points[OGRLocation1];
-		ULandscapeSplineControlPoint *ControlPoint2 = Points[OGRLocation2];
-		
-		ControlPoint1->Modify();
-		ControlPoint2->Modify();
-
-		ULandscapeSplineSegment* NewSegment;
-		
-		NewSegment = NewObject<ULandscapeSplineSegment>(LandscapeSplinesComponent, NAME_None, RF_Transactional);
-		LandscapeSplinesComponent->GetSegments().Add(NewSegment);
-		
-		NewSegment->LayerName = "Road";
-		NewSegment->Connections[0].ControlPoint = ControlPoint1;
-		NewSegment->Connections[1].ControlPoint = ControlPoint2;
-
-		float TangentLen = (ControlPoint2->Location - ControlPoint1->Location).Size() / LandscapeSplinesStraightness;
-
-		NewSegment->Connections[0].TangentLen = TangentLen;
-		NewSegment->Connections[1].TangentLen = TangentLen;
-		NewSegment->AutoFlipTangents();
-		ControlPoint1->ConnectedSegments.Add(FLandscapeSplineConnection(NewSegment, 0));
-		ControlPoint2->ConnectedSegments.Add(FLandscapeSplineConnection(NewSegment, 1));
-
-#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4)
-		ControlPoint1->AutoCalcRotation(true);
-		ControlPoint2->AutoCalcRotation(true);
-#else
-		ControlPoint1->AutoCalcRotation();
-		ControlPoint2->AutoCalcRotation();
-#endif
-
-		// FIXME: Update is Slow
-		//ControlPoint1->UpdateSplinePoints();
-		//ControlPoint2->UpdateSplinePoints();
-	}
-}
+#include "Engine/World.h"
 
 void ASplineImporter::GenerateRegularSplines(
 	AActor *Actor,
@@ -450,7 +243,10 @@ void ASplineImporter::GenerateRegularSplines(
 	if (SplineOwnerKind == ESplineOwnerKind::SingleSplineCollection)
 	{
 		SplineOwner = World->SpawnActor<ASplineCollection>();
-		SplineOwner->SetActorLabel("SC_" + this->GetActorLabel());
+
+#if WITH_EDITOR
+		SplineOwner->SetActorLabel("SC_" + this->GetActorNameOrLabel());
+#endif
 
 		if (!SplineOwner)
 		{
@@ -488,7 +284,11 @@ void ASplineImporter::GenerateRegularSplines(
 				);
 				return;
 			}
-			SplineOwner->SetActorLabel("SC_" + this->GetActorLabel() + FString::FromInt(i));
+
+#if WITH_EDITOR
+			SplineOwner->SetActorLabel("SC_" + this->GetActorNameOrLabel() + FString::FromInt(i));
+#endif
+
 			SplineOwner->Tags.Add(SplinesTag);
 			SplineOwners.Add(SplineOwner);
 		}
@@ -505,17 +305,16 @@ void ASplineImporter::GenerateRegularSplines(
 				return;
 			}
 
-			SplineOwner->SetActorLabel(SplineOwner->GetActorLabel() + "_" + FString::FromInt(i));
+#if WITH_EDITOR
+			SplineOwner->SetActorLabel(SplineOwner->GetActorNameOrLabel() + "_" + FString::FromInt(i));
+#endif
+
 			SplineOwner->Tags.Add(SplinesTag);
 			SplineOwners.Add(SplineOwner);
 		}
 		SplinesTask.EnterProgressFrame();
 		AddRegularSpline(SplineOwner, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointList);
 	}
-	
-	//GEditor->SelectActor(this, false, true);
-	//GEditor->SelectActor(SplineOwner, true, true, true, true);
-	//GEditor->NoteSelectionChange();
 }
 
 void ASplineImporter::AddRegularSpline(
@@ -621,6 +420,223 @@ void ASplineImporter::AddRegularSpline(
 	SplineComponent->bSplineHasBeenEdited = true;
 }
 
+#if WITH_EDITOR
 
+void ASplineImporter::GenerateLandscapeSplines(
+	ALandscape* Landscape,
+	FCollisionQueryParams CollisionQueryParams,
+	OGRCoordinateTransformation* OGRTransform,
+	UGlobalCoordinates* GlobalCoordinates,
+	TArray<FPointList>& PointLists
+)
+{
+
+	FString LandscapeLabel = Landscape->GetActorNameOrLabel();
+
+	// SplineOwner should be a Landscape Spline Actor when there are Landscape Streaming Proxies
+	// This avoids a Map Check error: "Meshes in LEVEL out of date compared to landscape spline in LEVEL. Rebuild landscape splines"
+	// TODO: create one spline actor per landscape streaming proxy?
+	TArray<ALandscapeStreamingProxy*> LandscapeStreamingProxies = LandscapeUtils::GetLandscapeStreamingProxies(Landscape);
+	ILandscapeSplineInterface* SplineOwner = nullptr;
+	if (LandscapeStreamingProxies.IsEmpty())
+	{
+		SplineOwner = Landscape;
+	}
+	else if (IsValid(Landscape->GetLandscapeInfo()))
+	{
+		SplineOwner = Landscape->GetLandscapeInfo()->CreateSplineActor(Landscape->GetActorLocation());
+	}
+	else
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			FText::Format(
+				LOCTEXT("NoLandscapeSplineActor", "Could not create a landscape spline actor for Landscape {0}."),
+				FText::FromString(LandscapeLabel)
+			)
+		);
+		return;
+	}
+
+
+	ULandscapeSplinesComponent* LandscapeSplinesComponent = SplineOwner->GetSplinesComponent();
+	if (!LandscapeSplinesComponent)
+	{
+		UE_LOG(LogSplineImporter, Log, TEXT("Did not find a landscape splines component. Creating one."));
+		SplineOwner->CreateSplineComponent();
+		LandscapeSplinesComponent = SplineOwner->GetSplinesComponent();
+	}
+	else
+	{
+		UE_LOG(LogSplineImporter, Log, TEXT("Found a landscape splines component"));
+	}
+
+	if (!LandscapeSplinesComponent)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			FText::Format(
+				LOCTEXT("NoLandscapeSplinesComponent", "Could not create a landscape splines component for Landscape {0}."),
+				FText::FromString(LandscapeLabel)
+			)
+		);
+		return;
+	}
+
+	LandscapeSplinesComponent->Modify();
+	LandscapeSplinesComponent->ShowSplineEditorMesh(true);
+
+	TMap<FVector2D, ULandscapeSplineControlPoint*> Points;
+
+	const int NumLists = PointLists.Num();
+	FScopedSlowTask PointsTask = FScopedSlowTask(NumLists,
+		FText::Format(
+			LOCTEXT("PointsTask", "Adding points from {0} lines"),
+			FText::AsNumber(NumLists)
+		)
+	);
+	PointsTask.MakeDialog();
+
+	for (auto& PointList : PointLists)
+	{
+		PointsTask.EnterProgressFrame();
+		AddLandscapeSplinesPoints(Landscape, CollisionQueryParams, OGRTransform, GlobalCoordinates, LandscapeSplinesComponent, PointList, Points);
+	}
+
+	UE_LOG(LogSplineImporter, Log, TEXT("Found %d control points"), Points.Num());
+
+	FScopedSlowTask LandscapeSplinesTask = FScopedSlowTask(NumLists,
+		FText::Format(
+			LOCTEXT("PointsTask", "Adding landscape splines from {0} lines and {1} points"),
+			FText::AsNumber(NumLists),
+			FText::AsNumber(Points.Num())
+		)
+	);
+	LandscapeSplinesTask.MakeDialog();
+
+	for (auto& PointList : PointLists)
+	{
+		LandscapeSplinesTask.EnterProgressFrame();
+		AddLandscapeSplines(Landscape, CollisionQueryParams, OGRTransform, GlobalCoordinates, LandscapeSplinesComponent, PointList, Points);
+	}
+
+	UE_LOG(LogSplineImporter, Log, TEXT("Added %d segments"), LandscapeSplinesComponent->GetSegments().Num());
+	LandscapeSplinesComponent->RebuildAllSplines();
+	LandscapeSplinesComponent->MarkRenderStateDirty();
+	Landscape->RequestSplineLayerUpdate();
+
+	LandscapeSplinesComponent->PostEditChange();
+}
+
+void ASplineImporter::AddLandscapeSplinesPoints(
+	ALandscape* Landscape,
+	FCollisionQueryParams CollisionQueryParams,
+	OGRCoordinateTransformation* OGRTransform,
+	UGlobalCoordinates* GlobalCoordinates,
+	ULandscapeSplinesComponent* LandscapeSplinesComponent,
+	FPointList& PointList,
+	TMap<FVector2D, ULandscapeSplineControlPoint*>& ControlPoints
+)
+{
+	UWorld* World = Landscape->GetWorld();
+	FTransform WorldToComponent = LandscapeSplinesComponent->GetComponentToWorld().Inverse();
+
+	for (OGRPoint& Point : PointList.Points)
+	{
+		double Longitude = Point.getX();
+		double Latitude = Point.getY();
+
+		// copy before converting
+		double ConvertedLongitude = Point.getX();
+		double ConvertedLatitude = Point.getY();
+
+		if (!GDALInterface::Transform(OGRTransform, &ConvertedLongitude, &ConvertedLatitude)) return;
+
+		FVector2D XY;
+		GlobalCoordinates->GetUnrealCoordinatesFromCRS(ConvertedLongitude, ConvertedLatitude, XY);
+
+		double x = XY[0];
+		double y = XY[1];
+		double z;
+		if (LandscapeUtils::GetZ(World, CollisionQueryParams, x, y, z))
+		{
+			FVector Location = FVector(x, y, z) + SplinePointsOffset;
+			FVector LocalLocation = LandscapeSplinesComponent->GetComponentToWorld().InverseTransformPosition(Location);
+			ULandscapeSplineControlPoint* ControlPoint = NewObject<ULandscapeSplineControlPoint>(LandscapeSplinesComponent, NAME_None, RF_Transactional);
+			ControlPoint->Location = LocalLocation;
+			LandscapeSplinesComponent->GetControlPoints().Add(ControlPoint);
+			ControlPoint->LayerName = "Road";
+			ControlPoint->Width = 300; // half-width in cm
+			ControlPoint->SideFalloff = 200;
+			ControlPoints.Add({ Longitude, Latitude }, ControlPoint);
+		}
+		else
+		{
+			UE_LOG(LogSplineImporter, Warning, TEXT("No collision for point %f, %f"), x, y);
+		}
+	}
+}
+
+void ASplineImporter::AddLandscapeSplines(
+	ALandscape* Landscape,
+	FCollisionQueryParams CollisionQueryParams,
+	OGRCoordinateTransformation* OGRTransform,
+	UGlobalCoordinates* GlobalCoordinates,
+	ULandscapeSplinesComponent* LandscapeSplinesComponent,
+	FPointList& PointList,
+	TMap<FVector2D, ULandscapeSplineControlPoint*>& Points
+)
+{
+	int NumPoints = PointList.Points.Num();
+	for (int i = 0; i < NumPoints - 1; i++)
+	{
+		OGRPoint Point1 = PointList.Points[i];
+		OGRPoint Point2 = PointList.Points[i + 1];
+
+		FVector2D OGRLocation1 = { Point1.getX(), Point1.getY() };
+		FVector2D OGRLocation2 = { Point2.getX(), Point2.getY() };
+
+		// this may happen when GetZ returned false in `AddPoints`
+		if (!Points.Contains(OGRLocation1) || !Points.Contains(OGRLocation2))
+		{
+			continue;
+		}
+
+		ULandscapeSplineControlPoint* ControlPoint1 = Points[OGRLocation1];
+		ULandscapeSplineControlPoint* ControlPoint2 = Points[OGRLocation2];
+
+		ControlPoint1->Modify();
+		ControlPoint2->Modify();
+
+		ULandscapeSplineSegment* NewSegment;
+
+		NewSegment = NewObject<ULandscapeSplineSegment>(LandscapeSplinesComponent, NAME_None, RF_Transactional);
+		LandscapeSplinesComponent->GetSegments().Add(NewSegment);
+
+		NewSegment->LayerName = "Road";
+		NewSegment->Connections[0].ControlPoint = ControlPoint1;
+		NewSegment->Connections[1].ControlPoint = ControlPoint2;
+
+		float TangentLen = (ControlPoint2->Location - ControlPoint1->Location).Size() / LandscapeSplinesStraightness;
+
+		NewSegment->Connections[0].TangentLen = TangentLen;
+		NewSegment->Connections[1].TangentLen = TangentLen;
+		NewSegment->AutoFlipTangents();
+		ControlPoint1->ConnectedSegments.Add(FLandscapeSplineConnection(NewSegment, 0));
+		ControlPoint2->ConnectedSegments.Add(FLandscapeSplineConnection(NewSegment, 1));
+
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4)
+		ControlPoint1->AutoCalcRotation(true);
+		ControlPoint2->AutoCalcRotation(true);
+#else
+		ControlPoint1->AutoCalcRotation();
+		ControlPoint2->AutoCalcRotation();
+#endif
+
+		// FIXME: Update is Slow
+		//ControlPoint1->UpdateSplinePoints();
+		//ControlPoint2->UpdateSplinePoints();
+	}
+}
+
+#endif
 
 #undef LOCTEXT_NAMESPACE

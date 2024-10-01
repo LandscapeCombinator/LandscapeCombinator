@@ -10,8 +10,13 @@
 #include "LandscapeEdit.h"
 #include "LandscapeDataAccess.h"
 #include "Curves/RichCurve.h"
+#include "Misc/MessageDialog.h"
+
+#if WITH_EDITOR
+
 #include "ScopedTransaction.h"
 
+#endif
 
 #define LOCTEXT_NAMESPACE "FHeightmapModifierModule"
 
@@ -67,6 +72,8 @@ UBlendLandscape::UBlendLandscape()
 
 }
 
+#if WITH_EDITOR
+
 void UBlendLandscape::BlendWithLandscape()
 {
 	ALandscape *Landscape = Cast<ALandscape>(GetOwner());
@@ -114,7 +121,7 @@ void UBlendLandscape::BlendWithLandscape()
 	{
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 			LOCTEXT("UBlendLandscape::BlendWithLandscape::2", "Could not compute landscape bounds of Landscape {0}."),
-			FText::FromString(LandscapeToBlendWith->GetActorLabel())
+			FText::FromString(LandscapeToBlendWith->GetActorNameOrLabel())
 		));
 		return;
 	}
@@ -153,13 +160,13 @@ void UBlendLandscape::BlendWithLandscape()
 		{
 			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 				LOCTEXT("UBlendLandscape::BlendWithLandscape::2", "Could not blend with Landscape{0}. Its resolution might be too small."),
-				FText::FromString(LandscapeToBlendWith->GetActorLabel())
+				FText::FromString(LandscapeToBlendWith->GetActorNameOrLabel())
 			));
 			return;
 		}
 
 		UE_LOG(LogHeightmapModifier, Log, TEXT("Blending with Landscape %s (MinX: %d, MaxX: %d, MinY: %d, MaxY: %d)"),
-			*LandscapeToBlendWith->GetActorLabel(), OtherX1, OtherX2, OtherY1, OtherY2
+			*LandscapeToBlendWith->GetActorNameOrLabel(), OtherX1, OtherX2, OtherY1, OtherY2
 		);
 
 		uint16* OtherOldHeightmapData = (uint16*) malloc(OtherSizeX * OtherSizeY * (sizeof (uint16)));
@@ -213,7 +220,7 @@ void UBlendLandscape::BlendWithLandscape()
 			{
 				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 					LOCTEXT("UHeightmapModifier::ModifyHeightmap::10", "Could not create landscape layer. Make sure that edit layers are enabled on Landscape {0}."),
-					FText::FromString(LandscapeToBlendWith->GetActorLabel())
+					FText::FromString(LandscapeToBlendWith->GetActorNameOrLabel())
 				));
 				free(OldHeightmapData);
 				free(OtherOldHeightmapData);
@@ -281,7 +288,7 @@ void UBlendLandscape::BlendWithLandscape()
 			{
 				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 					LOCTEXT("UHeightmapModifier::ModifyHeightmap::10", "Could not create landscape layer. Make sure that edit layers are enabled on Landscape {0}."),
-					FText::FromString(Landscape->GetActorLabel())
+					FText::FromString(Landscape->GetActorNameOrLabel())
 				));
 				free(OldHeightmapData);
 				free(NewHeightmapData);
@@ -301,7 +308,7 @@ void UBlendLandscape::BlendWithLandscape()
 		free(NewHeightmapData);
 
 		UE_LOG(LogHeightmapModifier, Log, TEXT("Finished blending with Landscape %s (MinX: %d, MaxX: %d, MinY: %d, MaxY: %d)"),
-			*LandscapeToBlendWith->GetActorLabel(), OtherX1, OtherX2, OtherY1, OtherY2
+			*LandscapeToBlendWith->GetActorNameOrLabel(), OtherX1, OtherX2, OtherY1, OtherY2
 		);
 
 		if (!bSilentMode)
@@ -311,7 +318,7 @@ void UBlendLandscape::BlendWithLandscape()
 					"UBlendLandscape::BlendWithLandscape::Finished",
 					"Finished blending with Landscape {0}."
 				),
-				FText::FromString(LandscapeToBlendWith->GetActorLabel())
+				FText::FromString(LandscapeToBlendWith->GetActorNameOrLabel())
 			));
 		}
 		return;
@@ -319,18 +326,20 @@ void UBlendLandscape::BlendWithLandscape()
 	else
 	{
 		UE_LOG(LogHeightmapModifier, Log, TEXT("Skipping blending with Landscape %s, which does not overlap with Landscape %s"),
-			*LandscapeToBlendWith->GetActorLabel(),
-			*Landscape->GetActorLabel()
+			*LandscapeToBlendWith->GetActorNameOrLabel(),
+			*Landscape->GetActorNameOrLabel()
 		);
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 			LOCTEXT("UBlendLandscape::BlendWithLandscape::Skip", "Skipping blending with Landscape {0}, which does not overlap with Landscape {1}."),
-			FText::FromString(LandscapeToBlendWith->GetActorLabel()),
-			FText::FromString(Landscape->GetActorLabel())
+			FText::FromString(LandscapeToBlendWith->GetActorNameOrLabel()),
+			FText::FromString(Landscape->GetActorNameOrLabel())
 		));
 		return;
 	}
 
 	return;
 }
+
+#endif
 
 #undef LOCTEXT_NAMESPACE

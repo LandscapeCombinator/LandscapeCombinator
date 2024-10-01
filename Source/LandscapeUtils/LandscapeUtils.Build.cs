@@ -14,7 +14,7 @@ public class LandscapeUtils : ModuleRules
         PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"Core",
+				"Core"
 			}
 		);
 
@@ -25,11 +25,18 @@ public class LandscapeUtils : ModuleRules
 				"Engine",
 				"Foliage",
 				"Landscape",
-				"LandscapeEditor",
-				"UnrealEd",
 				"Slate",
-				"EditorFramework"
+                "GeometryCore",
+                "GeometryFramework",
+                "GeometryScriptingCore",
 			}
 		);
+
+		if (Target.bBuildEditor)
+        {
+            PrivateDependencyModuleNames.Add("UnrealEd");
+            PrivateDependencyModuleNames.Add("EditorFramework");
+            PrivateDependencyModuleNames.Add("LandscapeEditor");
+        }
 	}
 }

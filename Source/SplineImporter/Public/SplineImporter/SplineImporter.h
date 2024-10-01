@@ -104,34 +104,6 @@ protected:
 		meta = (EditCondition = "false", EditConditionHides)
 	)
 	TArray<TObjectPtr<AActor>> SplineOwners;
-	
-	void GenerateLandscapeSplines(
-		ALandscape *Landscape,
-		FCollisionQueryParams CollisionQueryParams,
-		OGRCoordinateTransformation *OGRTransform,
-		UGlobalCoordinates *GlobalCoordinates,
-		TArray<FPointList> &PointLists
-	);
-
-	void AddLandscapeSplinesPoints(
-		ALandscape* Landscape,
-		FCollisionQueryParams CollisionQueryParams,
-		OGRCoordinateTransformation *OGRTransform,
-		UGlobalCoordinates *GlobalCoordinates,
-		ULandscapeSplinesComponent* LandscapeSplinesComponent,
-		FPointList &PointList,
-		TMap<FVector2D, ULandscapeSplineControlPoint*> &Points
-	);
-
-	void AddLandscapeSplines(
-		ALandscape* Landscape,
-		FCollisionQueryParams CollisionQueryParams,
-		OGRCoordinateTransformation *OGRTransform,
-		UGlobalCoordinates *GlobalCoordinates,
-		ULandscapeSplinesComponent* LandscapeSplinesComponent,
-		FPointList &PointList,
-		TMap<FVector2D, ULandscapeSplineControlPoint*> &Points
-	);
 
 	void GenerateRegularSplines(
 		AActor *Actor,
@@ -148,6 +120,37 @@ protected:
 		UGlobalCoordinates *GlobalCoordinates,
 		FPointList &PointList
 	);
+
+#if WITH_EDITOR
+	void GenerateLandscapeSplines(
+		ALandscape* Landscape,
+		FCollisionQueryParams CollisionQueryParams,
+		OGRCoordinateTransformation* OGRTransform,
+		UGlobalCoordinates* GlobalCoordinates,
+		TArray<FPointList>& PointLists
+	);
+
+	void AddLandscapeSplinesPoints(
+		ALandscape* Landscape,
+		FCollisionQueryParams CollisionQueryParams,
+		OGRCoordinateTransformation* OGRTransform,
+		UGlobalCoordinates* GlobalCoordinates,
+		ULandscapeSplinesComponent* LandscapeSplinesComponent,
+		FPointList& PointList,
+		TMap<FVector2D, ULandscapeSplineControlPoint*>& Points
+	);
+
+	void AddLandscapeSplines(
+		ALandscape* Landscape,
+		FCollisionQueryParams CollisionQueryParams,
+		OGRCoordinateTransformation* OGRTransform,
+		UGlobalCoordinates* GlobalCoordinates,
+		ULandscapeSplinesComponent* LandscapeSplinesComponent,
+		FPointList& PointList,
+		TMap<FVector2D, ULandscapeSplineControlPoint*>& Points
+	);
+#endif
+
 };
 
 #undef LOCTEXT_NAMESPACE

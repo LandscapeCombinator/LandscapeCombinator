@@ -25,13 +25,10 @@ public class HeightmapModifier : ModuleRules
 				// Unreal Dependencies
 				"Projects",
 				"InputCore",
-				"EditorFramework",
-				"UnrealEd",
 				"CoreUObject",
 				"Foliage",
 				"Engine",
 				"Landscape",
-				"LandscapeEditor",
 				
 				// Other Dependencies
 				"GDALInterface",
@@ -39,5 +36,10 @@ public class HeightmapModifier : ModuleRules
 				"ConsoleHelpers"
 			}
 		);
+
+        if (Target.bBuildEditor)
+        {
+            PrivateDependencyModuleNames.Add("UnrealEd");
+        }
 	}
 }

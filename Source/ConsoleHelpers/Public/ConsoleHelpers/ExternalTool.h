@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "Components/ActorComponent.h"
+
 #include "ExternalTool.generated.h"
 
 #define LOCTEXT_NAMESPACE "FConsoleHelpersModule"

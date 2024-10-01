@@ -323,7 +323,7 @@ void ALandscapeSpawner::SpawnLandscape(TFunction<void(ALandscape*)> OnComplete)
 							}
 
 
-							DecalDownloader->DownloadMergedImage([this, OnComplete](FString DownloadedImage)
+							DecalDownloader->DownloadMergedImage(false, [this, OnComplete](FString DownloadedImage, FString ImageCRS)
 							{
 								DecalActor = UDecalCoordinates::CreateDecal(this->GetWorld(), DownloadedImage);
 								if (DecalActor.Get())

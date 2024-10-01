@@ -5,10 +5,13 @@
 #include "FileDownloader/Download.h"
 
 #include "Engine/DecalActor.h"
+#include "Engine/StaticMesh.h"
 #include "Engine/StaticMeshActor.h" 
+#include "Engine/World.h"
 #include "Kismet/GameplayStatics.h" 
 #include "Stats/Stats.h"
-#include "Misc/Paths.h" 
+#include "Misc/Paths.h"
+#include "Misc/MessageDialog.h"
 
 #define LOCTEXT_NAMESPACE "FCoordinatesModule"
 ALevelCoordinates::ALevelCoordinates()
@@ -210,7 +213,9 @@ void ALevelCoordinates::CreateWorldMapFromFile(FString Path)
 	UDecalCoordinates::CreateDecal(this->GetWorld(), Path, Coordinates);
 	
 	AStaticMeshActor* PlaneActor = GetWorld()->SpawnActor<AStaticMeshActor>();
+#if WITH_EDITOR
 	PlaneActor->SetActorLabel("WorldMapPlane");
+#endif
 	PlaneActor->GetStaticMeshComponent()->SetStaticMesh(LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Plane")));
 	PlaneActor->SetActorLocation(FVector((Coordinates[1] + Coordinates[0]) / 2, (Coordinates[2] + Coordinates[3]) / 2, 0));
 

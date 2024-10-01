@@ -24,6 +24,16 @@
 #include "Algo/Reverse.h"
 #include "Stats/Stats.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Misc/MessageDialog.h"
+
+
+#if WITH_EDITOR
+
+#include "GeometryScript/CreateNewAssetUtilityFunctions.h"
+#include "Editor/EditorEngine.h"
+extern UNREALED_API class UEditorEngine* GEditor;
+
+#endif
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(Building)
 
@@ -133,13 +143,6 @@ void ABuilding::Destroyed()
 	DeleteBuilding();
 	Super::Destroyed();
 }
-
-#if WITH_EDITOR
-
-
-#include "GeometryScript/CreateNewAssetUtilityFunctions.h"
-#include "Editor/EditorEngine.h"
-extern UNREALED_API class UEditorEngine* GEditor;
 
 void ABuilding::ComputeBaseVertices()
 {
@@ -1468,6 +1471,7 @@ void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 		UGeometryScriptLibrary_MeshNormalsFunctions::ComputeSplitNormals(TargetMesh, FGeometryScriptSplitNormalsOptions(), FGeometryScriptCalculateNormalsOptions());
 	}
 
+#if WITH_EDITOR
 	if (BuildingConfiguration->bConvertToStaticMesh)
 	{
 		GenerateStaticMesh();
@@ -1483,6 +1487,15 @@ void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 		DynamicMeshComponent->GetDynamicMesh()->Reset();
 	}
 
+#else
+
+	if (BuildingConfiguration->bConvertToStaticMesh && BuildingConfiguration->bConvertToVolume)
+	{
+		UE_LOG(LogBuildingFromSpline, Warning, TEXT("Cannot convert building to static mesh or volume at runtime"));
+	}
+
+#endif
+
 	{
 		TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendBuilding");
 
@@ -1494,13 +1507,15 @@ void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 	}
 
 
-
-
 	AddWindowsMeshes();
 	BaseClockwiseSplineComponent->ClearSplinePoints();
 
+#if WITH_EDITOR
 	GEditor->NoteSelectionChange();
+#endif
 }
+
+#if WITH_EDITOR
 
 void ABuilding::ConvertToStaticMesh()
 {
@@ -1590,7 +1605,7 @@ void ABuilding::GenerateVolume()
 		DynamicMeshComponent->GetDynamicMesh(),
 		this->GetWorld(),
 		this->GetTransform(),
-		this->GetActorLabel() + "Volume",
+		this->GetActorNameOrLabel() + "Volume",
 		Options, Outcome
 	);
 

@@ -15,7 +15,8 @@ public class BuildingFromSpline : ModuleRules
 			new string[]
 			{
 				"Core",
-			}
+                "GeometryFramework",
+            }
 		);
 			
 		
@@ -26,7 +27,6 @@ public class BuildingFromSpline : ModuleRules
 				"CoreUObject",
 				"Engine",
 				"GeometryCore",
-				"GeometryFramework",
 				"GeometryScriptingCore",
 
 				// Other Dependencies

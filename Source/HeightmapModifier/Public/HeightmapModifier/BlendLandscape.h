@@ -27,24 +27,18 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "BlendLandscape",
 		meta = (DisplayPriority = "19")
 	)
-	ALandscape *LandscapeToBlendWith;
-	
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "BlendLandscape",
-		meta = (DisplayPriority = "20")
-	)
-	bool bAdvancedBlendingOptions;
+	TObjectPtr<ALandscape> LandscapeToBlendWith;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "BlendLandscape",
-		meta = (EditCondition = "bAdvancedBlendingOptions", EditConditionHides, DisplayPriority = "20")
+		AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "BlendLandscape",
+		meta = (DisplayPriority = "20")
 	)
 	/* Enable this if you want the modifications to go on new edit layers. */
 	bool bUseEditLayers = false;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "BlendLandscape",
-		meta = (EditCondition = "bAdvancedBlendingOptions", EditConditionHides, DisplayPriority = "21")
+		AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "BlendLandscape",
+		meta = (DisplayPriority = "21")
 	)
 	/* A curve that specifies how the data at the border of this landscape gets degraded into the other landscape.
 	 * The X axis of the curve represents the distance from the border of the overlapping region and goes from 0 (at the border) to (1 at the center).
@@ -54,8 +48,8 @@ public:
 	TObjectPtr<UCurveFloat> DegradeThisData;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "BlendLandscape",
-		meta = (EditCondition = "bAdvancedBlendingOptions", EditConditionHides, DisplayPriority = "22")
+		AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "BlendLandscape",
+		meta = (DisplayPriority = "22")
 	)
 	/* A curve that specifies how the data at the border of a landscape overlapping with this one gets modified.
 	 * The X axis of the curve represents the distance from the border of the overlapping region and goes from 0 (at the border) to (1 at the center).
@@ -67,20 +61,22 @@ public:
 	TObjectPtr<UCurveFloat> DegradeOtherData;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "BlendLandscape",
-		meta = (EditCondition = "bAdvancedBlendingOptions", EditConditionHides, DisplayPriority = "23")
+		AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "BlendLandscape",
+		meta = (DisplayPriority = "23")
 	)
 	/* Please check the tooltip of `DegradeOtherData` for documentation on how to use this value. */
 	double ThisLandscapeNoData = 0;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "BlendLandscape",
-		meta = (EditCondition = "bAdvancedBlendingOptions", EditConditionHides, DisplayPriority = "24")
+		AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "BlendLandscape",
+		meta = (DisplayPriority = "24")
 	)
 	/* Please check the tooltip of `DegradeOtherData` for documentation on how to use this value. */
 	double OtherLandscapeNoData = 0;
 	
+#if WITH_EDITOR
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "BlendLandscape")
 	void BlendWithLandscape();
+#endif
 
 };

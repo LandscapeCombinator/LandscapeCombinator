@@ -29,6 +29,9 @@ public:
 
 	void PlaceDecal(FVector4d &OutCoordinates);
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DecalCoordinates|Internal")
+	TObjectPtr<UTexture2D> Texture;
+
 	static ADecalActor* CreateDecal(UWorld *World, FString Path);
 	static ADecalActor* CreateDecal(UWorld *World, FString Path, FVector4d &OutCoordinates);
 };

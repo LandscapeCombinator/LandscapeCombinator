@@ -24,9 +24,10 @@ public class MapboxHelpers : ModuleRules
 				"CoreUObject",
 				"Engine",
 				
-				// Landscape Combinator Dependencies 
-				"GDALInterface"
-			}
+				// Landscape Combinator Dependencies
+				"GDALInterface",
+                "ConcurrencyHelpers"
+            }
 		);
 	}
 }

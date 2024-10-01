@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "Components/ActorComponent.h"
+
 #include "ActorCoordinates.generated.h"
 
 #define LOCTEXT_NAMESPACE "FCoordinatesModule"

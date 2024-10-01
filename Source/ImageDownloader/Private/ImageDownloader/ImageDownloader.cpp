@@ -37,6 +37,7 @@
 #include "ImageDownloader/Transformers/HMAddMissingTiles.h"
 #include "ImageDownloader/Transformers/HMFunction.h"
 
+
 #include "Coordinates/LevelCoordinates.h"
 #include "LandscapeUtils/LandscapeUtils.h"
 
@@ -381,6 +382,8 @@ HMFetcher* UImageDownloader::CreateFetcher(FString Name, bool bForceMerge, bool 
 	if (bAdaptResolution || bCropCoordinates)
 	{
 		FIntPoint ImageSize(0, 0);
+
+#if WITH_EDITOR
 		if (bAdaptResolution)
 		{
 			if (!TargetLandscape)
@@ -394,6 +397,14 @@ HMFetcher* UImageDownloader::CreateFetcher(FString Name, bool bForceMerge, bool 
 			ImageSize.X = TargetLandscape->ComputeComponentCounts().X * TargetLandscape->ComponentSizeQuads + 1;
 			ImageSize.Y = TargetLandscape->ComputeComponentCounts().Y * TargetLandscape->ComponentSizeQuads + 1;
 		}
+#else
+		if (bAdaptResolution)
+		{
+			UE_LOG(LogImageDownloader, Error, TEXT("Adapt Resolution is only supported in editor mode"));
+			return nullptr;
+		}
+
+#endif
 
 		FVector4d Coordinates(0, 0, 0, 0);
 		if (bCropCoordinates)
@@ -410,7 +421,7 @@ HMFetcher* UImageDownloader::CreateFetcher(FString Name, bool bForceMerge, bool 
 			{
 				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 					LOCTEXT("UImageDownloader::CreateFetcher::NoCoordinates", "Could not compute bounding coordinates of Actor {0}"),
-					FText::FromString(CroppingActor->GetActorLabel())
+					FText::FromString(CroppingActor->GetActorNameOrLabel())
 				));
 				return nullptr;
 			}
@@ -557,6 +568,7 @@ bool UImageDownloader::IsWMS()
 {
 	return
 		ImageSourceKind == EImageSourceKind::GenericWMS ||
+		ImageSourceKind == EImageSourceKind::Australia_LiDAR5m || 
 		ImageSourceKind == EImageSourceKind::IGN_Heightmaps ||
 		ImageSourceKind == EImageSourceKind::IGN_Satellite ||
 		ImageSourceKind == EImageSourceKind::SHOM ||
@@ -724,19 +736,6 @@ bool UImageDownloader::SetSourceParametersFromEPSG4326Box(bool bDialog)
 		XYZ_MinY = (1.0 - asinh(FMath::Tan(MaxLatRad)) / UE_PI) / 2.0 * n;
 		XYZ_MaxY = (1.0 - asinh(FMath::Tan(MinLatRad)) / UE_PI) / 2.0 * n;
 
-		//UE_LOG(LogImageDownloader, Log, TEXT("Converting coordinates to tiles"));
-		//UE_LOG(LogImageDownloader, Log, TEXT("n: %f"), n);
-		//UE_LOG(LogImageDownloader, Log, TEXT("MinLong: %f"), MinLong);
-		//UE_LOG(LogImageDownloader, Log, TEXT("MaxLong: %f"), MaxLong);
-		//UE_LOG(LogImageDownloader, Log, TEXT("MinLat: %f"), MinLat);
-		//UE_LOG(LogImageDownloader, Log, TEXT("MaxLat: %f"), MaxLat);
-		//UE_LOG(LogImageDownloader, Log, TEXT("MinLatRad: %f"), MinLatRad);
-		//UE_LOG(LogImageDownloader, Log, TEXT("MaxLatRad: %f"), MaxLatRad);
-		//UE_LOG(LogImageDownloader, Log, TEXT("MinX: %f"), XYZ_MinX);
-		//UE_LOG(LogImageDownloader, Log, TEXT("MaxX: %f"), XYZ_MaxX);
-		//UE_LOG(LogImageDownloader, Log, TEXT("MinY: %f"), XYZ_MinY);
-		//UE_LOG(LogImageDownloader, Log, TEXT("MaxY: %f"), XYZ_MaxY);
-
 		return true;
 	}
 	else
@@ -759,7 +758,7 @@ bool UImageDownloader::SetSourceParametersFromActor(bool bDialog)
 		return false;
 	}
 
-	UE_LOG(LogImageDownloader, Log, TEXT("Set Source Parameters From Actor %s"), *ParametersBoundingActor->GetActorLabel());
+	UE_LOG(LogImageDownloader, Log, TEXT("Set Source Parameters From Actor %s"), *ParametersBoundingActor->GetActorNameOrLabel());
 
 	FString SourceCRS = "";
 	
@@ -782,7 +781,7 @@ bool UImageDownloader::SetSourceParametersFromActor(bool bDialog)
 		{
 			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 				LOCTEXT("UImageDownloader::SetSourceParameters::1", "Please make sure that the CRS is not empty."),
-				FText::FromString(ParametersBoundingActor->GetActorLabel())
+				FText::FromString(ParametersBoundingActor->GetActorNameOrLabel())
 			));
 		}
 		return false;
@@ -794,7 +793,7 @@ bool UImageDownloader::SetSourceParametersFromActor(bool bDialog)
 		{
 			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 				LOCTEXT("UImageDownloader::SetSourceParameters::2", "Could not read coordinates from Actor {0}."),
-				FText::FromString(ParametersBoundingActor->GetActorLabel())
+				FText::FromString(ParametersBoundingActor->GetActorNameOrLabel())
 			));
 		}
 		return false;
@@ -920,7 +919,13 @@ void UImageDownloader::OnImageSourceChanged(TFunction<void(bool)> OnComplete)
 	}
 	else if (ImageSourceKind == EImageSourceKind::IGN_Satellite)
 	{
-		CapabilitiesURL = "https://wxs.ign.fr/satellite/geoportail/r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
+		CapabilitiesURL = "https://data.geopf.fr/annexes/ressources/wms-r/satellite.xml";
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_X_IsLong = true;
+	}
+	else if (ImageSourceKind == EImageSourceKind::Australia_LiDAR5m)
+	{
+		CapabilitiesURL = "http://gaservices.ga.gov.au/site_9/services/DEM_LiDAR_5m/MapServer/WMSServer?request=GetCapabilities&service=WMS";
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
 		WMS_X_IsLong = true;
 	}
@@ -1051,7 +1056,7 @@ void UImageDownloader::DownloadImages(TFunction<void(TArray<FString>)> OnComplet
 		return;
 	}
 	
-	HMFetcher *Fetcher = CreateFetcher(Owner->GetActorLabel(), false, false, false, false, nullptr);
+	HMFetcher *Fetcher = CreateFetcher(Owner->GetActorNameOrLabel(), false, false, false, false, nullptr);
 
 	if (!Fetcher)
 	{
@@ -1085,7 +1090,7 @@ void UImageDownloader::DownloadImages(TFunction<void(TArray<FString>)> OnComplet
 	});
 }
 
-void UImageDownloader::DownloadMergedImage(TFunction<void(FString)> OnComplete)
+void UImageDownloader::DownloadMergedImage(bool bEnsureOneBand, TFunction<void(FString, FString)> OnComplete)
 {
 	AActor *Owner = GetOwner();
 	if (!IsValid(Owner))
@@ -1096,8 +1101,8 @@ void UImageDownloader::DownloadMergedImage(TFunction<void(FString)> OnComplete)
 		return;
 	}
 	
-	FString Name = Owner->GetActorLabel();
-	HMFetcher *Fetcher = CreateFetcher(Name, true, false, false, false, nullptr);
+	FString Name = Owner->GetActorNameOrLabel();
+	HMFetcher *Fetcher = CreateFetcher(Name, true, bEnsureOneBand, false, false, nullptr);
 
 	if (!Fetcher)
 	{
@@ -1111,7 +1116,7 @@ void UImageDownloader::DownloadMergedImage(TFunction<void(FString)> OnComplete)
 	{
 		if (bSuccess && Fetcher->OutputFiles.Num() == 1)
 		{
-			if (OnComplete) OnComplete(Fetcher->OutputFiles[0]);
+			if (OnComplete) OnComplete(Fetcher->OutputFiles[0], Fetcher->OutputCRS);
 			delete Fetcher;
 			return;
 		}

@@ -21,7 +21,8 @@ void ALandscapeTexturer::CreateDecal()
 {
 	if (ImageDownloader)
 	{
-		ImageDownloader->DownloadMergedImage([this](FString DownloadedImage)
+		ImageDownloader->DownloadMergedImage(false, [this](FString DownloadedImage, FString ImageCRS
+		)
 		{
 			UDecalCoordinates::CreateDecal(this->GetWorld(), DownloadedImage);
 		});

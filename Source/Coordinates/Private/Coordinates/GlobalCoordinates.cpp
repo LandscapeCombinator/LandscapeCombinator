@@ -5,6 +5,7 @@
 #include "CoordinatesModule.h"
 
 #include "Landscape.h"
+#include "Misc/MessageDialog.h"
 
 #define LOCTEXT_NAMESPACE "FCoordinatesModule"
 
@@ -131,7 +132,7 @@ bool UGlobalCoordinates::GetLandscapeCRSBounds(ALandscape *Landscape, FString To
 	{
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 			LOCTEXT("UGlobalCoordinates::GetLandscapeCRSBounds::1", "Could not compute bounds of Landscape {0}"),
-			FText::FromString(Landscape->GetActorLabel())
+			FText::FromString(Landscape->GetActorNameOrLabel())
 		));
 		return false;
 	}
@@ -145,7 +146,7 @@ bool UGlobalCoordinates::GetLandscapeCRSBounds(ALandscape *Landscape, FString To
 	{
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 			LOCTEXT("UGlobalCoordinates::GetLandscapeCRSBounds::2", "Could not compute coordinates of Landscape {0}"),
-			FText::FromString(Landscape->GetActorLabel())
+			FText::FromString(Landscape->GetActorNameOrLabel())
 		));
 		return false;
 	}
@@ -172,7 +173,7 @@ bool UGlobalCoordinates::GetActorCRSBounds(AActor* Actor, FString ToCRS, FVector
 		{
 			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 				LOCTEXT("UGlobalCoordinates::GetActorCRSBounds", "Internal error while reading {0}'s coordinates."),
-				FText::FromString(Actor->GetActorLabel())
+				FText::FromString(Actor->GetActorNameOrLabel())
 			));
 			return false;
 		}
