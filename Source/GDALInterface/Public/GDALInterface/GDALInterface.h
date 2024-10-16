@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "DynamicMesh/DynamicMesh3.h"
 
 #pragma warning(disable: 4668)
 #include "gdal.h"
@@ -11,6 +12,8 @@
 #include <ogr_api.h>
 #include <ogrsf_frmts.h>
 #pragma warning(default: 4668)
+
+using namespace UE::Geometry;
 
 struct FPointList
 {
@@ -64,4 +67,7 @@ public:
 
 	static GDALDataset* LoadGDALVectorDatasetFromFile(FString File);
 	static void LoadGDALVectorDatasetFromQuery(FString Query, TFunction<void(GDALDataset*)> OnComplete);
+
+	static bool ExportMesh(const FDynamicMesh3 &Mesh, const FString &File);
+	static bool WriteHeightmapDataToTIF(const FString& InputFile, int32 SizeX, int32 SizeY, uint16* HeightmapData);
 };

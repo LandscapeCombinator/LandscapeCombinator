@@ -138,84 +138,11 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 	FString Extension = ExternalTool->bChangeExtension ? ExternalTool->NewExtension : "tif";
 	FString OutputFile = FPaths::Combine(TempDir, "output." + Extension);
 
-
-	/* Prepare GDAL Drivers */
-
-	GDALDriver *MEMDriver = GetGDALDriverManager()->GetDriverByName("MEM");
-	GDALDriver *TIFDriver = GetGDALDriverManager()->GetDriverByName("GTiff");
-
-	if (!TIFDriver || !MEMDriver)
+	if (!GDALInterface::WriteHeightmapDataToTIF(InputFile, SizeX, SizeY, HeightmapData))
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
-			LOCTEXT("UHeightmapModifier::ModifyHeightmap::3", "Could not load GDAL drivers.")
-		);
 		free(HeightmapData);
 		return;
 	}
-
-
-	/* Write the HeightmapData to `InputFile` */
-
-	GDALDataset *Dataset = MEMDriver->Create(
-		"",
-		SizeX, SizeY,
-		1, // nBands
-		GDT_UInt16,
-		nullptr
-	);
-
-	if (!Dataset)
-	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("UHeightmapModifier::ModifyHeightmap::4", "There was an error while creating a GDAL Dataset."),
-			FText::FromString(InputFile)
-		));
-		free(HeightmapData);
-		return;
-	}
-
-	if (Dataset->GetRasterCount() != 1)
-	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("UHeightmapModifier::ModifyHeightmap::4", "There was an error while writing heightmap data to file {0}."),
-			FText::FromString(InputFile)
-		));
-		free(HeightmapData);
-		GDALClose(Dataset);
-		return;
-	}
-
-
-	CPLErr WriteErr = Dataset->GetRasterBand(1)->RasterIO(GF_Write, 0, 0, SizeX, SizeY, HeightmapData, SizeX, SizeY, GDT_UInt16, 0, 0);
-
-	if (WriteErr != CE_None)
-	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("UHeightmapModifier::ModifyHeightmap::5", "There was an error while writing heightmap data to file {0}. (Error: {1})"),
-			FText::FromString(InputFile),
-			FText::AsNumber(WriteErr, &FNumberFormattingOptions::DefaultNoGrouping())
-		));
-		GDALClose(Dataset);
-		free(HeightmapData);
-		return;
-	}
-
-	GDALDataset *TIFDataset = TIFDriver->CreateCopy(TCHAR_TO_UTF8(*InputFile), Dataset, 1, nullptr, nullptr, nullptr);
-	GDALClose(Dataset);
-
-	if (!TIFDataset)
-	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
-			LOCTEXT("UHeightmapModifier::ModifyHeightmap::5", "Could not write heightmap to file {0}."),
-			FText::FromString(InputFile),
-			FText::AsNumber(WriteErr, &FNumberFormattingOptions::DefaultNoGrouping())
-		));
-		free(HeightmapData);
-		return;
-	}
-	
-	GDALClose(TIFDataset);
-
 
 	/* Run the External Tool from `InputFile` to `OutputFile` */
 

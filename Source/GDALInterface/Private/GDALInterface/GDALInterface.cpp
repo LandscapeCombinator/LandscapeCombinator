@@ -14,7 +14,7 @@
 #include "Misc/ScopedSlowTask.h"
 #include "Misc/MessageDialog.h"
 
-#include "HAL/FileManager.h" 
+#include "HAL/FileManager.h"
 
 #define LOCTEXT_NAMESPACE "FGDALInterfaceModule"
 
@@ -1076,5 +1076,145 @@ void GDALInterface::LoadGDALVectorDatasetFromQuery(FString Query, TFunction<void
 		}
 	);
 }
+
+bool GDALInterface::ExportMesh(const FDynamicMesh3 &Mesh, const FString &File)
+{   
+	GDALDriver *DXFDriver = GetGDALDriverManager()->GetDriverByName("DXF");
+    if (!DXFDriver) {
+        UE_LOG(LogGDALInterface, Error, TEXT("DXF driver not available"));
+        return false;
+    }
+
+    GDALDataset *Dataset = DXFDriver->Create(TCHAR_TO_UTF8(*File), 0, 0, 0, GDT_Unknown, nullptr);
+    if (!Dataset) {
+        UE_LOG(LogGDALInterface, Error, TEXT("Failed to create DXF file: %s"), *File);
+        return false;
+    }
+
+    OGRLayer *Layer = Dataset->CreateLayer("faces");
+    if (!Layer) {
+        UE_LOG(LogGDALInterface, Error, TEXT("Failed to create DXF layer"));
+        GDALClose(Dataset);
+        return false;
+    }
+
+	OGRFeatureDefn *LayerDefn = Layer->GetLayerDefn();
+	if (!LayerDefn) {
+		UE_LOG(LogGDALInterface, Error, TEXT("Failed to get layer definition"));
+        GDALClose(Dataset);
+		return false;
+	}
+
+	int NumTriangles = Mesh.TriangleCount();
+    for (int32 Index = 0; Index < NumTriangles; ++Index)
+	{
+        FIndex3i Tri = Mesh.GetTriangle(Index);
+        OGRPolygon Triangle;
+        OGRLinearRing Ring;
+
+        for (int i = 0; i < 3; ++i) {
+            FVector3d Vertex = Mesh.GetVertex(Tri[i]);
+            Ring.addPoint(Vertex.X, Vertex.Y, Vertex.Z);
+        }
+		
+        Triangle.addRing(&Ring);
+
+        OGRFeature *Feature = OGRFeature::CreateFeature(LayerDefn);
+
+		if (!Feature)
+		{
+			UE_LOG(LogGDALInterface, Error, TEXT("Failed to create feature for triangle %d"), Index);
+			GDALClose(Dataset);
+			return false;	
+		}
+
+        Feature->SetGeometry(&Triangle);
+
+        if (Layer->CreateFeature(Feature) != OGRERR_NONE)
+		{
+            UE_LOG(LogGDALInterface, Error, TEXT("Failed to add feature to layer for triangle %d"), Index);
+            OGRFeature::DestroyFeature(Feature);
+            GDALClose(Dataset);
+            return false;
+        }
+
+        OGRFeature::DestroyFeature(Feature);
+    }
+
+    GDALClose(Dataset);
+    return true;
+}
+
+bool GDALInterface::WriteHeightmapDataToTIF(const FString& InputFile, int32 SizeX, int32 SizeY, uint16* HeightmapData)
+{
+	GDALDriver *MEMDriver = GetGDALDriverManager()->GetDriverByName("MEM");
+	GDALDriver *TIFDriver = GetGDALDriverManager()->GetDriverByName("GTiff");
+
+	if (!TIFDriver || !MEMDriver)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok,
+			LOCTEXT("GDALInterface::WriteHeightmapDataToTIF::3", "Could not load GDAL drivers.")
+		);
+		return false;
+	}
+
+	GDALDataset *Dataset = MEMDriver->Create(
+		"",
+		SizeX, SizeY,
+		1, // nBands
+		GDT_UInt16,
+		nullptr
+	);
+
+	if (!Dataset)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			LOCTEXT("GDALInterface::WriteHeightmapDataToTIF::4", "There was an error while creating a GDAL Dataset."),
+			FText::FromString(InputFile)
+		));
+		return false;
+	}
+
+	if (Dataset->GetRasterCount() != 1)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			LOCTEXT("GDALInterface::WriteHeightmapDataToTIF::4", "There was an error while writing heightmap data to file {0}."),
+			FText::FromString(InputFile)
+		));
+		GDALClose(Dataset);
+		return false;
+	}
+
+
+	CPLErr WriteErr = Dataset->GetRasterBand(1)->RasterIO(GF_Write, 0, 0, SizeX, SizeY, HeightmapData, SizeX, SizeY, GDT_UInt16, 0, 0);
+
+	if (WriteErr != CE_None)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			LOCTEXT("GDALInterface::WriteHeightmapDataToTIF::5", "There was an error while writing heightmap data to file {0}. (Error: {1})"),
+			FText::FromString(InputFile),
+			FText::AsNumber(WriteErr, &FNumberFormattingOptions::DefaultNoGrouping())
+		));
+		GDALClose(Dataset);
+		return false;
+	}
+
+	GDALDataset *TIFDataset = TIFDriver->CreateCopy(TCHAR_TO_UTF8(*InputFile), Dataset, 1, nullptr, nullptr, nullptr);
+	GDALClose(Dataset);
+
+	if (!TIFDataset)
+	{
+		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			LOCTEXT("GDALInterface::WriteHeightmapDataToTIF::5", "Could not write heightmap to file {0}."),
+			FText::FromString(InputFile),
+			FText::AsNumber(WriteErr, &FNumberFormattingOptions::DefaultNoGrouping())
+		));
+		return false;
+	}
+	
+	GDALClose(TIFDataset);
+	return true;
+}
+
 
 #undef LOCTEXT_NAMESPACE
