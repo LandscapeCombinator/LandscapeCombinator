@@ -1145,7 +1145,7 @@ bool GDALInterface::ExportMesh(const FDynamicMesh3 &Mesh, const FString &File)
     return true;
 }
 
-bool GDALInterface::WriteHeightmapDataToTIF(const FString& InputFile, int32 SizeX, int32 SizeY, uint16* HeightmapData)
+bool GDALInterface::WriteHeightmapDataToTIF(const FString& File, int32 SizeX, int32 SizeY, uint16* HeightmapData)
 {
 	GDALDriver *MEMDriver = GetGDALDriverManager()->GetDriverByName("MEM");
 	GDALDriver *TIFDriver = GetGDALDriverManager()->GetDriverByName("GTiff");
@@ -1170,7 +1170,7 @@ bool GDALInterface::WriteHeightmapDataToTIF(const FString& InputFile, int32 Size
 	{
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 			LOCTEXT("GDALInterface::WriteHeightmapDataToTIF::4", "There was an error while creating a GDAL Dataset."),
-			FText::FromString(InputFile)
+			FText::FromString(File)
 		));
 		return false;
 	}
@@ -1179,7 +1179,7 @@ bool GDALInterface::WriteHeightmapDataToTIF(const FString& InputFile, int32 Size
 	{
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 			LOCTEXT("GDALInterface::WriteHeightmapDataToTIF::4", "There was an error while writing heightmap data to file {0}."),
-			FText::FromString(InputFile)
+			FText::FromString(File)
 		));
 		GDALClose(Dataset);
 		return false;
@@ -1192,21 +1192,21 @@ bool GDALInterface::WriteHeightmapDataToTIF(const FString& InputFile, int32 Size
 	{
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 			LOCTEXT("GDALInterface::WriteHeightmapDataToTIF::5", "There was an error while writing heightmap data to file {0}. (Error: {1})"),
-			FText::FromString(InputFile),
+			FText::FromString(File),
 			FText::AsNumber(WriteErr, &FNumberFormattingOptions::DefaultNoGrouping())
 		));
 		GDALClose(Dataset);
 		return false;
 	}
 
-	GDALDataset *TIFDataset = TIFDriver->CreateCopy(TCHAR_TO_UTF8(*InputFile), Dataset, 1, nullptr, nullptr, nullptr);
+	GDALDataset *TIFDataset = TIFDriver->CreateCopy(TCHAR_TO_UTF8(*File), Dataset, 1, nullptr, nullptr, nullptr);
 	GDALClose(Dataset);
 
 	if (!TIFDataset)
 	{
 		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
 			LOCTEXT("GDALInterface::WriteHeightmapDataToTIF::5", "Could not write heightmap to file {0}."),
-			FText::FromString(InputFile),
+			FText::FromString(File),
 			FText::AsNumber(WriteErr, &FNumberFormattingOptions::DefaultNoGrouping())
 		));
 		return false;
