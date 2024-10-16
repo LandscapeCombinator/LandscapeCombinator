@@ -211,6 +211,27 @@ GDALDatasetH CPL_DLL GDALRasterize(const char *pszDest, GDALDatasetH hDstDS,
                                    const GDALRasterizeOptions *psOptions,
                                    int *pbUsageError);
 
+/*! Options for GDALFootprint(). Opaque type */
+typedef struct GDALFootprintOptions GDALFootprintOptions;
+
+/** Opaque type */
+typedef struct GDALFootprintOptionsForBinary GDALFootprintOptionsForBinary;
+
+GDALFootprintOptions CPL_DLL *
+GDALFootprintOptionsNew(char **papszArgv,
+                        GDALFootprintOptionsForBinary *psOptionsForBinary);
+
+void CPL_DLL GDALFootprintOptionsFree(GDALFootprintOptions *psOptions);
+
+void CPL_DLL GDALFootprintOptionsSetProgress(GDALFootprintOptions *psOptions,
+                                             GDALProgressFunc pfnProgress,
+                                             void *pProgressData);
+
+GDALDatasetH CPL_DLL GDALFootprint(const char *pszDest, GDALDatasetH hDstDS,
+                                   GDALDatasetH hSrcDS,
+                                   const GDALFootprintOptions *psOptions,
+                                   int *pbUsageError);
+
 /*! Options for GDALBuildVRT(). Opaque type */
 typedef struct GDALBuildVRTOptions GDALBuildVRTOptions;
 
@@ -270,6 +291,38 @@ GDALDatasetH CPL_DLL GDALMultiDimTranslate(
     const char *pszDest, GDALDatasetH hDstDataset, int nSrcCount,
     GDALDatasetH *pahSrcDS, const GDALMultiDimTranslateOptions *psOptions,
     int *pbUsageError);
+
+/*! Options for GDALVectorInfo(). Opaque type */
+typedef struct GDALVectorInfoOptions GDALVectorInfoOptions;
+
+/** Opaque type */
+typedef struct GDALVectorInfoOptionsForBinary GDALVectorInfoOptionsForBinary;
+
+GDALVectorInfoOptions CPL_DLL *
+GDALVectorInfoOptionsNew(char **papszArgv,
+                         GDALVectorInfoOptionsForBinary *psOptionsForBinary);
+
+void CPL_DLL GDALVectorInfoOptionsFree(GDALVectorInfoOptions *psOptions);
+
+char CPL_DLL *GDALVectorInfo(GDALDatasetH hDataset,
+                             const GDALVectorInfoOptions *psOptions);
+
+/*! Options for GDALTileIndex(). Opaque type */
+typedef struct GDALTileIndexOptions GDALTileIndexOptions;
+
+/** Opaque type */
+typedef struct GDALTileIndexOptionsForBinary GDALTileIndexOptionsForBinary;
+
+GDALTileIndexOptions CPL_DLL *
+GDALTileIndexOptionsNew(char **papszArgv,
+                        GDALTileIndexOptionsForBinary *psOptionsForBinary);
+
+void CPL_DLL GDALTileIndexOptionsFree(GDALTileIndexOptions *psOptions);
+
+GDALDatasetH CPL_DLL GDALTileIndex(const char *pszDest, int nSrcCount,
+                                   const char *const *papszSrcDSNames,
+                                   const GDALTileIndexOptions *psOptions,
+                                   int *pbUsageError);
 
 CPL_C_END
 

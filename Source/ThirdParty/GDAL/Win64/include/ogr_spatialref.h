@@ -92,6 +92,7 @@ class CPL_DLL OGR_SRSNode
     {
         return nChildren;
     }
+
     OGR_SRSNode *GetChild(int);
     const OGR_SRSNode *GetChild(int) const;
 
@@ -109,6 +110,7 @@ class CPL_DLL OGR_SRSNode
     {
         return pszValue;
     }
+
     void SetValue(const char *);
 
     void MakeValueSafe();
@@ -176,6 +178,10 @@ class CPL_DLL OGRSpatialReference
 
     static CPLString lookupInDict(const char *pszDictFile, const char *pszCode);
 
+    OGRErr GetWKT2ProjectionMethod(const char **ppszMethodName,
+                                   const char **ppszMethodAuthName = nullptr,
+                                   const char **ppszMethodCode = nullptr) const;
+
   public:
     explicit OGRSpatialReference(const char * = nullptr);
     OGRSpatialReference(const OGRSpatialReference &);
@@ -201,6 +207,7 @@ class CPL_DLL OGRSpatialReference
     void dumpReadable();
     OGRErr exportToWkt(char **) const;
     OGRErr exportToWkt(char **ppszWKT, const char *const *papszOptions) const;
+    std::string exportToWkt(const char *const *papszOptions = nullptr) const;
     OGRErr exportToPrettyWkt(char **, int = FALSE) const;
     // cppcheck-suppress functionStatic
     OGRErr exportToPROJJSON(char **, const char *const *papszOptions) const;
@@ -209,8 +216,11 @@ class CPL_DLL OGRSpatialReference
     OGRErr exportToUSGS(long *, long *, double **, long *) const;
     OGRErr exportToXML(char **, const char * = nullptr) const;
     OGRErr exportToPanorama(long *, long *, long *, long *, double *) const;
+    OGRErr exportVertCSToPanorama(int *) const;
     OGRErr exportToERM(char *pszProj, char *pszDatum, char *pszUnits);
     OGRErr exportToMICoordSys(char **) const;
+    OGRErr exportToCF1(char **ppszGridMappingName, char ***ppapszKeyValues,
+                       char **ppszUnits, CSLConstList papszOptions) const;
 
     OGRErr importFromWkt(char **)
         /*! @cond Doxygen_Suppress */
@@ -230,7 +240,7 @@ class CPL_DLL OGRSpatialReference
     OGRErr importFromEPSGA(int);
     OGRErr importFromESRI(char **);
     OGRErr importFromPCI(const char *, const char * = nullptr,
-                         double * = nullptr);
+                         const double * = nullptr);
 
 #define USGS_ANGLE_DECIMALDEGREES 0 /**< Angle is in decimal degrees. */
 #define USGS_ANGLE_PACKEDDMS                                                   \
@@ -239,7 +249,7 @@ class CPL_DLL OGRSpatialReference
     OGRErr importFromUSGS(long iProjSys, long iZone, double *padfPrjParams,
                           long iDatum,
                           int nUSGSAngleFormat = USGS_ANGLE_PACKEDDMS);
-    OGRErr importFromPanorama(long, long, long, double *);
+    OGRErr importFromPanorama(long, long, long, double *, bool bNorth = true);
     OGRErr importVertCSFromPanorama(int);
     OGRErr importFromOzi(const char *const *papszLines);
     OGRErr importFromWMSAUTO(const char *pszAutoDef);
@@ -251,6 +261,7 @@ class CPL_DLL OGRSpatialReference
                          const char *pszUnits);
     OGRErr importFromUrl(const char *);
     OGRErr importFromMICoordSys(const char *);
+    OGRErr importFromCF1(CSLConstList papszKeyValues, const char *pszUnits);
 
     OGRErr morphToESRI();
     OGRErr morphFromESRI();
@@ -294,6 +305,7 @@ class CPL_DLL OGRSpatialReference
     const char *GetAttrValue(const char *, int = 0) const;
 
     OGRErr SetNode(const char *, const char *);
+    // cppcheck-suppress functionStatic
     OGRErr SetNode(const char *, double);
 
     OGRErr
@@ -312,11 +324,13 @@ class CPL_DLL OGRSpatialReference
         /*! @endcond */
         ;
     double GetLinearUnits(const char ** = nullptr) const;
+
     /*! @cond Doxygen_Suppress */
     double GetLinearUnits(std::nullptr_t) const
     {
         return GetLinearUnits(static_cast<const char **>(nullptr));
     }
+
     /*! @endcond */
 
     double GetTargetLinearUnits(const char *pszTargetKey,
@@ -328,12 +342,14 @@ class CPL_DLL OGRSpatialReference
         ;
     double GetTargetLinearUnits(const char *pszTargetKey,
                                 const char **ppszRetName = nullptr) const;
+
     /*! @cond Doxygen_Suppress */
     double GetTargetLinearUnits(const char *pszTargetKey, std::nullptr_t) const
     {
         return GetTargetLinearUnits(pszTargetKey,
                                     static_cast<const char **>(nullptr));
     }
+
     /*! @endcond */
 
     OGRErr SetAngularUnits(const char *pszName, double dfInRadians);
@@ -343,11 +359,13 @@ class CPL_DLL OGRSpatialReference
         /*! @endcond */
         ;
     double GetAngularUnits(const char ** = nullptr) const;
+
     /*! @cond Doxygen_Suppress */
     double GetAngularUnits(std::nullptr_t) const
     {
         return GetAngularUnits(static_cast<const char **>(nullptr));
     }
+
     /*! @endcond */
 
     double GetPrimeMeridian(char **) const
@@ -356,19 +374,26 @@ class CPL_DLL OGRSpatialReference
         /*! @endcond */
         ;
     double GetPrimeMeridian(const char ** = nullptr) const;
+
     /*! @cond Doxygen_Suppress */
     double GetPrimeMeridian(std::nullptr_t) const
     {
         return GetPrimeMeridian(static_cast<const char **>(nullptr));
     }
+
     /*! @endcond */
 
     bool IsEmpty() const;
     int IsGeographic() const;
     int IsDerivedGeographic() const;
     int IsProjected() const;
+    int IsDerivedProjected() const;
     int IsGeocentric() const;
     bool IsDynamic() const;
+
+    // cppcheck-suppress functionStatic
+    bool HasPointMotionOperation() const;
+
     int IsLocal() const;
     int IsVertical() const;
     int IsCompound() const;
@@ -730,6 +755,18 @@ class CPL_DLL OGRSpatialReference
     }
 };
 
+/*! @cond Doxygen_Suppress */
+struct CPL_DLL OGRSpatialReferenceReleaser
+{
+    void operator()(OGRSpatialReference *poSRS) const
+    {
+        if (poSRS)
+            poSRS->Release();
+    }
+};
+
+/*! @endcond */
+
 /************************************************************************/
 /*                     OGRCoordinateTransformation                      */
 /*                                                                      */
@@ -758,10 +795,10 @@ class CPL_DLL OGRCoordinateTransformation
     // From CT_CoordinateTransformation
 
     /** Fetch internal source coordinate system. */
-    virtual OGRSpatialReference *GetSourceCS() = 0;
+    virtual const OGRSpatialReference *GetSourceCS() const = 0;
 
     /** Fetch internal target coordinate system. */
-    virtual OGRSpatialReference *GetTargetCS() = 0;
+    virtual const OGRSpatialReference *GetTargetCS() const = 0;
 
     /** Whether the transformer will emit CPLError */
     virtual bool GetEmitErrors() const
@@ -781,7 +818,8 @@ class CPL_DLL OGRCoordinateTransformation
      *
      * This method is the same as the C function OCTTransformEx().
      *
-     * @param nCount number of points to transform.
+     * @param nCount number of points to transform (`size_t` type since 3.9,
+     *               `int` in previous versions).
      * @param x array of nCount X vertices, modified in place. Should not be
      * NULL.
      * @param y array of nCount Y vertices, modified in place. Should not be
@@ -790,10 +828,10 @@ class CPL_DLL OGRCoordinateTransformation
      * @param pabSuccess array of per-point flags set to TRUE if that point
      * transforms, or FALSE if it does not. Might be NULL.
      *
-     * @return TRUE if some or all points transform successfully, or FALSE if
-     * if none transform.
+     * @return TRUE if a transformation could be found (but not all points may
+     * have necessarily succeed to transform), otherwise FALSE.
      */
-    int Transform(int nCount, double *x, double *y, double *z = nullptr,
+    int Transform(size_t nCount, double *x, double *y, double *z = nullptr,
                   int *pabSuccess = nullptr);
 
     /**
@@ -801,7 +839,8 @@ class CPL_DLL OGRCoordinateTransformation
      *
      * This method is the same as the C function OCTTransform4D().
      *
-     * @param nCount number of points to transform.
+     * @param nCount number of points to transform (`size_t` type since 3.9,
+     *               `int` in previous versions).
      * @param x array of nCount X vertices, modified in place. Should not be
      * NULL.
      * @param y array of nCount Y vertices, modified in place. Should not be
@@ -811,10 +850,10 @@ class CPL_DLL OGRCoordinateTransformation
      * @param pabSuccess array of per-point flags set to TRUE if that point
      * transforms, or FALSE if it does not. Might be NULL.
      *
-     * @return TRUE if some or all points transform successfully, or FALSE if
-     * if none transform.
+     * @return TRUE if a transformation could be found (but not all points may
+     * have necessarily succeed to transform), otherwise FALSE.
      */
-    virtual int Transform(int nCount, double *x, double *y, double *z,
+    virtual int Transform(size_t nCount, double *x, double *y, double *z,
                           double *t, int *pabSuccess) = 0;
 
     /**
@@ -822,7 +861,8 @@ class CPL_DLL OGRCoordinateTransformation
      *
      * This method is the same as the C function OCTTransform4DWithErrorCodes().
      *
-     * @param nCount number of points to transform.
+     * @param nCount number of points to transform (`size_t` type since 3.9,
+     *               `int` in previous versions).
      * @param x array of nCount X vertices, modified in place. Should not be
      * NULL.
      * @param y array of nCount Y vertices, modified in place. Should not be
@@ -832,11 +872,11 @@ class CPL_DLL OGRCoordinateTransformation
      * @param panErrorCodes Output array of nCount value that will be set to 0
      * for success, or a non-zero value for failure. Refer to PROJ 8 public
      * error codes. Might be NULL
-     * @return TRUE if some or all points transform successfully, or FALSE if
-     * if none transform.
+     * @return TRUE if a transformation could be found (but not all points may
+     * have necessarily succeed to transform), otherwise FALSE.
      * @since GDAL 3.3, and PROJ 8 to be able to use PROJ public error codes
      */
-    virtual int TransformWithErrorCodes(int nCount, double *x, double *y,
+    virtual int TransformWithErrorCodes(size_t nCount, double *x, double *y,
                                         double *z, double *t,
                                         int *panErrorCodes);
 
@@ -965,6 +1005,7 @@ struct CPL_DLL OGRCoordinateTransformationOptions
                            double dfNorthLatitudeDeg);
     bool SetDesiredAccuracy(double dfAccuracy);
     bool SetBallparkAllowed(bool bAllowBallpark);
+    bool SetOnlyBest(bool bOnlyBest);
 
     bool SetCoordinateOperation(const char *pszCT, bool bReverseCT);
     /*! @cond Doxygen_Suppress */
