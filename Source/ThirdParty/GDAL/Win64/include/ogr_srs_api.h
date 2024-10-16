@@ -31,6 +31,8 @@
 #ifndef OGR_SRS_API_H_INCLUDED
 #define OGR_SRS_API_H_INCLUDED
 
+#include <stdbool.h>
+
 #ifndef SWIG
 #include "ogr_core.h"
 
@@ -491,6 +493,9 @@ OGRErr CPL_DLL OSRImportFromMICoordSys(OGRSpatialReferenceH, const char *);
 OGRErr CPL_DLL OSRImportFromERM(OGRSpatialReferenceH, const char *,
                                 const char *, const char *);
 OGRErr CPL_DLL OSRImportFromUrl(OGRSpatialReferenceH, const char *);
+OGRErr CPL_DLL OSRImportFromCF1(OGRSpatialReferenceH,
+                                CSLConstList papszKeyValues,
+                                const char *pszUnits);
 
 OGRErr CPL_DLL CPL_STDCALL OSRExportToWkt(OGRSpatialReferenceH, char **);
 OGRErr CPL_DLL OSRExportToWktEx(OGRSpatialReferenceH, char **ppszResult,
@@ -509,6 +514,9 @@ OGRErr CPL_DLL OSRExportToPanorama(OGRSpatialReferenceH, long *, long *, long *,
                                    long *, double *);
 OGRErr CPL_DLL OSRExportToMICoordSys(OGRSpatialReferenceH, char **);
 OGRErr CPL_DLL OSRExportToERM(OGRSpatialReferenceH, char *, char *, char *);
+OGRErr CPL_DLL OSRExportToCF1(OGRSpatialReferenceH, char **ppszGridMappingName,
+                              char ***ppapszKeyValues, char **ppszUnits,
+                              CSLConstList papszOptions);
 
 OGRErr CPL_DLL OSRMorphToESRI(OGRSpatialReferenceH);
 OGRErr CPL_DLL OSRMorphFromESRI(OGRSpatialReferenceH);
@@ -545,10 +553,12 @@ int CPL_DLL OSRIsGeographic(OGRSpatialReferenceH);
 int CPL_DLL OSRIsDerivedGeographic(OGRSpatialReferenceH);
 int CPL_DLL OSRIsLocal(OGRSpatialReferenceH);
 int CPL_DLL OSRIsProjected(OGRSpatialReferenceH);
+int CPL_DLL OSRIsDerivedProjected(OGRSpatialReferenceH);
 int CPL_DLL OSRIsCompound(OGRSpatialReferenceH);
 int CPL_DLL OSRIsGeocentric(OGRSpatialReferenceH);
 int CPL_DLL OSRIsVertical(OGRSpatialReferenceH);
 int CPL_DLL OSRIsDynamic(OGRSpatialReferenceH);
+int CPL_DLL OSRHasPointMotionOperation(OGRSpatialReferenceH);
 int CPL_DLL OSRIsSameGeogCS(OGRSpatialReferenceH, OGRSpatialReferenceH);
 int CPL_DLL OSRIsSameVertCS(OGRSpatialReferenceH, OGRSpatialReferenceH);
 int CPL_DLL OSRIsSame(OGRSpatialReferenceH, OGRSpatialReferenceH);
@@ -566,6 +576,8 @@ OGRErr CPL_DLL OSRSetWellKnownGeogCS(OGRSpatialReferenceH hSRS,
                                      const char *pszName);
 OGRErr CPL_DLL CPL_STDCALL OSRSetFromUserInput(OGRSpatialReferenceH hSRS,
                                                const char *);
+OGRErr CPL_DLL OSRSetFromUserInputEx(OGRSpatialReferenceH hSRS, const char *,
+                                     CSLConstList papszOptions);
 OGRErr CPL_DLL OSRCopyGeogCSFrom(OGRSpatialReferenceH hSRS,
                                  const OGRSpatialReferenceH hSrcSRS);
 OGRErr CPL_DLL OSRSetTOWGS84(OGRSpatialReferenceH hSRS, double, double, double,
@@ -1036,6 +1048,9 @@ int CPL_DLL OCTCoordinateTransformationOptionsSetDesiredAccuracy(
 
 int CPL_DLL OCTCoordinateTransformationOptionsSetBallparkAllowed(
     OGRCoordinateTransformationOptionsH hOptions, int bAllowBallpark);
+
+int CPL_DLL OCTCoordinateTransformationOptionsSetOnlyBest(
+    OGRCoordinateTransformationOptionsH hOptions, bool bOnlyBest);
 
 void CPL_DLL OCTDestroyCoordinateTransformationOptions(
     OGRCoordinateTransformationOptionsH);

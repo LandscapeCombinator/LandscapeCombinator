@@ -10,7 +10,7 @@
 #endif
 
 /* --prefix directory for GDAL install */
-#define GDAL_PREFIX "C:/Users/edif/miniconda3/Library"
+#define GDAL_PREFIX "C:/Users/edif/miniconda3/envs/gdal-3.9.3/Library"
 
 /* The size of `int', as computed by sizeof. */
 #define SIZEOF_INT 4
@@ -49,6 +49,9 @@
 
 #ifdef GDAL_COMPILATION
 
+/* The size of `long int', as computed by sizeof. */
+#define SIZEOF_LONG_INT 4
+
 /* Define if you want to use pthreads based multiprocessing support */
 /* #undef CPL_MULTIPROC_PTHREAD */
 
@@ -58,14 +61,20 @@
 /* Define to 1 if you have the `PTHREAD_MUTEX_ADAPTIVE_NP' constant. */
 /* #undef HAVE_PTHREAD_MUTEX_ADAPTIVE_NP */
 
-/* Define to 1 if you have the `pthread_spinlock_t' type. */
-/* #undef HAVE_PTHREAD_SPINLOCK */
+/* Define to 1 if you have the `pthread_spin_lock' function. */
+/* #undef HAVE_PTHREAD_SPIN_LOCK */
 
 /* Define to 1 if you have the `pthread_atfork' function. */
 /* #undef HAVE_PTHREAD_ATFORK */
 
 /* Define to 1 if you have the 5 args `mremap' function. */
 /* #undef HAVE_5ARGS_MREMAP */
+
+/* Define to 1 if you have the <sys/random.h> header file. */
+/* #undef HAVE_SYS_RANDOM_H */
+
+/* Define to 1 if you have the `getrandom' function. */
+/* #undef HAVE_GETRANDOM */
 
 /* Define to 1 if you have the `getrlimit' function. */
 /* #undef HAVE_GETRLIMIT */
@@ -172,6 +181,9 @@
 /* Define to 1 if you have the `sched_getaffinity' function. */
 /* #undef HAVE_SCHED_GETAFFINITY */
 
+/* Define to 1 if you have the `std::shared_mutex' function. */
+/* #undef HAVE_SHARED_MUTEX */
+
 /* Define to 1 if you have the `uselocale' function. */
 /* #undef HAVE_USELOCALE */
 
@@ -187,7 +199,16 @@
 /* #undef CPL_DISABLE_DLL */
 
 /* Define to 1 if you have the <atlbase.h> header file. */
-#define HAVE_ATLBASE_H 1
+/* #undef HAVE_ATLBASE_H */
+
+/* Define to 1 if you have the `ctime_r' function. */
+/* #undef HAVE_CTIME_R */
+
+/* Define to 1 if you have the `localtime_r' function. */
+/* #undef HAVE_LOCALTIME_R */
+
+/* Define to 1 if you have the `gmtime_r' function. */
+/* #undef HAVE_GMTIME_R */
 
 #endif /* GDAL_COMPILATION */
 

@@ -147,20 +147,8 @@ typedef GUIntBig vsi_l_offset;
 /** Maximum value for a file offset */
 #define VSI_L_OFFSET_MAX GUINTBIG_MAX
 
-/*! @cond Doxygen_Suppress */
-/* Make VSIL_STRICT_ENFORCE active in DEBUG builds */
-#ifdef DEBUG
-#define VSIL_STRICT_ENFORCE
-#endif
-/*! @endcond */
-
-#ifdef VSIL_STRICT_ENFORCE
 /** Opaque type for a FILE that implements the VSIVirtualHandle API */
-typedef struct _VSILFILE VSILFILE;
-#else
-/** Opaque type for a FILE that implements the VSIVirtualHandle API */
-typedef FILE VSILFILE;
-#endif
+typedef struct VSIVirtualHandle VSILFILE;
 
 VSILFILE CPL_DLL *VSIFOpenL(const char *, const char *) CPL_WARN_UNUSED_RESULT;
 VSILFILE CPL_DLL *VSIFOpenExL(const char *, const char *,
@@ -239,6 +227,8 @@ int CPL_DLL VSISupportsSparseFiles(const char *pszPath);
 
 bool CPL_DLL VSIIsLocal(const char *pszPath);
 
+char CPL_DLL *VSIGetCanonicalFilename(const char *pszPath);
+
 bool CPL_DLL VSISupportsSequentialWrite(const char *pszPath,
                                         bool bAllowLocalTempFile);
 
@@ -301,6 +291,22 @@ void CPL_DLL *VSIMalloc(size_t) CPL_WARN_UNUSED_RESULT;
 void CPL_DLL VSIFree(void *);
 void CPL_DLL *VSIRealloc(void *, size_t) CPL_WARN_UNUSED_RESULT;
 char CPL_DLL *VSIStrdup(const char *) CPL_WARN_UNUSED_RESULT;
+
+#if defined(__cplusplus) && defined(GDAL_COMPILATION)
+extern "C++"
+{
+    /*! @cond Doxygen_Suppress */
+    struct CPL_DLL VSIFreeReleaser
+    {
+        void operator()(void *p) const
+        {
+            VSIFree(p);
+        }
+    };
+
+    /*! @endcond */
+}
+#endif
 
 void CPL_DLL *VSIMallocAligned(size_t nAlignment,
                                size_t nSize) CPL_WARN_UNUSED_RESULT;
@@ -390,6 +396,8 @@ char CPL_DLL **VSIReadDirRecursive(const char *pszPath);
 char CPL_DLL **VSIReadDirEx(const char *pszPath, int nMaxFiles);
 char CPL_DLL **VSISiblingFiles(const char *pszPath);
 
+const char CPL_DLL *VSIGetDirectorySeparator(const char *pszPath);
+
 /** Opaque type for a directory iterator */
 typedef struct VSIDIR VSIDIR;
 
@@ -398,6 +406,7 @@ VSIDIR CPL_DLL *VSIOpenDir(const char *pszPath, int nRecurseDepth,
 
 /*! @cond Doxygen_Suppress */
 typedef struct VSIDIREntry VSIDIREntry;
+
 /*! @endcond */
 
 /** Directory entry. */
@@ -440,6 +449,10 @@ int CPL_DLL VSIRmdirRecursive(const char *pszDirname);
 int CPL_DLL VSIUnlink(const char *pszFilename);
 int CPL_DLL *VSIUnlinkBatch(CSLConstList papszFiles);
 int CPL_DLL VSIRename(const char *oldpath, const char *newpath);
+int CPL_DLL VSICopyFile(const char *pszSource, const char *pszTarget,
+                        VSILFILE *fpSource, vsi_l_offset nSourceSize,
+                        const char *const *papszOptions,
+                        GDALProgressFunc pProgressFunc, void *pProgressData);
 int CPL_DLL VSISync(const char *pszSource, const char *pszTarget,
                     const char *const *papszOptions,
                     GDALProgressFunc pProgressFunc, void *pProgressData,
@@ -475,6 +488,8 @@ void VSIInstallOSSFileHandler(void);
 void VSIInstallOSSStreamingFileHandler(void);
 void VSIInstallSwiftFileHandler(void);
 void VSIInstallSwiftStreamingFileHandler(void);
+void VSIInstall7zFileHandler(void);   /* No reason to export that */
+void VSIInstallRarFileHandler(void);  /* No reason to export that */
 void VSIInstallGZipFileHandler(void); /* No reason to export that */
 void VSIInstallZipFileHandler(void);  /* No reason to export that */
 void VSIInstallStdinHandler(void);    /* No reason to export that */
@@ -482,12 +497,16 @@ void VSIInstallHdfsHandler(void);     /* No reason to export that */
 void VSIInstallWebHdfsHandler(void);  /* No reason to export that */
 void VSIInstallStdoutHandler(void);   /* No reason to export that */
 void CPL_DLL VSIInstallSparseFileHandler(void);
-void VSIInstallTarFileHandler(void); /* No reason to export that */
+void VSIInstallTarFileHandler(void);    /* No reason to export that */
+void VSIInstallCachedFileHandler(void); /* No reason to export that */
 void CPL_DLL VSIInstallCryptFileHandler(void);
 void CPL_DLL VSISetCryptKey(const GByte *pabyKey, int nKeySize);
 /*! @cond Doxygen_Suppress */
 void CPL_DLL VSICleanupFileManager(void);
 /*! @endcond */
+
+bool CPL_DLL VSIDuplicateFileSystemHandler(const char *pszSourceFSName,
+                                           const char *pszNewFSName);
 
 VSILFILE CPL_DLL *
 VSIFileFromMemBuffer(const char *pszFilename, GByte *pabyData,
@@ -625,6 +644,24 @@ typedef int (*VSIFilesystemPluginTruncateCallback)(void *pFile,
 typedef int (*VSIFilesystemPluginCloseCallback)(void *pFile);
 
 /**
+ * This optional method is called when code plans to access soon one or several
+ * ranges in a file. Some file systems may be able to use this hint to
+ * for example asynchronously start such requests.
+ *
+ * Offsets may be given in a non-increasing order, and may potentially
+ * overlap.
+ *
+ * @param pFile File handle.
+ * @param nRanges Size of the panOffsets and panSizes arrays.
+ * @param panOffsets Array containing the start offset of each range.
+ * @param panSizes Array containing the size (in bytes) of each range.
+ * @since GDAL 3.7
+ */
+typedef void (*VSIFilesystemPluginAdviseReadCallback)(
+    void *pFile, int nRanges, const vsi_l_offset *panOffsets,
+    const size_t *panSizes);
+
+/**
  * struct containing callbacks to used by the handler.
  * (rw), (r), (w) or () at the end indicate whether the given callback is
  * mandatory for reading and or writing handlers. A (?) indicates that the
@@ -666,6 +703,9 @@ typedef struct
     size_t nCacheSize;  /**< max mem to use per file when buffering */
     VSIFilesystemPluginSiblingFilesCallback
         sibling_files; /**< list related files*/
+
+    /** The following optional member has been added in GDAL 3.7: */
+    VSIFilesystemPluginAdviseReadCallback advise_read; /**< AdviseRead() */
     /*
         Callbacks are defined as a struct allocated by a call to
        VSIAllocFilesystemPluginCallbacksStruct in order to try to maintain ABI
@@ -697,6 +737,17 @@ void CPL_DLL VSIFreeFilesystemPluginCallbacksStruct(
  */
 int CPL_DLL VSIInstallPluginHandler(
     const char *pszPrefix, const VSIFilesystemPluginCallbacksStruct *poCb);
+
+/**
+ * Unregister a handler previously installed with VSIInstallPluginHandler() on
+ * the given prefix.
+ * Note: it is generally unsafe to remove a handler while there are still file
+ * handles opened that are managed by that handler. It is the responsibility of
+ * the caller to ensure that it calls this function in a situation where it is
+ * safe to do so.
+ * @since GDAL 3.9
+ */
+int CPL_DLL VSIRemovePluginHandler(const char *pszPrefix);
 
 /* ==================================================================== */
 /*      Time querying.                                                  */
