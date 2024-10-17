@@ -1078,7 +1078,7 @@ void GDALInterface::LoadGDALVectorDatasetFromQuery(FString Query, TFunction<void
 }
 
 bool GDALInterface::ExportMesh(const FDynamicMesh3 &Mesh, const FString &File)
-{   
+{
 	GDALDriver *DXFDriver = GetGDALDriverManager()->GetDriverByName("DXF");
     if (!DXFDriver) {
         UE_LOG(LogGDALInterface, Error, TEXT("DXF driver not available"));
@@ -1140,6 +1140,68 @@ bool GDALInterface::ExportMesh(const FDynamicMesh3 &Mesh, const FString &File)
 
         OGRFeature::DestroyFeature(Feature);
     }
+
+    GDALClose(Dataset);
+    return true;
+}
+
+bool GDALInterface::ExportPolygon(const TArray<FVector> &Points, const FString &File)
+{
+	GDALDriver *DXFDriver = GetGDALDriverManager()->GetDriverByName("DXF");
+    if (!DXFDriver) {
+        UE_LOG(LogGDALInterface, Error, TEXT("DXF driver not available"));
+        return false;
+    }
+
+    GDALDataset *Dataset = DXFDriver->Create(TCHAR_TO_UTF8(*File), 0, 0, 0, GDT_Unknown, nullptr);
+    if (!Dataset) {
+        UE_LOG(LogGDALInterface, Error, TEXT("Failed to create DXF file: %s"), *File);
+        return false;
+    }
+
+    OGRLayer *Layer = Dataset->CreateLayer("faces");
+    if (!Layer) {
+        UE_LOG(LogGDALInterface, Error, TEXT("Failed to create DXF layer"));
+        GDALClose(Dataset);
+        return false;
+    }
+
+	OGRFeatureDefn *LayerDefn = Layer->GetLayerDefn();
+	if (!LayerDefn) {
+		UE_LOG(LogGDALInterface, Error, TEXT("Failed to get layer definition"));
+        GDALClose(Dataset);
+		return false;
+	}
+
+	OGRPolygon Polygon;
+	OGRLinearRing Ring;
+	int NumPoints = Points.Num();
+	for (int i = 0; i < NumPoints; ++i) {
+		Ring.addPoint(Points[i].X, Points[i].Y, Points[i].Z);
+	}
+	
+	Polygon.addRing(&Ring);
+
+	OGRFeature *Feature = OGRFeature::CreateFeature(LayerDefn);
+
+	if (!Feature)
+	{
+		UE_LOG(LogGDALInterface, Error, TEXT("Failed to create feature"));
+		GDALClose(Dataset);
+		return false;	
+	}
+
+	Feature->SetGeometry(&Polygon);
+
+	if (Layer->CreateFeature(Feature) != OGRERR_NONE)
+	{
+		UE_LOG(LogGDALInterface, Error, TEXT("Failed to add feature to layer"));
+		OGRFeature::DestroyFeature(Feature);
+		GDALClose(Dataset);
+		return false;
+	}
+
+	OGRFeature::DestroyFeature(Feature);
 
     GDALClose(Dataset);
     return true;
