@@ -9,6 +9,8 @@
 #include "Internationalization/Regex.h"
 #include "Internationalization/TextLocalizationResource.h" 
 #include "Misc/MessageDialog.h"
+#include "Misc/Paths.h"
+#include "Misc/FileHelper.h"
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 

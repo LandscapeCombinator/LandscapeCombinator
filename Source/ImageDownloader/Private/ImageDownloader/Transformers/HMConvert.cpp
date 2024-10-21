@@ -5,7 +5,10 @@
 #include "ImageDownloader/LogImageDownloader.h"
 #include "GDALInterface/GDALInterface.h"
 
+#include "HAL/PlatformFile.h"
 #include "Misc/ScopedSlowTask.h"
+#include "Misc/Paths.h"
+#include "Misc/MessageDialog.h"
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 

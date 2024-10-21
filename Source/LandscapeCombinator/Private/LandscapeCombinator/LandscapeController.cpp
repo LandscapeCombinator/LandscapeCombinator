@@ -13,6 +13,8 @@
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
+#if WITH_EDITOR
+
 void ULandscapeController::AdjustLandscape()
 {
 	ALandscape *Landscape = Cast<ALandscape>(GetOwner());
@@ -23,7 +25,7 @@ void ULandscapeController::AdjustLandscape()
 		);
 		return;
 	}
-	FString LandscapeLabel = Landscape->GetActorLabel();
+	FString LandscapeLabel = Landscape->GetActorNameOrLabel();
 
 	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(Landscape->GetWorld());
 	if (!GlobalCoordinates) return;
@@ -146,5 +148,6 @@ void ULandscapeController::AdjustLandscape()
 	return;
 }
 
+#endif
 
 #undef LOCTEXT_NAMESPACE

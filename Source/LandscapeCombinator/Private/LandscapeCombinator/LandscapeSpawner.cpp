@@ -16,13 +16,19 @@
 #include "Async/Async.h"
 #include "Components/DecalComponent.h"
 #include "Internationalization/Regex.h"
+#include "Kismet/GameplayStatics.h"
+#include "LandscapeSubsystem.h"
+#include "Misc/MessageDialog.h"
+
+#if WITH_EDITOR
+
 #include "Editor.h"
 #include "EditorModes.h"
 #include "EditorModeManager.h"
-#include "Kismet/GameplayStatics.h"
 #include "LandscapeEditorObject.h"
 #include "LandscapeImportHelper.h" 
-#include "LandscapeSubsystem.h"
+
+#endif
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
@@ -104,6 +110,8 @@ void ALandscapeSpawner::DeleteLandscape()
 	}
 	DecalActor = nullptr;
 }
+
+#if WITH_EDITOR
 
 void ALandscapeSpawner::SpawnLandscape(TFunction<void(ALandscape*)> OnComplete)
 {
@@ -394,6 +402,7 @@ void ALandscapeSpawner::SpawnLandscape()
 	SpawnLandscape(nullptr);
 }
 
+#endif
 
 void ALandscapeSpawner::SetComponentCountFromMethod()
 {
@@ -477,6 +486,7 @@ void ALandscapeSpawner::SetComponentCountFromMethod()
 	}
 }
 
+#if WITH_EDITOR
 
 void ALandscapeSpawner::PostEditChangeProperty(FPropertyChangedEvent& Event)
 {
@@ -495,6 +505,8 @@ void ALandscapeSpawner::PostEditChangeProperty(FPropertyChangedEvent& Event)
 
 	Super::PostEditChangeProperty(Event);
 }
+
+#endif
 
 bool ALandscapeSpawner::HasMapboxToken()
 {

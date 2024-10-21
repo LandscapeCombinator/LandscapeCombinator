@@ -24,6 +24,7 @@
 #include "Stats/StatsMisc.h"
 #include "ObjectEditorUtils.h"
 #include "Engine/World.h"
+#include "Misc/MessageDialog.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 

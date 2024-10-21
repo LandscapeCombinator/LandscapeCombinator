@@ -3,3 +3,5 @@ Intermediate
 *.zip
 Documentation/build
 Build
+Package_*
+TEMP_*

@@ -8,16 +8,24 @@
 class FLandscapeCombinatorModule : public IModuleInterface
 {
 public:
+
+#if WITH_EDITOR
+
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
 	
 
 	void PluginButtonClicked();
+
+#endif
 	
 private:
-	//TSharedRef<class SDockTab> OnSpawnPluginTab(const class FSpawnTabArgs& SpawnTabArgs);
+
+#if WITH_EDITOR
 
 	void RegisterMenus();
+
+#endif
     
 	TSharedPtr<class FUICommandList> PluginCommands;
 };

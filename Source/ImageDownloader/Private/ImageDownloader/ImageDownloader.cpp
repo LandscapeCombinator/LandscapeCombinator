@@ -44,6 +44,7 @@
 #include "HAL/FileManagerGeneric.h"
 #include "Misc/MessageDialog.h"
 #include "Logging/StructuredLog.h"
+#include "Internationalization/TextLocalizationResource.h" 
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 

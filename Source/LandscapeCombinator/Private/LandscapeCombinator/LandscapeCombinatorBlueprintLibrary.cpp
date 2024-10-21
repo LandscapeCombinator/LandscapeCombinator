@@ -4,6 +4,7 @@
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
+#if WITH_EDITOR
 
 void ULandscapeCombinatorBlueprintLibrary::SortByLabel(UPARAM(ref) TArray<AActor*> &Actors)
 {
@@ -24,5 +25,7 @@ void ULandscapeCombinatorBlueprintLibrary::SetFolderPath(AActor* Actor, FName Fo
 		GEditor->SelectActor(Actor, true, true);
     }
 }
+
+#endif
 
 #undef LOCTEXT_NAMESPACE

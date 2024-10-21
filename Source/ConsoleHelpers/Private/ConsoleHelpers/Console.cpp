@@ -5,6 +5,7 @@
 
 #include "Misc/MessageDialog.h" 
 #include "GenericPlatform/GenericPlatformProcess.h" 
+#include "HAL/PlatformProcess.h"
 
 #define LOCTEXT_NAMESPACE "FConsoleHelpersModule"
 

@@ -4,6 +4,8 @@
 #include "ImageDownloader/Directories.h"
 #include "FileDownloader/Download.h"
 
+#include "Misc/Paths.h"
+
 void HMURL::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
 {
 	FString FilePath = FPaths::Combine(Directories::DownloadDir(), FileName);

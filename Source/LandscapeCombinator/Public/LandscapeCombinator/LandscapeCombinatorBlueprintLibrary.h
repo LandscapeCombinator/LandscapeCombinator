@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "LandscapeCombinatorBlueprintLibrary.generated.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
@@ -14,8 +15,12 @@ class ULandscapeCombinatorBlueprintLibrary : public UBlueprintFunctionLibrary
     UFUNCTION(BlueprintCallable, Category="LandscapeCombinator")
     static void SortByLabel(UPARAM(ref) TArray<AActor*>& Actors);
 
+#if WITH_EDITOR
+
     UFUNCTION(BlueprintCallable, Category="LandscapeCombinator")
     static void SetFolderPath(AActor *Actor, FName FolderPath);
+
+#endif
 };
 
 

@@ -207,19 +207,23 @@ public:
 	 * Actions *
 	 ***********/
 	
+#if WITH_EDITOR
+
 	/* Spawn the Landscape. */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeSpawner",
 		meta = (DisplayPriority = "0")
 	)
 	void SpawnLandscape();
+
+	void SpawnLandscape(TFunction<void(ALandscape*)> OnComplete);
+
+#endif
 	
 	/* Delete the previously spawned landscape. */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeSpawner",
 		meta = (DisplayPriority = "1")
 	)
 	void DeleteLandscape();
-
-	void SpawnLandscape(TFunction<void(ALandscape*)> OnComplete);
 
 	/* This deletes all the images, included downloaded files. */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeSpawner",
@@ -269,7 +273,11 @@ public:
 	UFUNCTION()
 	void SetComponentCountFromMethod();
 
+#if WITH_EDITOR
+
 	void PostEditChangeProperty(struct FPropertyChangedEvent&);
+
+ #endif
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, DuplicateTransient, Category = "LandscapeSpawner",
