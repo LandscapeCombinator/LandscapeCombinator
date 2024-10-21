@@ -761,7 +761,7 @@ bool GDALInterface::ReadColorsFromFile(FString File, int &OutWidth, int &OutHeig
 	{
 		for (int j = 0; j < OutHeight; j++)
 		{
-			FColor Color;
+			FColor Color = FColor::Black;
 			int k = i + j * OutWidth;
 			if (NumBands >= 1) Color.R = RedBuffer[k];
 			if (NumBands >= 2) Color.G = GreenBuffer[k];
