@@ -13,15 +13,29 @@ class LANDSCAPECOMBINATOR_API UNodeSpawnLandscape : public UBlueprintAsyncAction
 {
     GENERATED_BODY()
 
+#if WITH_EDITORONLY_DATA
+
 public:
+
     UPROPERTY(BlueprintAssignable)
     FLandscapeDelegate OnLandscapeCreated;
 
     UPROPERTY(BlueprintAssignable)
     FLandscapeFailureDelegate OnFailure;
+
+private:
+
+    UPROPERTY()
+    TWeakObjectPtr<ALandscapeSpawner> LandscapeSpawner = nullptr;
+
+#endif
+
+#if WITH_EDITOR
+
+public:
     
     UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true", WorldContext = "WorldContextObject"), Category = "LandscapeCombinator")
-    static UNodeSpawnLandscape* SpawnLandscape(const UObject* WorldContextObject, ALandscapeSpawner *LandscapeSpawner);
+    static UNodeSpawnLandscape* SpawnLandscape(const UObject* WorldContextObject, ALandscapeSpawner *LandscapeSpawnerIn);
 
     // UBlueprintAsyncActionBase interface
     virtual void Activate() override;
@@ -29,8 +43,6 @@ public:
 
     virtual void TaskComplete(ALandscape *CreatedLandscape);
 
-private:
+#endif
 
-    UPROPERTY()
-    TWeakObjectPtr<ALandscapeSpawner> LandscapeSpawner = nullptr;
 };

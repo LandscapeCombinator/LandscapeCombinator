@@ -29,21 +29,14 @@ public class LandscapeCombinator : ModuleRules
 				"Projects",
 				"InputCore",
                 "GeometryFramework",
-                "EditorFramework",
-				"UnrealEd",
 				"CoreUObject",
 				"Engine",
 				"Slate",
 				"SlateCore",
 				"Foliage",
 				"Landscape",
-				"LandscapeEditor",
-				"PropertyEditor",
 				"PCG",
-                "ToolMenus",
                 "ApplicationCore",
-                "UMGEditor",
-                "Blutility",
 
 				// Other dependencies
                 "Coordinates",
@@ -57,5 +50,21 @@ public class LandscapeCombinator : ModuleRules
 				"BuildingFromSpline"
 			}
 		);
+
+		if (Target.bBuildEditor)
+		{
+			PrivateDependencyModuleNames.AddRange(
+				new string[]
+				{
+					"LandscapeEditor",
+					"EditorFramework",
+					"PropertyEditor",
+					"UnrealEd",
+					"UMGEditor",
+                	"ToolMenus",
+					"Blutility"
+				}
+			);
+		}
 	}
 }

@@ -124,8 +124,25 @@ function New-Archive {
         Write-Output "UPlugin Path: $UPluginPath"
         Write-Output "Package Path: $PackagePath"
         & "${UEFolder}Engine\Build\BatchFiles\RunUAT.bat" BuildPlugin -TargetPlatforms=Win64+Linux -Plugin="$UPluginPath" -Package="$PackagePath" -Rocket
-        Start-Sleep -Seconds 2
-        Remove-Item -Force -Recurse "Package_$Plugin"
+        $Attempts = 0
+        while ($Attempts -lt 6)
+        {
+            try
+            {
+                Remove-Item -Force -Recurse "Package_$Plugin"
+                break
+            }
+            catch
+            {
+                $Attempts++
+                Write-Output "Attempt ${Attempts}: Could not remove Package_$Plugin, waiting 1 second and retrying..."
+                Start-Sleep -Seconds 1
+            }
+        }
+        if ($Attempts -ge 5)
+        {
+            Write-Output "Failed to remove Package_$Plugin"
+        }
     }
 
     Write-Output "Running: 7z -snl a $plugin-v$PluginVersion-UE$EngineVersion.zip $(Resolve-Path "$TempFolder/*" | Select-Object -ExpandProperty Path)"
@@ -221,7 +238,7 @@ $MarketPlaceURLs.Add("HeightmapModifier",   "")
 
 $UEPluginUsers = @{}
 $UEPluginUsers.Add("PCG", @("SplineImporter"))
-$UEPluginUsers.Add("GeometryScripting", @("BuildingFromSpline"))
+$UEPluginUsers.Add("GeometryScripting", @("BuildingFromSpline", "LandscapeUtils"))
 
 Remove-Item -Force -Recurse "*UE$EngineVersion*.zip"
 

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Components/ActorComponent.h"
 #include "LandscapeController.generated.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
@@ -11,10 +13,15 @@ class LANDSCAPECOMBINATOR_API ULandscapeController : public UActorComponent
 {
 	GENERATED_BODY()
 
-public:
+public:	
+
+#if WITH_EDITOR
+
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeCombinator")
 	/* Adjust the landscape scale and position to respect the `LevelCoordinates` and the `ZScale`. */
 	void AdjustLandscape();
+
+#endif
 
 	UPROPERTY(VisibleAnywhere, Category = "LandscapeCombinator|Information",
 		meta = (DisplayPriority = "1")

@@ -2,6 +2,8 @@
 
 #include "LandscapeCombinator/LandscapeSpawnerCustomization.h"
 
+#if WITH_EDITOR
+
 #include "DetailLayoutBuilder.h"
 
 TSharedRef<IDetailCustomization> FLandscapeSpawnerCustomization::MakeInstance()
@@ -13,3 +15,5 @@ void FLandscapeSpawnerCustomization::CustomizeDetails(IDetailLayoutBuilder& Deta
 {
 	DetailBuilder.EditCategory("LandscapeSpawner", FText::GetEmpty(), ECategoryPriority::Important);
 }
+
+#endif

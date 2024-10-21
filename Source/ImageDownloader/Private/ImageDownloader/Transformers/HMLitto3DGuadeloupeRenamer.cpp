@@ -1,6 +1,7 @@
 // Copyright 2023 LandscapeCombinator. All Rights Reserved.
 
-#include "ImageDownloader/Transformers//HMLitto3DGuadeloupeRenamer.h"
+#include "ImageDownloader/Transformers/HMLitto3DGuadeloupeRenamer.h"
+#include "Internationalization/Regex.h"
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 

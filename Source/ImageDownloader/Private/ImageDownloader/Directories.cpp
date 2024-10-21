@@ -3,6 +3,7 @@
 #include "ImageDownloader/Directories.h"
 #include "ImageDownloader/LogImageDownloader.h"
 
+#include "HAL/PlatformFile.h"
 #include "Misc/MessageDialog.h"
 #include "Misc/Paths.h" 
 

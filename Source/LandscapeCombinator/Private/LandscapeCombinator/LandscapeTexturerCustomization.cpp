@@ -2,6 +2,8 @@
 
 #include "LandscapeCombinator/LandscapeTexturerCustomization.h"
 
+#if WITH_EDITOR
+
 #include "DetailLayoutBuilder.h"
 
 TSharedRef<IDetailCustomization> FLandscapeTexturerCustomization::MakeInstance()
@@ -13,3 +15,5 @@ void FLandscapeTexturerCustomization::CustomizeDetails(IDetailLayoutBuilder& Det
 {
 	DetailBuilder.EditCategory("LandscapeTexturer", FText::GetEmpty(), ECategoryPriority::Important);
 }
+
+#endif

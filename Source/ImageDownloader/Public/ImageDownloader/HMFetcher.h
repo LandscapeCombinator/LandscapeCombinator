@@ -4,6 +4,12 @@
 
 #include "CoreMinimal.h"
 
+// Often used in the subclasses
+#include "HAL/PlatformFile.h"
+#include "Misc/ScopedSlowTask.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/Paths.h"
+
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
 class IMAGEDOWNLOADER_API HMFetcher

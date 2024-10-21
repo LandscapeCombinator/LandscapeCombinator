@@ -114,7 +114,7 @@ void UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 
 	Texture = FImageUtils::CreateTexture2D(
 		Width, Height, Colors,
-		this, FString("T_GeoDecal_") + DecalActor->GetActorLabel(),
+		this, FString("T_GeoDecal_") + DecalActor->GetActorNameOrLabel(),
 		RF_Public | RF_Transactional,
 		FCreateTexture2DParameters()
 	);

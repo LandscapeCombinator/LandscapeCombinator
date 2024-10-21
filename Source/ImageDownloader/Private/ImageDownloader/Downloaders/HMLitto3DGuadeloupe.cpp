@@ -9,6 +9,7 @@
 #include "HAL/FileManagerGeneric.h"
 #include "Misc/ScopedSlowTask.h"
 #include "Misc/MessageDialog.h"
+#include "Misc/Paths.h"
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 

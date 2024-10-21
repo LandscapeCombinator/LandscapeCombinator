@@ -11,6 +11,7 @@
 #include "Misc/FileHelper.h"
 #include "Misc/ScopedSlowTask.h"
 #include "Misc/MessageDialog.h"
+#include "Misc/Paths.h"
 #include "Internationalization/TextLocalizationResource.h" 
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/MessageDialog.h"
+#include "Engine/World.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 

@@ -1,6 +1,9 @@
 // Copyright 2023 LandscapeCombinator. All Rights Reserved.
 
 #include "LandscapeCombinatorModule.h"
+
+#if WITH_EDITOR
+
 #include "LandscapeCombinator/LandscapeCombinatorCommands.h"
 #include "LandscapeCombinator/LandscapeSpawner.h"
 #include "LandscapeCombinator/LandscapeSpawnerCustomization.h"
@@ -11,8 +14,12 @@
 #include "PropertyEditorModule.h"
 #include "EditorUtilitySubsystem.h"
 #include "EditorUtilityWidgetBlueprint.h"
+
+#endif
 	
 IMPLEMENT_MODULE(FLandscapeCombinatorModule, LandscapeCombinator)
+
+#if WITH_EDITOR
 
 void FLandscapeCombinatorModule::StartupModule()
 {
@@ -77,3 +84,5 @@ void FLandscapeCombinatorModule::RegisterMenus()
 	FToolMenuEntry& Entry = PluginToolsSection.AddEntry(FToolMenuEntry::InitToolBarButton(FLandscapeCombinatorCommands::Get().PluginAction));
 	Entry.SetCommandList(PluginCommands);
 }
+
+#endif
