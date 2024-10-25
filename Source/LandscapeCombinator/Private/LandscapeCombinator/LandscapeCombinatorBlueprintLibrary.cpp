@@ -4,14 +4,14 @@
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
-#if WITH_EDITOR
-
 void ULandscapeCombinatorBlueprintLibrary::SortByLabel(UPARAM(ref) TArray<AActor*> &Actors)
 {
 	Actors.Sort([](const AActor& Actor1, const AActor& Actor2) {
 		return Actor1.GetActorNameOrLabel().Compare(Actor2.GetActorNameOrLabel()) < 0;
 	});
 }
+
+#if WITH_EDITOR
 
 void ULandscapeCombinatorBlueprintLibrary::SetFolderPath(AActor* Actor, FName FolderPath)
 {
