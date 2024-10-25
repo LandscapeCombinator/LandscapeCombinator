@@ -70,8 +70,6 @@ void FLandscapeCombinatorModule::PluginButtonClicked()
 
 void FLandscapeCombinatorModule::RegisterMenus()
 {
-	UE_LOG(LogTemp, Error, TEXT("RegisterMenus"));
-
 	// Owner will be used for cleanup in call to UToolMenus::UnregisterOwner
 	FToolMenuOwnerScoped OwnerScoped(this);
 
