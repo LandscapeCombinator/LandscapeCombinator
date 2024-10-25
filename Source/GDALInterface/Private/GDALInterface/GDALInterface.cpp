@@ -606,15 +606,15 @@ bool GDALInterface::Merge(TArray<FString> SourceFiles, FString TargetFile)
 		return false;
 	}
 
-    int bandCount = GDALGetRasterCount(DatasetVRT);
-    for(int i = 1; i <= bandCount; i++)
-    {
-        GDALRasterBandH hBand = GDALGetRasterBand(DatasetVRT, i);
-        if (hBand != NULL)
-        {
-            GDALSetRasterNoDataValue(hBand, 0);
-        }
-    }
+	int bandCount = GDALGetRasterCount(DatasetVRT);
+	for(int i = 1; i <= bandCount; i++)
+	{
+		GDALRasterBandH hBand = GDALGetRasterBand(DatasetVRT, i);
+		if (hBand != NULL)
+		{
+			GDALSetRasterNoDataValue(hBand, 0);
+		}
+	}
 
 	GDALClose(DatasetVRT);
 	UE_LOG(LogGDALInterface, Log, TEXT("Finished merging %s into %s"), *FString::Join(SourceFiles, TEXT(", ")), *TargetFile);
@@ -1080,46 +1080,46 @@ void GDALInterface::LoadGDALVectorDatasetFromQuery(FString Query, TFunction<void
 bool GDALInterface::ExportMesh(const FDynamicMesh3 &Mesh, const FString &File)
 {
 	GDALDriver *DXFDriver = GetGDALDriverManager()->GetDriverByName("DXF");
-    if (!DXFDriver) {
-        UE_LOG(LogGDALInterface, Error, TEXT("DXF driver not available"));
-        return false;
-    }
+	if (!DXFDriver) {
+		UE_LOG(LogGDALInterface, Error, TEXT("DXF driver not available"));
+		return false;
+	}
 
-    GDALDataset *Dataset = DXFDriver->Create(TCHAR_TO_UTF8(*File), 0, 0, 0, GDT_Unknown, nullptr);
-    if (!Dataset) {
-        UE_LOG(LogGDALInterface, Error, TEXT("Failed to create DXF file: %s"), *File);
-        return false;
-    }
+	GDALDataset *Dataset = DXFDriver->Create(TCHAR_TO_UTF8(*File), 0, 0, 0, GDT_Unknown, nullptr);
+	if (!Dataset) {
+		UE_LOG(LogGDALInterface, Error, TEXT("Failed to create DXF file: %s"), *File);
+		return false;
+	}
 
-    OGRLayer *Layer = Dataset->CreateLayer("faces");
-    if (!Layer) {
-        UE_LOG(LogGDALInterface, Error, TEXT("Failed to create DXF layer"));
-        GDALClose(Dataset);
-        return false;
-    }
+	OGRLayer *Layer = Dataset->CreateLayer("faces");
+	if (!Layer) {
+		UE_LOG(LogGDALInterface, Error, TEXT("Failed to create DXF layer"));
+		GDALClose(Dataset);
+		return false;
+	}
 
 	OGRFeatureDefn *LayerDefn = Layer->GetLayerDefn();
 	if (!LayerDefn) {
 		UE_LOG(LogGDALInterface, Error, TEXT("Failed to get layer definition"));
-        GDALClose(Dataset);
+		GDALClose(Dataset);
 		return false;
 	}
 
 	int NumTriangles = Mesh.TriangleCount();
-    for (int32 Index = 0; Index < NumTriangles; ++Index)
+	for (int32 Index = 0; Index < NumTriangles; ++Index)
 	{
-        FIndex3i Tri = Mesh.GetTriangle(Index);
-        OGRPolygon Triangle;
-        OGRLinearRing Ring;
+		FIndex3i Tri = Mesh.GetTriangle(Index);
+		OGRPolygon Triangle;
+		OGRLinearRing Ring;
 
-        for (int i = 0; i < 3; ++i) {
-            FVector3d Vertex = Mesh.GetVertex(Tri[i]);
-            Ring.addPoint(Vertex.X, Vertex.Y, Vertex.Z);
-        }
+		for (int i = 0; i < 3; ++i) {
+			FVector3d Vertex = Mesh.GetVertex(Tri[i]);
+			Ring.addPoint(Vertex.X, Vertex.Y, Vertex.Z);
+		}
 		
-        Triangle.addRing(&Ring);
+		Triangle.addRing(&Ring);
 
-        OGRFeature *Feature = OGRFeature::CreateFeature(LayerDefn);
+		OGRFeature *Feature = OGRFeature::CreateFeature(LayerDefn);
 
 		if (!Feature)
 		{
@@ -1128,48 +1128,48 @@ bool GDALInterface::ExportMesh(const FDynamicMesh3 &Mesh, const FString &File)
 			return false;	
 		}
 
-        Feature->SetGeometry(&Triangle);
+		Feature->SetGeometry(&Triangle);
 
-        if (Layer->CreateFeature(Feature) != OGRERR_NONE)
+		if (Layer->CreateFeature(Feature) != OGRERR_NONE)
 		{
-            UE_LOG(LogGDALInterface, Error, TEXT("Failed to add feature to layer for triangle %d"), Index);
-            OGRFeature::DestroyFeature(Feature);
-            GDALClose(Dataset);
-            return false;
-        }
+			UE_LOG(LogGDALInterface, Error, TEXT("Failed to add feature to layer for triangle %d"), Index);
+			OGRFeature::DestroyFeature(Feature);
+			GDALClose(Dataset);
+			return false;
+		}
 
-        OGRFeature::DestroyFeature(Feature);
-    }
+		OGRFeature::DestroyFeature(Feature);
+	}
 
-    GDALClose(Dataset);
-    return true;
+	GDALClose(Dataset);
+	return true;
 }
 
 bool GDALInterface::ExportPolygon(const TArray<FVector> &Points, const FString &File)
 {
 	GDALDriver *DXFDriver = GetGDALDriverManager()->GetDriverByName("DXF");
-    if (!DXFDriver) {
-        UE_LOG(LogGDALInterface, Error, TEXT("DXF driver not available"));
-        return false;
-    }
+	if (!DXFDriver) {
+		UE_LOG(LogGDALInterface, Error, TEXT("DXF driver not available"));
+		return false;
+	}
 
-    GDALDataset *Dataset = DXFDriver->Create(TCHAR_TO_UTF8(*File), 0, 0, 0, GDT_Unknown, nullptr);
-    if (!Dataset) {
-        UE_LOG(LogGDALInterface, Error, TEXT("Failed to create DXF file: %s"), *File);
-        return false;
-    }
+	GDALDataset *Dataset = DXFDriver->Create(TCHAR_TO_UTF8(*File), 0, 0, 0, GDT_Unknown, nullptr);
+	if (!Dataset) {
+		UE_LOG(LogGDALInterface, Error, TEXT("Failed to create DXF file: %s"), *File);
+		return false;
+	}
 
-    OGRLayer *Layer = Dataset->CreateLayer("faces");
-    if (!Layer) {
-        UE_LOG(LogGDALInterface, Error, TEXT("Failed to create DXF layer"));
-        GDALClose(Dataset);
-        return false;
-    }
+	OGRLayer *Layer = Dataset->CreateLayer("faces");
+	if (!Layer) {
+		UE_LOG(LogGDALInterface, Error, TEXT("Failed to create DXF layer"));
+		GDALClose(Dataset);
+		return false;
+	}
 
 	OGRFeatureDefn *LayerDefn = Layer->GetLayerDefn();
 	if (!LayerDefn) {
 		UE_LOG(LogGDALInterface, Error, TEXT("Failed to get layer definition"));
-        GDALClose(Dataset);
+		GDALClose(Dataset);
 		return false;
 	}
 
@@ -1203,8 +1203,8 @@ bool GDALInterface::ExportPolygon(const TArray<FVector> &Points, const FString &
 
 	OGRFeature::DestroyFeature(Feature);
 
-    GDALClose(Dataset);
-    return true;
+	GDALClose(Dataset);
+	return true;
 }
 
 bool GDALInterface::WriteHeightmapDataToTIF(const FString& File, int32 SizeX, int32 SizeY, uint16* HeightmapData)
