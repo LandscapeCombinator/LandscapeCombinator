@@ -28,8 +28,7 @@ public class LandscapeUtils : ModuleRules
 				"Slate",
 				"GeometryCore",
 				"GeometryFramework",
-				"GeometryScriptingCore",
-				"Kismet"
+				"GeometryScriptingCore"
 			}
 		);
 
