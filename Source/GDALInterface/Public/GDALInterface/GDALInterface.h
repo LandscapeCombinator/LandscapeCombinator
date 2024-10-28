@@ -65,7 +65,7 @@ public:
 	static void XYZTileToEPSG3857(double X, double Y, int Zoom, double &OutLong, double &OutLat);
 	static void EPSG3857ToXYZTile(double Long, double Lat, int Zoom, int &OutX, int &OutY);
 
-	static GDALDataset* LoadGDALVectorDatasetFromFile(FString File);
+	static GDALDataset* LoadGDALVectorDatasetFromFile(const FString &File);
 	static void LoadGDALVectorDatasetFromQuery(FString Query, TFunction<void(GDALDataset*)> OnComplete);
 
 	static bool ExportMesh(const FDynamicMesh3 &Mesh, const FString &File);

@@ -836,6 +836,11 @@ public:
 	
 	void DownloadImages(TFunction<void(TArray<FString>)> OnComplete);
 	void DownloadMergedImage(bool bEnsureOneBand, TFunction<void(FString, FString)> OnComplete);
+
+	UFUNCTION(BlueprintCallable, CallInEditor, Category = "ImageDownloader",
+		meta = (DisplayPriority = "10")
+	)
+	void DownloadMergedImage() { DownloadMergedImage(false, nullptr); };
 	
 	/* This deletes all the images, included downloaded files. */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "ImageDownloader",

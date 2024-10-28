@@ -152,13 +152,27 @@ FCollisionQueryParams LandscapeUtils::CustomCollisionQueryParams(AActor *Actor)
 	return CollisionQueryParams;
 }
 
-bool LandscapeUtils::GetZ(UWorld* World, FCollisionQueryParams CollisionQueryParams, double x, double y, double &OutZ)
+bool LandscapeUtils::GetZ(UWorld* World, FCollisionQueryParams CollisionQueryParams, double x, double y, double &OutZ, bool bDrawDebugLine)
 {
 	FVector StartLocation = FVector(x, y, HALF_WORLD_MAX);
 	FVector EndLocation = FVector(x, y, -HALF_WORLD_MAX);
 
+	if (bDrawDebugLine)
+	{
+		DrawDebugLine(
+			World,
+			StartLocation,
+			EndLocation,
+			FColor::Red,
+			false,
+			10,
+			0,
+			10
+		);
+	}
+
 	FHitResult HitResult;
-	World->LineTraceSingleByObjectType(
+	bool bHit = World->LineTraceSingleByObjectType(
 		OUT HitResult,
 		StartLocation,
 		EndLocation,
@@ -166,7 +180,7 @@ bool LandscapeUtils::GetZ(UWorld* World, FCollisionQueryParams CollisionQueryPar
 		CollisionQueryParams
 	);
 
-	if (HitResult.GetActor())
+	if (bHit && HitResult.GetActor())
 	{
 		OutZ = HitResult.ImpactPoint.Z;
 		return true;
@@ -175,6 +189,23 @@ bool LandscapeUtils::GetZ(UWorld* World, FCollisionQueryParams CollisionQueryPar
 	{
 		return false;
 	}
+}
+
+bool LandscapeUtils::GetZ(AActor *Actor, double x, double y, double &OutZ, bool bDrawDebugLine)
+{
+	if (!IsValid(Actor))
+	{
+		UE_LOG(LogLandscapeUtils, Error, TEXT("LandscapeUtils::GetZ: Actor is invalid"));
+		return false;
+	}
+
+	UWorld *World = Actor->GetWorld();
+	FCollisionQueryParams CollisionQueryParams;
+	TArray<AActor*> Actors;
+	UGameplayStatics::GetAllActorsOfClass(World, AActor::StaticClass(), Actors);
+	Actors.Remove(Actor);
+	CollisionQueryParams.AddIgnoredActors(Actors);
+	return GetZ(World, CollisionQueryParams, x, y, OutZ, bDrawDebugLine);
 }
 
 bool LandscapeUtils::CreateMeshFromHeightmap(

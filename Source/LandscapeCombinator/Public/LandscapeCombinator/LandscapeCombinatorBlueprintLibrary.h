@@ -15,6 +15,9 @@ class ULandscapeCombinatorBlueprintLibrary : public UBlueprintFunctionLibrary
     UFUNCTION(BlueprintCallable, Category="LandscapeCombinator")
     static void SortByLabel(UPARAM(ref) TArray<AActor*>& Actors);
 
+    UFUNCTION(BlueprintCallable, Category="LandscapeCombinator")
+	static bool GetZ(AActor* Actor, double x, double y, double &OutZ, bool bDrawDebugLine = false);
+
 #if WITH_EDITOR
 
     UFUNCTION(BlueprintCallable, Category="LandscapeCombinator")

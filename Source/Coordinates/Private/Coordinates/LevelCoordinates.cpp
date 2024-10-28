@@ -14,6 +14,7 @@
 #include "Misc/MessageDialog.h"
 
 #define LOCTEXT_NAMESPACE "FCoordinatesModule"
+
 ALevelCoordinates::ALevelCoordinates()
 {
 	PrimaryActorTick.bCanEverTick = false;
