@@ -1028,7 +1028,7 @@ TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset)
 	return PointLists;
 }
 
-GDALDataset* GDALInterface::LoadGDALVectorDatasetFromFile(FString File)
+GDALDataset* GDALInterface::LoadGDALVectorDatasetFromFile(const FString &File)
 {
 	GDALDataset* Dataset = (GDALDataset*) GDALOpenEx(TCHAR_TO_UTF8(*File), GDAL_OF_VECTOR, NULL, NULL, NULL);
 

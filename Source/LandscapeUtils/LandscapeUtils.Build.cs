@@ -8,10 +8,10 @@ public class LandscapeUtils : ModuleRules
 	{
 		CppStandard = CppStandardVersion.Cpp20;
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
-        IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
+		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
 
-        // Unreal Dependencies
-        PublicDependencyModuleNames.AddRange(
+		// Unreal Dependencies
+		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
 				"Core"
@@ -26,17 +26,18 @@ public class LandscapeUtils : ModuleRules
 				"Foliage",
 				"Landscape",
 				"Slate",
-                "GeometryCore",
-                "GeometryFramework",
-                "GeometryScriptingCore",
+				"GeometryCore",
+				"GeometryFramework",
+				"GeometryScriptingCore",
+				"Kismet"
 			}
 		);
 
 		if (Target.bBuildEditor)
-        {
-            PrivateDependencyModuleNames.Add("UnrealEd");
-            PrivateDependencyModuleNames.Add("EditorFramework");
-            PrivateDependencyModuleNames.Add("LandscapeEditor");
-        }
+		{
+			PrivateDependencyModuleNames.Add("UnrealEd");
+			PrivateDependencyModuleNames.Add("EditorFramework");
+			PrivateDependencyModuleNames.Add("LandscapeEditor");
+		}
 	}
 }

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "Landscape.h"
 #include "LandscapeStreamingProxy.h"
 #include "DynamicMesh/DynamicMesh3.h"
@@ -18,7 +18,8 @@ public:
 	static bool GetLandscapeMinMaxZ(ALandscape *Landscape, FVector2D &MinMaxZ);
 	static TArray<ALandscapeStreamingProxy*> GetLandscapeStreamingProxies(ALandscape *Landscape);
 	static FCollisionQueryParams CustomCollisionQueryParams(AActor* Actor);
-	static bool GetZ(UWorld* World, FCollisionQueryParams CollisionQueryParams, double x, double y, double &OutZ);
+	static bool GetZ(UWorld* World, FCollisionQueryParams CollisionQueryParams, double x, double y, double &OutZ, bool bDrawDebugLine = false);
+	static bool GetZ(AActor* Actor, double x, double y, double &OutZ, bool bDrawDebugLine = false);
 
 	static bool CreateMeshFromHeightmap(
 		int Width, int Height, const TArray<float>& Heightmap, const FVector2D & TopLeftCorner, const FVector2D & BottomRightCorner, double ZScale,

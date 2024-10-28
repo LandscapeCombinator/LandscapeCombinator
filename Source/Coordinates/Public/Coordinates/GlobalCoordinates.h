@@ -41,14 +41,14 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "GlobalCoordinates",
 		meta = (DisplayPriority = "5")
 	)
-	double WorldOriginLong;
+	double WorldOriginLong = 0;
 	
 	/* Latitude of the World Origin (in the given Coordinate System) */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "GlobalCoordinates",
 		meta = (DisplayPriority = "6")
 	)
-	double WorldOriginLat;
+	double WorldOriginLat = 0;
 	
 
 
