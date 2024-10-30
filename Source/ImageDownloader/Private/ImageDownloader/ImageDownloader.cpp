@@ -315,6 +315,31 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 						return nullptr;
 					}
 				}
+				else if (IsNextZen())
+				{
+					FString NextZenToken2 = GetNextZenToken();
+					if (NextZenToken2.IsEmpty())
+					{
+						FMessageDialog::Open(EAppMsgType::Ok,
+							LOCTEXT("NextZenTokenMissing", "Please add a NextZen Token (can be obtained from a free NextZen account) in your Editor Preferences or in the Details Panel.")
+						); 
+						return nullptr;
+					}
+
+					if (ImageSourceKind == EImageSourceKind::NextZen_Heightmaps)
+					{
+						Layer = "NextZenTerrainRGB";
+						Format = "png";
+						URL2 = FString("https://tile.nextzen.org/tilezen/terrain/v1/256/terrarium/{z}/{x}/{y}.png?api_key=") + NextZenToken2;
+
+						bGeoreferenceSlippyTiles2 = true;
+						bMaxY_IsNorth2 = false;
+					}
+					else
+					{
+						return nullptr;
+					}
+				}
 				else
 				{
 					Layer = XYZ_Name;
@@ -330,7 +355,11 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 						bSilentMode,
 						bAllowInvalidTiles,
 						Name, Layer, Format, URL2, XYZ_Zoom, XYZ_MinX, XYZ_MaxX, XYZ_MinY, XYZ_MaxY,
-						bMaxY_IsNorth2, bGeoreferenceSlippyTiles2, ImageSourceKind == EImageSourceKind::MapTiler_Heightmaps || ImageSourceKind == EImageSourceKind::Mapbox_Heightmaps,
+						bMaxY_IsNorth2, bGeoreferenceSlippyTiles2,
+							ImageSourceKind == EImageSourceKind::MapTiler_Heightmaps ||
+							ImageSourceKind == EImageSourceKind::Mapbox_Heightmaps ||
+							ImageSourceKind == EImageSourceKind::NextZen_Heightmaps,
+							ImageSourceKind == EImageSourceKind::NextZen_Heightmaps,
 						XYZ_CRS
 					),
 					true
@@ -465,6 +494,11 @@ bool UImageDownloader::HasMapboxToken()
 	return !GetDefault<UImageDownloaderSettings>()->Mapbox_Token.IsEmpty();
 }
 
+bool UImageDownloader::HasNextZenToken()
+{
+	return !GetDefault<UImageDownloaderSettings>()->NextZen_Token.IsEmpty();
+}
+
 FString UImageDownloader::GetMapTilerToken()
 {
 	FString ProjectSettingsMapTilerToken = GetDefault<UImageDownloaderSettings>()->MapTiler_Token;
@@ -488,6 +522,19 @@ FString UImageDownloader::GetMapboxToken()
 	else
 	{
 		return Mapbox_Token;
+	}
+}
+
+FString UImageDownloader::GetNextZenToken()
+{
+	FString ProjectSettingsNextZenToken = GetDefault<UImageDownloaderSettings>()->NextZen_Token;
+	if (!ProjectSettingsNextZenToken.IsEmpty())
+	{
+		return ProjectSettingsNextZenToken;
+	}
+	else
+	{
+		return NextZen_Token;
 	}
 }
 
@@ -594,9 +641,14 @@ bool UImageDownloader::IsMapTiler()
 
 }
 
+bool UImageDownloader::IsNextZen()
+{
+	return ImageSourceKind == EImageSourceKind::NextZen_Heightmaps;
+}
+
 bool UImageDownloader::IsXYZ()
 {
-	return IsMapbox() || IsMapTiler() || ImageSourceKind == EImageSourceKind::GenericXYZ;
+	return IsMapbox() || IsMapTiler() || IsNextZen() || ImageSourceKind == EImageSourceKind::GenericXYZ;
 }
 
 bool UImageDownloader::HasMultipleLayers()

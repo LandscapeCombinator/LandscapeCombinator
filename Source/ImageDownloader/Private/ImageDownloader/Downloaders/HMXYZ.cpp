@@ -134,7 +134,7 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 						if (bDecodeMapbox)
 						{
 							DecodedFile = FPaths::Combine(Directories::DownloadDir(), FString::Format(TEXT("{0}-{1}-{2}-{3}-decoded.{4}"), { Layer, Zoom, X, Y, Format }));
-							if (!MapboxHelpers::DecodeMapboxThreeBands(DownloadFile, DecodedFile, bShowedDialog))
+							if (!MapboxHelpers::DecodeMapboxThreeBands(DownloadFile, DecodedFile, bUseTerrariumFormula, bShowedDialog))
 							{
 								Concurrency::ShowDialog(
 									FText::Format(

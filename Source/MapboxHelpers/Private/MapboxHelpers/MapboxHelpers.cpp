@@ -9,7 +9,7 @@
 
 #define LOCTEXT_NAMESPACE "FMapboxHelpersModule"
 
-bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, bool *bShowedDialog)
+bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, bool bUseTerrariumFormula, bool *bShowedDialog)
 {
 	/* Read the RGB bands from `InputFile` */
 
@@ -148,7 +148,11 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 			float R = ColorEntry->c1;
 			float G = ColorEntry->c2;
 			float B = ColorEntry->c3;
-			HeightmapData[i] = -10000 + ((R * 256 * 256 + G * 256 + B) * 0.1);
+
+			if (bUseTerrariumFormula)
+				HeightmapData[i] = (R * 256 + G + B / 256) - 32768;
+			else
+				HeightmapData[i] = -10000 + ((R * 256 * 256 + G * 256 + B) * 0.1);
 		}
 	}
 	free(CodeBand);
@@ -219,7 +223,7 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 	return true;
 }
 
-bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile, bool *bShowedDialog)
+bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile, bool bUseTerrariumFormula, bool *bShowedDialog)
 {
 	/* Read the RGB bands from `InputFile` */
 
@@ -336,7 +340,14 @@ bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile
 			float R = RedBand[i];
 			float G = GreenBand[i];
 			float B = BlueBand[i];
-			HeightmapData[i] = -10000 + ((R * 256 * 256 + G * 256 + B) * 0.1);
+			if (bUseTerrariumFormula)
+			{
+				HeightmapData[i] = (R * 256 + G + B / 256) - 32768;			
+			}
+			else
+			{
+				HeightmapData[i] = -10000 + ((R * 256 * 256 + G * 256 + B) * 0.1);
+			}
 		}
 	}
 	free(RedBand);
