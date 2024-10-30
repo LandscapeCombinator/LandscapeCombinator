@@ -16,6 +16,7 @@ public:
 		FString Name0, FString Layer0, FString Format0, FString URL0,
 		int Zoom0, int MinX0, int MaxX0, int MinY0, int MaxY0,
 		bool bMaxY_IsNorth0, bool bGeoreferenceSlippyTiles0, bool bDecodeMapbox0,
+		bool bUseTerrariumFormula0,
 		FString CRS0)
 	{
 		bSilentMode = bSilentMode0;
@@ -32,6 +33,7 @@ public:
 		bGeoreferenceSlippyTiles = bGeoreferenceSlippyTiles0;
 		CRS = CRS0;
 		bDecodeMapbox = bDecodeMapbox0;
+		bUseTerrariumFormula = bUseTerrariumFormula0;
 		bAllowInvalidTiles = bAllowInvalidTiles0;
 	};
 	void Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
@@ -51,6 +53,7 @@ private:
 	bool bMaxY_IsNorth;
 	bool bGeoreferenceSlippyTiles;
 	bool bDecodeMapbox;
+	bool bUseTerrariumFormula;
 	FString CRS;
 };
 

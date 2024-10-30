@@ -35,6 +35,7 @@ enum class EImageSourceKind : uint8
 	MapTiler_Satellite UMETA(DisplayName = "MapTiler Satellite"),
 	Mapbox_Heightmaps UMETA(DisplayName = "Mapbox Heightmaps"),
 	Mapbox_Satellite UMETA(DisplayName = "Mapbox Satellite"),
+	NextZen_Heightmaps UMETA(DisplayName = "NextZen Heightmaps"),
 	GenericXYZ,
 
 	Napoli,
@@ -195,6 +196,13 @@ public:
 	)
 	/* The Mapbox token can be set in the Editor Preferences, in Plugins -> Landscape Combinator. */
 	FString Mapbox_Token;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
+		meta = (EditCondition = "IsNextZen() && !HasNextZenToken()", EditConditionHides, DisplayPriority = "1", DisplayName = "NextZen Token")
+	)
+	/* The NextZen token can be set in the Editor Preferences, in Plugins -> Landscape Combinator. */
+	FString NextZen_Token;
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
@@ -897,6 +905,9 @@ public:
 	static bool HasMapTilerToken();
 
 	UFUNCTION()
+	static bool HasNextZenToken();
+
+	UFUNCTION()
 	bool IsWMS();
 
 	UFUNCTION()
@@ -917,6 +928,9 @@ public:
 	UFUNCTION()
 	bool IsMapTiler();
 
+	UFUNCTION()
+	bool IsNextZen();
+
 private:
 
 	void OnLayerChanged();
@@ -930,6 +944,7 @@ private:
 	
 	FString GetMapboxToken();
 	FString GetMapTilerToken();
+	FString GetNextZenToken();
 };
 
 #undef LOCTEXT_NAMESPACE

@@ -21,4 +21,7 @@ public:
 
 	UPROPERTY(config, EditAnywhere, Category = "LandscapeCombinator")
 	FString Mapbox_Token = "";
+
+	UPROPERTY(config, EditAnywhere, Category = "LandscapeCombinator", meta=(DisplayName="NextZen Token"))
+	FString NextZen_Token = "";
 };
