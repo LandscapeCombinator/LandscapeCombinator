@@ -46,6 +46,24 @@ void FGDALInterfaceModule::SetGDALPaths()
 	ShareFolder = PluginBaseDir / "Source" / "ThirdParty" / "GDAL" / "Linux" / "share";
 #endif
 
+	if (!FPaths::DirectoryExists(ShareFolder))
+	{
+		FString ProjectDir = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir());
+		UE_LOG(LogGDALInterface, Log, TEXT("The share folder is not here: %s"), *ShareFolder);
+#if PLATFORM_WINDOWS
+		ShareFolder = ProjectDir / "Binaries" / "Win64" / "ThirdParty" / "GDAL" / "share";
+#elif PLATFORM_LINUX
+		ShareFolder = ProjectDir / "Binaries" / "Linux" / "ThirdParty" / "GDAL" / "share";
+#endif
+		UE_LOG(LogGDALInterface, Log, TEXT("We will try here instead: %s"), *ShareFolder);
+	}
+
+	if (!FPaths::DirectoryExists(ShareFolder))
+	{
+		UE_LOG(LogGDALInterface, Error, TEXT("Failed to load GDALInterface module"));
+		return;
+	}
+
 	FString GDALData = (ShareFolder / "gdal");
 	FString PROJData = (ShareFolder / "proj");
 	FString OSMConf = (ShareFolder / "gdal" / "osmconf.ini");

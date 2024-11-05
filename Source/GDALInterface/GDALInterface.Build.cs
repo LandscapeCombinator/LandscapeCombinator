@@ -18,24 +18,35 @@ public class GDALInterface : ModuleRules
 		// GDAL
 
 		string Platform = Target.Platform == UnrealTargetPlatform.Win64 ? "Win64" : "Linux";
-		PublicIncludePaths.Add(Path.Combine(PluginDirectory, "Source", "ThirdParty", "GDAL", Platform, "include"));
-
+		string GDALDirectory = Path.Combine(PluginDirectory, "Source", "ThirdParty", "GDAL", Platform);
+		PublicIncludePaths.Add(Path.Combine(GDALDirectory, "include"));
 
 		if (Target.Platform == UnrealTargetPlatform.Win64)
 		{
-			PublicAdditionalLibraries.Add(Path.Combine(PluginDirectory, "Source", "ThirdParty", "GDAL", "Win64", "lib", "gdal.lib"));
+			PublicAdditionalLibraries.Add(Path.Combine(GDALDirectory, "lib", "gdal.lib"));
 
-			foreach (string DLLFile in Directory.GetFiles(Path.Combine(PluginDirectory, "Source", "ThirdParty", "GDAL", "Win64", "bin")))
+			foreach (string DLLFile in Directory.GetFiles(Path.Combine(GDALDirectory, "bin")))
 			{
 				RuntimeDependencies.Add(Path.Combine("$(BinaryOutputDir)", Path.GetFileName(DLLFile)), DLLFile);
 			}
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Linux)
 		{
-			foreach (string SOFile in Directory.GetFiles(Path.Combine(PluginDirectory, "Source", "ThirdParty", "GDAL", "Linux", "bin"), "*.so"))
+			foreach (string SOFile in Directory.GetFiles(Path.Combine(GDALDirectory, "bin"), "*.so"))
 			{
 				PublicAdditionalLibraries.Add(SOFile);
 			}
+		}
+
+		// copy the share folders so that they can be used at runtime
+		foreach (string File in Directory.GetFiles(Path.Combine(GDALDirectory, "share", "gdal")))
+		{
+			RuntimeDependencies.Add(Path.Combine("$(BinaryOutputDir)", "ThirdParty", "GDAL", "share", "gdal", Path.GetFileName(File)), File);
+		}
+
+		foreach (string File in Directory.GetFiles(Path.Combine(GDALDirectory, "share", "proj")))
+		{
+			RuntimeDependencies.Add(Path.Combine("$(BinaryOutputDir)", "ThirdParty", "GDAL", "share", "proj", Path.GetFileName(File)), File);
 		}
 
 		PublicDependencyModuleNames.AddRange(
