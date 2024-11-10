@@ -172,11 +172,11 @@ bool LandscapeUtils::GetZ(UWorld* World, FCollisionQueryParams CollisionQueryPar
 	}
 
 	FHitResult HitResult;
-	bool bHit = World->LineTraceSingleByObjectType(
+	bool bHit = World->LineTraceSingleByChannel(
 		OUT HitResult,
 		StartLocation,
 		EndLocation,
-		FCollisionObjectQueryParams(ECollisionChannel::ECC_WorldStatic),
+		ECollisionChannel::ECC_Visibility,
 		CollisionQueryParams
 	);
 
