@@ -5,7 +5,7 @@
 #include "ImageDownloader/WMSProvider.h"
 #include "ImageDownloader/HMFetcher.h"
 #include "ConsoleHelpers/ExternalTool.h"
-
+#include "Coordinates/LevelCoordinates.h"
 
 #include "CoreMinimal.h"
 #include "Templates/Function.h"
@@ -842,13 +842,13 @@ public:
 	 * Actions *
 	 ***********/
 	
-	void DownloadImages(TFunction<void(TArray<FString>)> OnComplete);
-	void DownloadMergedImage(bool bEnsureOneBand, TFunction<void(FString, FString)> OnComplete);
+	void DownloadImages(TObjectPtr<UGlobalCoordinates> GlobalCoordinates, TFunction<void(TArray<FString>)> OnComplete);
+	void DownloadMergedImage(bool bEnsureOneBand, TObjectPtr<UGlobalCoordinates> GlobalCoordinates, TFunction<void(FString, FString)> OnComplete);
 
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "ImageDownloader",
 		meta = (DisplayPriority = "10")
 	)
-	void DownloadMergedImage() { DownloadMergedImage(false, nullptr); };
+	void DownloadMergedImage() { DownloadMergedImage(false, ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false), nullptr); };
 	
 	/* This deletes all the images, included downloaded files. */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "ImageDownloader",
@@ -896,7 +896,10 @@ public:
 	void PostEditChangeProperty(struct FPropertyChangedEvent&);
 #endif
 	
-	HMFetcher* CreateFetcher(FString Name, bool bForceMerge, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG, TFunction<bool(HMFetcher*)> RunBeforePNG);
+	HMFetcher* CreateFetcher(
+		FString Name, bool bForceMerge, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG,
+		TFunction<bool(HMFetcher*)> RunBeforePNG, TObjectPtr<UGlobalCoordinates> GlobalCoordinates
+	);
 
 	UFUNCTION()
 	static bool HasMapboxToken();
@@ -931,8 +934,7 @@ public:
 	UFUNCTION()
 	bool IsNextZen();
 
-private:
-
+protected:
 	void OnLayerChanged();
 	void OnImageSourceChanged(TFunction<void(bool)> OnComplete);
 	void ResetWMSProvider(TArray<FString> ExcludeCRS, TFunction<bool(FString)> LayerFilter, TFunction<void(bool)> OnComplete);

@@ -26,31 +26,27 @@ void HMDebugFetcher::Fetch(FString InputCRS, TArray<FString> InputFiles, TFuncti
 	UE_LOG(LogImageDownloader, Log, TEXT("Running Phase %s on files:\n%s"), *Name, *FString::Join(InputFiles, TEXT("\n")));
 	UE_LOG(LogImageDownloader, Log, TEXT("InputCRS: %s"), *InputCRS);
 
-	// Always reenter game thread to display progress to the user
-	AsyncTask(ENamedThreads::GameThread, [this, InputCRS, InputFiles, OnComplete]()
+	Fetcher->Fetch(InputCRS, InputFiles, [this, OnComplete](bool bSuccess)
 	{
-		Fetcher->Fetch(InputCRS, InputFiles, [this, OnComplete](bool bSuccess)
+		if (bSuccess)
 		{
-			if (bSuccess)
-			{
-				OutputFiles = Fetcher->OutputFiles;
-				OutputCRS = Fetcher->OutputCRS;
-				UE_LOG(LogImageDownloader, Log, TEXT("Finished running Phase %s, and got files:\n%s"), *Name, *FString::Join(OutputFiles, TEXT("\n")));
-				UE_LOG(LogImageDownloader, Log, TEXT("OutputCRS: %s"), *OutputCRS);
-				if (OnComplete) OnComplete(true);
-			}
-			else
-			{
-				UE_LOG(LogImageDownloader, Error, TEXT("Phase %s failed."), *Name);
-				FMessageDialog::Open(EAppMsgType::Ok,
-					FText::Format(
-						LOCTEXT("HMDebugFetcher::Fetch", "Image Downloader Error: There was an error during Phase {0}."),
-						FText::FromString(Name)
-					)
-				);
-				if (OnComplete) OnComplete(false);
-			}
-		});
+			OutputFiles = Fetcher->OutputFiles;
+			OutputCRS = Fetcher->OutputCRS;
+			UE_LOG(LogImageDownloader, Log, TEXT("Finished running Phase %s, and got files:\n%s"), *Name, *FString::Join(OutputFiles, TEXT("\n")));
+			UE_LOG(LogImageDownloader, Log, TEXT("OutputCRS: %s"), *OutputCRS);
+			if (OnComplete) OnComplete(true);
+		}
+		else
+		{
+			UE_LOG(LogImageDownloader, Error, TEXT("Phase %s failed."), *Name);
+			FMessageDialog::Open(EAppMsgType::Ok,
+				FText::Format(
+					LOCTEXT("HMDebugFetcher::Fetch", "Image Downloader Error: There was an error during Phase {0}."),
+					FText::FromString(Name)
+				)
+			);
+			if (OnComplete) OnComplete(false);
+		}
 	});
 }
 

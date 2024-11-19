@@ -25,10 +25,28 @@ void Concurrency::RunMany(int n, TFunction<void( int i, TFunction<void(bool)> )>
 	RunMany(Elements, Action, OnComplete);
 }
 
-void Concurrency::RunOne(TFunction<bool(void)> Action, TFunction<void(bool)> OnComplete)
+void Concurrency::RunOnGameThread(TFunction<void()> Action)
 {
-	TFuture<bool> bSuccessFuture = Async(EAsyncExecution::Thread, Action);
-	bSuccessFuture.Next(OnComplete);
+    AsyncTask(ENamedThreads::GameThread, [Action]() { Action(); });
+}
+
+void Concurrency::RunOnGameThreadAndWait(TFunction<void()> Action)
+{
+    FEvent* SyncEvent = FPlatformProcess::GetSynchEventFromPool(false);
+    if (!SyncEvent)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Failed to create sync event for RunOnGameThreadAndWait."));
+        return;
+    }
+
+    AsyncTask(ENamedThreads::GameThread, [Action = MoveTemp(Action), SyncEvent]()
+    {
+        Action();
+        SyncEvent->Trigger();
+    });
+
+    SyncEvent->Wait();
+    FPlatformProcess::ReturnSynchEventToPool(SyncEvent);
 }
 
 TFunction<void(TFunction<void(bool)>)> Concurrency::Combine(TFunction<void(TFunction<void(bool)>)> Action1, TFunction<void(TFunction<void(bool)>)> Action2)

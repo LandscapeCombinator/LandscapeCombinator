@@ -69,7 +69,8 @@ public:
 
 	static void RunAsync(TFunction<void()> Action);
 	static void RunMany(int n, TFunction<void( int i, TFunction<void(bool)> )> Action, TFunction<void(bool)> OnComplete);
-	static void RunOne(TFunction<bool(void)> Action, TFunction<void(bool)> OnComplete);
+	static void RunOnGameThread(TFunction<void()> Action);
+	static void RunOnGameThreadAndWait(TFunction<void()> Action);
 	
 	static TFunction<void(TFunction<void(bool)>)> Combine(TFunction<void(TFunction<void(bool)>)> Action1, TFunction<void(TFunction<void(bool)>)> Action2);
 	static TFunction<void(TFunction<void(bool)>)> Pure(TFunction<void()> Action);

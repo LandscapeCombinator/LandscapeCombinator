@@ -30,7 +30,9 @@ public:
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeTexturer",
 		meta = (DisplayPriority = "10")
 	)
-	void CreateDecal();
+	void CreateDecal() { CreateDecal(ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false)); };
+	
+	void CreateDecal(TObjectPtr<UGlobalCoordinates> GlobalCoordinates);
 
 	/* This preserves downloaded files but deleted all transformed images. */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeTexturer",

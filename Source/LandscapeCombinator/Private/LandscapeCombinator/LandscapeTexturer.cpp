@@ -17,12 +17,11 @@ ALandscapeTexturer::ALandscapeTexturer()
 	ImageDownloader->bRemap = false;
 }
 
-void ALandscapeTexturer::CreateDecal()
+void ALandscapeTexturer::CreateDecal(TObjectPtr<UGlobalCoordinates> GlobalCoordinates)
 {
 	if (ImageDownloader)
 	{
-		ImageDownloader->DownloadMergedImage(false, [this](FString DownloadedImage, FString ImageCRS
-		)
+		ImageDownloader->DownloadMergedImage(false, GlobalCoordinates, [this](FString DownloadedImage, FString ImageCRS)
 		{
 			UDecalCoordinates::CreateDecal(this->GetWorld(), DownloadedImage);
 		});

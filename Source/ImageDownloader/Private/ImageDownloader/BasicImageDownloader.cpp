@@ -23,7 +23,7 @@ void ABasicImageDownloader::DownloadImages()
 		return;
 	}
 
-	ImageDownloader->DownloadImages(nullptr);
+	ImageDownloader->DownloadImages(ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false), nullptr);
 }
 
 
