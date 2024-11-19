@@ -127,7 +127,8 @@ void ALandscapeSpawner::SpawnLandscape(TFunction<void(ALandscape*)> OnComplete)
 
 	HeightmapDownloader->bSilentMode = bSilentMode;
 
-	if (ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false) && !bSilentMode)
+	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false);
+	if (GlobalCoordinates && !bSilentMode)
 	{
 		EAppReturnType::Type UserResponse = FMessageDialog::Open(EAppMsgType::OkCancel,
 			LOCTEXT(
@@ -168,7 +169,8 @@ void ALandscapeSpawner::SpawnLandscape(TFunction<void(ALandscape*)> OnComplete)
 			*CRS = FetcherBeforePNG->OutputCRS;
 			return GDALInterface::GetMinMax(*Altitudes, FetcherBeforePNG->OutputFiles) &&
 				   GDALInterface::GetCoordinates(*Coordinates, FetcherBeforePNG->OutputFiles);
-		}
+		},
+		GlobalCoordinates
 	);
 
 	if (!Fetcher)
@@ -331,7 +333,7 @@ void ALandscapeSpawner::SpawnLandscape(TFunction<void(ALandscape*)> OnComplete)
 							}
 
 
-							DecalDownloader->DownloadMergedImage(false, [this, OnComplete](FString DownloadedImage, FString ImageCRS)
+							DecalDownloader->DownloadMergedImage(false, GlobalCoordinates, [this, OnComplete](FString DownloadedImage, FString ImageCRS)
 							{
 								DecalActor = UDecalCoordinates::CreateDecal(this->GetWorld(), DownloadedImage);
 								if (DecalActor.Get())

@@ -49,7 +49,6 @@
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
 
-
 UImageDownloader::UImageDownloader()
 {
 	PreprocessingTool = CreateDefaultSubobject<UExternalTool>(TEXT("Preprocessing Tool"));
@@ -381,7 +380,10 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 	}
 }
 
-HMFetcher* UImageDownloader::CreateFetcher(FString Name, bool bForceMerge, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG, TFunction<bool(HMFetcher*)> RunBeforePNG)
+HMFetcher* UImageDownloader::CreateFetcher(
+	FString Name, bool bForceMerge, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG,
+	TFunction<bool(HMFetcher*)> RunBeforePNG, TObjectPtr<UGlobalCoordinates> GlobalCoordinates
+)
 {
 	HMFetcher *Result = CreateInitialFetcher(Name);
 	if (!Result) return nullptr;
@@ -401,8 +403,6 @@ HMFetcher* UImageDownloader::CreateFetcher(FString Name, bool bForceMerge, bool 
 	{
 		Result = Result->AndThen(new HMDebugFetcher("EnsureOneBand", new HMEnsureOneBand()));
 	}
-
-	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false);
 
 	if (GlobalCoordinates)
 	{
@@ -1097,7 +1097,7 @@ void UImageDownloader::ResetWMSProvider(TArray<FString> ExcludeCRS, TFunction<bo
 	}
 }
 
-void UImageDownloader::DownloadImages(TFunction<void(TArray<FString>)> OnComplete)
+void UImageDownloader::DownloadImages(TObjectPtr<UGlobalCoordinates> GlobalCoordinates, TFunction<void(TArray<FString>)> OnComplete)
 {
 	AActor *Owner = GetOwner();
 	if (!IsValid(Owner))
@@ -1109,7 +1109,7 @@ void UImageDownloader::DownloadImages(TFunction<void(TArray<FString>)> OnComplet
 		return;
 	}
 	
-	HMFetcher *Fetcher = CreateFetcher(Owner->GetActorNameOrLabel(), false, false, false, false, nullptr);
+	HMFetcher *Fetcher = CreateFetcher(Owner->GetActorNameOrLabel(), false, false, false, false, nullptr, GlobalCoordinates);
 
 	if (!Fetcher)
 	{
@@ -1143,7 +1143,7 @@ void UImageDownloader::DownloadImages(TFunction<void(TArray<FString>)> OnComplet
 	});
 }
 
-void UImageDownloader::DownloadMergedImage(bool bEnsureOneBand, TFunction<void(FString, FString)> OnComplete)
+void UImageDownloader::DownloadMergedImage(bool bEnsureOneBand, TObjectPtr<UGlobalCoordinates> GlobalCoordinates, TFunction<void(FString, FString)> OnComplete)
 {
 	AActor *Owner = GetOwner();
 	if (!IsValid(Owner))
@@ -1155,7 +1155,7 @@ void UImageDownloader::DownloadMergedImage(bool bEnsureOneBand, TFunction<void(F
 	}
 	
 	FString Name = Owner->GetActorNameOrLabel();
-	HMFetcher *Fetcher = CreateFetcher(Name, true, bEnsureOneBand, false, false, nullptr);
+	HMFetcher *Fetcher = CreateFetcher(Name, true, bEnsureOneBand, false, false, nullptr, GlobalCoordinates);
 
 	if (!Fetcher)
 	{
