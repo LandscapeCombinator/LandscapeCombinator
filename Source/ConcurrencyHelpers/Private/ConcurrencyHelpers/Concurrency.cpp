@@ -35,7 +35,7 @@ void Concurrency::RunOnGameThreadAndWait(TFunction<void()> Action)
     FEvent* SyncEvent = FPlatformProcess::GetSynchEventFromPool(false);
     if (!SyncEvent)
     {
-        UE_LOG(LogTemp, Error, TEXT("Failed to create sync event for RunOnGameThreadAndWait."));
+        UE_LOG(LogConcurrencyHelpers, Error, TEXT("Failed to create sync event for RunOnGameThreadAndWait."));
         return;
     }
 
