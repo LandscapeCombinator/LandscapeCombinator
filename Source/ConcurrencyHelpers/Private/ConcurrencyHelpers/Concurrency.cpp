@@ -27,11 +27,23 @@ void Concurrency::RunMany(int n, TFunction<void( int i, TFunction<void(bool)> )>
 
 void Concurrency::RunOnGameThread(TFunction<void()> Action)
 {
+	if (IsInGameThread())
+	{
+		Action();
+		return;
+	}
+	
     AsyncTask(ENamedThreads::GameThread, [Action]() { Action(); });
 }
 
 void Concurrency::RunOnGameThreadAndWait(TFunction<void()> Action)
 {
+	if (IsInGameThread())
+	{
+		Action();
+		return;
+	}
+
     FEvent* SyncEvent = FPlatformProcess::GetSynchEventFromPool(false);
     if (!SyncEvent)
     {
