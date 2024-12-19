@@ -28,7 +28,10 @@ public class LandscapeUtils : ModuleRules
 				"Slate",
 				"GeometryCore",
 				"GeometryFramework",
-				"GeometryScriptingCore"
+				"GeometryScriptingCore",
+
+				// Landscape Combinator Dependencies
+				"LCCommon"
 			}
 		);
 

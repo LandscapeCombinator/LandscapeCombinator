@@ -8,9 +8,9 @@ public class MapboxHelpers : ModuleRules
 	{
 		CppStandard = CppStandardVersion.Cpp20;
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
-        IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
+		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
 
-        PublicDependencyModuleNames.AddRange(
+		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
 				"Core",
@@ -20,14 +20,15 @@ public class MapboxHelpers : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-		        // Unreal Dependencies
+				// Unreal Dependencies
 				"CoreUObject",
 				"Engine",
 				
 				// Landscape Combinator Dependencies
 				"GDALInterface",
-                "ConcurrencyHelpers"
-            }
+				"ConcurrencyHelpers",
+				"LCCommon"
+			}
 		);
 	}
 }

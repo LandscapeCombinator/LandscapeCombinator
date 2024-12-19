@@ -11,9 +11,9 @@ public class LandscapeCombinator : ModuleRules
 	{
 		CppStandard = CppStandardVersion.Cpp20;
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
-        IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
+		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
 
-        PublicDependencyModuleNames.AddRange(
+		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
 				// Unreal Engine dependencies
@@ -28,26 +28,26 @@ public class LandscapeCombinator : ModuleRules
 				// Unreal Engine dependencies
 				"Projects",
 				"InputCore",
-                "GeometryFramework",
+				"GeometryFramework",
 				"CoreUObject",
 				"Engine",
-				"Slate",
-				"SlateCore",
 				"Foliage",
 				"Landscape",
 				"PCG",
-                "ApplicationCore",
+				"ApplicationCore",
+				"StructUtils",
 
-				// Other dependencies
-                "Coordinates",
+				// Landscape Combinator dependencies
+				"Coordinates",
 				"ConsoleHelpers",
-                "GDALInterface",
-                "LandscapeUtils",
-                "HeightmapModifier",
+				"ConcurrencyHelpers",
+				"GDALInterface",
+				"LandscapeUtils",
+				"HeightmapModifier",
 				"ImageDownloader",
-
 				"SplineImporter",
-				"BuildingFromSpline"
+				"BuildingFromSpline",
+				"LCCommon"
 			}
 		);
 
@@ -61,8 +61,10 @@ public class LandscapeCombinator : ModuleRules
 					"PropertyEditor",
 					"UnrealEd",
 					"UMGEditor",
-                	"ToolMenus",
-					"Blutility"
+					"ToolMenus",
+					"Blutility",
+					"Slate",
+					"SlateCore"
 				}
 			);
 		}

@@ -8,10 +8,10 @@ public class ConcurrencyHelpers : ModuleRules
 	{
 		CppStandard = CppStandardVersion.Cpp20;
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
-        IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
+		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
 
-        // Unreal Dependencies
-        PublicDependencyModuleNames.AddRange(
+		// Unreal Dependencies
+		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
 				"Core",

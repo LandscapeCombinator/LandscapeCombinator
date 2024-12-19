@@ -1,6 +1,8 @@
 // Copyright 2023 LandscapeCombinator. All Rights Reserved.
 
 #include "SplineImporter/OGRGeometry.h"
+#include "LCCommon/LCReporter.h"
+#include "LCCommon/LCBlueprintLibrary.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(OGRGeometry)
 
@@ -36,7 +38,7 @@ void AOGRGeometry::SetOverpassShortQuery()
 	Super::SetOverpassShortQuery();
 }
 
-void AOGRGeometry::Import(TFunction<void(bool)> OnComplete)
+void AOGRGeometry::OnGenerate(FName SpawnedActorsPathOverride, TFunction<void(bool)> OnComplete)
 {
 	LoadGDALDataset([OnComplete, this](GDALDataset* Dataset)
 	{
@@ -101,5 +103,31 @@ void AOGRGeometry::Import(TFunction<void(bool)> OnComplete)
 	});
 
 }
+
+#if WITH_EDITOR
+
+AActor *AOGRGeometry::Duplicate(FName FromName, FName ToName)
+{
+	if (AOGRGeometry *NewOGRGeometry =
+		Cast<AOGRGeometry>(GEditor->GetEditorSubsystem<UEditorActorSubsystem>()->DuplicateActor(this)))
+	{
+		NewOGRGeometry->BoundingActorSelection.ActorTag =
+			ULCBlueprintLibrary::ReplaceName(
+				BoundingActorSelection.ActorTag,
+				FromName,
+				ToName
+			);
+		NewOGRGeometry->AreaTag = ULCBlueprintLibrary::ReplaceName(AreaTag, FromName, ToName);
+
+		return NewOGRGeometry;
+	}
+	else
+	{
+		ULCReporter::ShowError(LOCTEXT("AOGRGeometry::DuplicateActor", "Failed to duplicate actor."));
+		return nullptr;
+	}
+}
+
+#endif
 
 #undef LOCTEXT_NAMESPACE

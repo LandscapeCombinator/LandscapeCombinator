@@ -11,7 +11,7 @@ bool HMViewfinder15Downloader::ValidateTiles() const
 	{
 		if (MegaTile.Len() != 4 || !MegaTile.StartsWith("15-") || MegaTile[3] < 'A' || MegaTile[3] > 'X')
 		{
-			FMessageDialog::Open(EAppMsgType::Ok,
+			ULCReporter::ShowError(
 				FText::Format(
 					LOCTEXT("HMViewfinder15Downloader::Initialize", "Tile '{0}' is not a valid tile for Viewfinder Panoramas 15."),
 					FText::FromString(MegaTile)

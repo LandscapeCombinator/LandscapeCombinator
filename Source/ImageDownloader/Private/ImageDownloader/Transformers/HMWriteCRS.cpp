@@ -15,7 +15,7 @@ void HMWriteCRS::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<v
 {
 	if (InputFiles.Num() != 1)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("HMWriteCRS::Fetch", "Phase WriteCRS only works when there is a single input file. Found %d input files."),
 				FText::AsNumber(InputFiles.Num())

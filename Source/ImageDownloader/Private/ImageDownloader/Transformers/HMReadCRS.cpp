@@ -15,7 +15,7 @@ void HMReadCRS::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<vo
 	OGRSpatialReference InRs;
 	if (!GDALInterface::SetCRSFromFile(InRs, InputFiles[0]))
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("HMSetEPSG::Fetch", "Could not read Spatial Reference from file {0}. Please make sure that it is correctly georeferenced."),
 				FText::FromString(InputFiles[0])
@@ -32,7 +32,7 @@ void HMReadCRS::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<vo
 
 	if (Err != OGRERR_NONE || Name != "EPSG" || EPSG == 0)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("HMSetEPSG::Fetch", "Could not read EPSG code from file {0} (Error: {1}). Authority name and code are {2}:{3}"),
 				FText::FromString(InputFiles[0]),

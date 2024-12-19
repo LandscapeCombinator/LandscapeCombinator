@@ -4,6 +4,8 @@
 #include "BuildingFromSpline/BuildingsFromSplines.h"
 
 #include "OSMUserData/OSMUserData.h"
+#include "LCCommon/LCBlueprintLibrary.h"
+#include "LCCommon/LCReporter.h"
 
 #include "Components/SplineMeshComponent.h"
 #include "Logging/StructuredLog.h"
@@ -74,7 +76,7 @@ TArray<USplineComponent*> ABuildingsFromSplines::FindSplineComponents()
 
 	if (Result.Num() == 0)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("NoSplineComponentTagged", "BuildingsFromSplines: Could not find spline components with the given tags.")
 		);
 	}
@@ -82,12 +84,24 @@ TArray<USplineComponent*> ABuildingsFromSplines::FindSplineComponents()
 	return Result;
 }
 
-void ABuildingsFromSplines::GenerateBuildings()
+void ABuildingsFromSplines::OnGenerate(FName SpawnedActorsPathOverride, TFunction<void(bool)> OnComplete)
 {
-	ClearBuildings();
+	GenerateBuildings(SpawnedActorsPathOverride);
+	OnComplete(true);
+}
+
+bool ABuildingsFromSplines::Cleanup_Implementation(bool bSkipPrompt)
+{
+	return DeleteGeneratedObjects(bSkipPrompt);
+}
+
+void ABuildingsFromSplines::GenerateBuildings(FName SpawnedActorsPathOverride)
+{
+	if (!Execute_Cleanup(this, false)) return;
 
 	TArray<USplineComponent*> SplineComponents = FindSplineComponents();
 	const int NumComponents = SplineComponents.Num();
+	UE_LOG(LogBuildingFromSpline, Log, TEXT("Found %d spline components to create buildings"), NumComponents);
 	FScopedSlowTask GenerateTask = FScopedSlowTask(NumComponents,
 		FText::Format(
 			LOCTEXT("GenerateTask", "Generating {0} Buildings"),
@@ -103,23 +117,20 @@ void ABuildingsFromSplines::GenerateBuildings()
 			break;
 		}
 		GenerateTask.EnterProgressFrame(1);
-		GenerateBuilding(SplineComponents[i]);
+		GenerateBuilding(SplineComponents[i], SpawnedActorsPathOverride);
 	}
+
+#if WITH_EDITOR
+	GEditor->NoteSelectionChange(); // to avoid folders being in rename mode
+#endif
 }
 
 void ABuildingsFromSplines::ClearBuildings()
 {
-	for (auto& Building : SpawnedBuildings)
-	{
-		if (IsValid(Building))
-		{
-			Building->Destroy();
-		}
-	}
-	SpawnedBuildings.Reset();
+	Execute_Cleanup(this, false);
 }
 
-void ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent)
+void ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent, FName SpawnedActorsPathOverride)
 {
 	int NumPoints = SplineComponent->GetNumberOfSplinePoints();
 	if (NumPoints < 2) return;
@@ -151,10 +162,10 @@ void ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent)
 	ABuilding* Building = GetWorld()->SpawnActor<ABuilding>(Location, RotatorForLargestSegment);
 
 #if WITH_EDITOR
-	Building->SetFolderPath(FName(*(FString("/") + GetActorNameOrLabel())));
+	ULCBlueprintLibrary::SetFolderPath2(Building, SpawnedActorsPathOverride, SpawnedActorsPath);
 #endif
 
-	SpawnedBuildings.Add(Building);
+	Buildings.Add(Building);
 
 	Building->BuildingConfiguration = NewObject<UBuildingConfiguration>(
 		Building, UBuildingConfiguration::StaticClass(), "DuplicatedBuildingConfiguration", RF_NoFlags, BuildingConfiguration
@@ -181,7 +192,28 @@ void ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent)
 	Building->SetIsSpatiallyLoaded(bBuildingsSpatiallyLoaded);
 #endif
 
-	Building->GenerateBuilding();
+	Building->GenerateBuilding_Internal(SpawnedActorsPathOverride);
 }
+
+#if WITH_EDITOR
+
+AActor *ABuildingsFromSplines::Duplicate(FName FromName, FName ToName)
+{
+	if (ABuildingsFromSplines *NewBuildingsFromSplines =
+		Cast<ABuildingsFromSplines>(GEditor->GetEditorSubsystem<UEditorActorSubsystem>()->DuplicateActor(this)))
+	{
+		NewBuildingsFromSplines->SplinesTag = ULCBlueprintLibrary::ReplaceName(SplinesTag, FromName, ToName);
+		NewBuildingsFromSplines->SplineComponentsTag = ULCBlueprintLibrary::ReplaceName(SplineComponentsTag, FromName, ToName);
+
+		return NewBuildingsFromSplines;
+	}
+	else
+	{
+		ULCReporter::ShowError(LOCTEXT("ABuildingsFromSplines::DuplicateActor", "Failed to duplicate actor."));
+		return nullptr;
+	}
+}
+
+#endif
 
 #undef LOCTEXT_NAMESPACE

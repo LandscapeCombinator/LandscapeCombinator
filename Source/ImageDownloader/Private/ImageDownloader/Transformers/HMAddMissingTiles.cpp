@@ -28,7 +28,7 @@ void HMAddMissingTiles::Fetch(FString InputCRS, TArray<FString> InputFiles, TFun
 
 	if (!XYMatcher.FindNext())
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		ULCReporter::ShowError(FText::Format(
 			LOCTEXT("MultipleFileImportError",
 				"Image Downloader internal error: The Add Missing Tiles phase can only be used on files on the form Filename_x0_y0.png, "
 				"but it was used on file: '{0}'."

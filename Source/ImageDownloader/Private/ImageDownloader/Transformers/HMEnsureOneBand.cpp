@@ -3,6 +3,7 @@
 #include "ImageDownloader/Transformers/HMEnsureOneBand.h"
 #include "ImageDownloader/LogImageDownloader.h"
 #include "GDALInterface/GDALInterface.h"
+#include "LCCommon/LCReporter.h"
 
 #include "Misc/MessageDialog.h"
 #include "Misc/ScopedSlowTask.h"
@@ -13,8 +14,6 @@ void HMEnsureOneBand::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunct
 {
 	OutputCRS = InputCRS;
 	OutputFiles.Append(InputFiles);
-
-	bool bWarned = false;
 
 	FScopedSlowTask EnsureOneBandTask(InputFiles.Num(), LOCTEXT("EnsureOneBandTask", "Image Downloader: Ensuring each heightmap has only one band"));
 	EnsureOneBandTask.MakeDialog(true);
@@ -30,7 +29,7 @@ void HMEnsureOneBand::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunct
 		GDALDataset *Dataset = (GDALDataset *) GDALOpen(TCHAR_TO_UTF8(*InputFile), GA_ReadOnly);
 		if (!Dataset)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok,
+			ULCReporter::ShowError(
 				FText::Format(
 					LOCTEXT("HMEnsureOneBand::Fetch", "Image Downloader Error: Could not open heightmap file '{0}'.\nError: {1}"),
 					FText::FromString(InputFile),
@@ -43,10 +42,9 @@ void HMEnsureOneBand::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunct
 
 		int NumRasters = Dataset->GetRasterCount();
 		GDALClose(Dataset);
-		if (NumRasters != 1 && !bWarned)
+		if (NumRasters != 1)
 		{
-			bWarned = true;
-			EAppReturnType::Type UserResponse = FMessageDialog::Open(EAppMsgType::OkCancel,
+			if (!ULCReporter::ShowMessage(
 				FText::Format(
 					LOCTEXT(
 						"HMEnsureOneBand::Fetch::Bands",
@@ -54,9 +52,9 @@ void HMEnsureOneBand::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunct
 					),
 					FText::FromString(InputFile),
 					FText::AsNumber(NumRasters)
-				)
-			);
-			if (UserResponse == EAppReturnType::Cancel)
+				),
+				"SuppressMultipleBands"
+			))
 			{
 				if (OnComplete) OnComplete(false);
 				return;

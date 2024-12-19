@@ -2,6 +2,7 @@
 
 #include "LandscapeUtils/LandscapeUtils.h"
 #include "LandscapeUtils/LogLandscapeUtils.h"
+#include "LCCommon/LCReporter.h"
 
 #include "Internationalization/Regex.h"
 #include "Kismet/GameplayStatics.h"
@@ -81,7 +82,7 @@ bool LandscapeUtils::GetLandscapeBounds(ALandscape *Landscape, TArray<ALandscape
 		}
 		else
 		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			ULCReporter::ShowError(FText::Format(
 				LOCTEXT("GetLandscapeBounds", "Could not compute Min and Max values for Landscape {0}."),
 				FText::FromString(LandscapeLabel)
 			));
@@ -307,19 +308,20 @@ bool LandscapeUtils::CreateMeshFromHeightmap(int Width, int Height, const TArray
 #include "LandscapeSubsystem.h"
 #include "LandscapeUtils.h"
 
-ALandscape* LandscapeUtils::SpawnLandscape(
+bool LandscapeUtils::SpawnLandscape(
 	TArray<FString> Heightmaps, FString LandscapeLabel, bool bCreateLandscapeStreamingProxies,
 	bool bAutoComponents, bool bDropData,
-	int QuadsPerSubsection0, int SectionsPerComponent0, FIntPoint ComponentCount0
+	int QuadsPerSubsection0, int SectionsPerComponent0, FIntPoint ComponentCount0,
+	ALandscape* &OutSpawnedLandscape, TArray<ALandscapeStreamingProxy*> &OutSpawnedLandscapeStreamingProxies
 )
 {
 	if (Heightmaps.IsEmpty())
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		ULCReporter::ShowError(FText::Format(
 			LOCTEXT("SpawnLandscapeError", "Landscape Combinator Error: Cannot spawn landscape {0} without heightmaps."),
 			FText::FromString(LandscapeLabel)
 		));
-		return NULL;
+		return false;
 	}
 
 	FString HeightmapsString = FString::Join(Heightmaps, TEXT("\n"));
@@ -339,10 +341,10 @@ ALandscape* LandscapeUtils::SpawnLandscape(
 	if (Heightmaps.Num() > 1 && !bIsGridBased)
 	{
 		GLevelEditorModeTools().ActivateMode(FBuiltinEditorModes::EM_Default);
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("GetHeightmapImportDescriptorError", "You must enable World Partition to be able to import multiple heightmap files.")
 		);
-		return NULL;
+		return false;
 	}
 
 	if (Heightmaps.Num() > 1)
@@ -354,11 +356,11 @@ ALandscape* LandscapeUtils::SpawnLandscape(
 		if (!XYMatcher.FindNext())
 		{
 			GLevelEditorModeTools().ActivateMode(FBuiltinEditorModes::EM_Default);
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			ULCReporter::ShowError(FText::Format(
 				LOCTEXT("MultipleFileImportError", "Heightmap file name %s doesn't match the format: Filename_x0_y0.png."),
 				FText::FromString(HeightmapFile)
 			));
-			return NULL;
+			return false;
 		}
 
 		HeightmapFile = XYMatcher.GetCaptureGroup(1) + XYMatcher.GetCaptureGroup(2);
@@ -381,12 +383,12 @@ ALandscape* LandscapeUtils::SpawnLandscape(
 	if (DescriptorResult == ELandscapeImportResult::Error)
 	{
 		GLevelEditorModeTools().ActivateMode(FBuiltinEditorModes::EM_Default);
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		ULCReporter::ShowError(FText::Format(
 			LOCTEXT("GetHeightmapImportDescriptorError", "Internal Unreal Engine while getting import descriptor for file {0}:\n{1}\nPlease try to rename your Landscape/files to a simple name without numbers or punctuation."),
 			FText::FromString(HeightmapFile),
 			LandscapeImportErrorMessage
 		));
-		return NULL;
+		return false;
 	}
 
 	int TotalWidth = LandscapeImportDescriptor.ImportResolutions[0].Width;
@@ -400,12 +402,12 @@ ALandscape* LandscapeUtils::SpawnLandscape(
 	if (ImportResult == ELandscapeImportResult::Error)
 	{
 		GLevelEditorModeTools().ActivateMode(FBuiltinEditorModes::EM_Default);
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		ULCReporter::ShowError(FText::Format(
 			LOCTEXT("GetHeightmapImportDataError", "Internal Unreal Engine while importing {0}: {1}"),
 			FText::FromString(HeightmapFile),
 			LandscapeImportErrorMessage
 		));
-		return NULL;
+		return false;
 	}
 
 	/* Expand the data to match components */
@@ -455,13 +457,17 @@ ALandscape* LandscapeUtils::SpawnLandscape(
 
 	/* Create Landscape Streaming Proxies */
 
+	OutSpawnedLandscape = NewLandscape;
+
 	if (bCreateLandscapeStreamingProxies)
 	{
 		ULandscapeInfo* LandscapeInfo = NewLandscape->GetLandscapeInfo();
 		LandscapeSubsystem->ChangeGridSize(LandscapeInfo, UISettings->WorldPartitionGridSize);
+		
+		OutSpawnedLandscapeStreamingProxies.Append(LandscapeUtils::GetLandscapeStreamingProxies(NewLandscape));
 	}
 
-	return NewLandscape;
+	return true;
 }
 
 #endif

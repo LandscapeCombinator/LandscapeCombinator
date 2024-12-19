@@ -8,31 +8,32 @@ public class Coordinates : ModuleRules
 	{
 		CppStandard = CppStandardVersion.Cpp20;
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
-        IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
+		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
 
-        PublicDependencyModuleNames.AddRange(
+		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
-                "Core",
-                "Landscape"
-            }
+				"Core",
+				"Landscape"
+			}
 		);
 			
 		
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
-            {
+			{
 				// Unreal Dependencies
 				"Projects",
 				"InputCore",
 				"CoreUObject",
 				"Engine",
 
-				// Other Dependencies
+				// Landscape Combinator Dependencies
 				"GDALInterface",
 				"LandscapeUtils",
-				"FileDownloader"
+				"FileDownloader",
+				"LCCommon"
 			}
 		);
-    }
+	}
 }

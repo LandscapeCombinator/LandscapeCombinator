@@ -31,7 +31,7 @@ void HMViewfinderDownloader::Fetch(FString InputCRS, TArray<FString> InputFiles,
 {
 	if (!Console::ExecProcess(TEXT("7z"), TEXT(""), false))
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT(
 				"MissingRequirement",
 				"Please make sure 7z is installed on your computer and available in your PATH if you want to use Viewfinder Panoramas heightmaps."

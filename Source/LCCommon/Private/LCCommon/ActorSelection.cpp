@@ -1,6 +1,6 @@
 // Copyright 2023 LandscapeCombinator. All Rights Reserved.
 
-#include "SplineImporter/ActorSelection.h"
+#include "LCCommon/ActorSelection.h"
 
 #include "CoreMinimal.h"
 #include "Kismet/GameplayStatics.h"
@@ -18,7 +18,7 @@ AActor* FActorSelection::GetActor(const UWorld* World)
 		{
 			if (!IsValid(Actor))
 			{
-				FMessageDialog::Open(EAppMsgType::Ok,
+				ULCReporter::ShowError(
 					LOCTEXT("ActorSelection::GetActor", "Landscape Combinator Actor Selection: Please select a valid actor")
 				);
 				return nullptr;
@@ -33,7 +33,7 @@ AActor* FActorSelection::GetActor(const UWorld* World)
 
 			if (Actors.IsEmpty())
 			{
-				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+				ULCReporter::ShowError(FText::Format(
 					LOCTEXT("ActorSelection::GetActor", "Landscape Combinator Actor Selection: Could not find actor with tag {0}"),
 					FText::FromName(ActorTag)
 				));

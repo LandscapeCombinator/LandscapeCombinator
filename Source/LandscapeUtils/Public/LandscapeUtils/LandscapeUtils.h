@@ -29,10 +29,11 @@ public:
 
 
 #if WITH_EDITOR
-	static ALandscape* SpawnLandscape(
+	static bool SpawnLandscape(
 		TArray<FString> Heightmaps, FString LandscapeLabel, bool bCreateLandscapeStreamingProxies,
 		bool bAutoComponents, bool bDropData,
-		int QuadsPerSubsection, int SectionsPerComponent, FIntPoint ComponentCount
+		int QuadsPerSubsection, int SectionsPerComponent, FIntPoint ComponentCount,
+		ALandscape* &OutSpawnedLandscape, TArray<ALandscapeStreamingProxy*> &OutSpawnedLandscapeStreamingProxies
 	);
 #endif
 };

@@ -7,6 +7,9 @@
 
 class FLandscapeCombinatorModule : public IModuleInterface
 {
+
+#if WITH_EDITOR
+
 public:
 
 #if WITH_EDITOR
@@ -26,6 +29,9 @@ private:
 	void RegisterMenus();
 
 #endif
-    
+	
 	TSharedPtr<class FUICommandList> PluginCommands;
+
+#endif
+
 };

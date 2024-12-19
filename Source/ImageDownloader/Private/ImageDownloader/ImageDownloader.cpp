@@ -4,7 +4,6 @@
 #include "ImageDownloader/LogImageDownloader.h"
 #include "ImageDownloader/Directories.h"
 #include "ImageDownloader/HMDebugFetcher.h"
-#include "ImageDownloader/ImageDownloaderSettings.h"
 
 #include "ImageDownloader/Downloaders/HMLocalFile.h"
 #include "ImageDownloader/Downloaders/HMLocalFolder.h"
@@ -37,7 +36,7 @@
 #include "ImageDownloader/Transformers/HMAddMissingTiles.h"
 #include "ImageDownloader/Transformers/HMFunction.h"
 
-
+#include "LCCommon/LCReporter.h"
 #include "Coordinates/LevelCoordinates.h"
 #include "LandscapeUtils/LandscapeUtils.h"
 
@@ -213,21 +212,12 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 
 				if (IsMapbox())
 				{
-					if (!bSilentMode)
-					{
-						FMessageDialog::Open(EAppMsgType::Ok,
-							LOCTEXT(
-								"UImageDownloader::CreateInitialFetcher::MapboxWarning",
-								"Please check your Mapbox account to make sure you remain within the free tier.\nRequests can be expensive once you go beyond the free tier.\n"
-								"The 2x option counts for more API requests than usual."
-							)
-						);
-					}
+					if (!ULCReporter::ShowMapboxFreeTierWarning()) return nullptr;
 
 					FString MapboxToken2 = GetMapboxToken();
 					if (MapboxToken2.IsEmpty())
 					{
-						FMessageDialog::Open(EAppMsgType::Ok,
+						ULCReporter::ShowError(
 							LOCTEXT("MapboxTokenMissing", "Please add a Mapbox Token (can be obtained from a free Mapbox account) in your Editor Preferences or in the Details Panel.")
 						); 
 						return nullptr;
@@ -272,20 +262,12 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 				}
 				else if (IsMapTiler())
 				{
-					if (!bSilentMode)
-					{
-						FMessageDialog::Open(EAppMsgType::Ok,
-							LOCTEXT(
-								"UImageDownloader::CreateInitialFetcher::MapTilerWarning",
-								"Please check your MapTiler account to make sure you remain within the free tier.\nRequests can be expensive once you go beyond the free tier."
-							)
-						);
-					}
+					if (!ULCReporter::ShowMapTilerFreeTierWarning()) return nullptr;
 
 					FString MapTilerToken2 = GetMapTilerToken();
 					if (MapTilerToken2.IsEmpty())
 					{
-						FMessageDialog::Open(EAppMsgType::Ok,
+						ULCReporter::ShowError(
 							LOCTEXT("MapTilerTokenMissing", "Please add a MapTiler Token (can be obtained from a free MapTiler account) in your Editor Preferences or in the Details Panel.")
 						); 
 						return nullptr;
@@ -319,7 +301,7 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 					FString NextZenToken2 = GetNextZenToken();
 					if (NextZenToken2.IsEmpty())
 					{
-						FMessageDialog::Open(EAppMsgType::Ok,
+						ULCReporter::ShowError(
 							LOCTEXT("NextZenTokenMissing", "Please add a NextZen Token (can be obtained from a free NextZen account) in your Editor Preferences or in the Details Panel.")
 						); 
 						return nullptr;
@@ -351,7 +333,6 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 				HMFetcher *Result = new HMDebugFetcher(
 					"XYZ_Download",
 					new HMXYZ(
-						bSilentMode,
 						bAllowInvalidTiles,
 						Name, Layer, Format, URL2, XYZ_Zoom, XYZ_MinX, XYZ_MaxX, XYZ_MinY, XYZ_MaxY,
 						bMaxY_IsNorth2, bGeoreferenceSlippyTiles2,
@@ -368,7 +349,7 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 			}
 			else
 			{
-				FMessageDialog::Open(EAppMsgType::Ok,
+				ULCReporter::ShowError(
 					FText::Format(
 						LOCTEXT("InterfaceFromKindError", "Internal error: heightmap kind '{0}' is not supprted."),
 						FText::AsNumber((int) ImageSourceKind)
@@ -418,7 +399,7 @@ HMFetcher* UImageDownloader::CreateFetcher(
 		{
 			if (!TargetLandscape)
 			{
-				FMessageDialog::Open(EAppMsgType::Ok,
+				ULCReporter::ShowError(
 					LOCTEXT("UImageDownloader::CreateFetcher::NoLandscape", "Please select a target landscape if you want to resize the image.")
 				);
 				return nullptr;
@@ -441,7 +422,7 @@ HMFetcher* UImageDownloader::CreateFetcher(
 		{
 			if (!IsValid(CroppingActor))
 			{
-				FMessageDialog::Open(EAppMsgType::Ok,
+				ULCReporter::ShowError(
 					LOCTEXT("UImageDownloader::CreateFetcher::NoActor", "Please select a Cropping Actor if you want to crop the output image.")
 				);
 				return nullptr;
@@ -449,7 +430,7 @@ HMFetcher* UImageDownloader::CreateFetcher(
 
 			if (!ALevelCoordinates::GetActorCRSBounds(CroppingActor, Coordinates))
 			{
-				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+				ULCReporter::ShowError(FText::Format(
 					LOCTEXT("UImageDownloader::CreateFetcher::NoCoordinates", "Could not compute bounding coordinates of Actor {0}"),
 					FText::FromString(CroppingActor->GetActorNameOrLabel())
 				));
@@ -486,22 +467,22 @@ HMFetcher* UImageDownloader::CreateFetcher(
 
 bool UImageDownloader::HasMapTilerToken()
 {
-	return !GetDefault<UImageDownloaderSettings>()->MapTiler_Token.IsEmpty();
+	return !GetDefault<ULCSettings>()->MapTiler_Token.IsEmpty();
 }
 
 bool UImageDownloader::HasMapboxToken()
 {
-	return !GetDefault<UImageDownloaderSettings>()->Mapbox_Token.IsEmpty();
+	return !GetDefault<ULCSettings>()->Mapbox_Token.IsEmpty();
 }
 
 bool UImageDownloader::HasNextZenToken()
 {
-	return !GetDefault<UImageDownloaderSettings>()->NextZen_Token.IsEmpty();
+	return !GetDefault<ULCSettings>()->NextZen_Token.IsEmpty();
 }
 
 FString UImageDownloader::GetMapTilerToken()
 {
-	FString ProjectSettingsMapTilerToken = GetDefault<UImageDownloaderSettings>()->MapTiler_Token;
+	FString ProjectSettingsMapTilerToken = GetDefault<ULCSettings>()->MapTiler_Token;
 	if (!ProjectSettingsMapTilerToken.IsEmpty())
 	{
 		return ProjectSettingsMapTilerToken;
@@ -514,7 +495,7 @@ FString UImageDownloader::GetMapTilerToken()
 
 FString UImageDownloader::GetMapboxToken()
 {
-	FString ProjectSettingsMapboxToken = GetDefault<UImageDownloaderSettings>()->Mapbox_Token;
+	FString ProjectSettingsMapboxToken = GetDefault<ULCSettings>()->Mapbox_Token;
 	if (!ProjectSettingsMapboxToken.IsEmpty())
 	{
 		return ProjectSettingsMapboxToken;
@@ -527,7 +508,7 @@ FString UImageDownloader::GetMapboxToken()
 
 FString UImageDownloader::GetNextZenToken()
 {
-	FString ProjectSettingsNextZenToken = GetDefault<UImageDownloaderSettings>()->NextZen_Token;
+	FString ProjectSettingsNextZenToken = GetDefault<ULCSettings>()->NextZen_Token;
 	if (!ProjectSettingsNextZenToken.IsEmpty())
 	{
 		return ProjectSettingsNextZenToken;
@@ -545,7 +526,7 @@ void UImageDownloader::DeleteAllImages()
 	{
 		if (!IPlatformFile::GetPlatformPhysical().DeleteDirectoryRecursively(*ImageDownloaderDir))
 		{
-			FMessageDialog::Open(EAppMsgType::Ok,
+			ULCReporter::ShowError(
 				FText::Format(
 					LOCTEXT("UImageDownloader::DeleteAllImages", "Could not delete all the files in {0}"),
 					FText::FromString(ImageDownloaderDir)
@@ -555,7 +536,10 @@ void UImageDownloader::DeleteAllImages()
 		}
 	}
 
-	FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("Deleting", "Finished Deleting files."));
+	ULCReporter::ShowInfo(
+		LOCTEXT("FinishedDeletingFiles", "Finished Deleting files."),
+		"SuppressFinishedDeletingFiles"
+	);
 }
 
 void UImageDownloader::DeleteAllProcessedImages()
@@ -577,7 +561,7 @@ void UImageDownloader::DeleteAllProcessedImages()
 			FString File = FPaths::Combine(ImageDownloaderDir, File0);
 			if (!IPlatformFile::GetPlatformPhysical().DeleteFile(*File))
 			{
-				FMessageDialog::Open(EAppMsgType::Ok,
+				ULCReporter::ShowError(
 					FText::Format(
 						LOCTEXT("UImageDownloader::DeleteAllProcessedImages::Files", "Could not delete file {0}"),
 						FText::FromString(File)
@@ -597,7 +581,7 @@ void UImageDownloader::DeleteAllProcessedImages()
 				UE_LOG(LogImageDownloader, Log, TEXT("Deleting folder %s."), *Folder);
 				if (!IPlatformFile::GetPlatformPhysical().DeleteDirectoryRecursively(*Folder))
 				{
-					FMessageDialog::Open(EAppMsgType::Ok,
+					ULCReporter::ShowError(
 						FText::Format(
 							LOCTEXT("UImageDownloader::DeleteAllProcessedImages::Folders", "Could not delete folder {0}"),
 							FText::FromString(Folder)
@@ -609,7 +593,10 @@ void UImageDownloader::DeleteAllProcessedImages()
 		}
 	}
 
-	FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("UImageDownloader::DeleteAllProcessedImages::OK", "Finished Deleting files."));
+	ULCReporter::ShowInfo(
+		LOCTEXT("UImageDownloader::DeleteAllProcessedImages::OK", "Finished Deleting files."),
+		"SuppressFinishedDeletingFiles"
+	);
 }
 
 bool UImageDownloader::IsWMS()
@@ -701,9 +688,8 @@ bool UImageDownloader::SetSourceParametersBool(bool bDialog)
 	{
 		if (bDialog)
 		{
-			FMessageDialog::Open(
-				EAppMsgType::Ok,
-				LOCTEXT("UImageDownloader::SetSourceParameters::0", "This is supported only for WMS, XYZ and Napoli.")
+			ULCReporter::ShowError(
+				LOCTEXT("UImageDownloader::SetSourceParameters::0", "Custom Parameters Selection is supported only for WMS, XYZ and Napoli.")
 			);
 		}
 		return false;
@@ -723,8 +709,7 @@ bool UImageDownloader::SetSourceParametersBool(bool bDialog)
 	}
 	else
 	{
-		FMessageDialog::Open(
-			EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("UImageDownloader::SetSourceParameters::1", "Internal Error: Unsupported parameter selection method.")
 		);
 		return false;
@@ -806,7 +791,7 @@ bool UImageDownloader::SetSourceParametersFromActor(bool bDialog)
 	{
 		if (bDialog)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("UImageDownloader::SetSourceParameters", "Please select a bounding actor."));
+			ULCReporter::ShowError(LOCTEXT("UImageDownloader::SetSourceParameters", "Please select a bounding actor."));
 		}
 		return false;
 	}
@@ -832,7 +817,7 @@ bool UImageDownloader::SetSourceParametersFromActor(bool bDialog)
 	{
 		if (bDialog)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			ULCReporter::ShowError(FText::Format(
 				LOCTEXT("UImageDownloader::SetSourceParameters::1", "Please make sure that the CRS is not empty."),
 				FText::FromString(ParametersBoundingActor->GetActorNameOrLabel())
 			));
@@ -844,7 +829,7 @@ bool UImageDownloader::SetSourceParametersFromActor(bool bDialog)
 	{
 		if (bDialog)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			ULCReporter::ShowError(FText::Format(
 				LOCTEXT("UImageDownloader::SetSourceParameters::2", "Could not read coordinates from Actor {0}."),
 				FText::FromString(ParametersBoundingActor->GetActorNameOrLabel())
 			));
@@ -1008,28 +993,19 @@ void UImageDownloader::OnImageSourceChanged(TFunction<void(bool)> OnComplete)
 	}
 	else if (IsMapbox())
 	{
-		if (!bSilentMode)
+		if (!ULCReporter::ShowMapboxFreeTierWarning())
 		{
-			FMessageDialog::Open(EAppMsgType::Ok,
-				LOCTEXT(
-					"UImageDownloader::OnImageSourceChanged::MapboxWarning",
-					"Please check your Mapbox account to make sure you remain within the free tier.\nRequests can be expensive once you go beyond the free tier.\n"
-					"The 2x option counts for more API requests than usual."
-				)
-			);
+			if (OnComplete) OnComplete(false);
+			return;
 		}
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
 	}
 	else if (IsMapTiler())
 	{
-		if (!bSilentMode)
+		if (!ULCReporter::ShowMapTilerFreeTierWarning())
 		{
-			FMessageDialog::Open(EAppMsgType::Ok,
-				LOCTEXT(
-					"UImageDownloader::OnImageSourceChanged::MapboxWarning",
-					"Please check your MapTiler account to make sure you remain within the free tier.\nRequests can be expensive once you go beyond the free tier."
-				)
-			);
+			if (OnComplete) OnComplete(false);
+			return;
 		}
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
 	}
@@ -1102,7 +1078,7 @@ void UImageDownloader::DownloadImages(TObjectPtr<UGlobalCoordinates> GlobalCoord
 	AActor *Owner = GetOwner();
 	if (!IsValid(Owner))
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("UImageDownloader::DownloadImages::NoOwner", "Internal Error: Could not find UImageDownloader Owner.")
 		);
 		if (OnComplete) OnComplete(TArray<FString>());
@@ -1113,7 +1089,7 @@ void UImageDownloader::DownloadImages(TObjectPtr<UGlobalCoordinates> GlobalCoord
 
 	if (!Fetcher)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("UImageDownloader::DownloadImages::NoFetcher", "Could not make image fetcher.")
 		);
 		if (OnComplete) OnComplete(TArray<FString>());
@@ -1134,7 +1110,7 @@ void UImageDownloader::DownloadImages(TObjectPtr<UGlobalCoordinates> GlobalCoord
 		else
 		{
 			delete Fetcher;
-			FMessageDialog::Open(EAppMsgType::Ok,
+			ULCReporter::ShowError(
 				LOCTEXT("UImageDownloader::DownloadImages::Failure", "There was an error while downloading or preparing the files.")
 			);
 			if (OnComplete) OnComplete(TArray<FString>());
@@ -1148,7 +1124,7 @@ void UImageDownloader::DownloadMergedImage(bool bEnsureOneBand, TObjectPtr<UGlob
 	AActor *Owner = GetOwner();
 	if (!IsValid(Owner))
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("UImageDownloader::DownloadMergedImage::NoOwner", "Internal Error: Could not find UImageDownloader Owner.")
 		);
 		return;
@@ -1159,7 +1135,7 @@ void UImageDownloader::DownloadMergedImage(bool bEnsureOneBand, TObjectPtr<UGlob
 
 	if (!Fetcher)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("UImageDownloader::DownloadMergedImage::NoFetcher", "Could not make image fetcher.")
 		);
 		return;
@@ -1176,7 +1152,7 @@ void UImageDownloader::DownloadMergedImage(bool bEnsureOneBand, TObjectPtr<UGlob
 		else
 		{
 			delete Fetcher;
-			FMessageDialog::Open(EAppMsgType::Ok,
+			ULCReporter::ShowError(
 				LOCTEXT("UImageDownloader::DownloadMergedImage::Failure", "There was an error while downloading or preparing the files.")
 			);
 			return;

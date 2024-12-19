@@ -1,6 +1,11 @@
 // Copyright 2023 LandscapeCombinator. All Rights Reserved.
 
 #include "LandscapeCombinator/LandscapePCGVolume.h"
+#include "LCCommon/LCReporter.h"
+#include "LCCommon/LCBlueprintLibrary.h"
+
+#include "PCGGraph.h"
+#include "Helpers/PCGGraphParametersHelpers.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
@@ -17,5 +22,57 @@ void ALandscapePCGVolume::SetPositionAndBounds()
 	SetActorLocation(Position);
 	SetActorScale3D(Bounds / 100);
 }
+
+void ALandscapePCGVolume::OnGenerate(FName SpawnedActorsPathOverride, TFunction<void(bool)> OnComplete)
+{
+	if (IsValid(PCGComponent))
+	{
+		PCGComponent->Generate(true);
+		OnComplete(true);
+	}
+	else
+	{
+		OnComplete(false);
+	}
+}
+
+bool ALandscapePCGVolume::Cleanup_Implementation(bool bSkipPrompt)
+{
+	if (IsValid(PCGComponent))
+	{
+		PCGComponent->Cleanup();
+	}
+	return true;
+}
+
+#if WITH_EDITOR
+
+AActor *ALandscapePCGVolume::Duplicate(FName FromName, FName ToName)
+{
+	if (ALandscapePCGVolume *NewLandscapePCGVolume =
+		Cast<ALandscapePCGVolume>(GEditor->GetEditorSubsystem<UEditorActorSubsystem>()->DuplicateActor(this)))
+	{
+		NewLandscapePCGVolume->LandscapeSelection.ActorTag =
+			ULCBlueprintLibrary::ReplaceName(LandscapeSelection.ActorTag, FromName, ToName);
+
+		UPCGGraphInstance *NewGraphInstance = NewLandscapePCGVolume->PCGComponent->GetGraphInstance();
+		FPCGOverrideInstancedPropertyBag &NewParametersOverrides = NewGraphInstance->ParametersOverrides;
+		for (TFieldIterator<FProperty> It(NewParametersOverrides.Parameters.GetPropertyBagStruct()); It; ++It)
+		{
+			FProperty* Property = *It;
+			FName OldPropertyValue = UPCGGraphParametersHelpers::GetNameParameter(NewGraphInstance, Property->GetFName());
+			UPCGGraphParametersHelpers::SetNameParameter(NewGraphInstance, Property->GetFName(), ULCBlueprintLibrary::ReplaceName(OldPropertyValue, FromName, ToName));
+		}
+
+		return NewLandscapePCGVolume;
+	}
+	else
+	{
+		ULCReporter::ShowError(LOCTEXT("ALandscapePCGVolume::DuplicateActor", "Failed to duplicate actor."));
+		return nullptr;
+	}
+}
+
+#endif
 
 #undef LOCTEXT_NAMESPACE

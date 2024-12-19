@@ -70,9 +70,6 @@ class IMAGEDOWNLOADER_API UImageDownloader : public UActorComponent
 public:
 	UImageDownloader();
 
-	UPROPERTY()
-	bool bSilentMode = false;
-
 	/**********************
 	 *  Heightmap Source  *
 	 **********************/

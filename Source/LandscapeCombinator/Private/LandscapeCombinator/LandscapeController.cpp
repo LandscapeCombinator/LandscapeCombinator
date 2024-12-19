@@ -5,7 +5,9 @@
 #include "LandscapeUtils/LandscapeUtils.h"
 #include "Coordinates/LevelCoordinates.h"
 #include "GDALInterface/GDALInterface.h"
+#include "LCCommon/LCReporter.h"
 
+#include "Misc/MessageDialog.h"
 #include "Kismet/GameplayStatics.h"
 #include "Landscape.h"
 #include "LandscapeEdit.h"
@@ -20,7 +22,7 @@ void ULandscapeController::AdjustLandscape()
 	ALandscape *Landscape = Cast<ALandscape>(GetOwner());
 	if (!Landscape)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("ULandscapeController::AdjustLandscape::1", "Internal error while adjusting landscape scale and position")
 		);
 		return;
@@ -32,7 +34,7 @@ void ULandscapeController::AdjustLandscape()
 
 	if (CRS != GlobalCoordinates->CRS)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		ULCReporter::ShowError(FText::Format(
 			LOCTEXT("ULandscapeController::AdjustLandscape::3", "Adjust landscape requires the CRS of the landscape to be the same as the LevelCoordinates CRS"),
 			FText::FromString(LandscapeLabel)
 		));

@@ -4,7 +4,7 @@
 #include "Coordinates/LevelCoordinates.h"
 #include "Coordinates/LogCoordinates.h"
 #include "GDALInterface/GDALInterface.h"
-
+#include "LCCommon/LCReporter.h"
 
 #include "Components/DecalComponent.h"
 #include "Misc/Paths.h"
@@ -30,7 +30,7 @@ void UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 	ADecalActor *DecalActor = Cast<ADecalActor>(GetOwner());
 	if (!DecalActor)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("UDecalCoordinates::PlaceDecal", "UDecalCoordinates must be placed on a Decal Actor.")
 		);
 		return;
@@ -38,7 +38,7 @@ void UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 	
 	if (!FPaths::FileExists(PathToGeoreferencedImage))
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		ULCReporter::ShowError(FText::Format(
 			LOCTEXT("UDecalCoordinates::PlaceDecal::NoFile", "File {0} does not exist."),
 			FText::FromString(PathToGeoreferencedImage)
 		));
@@ -90,7 +90,7 @@ void UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 	UMaterial *M_GeoDecal = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, *FString("/Script/Engine.Material'/LandscapeCombinator/Materials/M_GeoDecal.M_GeoDecal'")));
 	if (!M_GeoDecal)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("UDecalCoordinates::PlaceDecal::M_GeoDecal", "Coordinates Internal Error: Could not find material M_GeoDecal.")
 		);
 		return;
@@ -105,7 +105,7 @@ void UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 
 	if (!GDALInterface::ReadColorsFromFile(ReprojectedImage, Width, Height, Colors))
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		ULCReporter::ShowError(FText::Format(
 			LOCTEXT("UDecalCoordinates::PlaceDecal::ReadColorsFromFile", "Coordinates Internal Error: Could not read colors from file {0}."),
 			FText::FromString(ReprojectedImage)
 		));
@@ -134,7 +134,7 @@ ADecalActor* UDecalCoordinates::CreateDecal(UWorld *World, FString Path, FVector
 	ADecalActor* DecalActor = World->SpawnActor<ADecalActor>();
 	if (!DecalActor)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("UDecalCoordinates::CreateDecal", "Coordinates Internal Error: Could not spawn a Decal Actor.")
 		);
 		return nullptr;

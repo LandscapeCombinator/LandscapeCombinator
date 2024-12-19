@@ -9,7 +9,7 @@ class FBuildingFromSplineModule : public IModuleInterface
 {
 
 #if WITH_EDITOR
-    void StartupModule() override;
+	void StartupModule() override;
 #endif
 
 };

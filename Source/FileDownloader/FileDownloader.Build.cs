@@ -8,10 +8,10 @@ public class FileDownloader : ModuleRules
 	{
 		CppStandard = CppStandardVersion.Cpp20;
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
-        IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
+		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
 
-        // Unreal Dependencies
-        PublicDependencyModuleNames.AddRange(
+		// Unreal Dependencies
+		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
 				"Core"
@@ -27,7 +27,10 @@ public class FileDownloader : ModuleRules
 				"Slate",
 				"SlateCore",
 				"HTTP",
-				"ConcurrencyHelpers"
+
+				// Landscape Combinator Dependencies
+				"ConcurrencyHelpers",
+				"LCCommon"
 			}
 		);
 	}

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "BuildingFromSpline/BuildingConfiguration.h"
+#include "LCCommon/LCGenerator.h"
 
 #include "Components/SplineComponent.h"
 #include "Components/SplineMeshComponent.h"
@@ -18,7 +19,7 @@
 using namespace UE::Geometry;
 
 UCLASS(meta = (PrioritizeCategories = "Building"))
-class BUILDINGFROMSPLINE_API ABuilding : public AActor
+class BUILDINGFROMSPLINE_API ABuilding : public AActor, public ILCGenerator
 {
 	GENERATED_BODY()
 
@@ -52,53 +53,57 @@ public:
 	)
 	TObjectPtr<UBuildingConfiguration> BuildingConfiguration;
 
+	virtual bool Cleanup_Implementation(bool bSkipPrompt) override;
+
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Building",
 		meta = (DisplayPriority = "101")
 	)
 	void DeleteBuilding();
+
+	bool GenerateBuilding_Internal(FName SpawnedActorsPathOverride);
 
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Building",
 		meta = (DisplayPriority = "100")
 	)
 	void GenerateBuilding();
 
+
+	virtual void OnGenerate(FName SpawnedActorsPathOverride, TFunction<void(bool)> OnComplete) override;
+	virtual TArray<UObject*> GetGeneratedObjects() const override;
+
 #if WITH_EDITOR
-
-	UFUNCTION(BlueprintCallable, Category = "Building",
-		meta = (DisplayPriority = "5")
-	)
-	void ConvertToStaticMesh();
-
-	UFUNCTION(BlueprintCallable, Category = "Building",
-		meta = (DisplayPriority = "5")
-	)
-	void ConvertToVolume();
 	
 	UFUNCTION(BlueprintCallable, Category = "Building")
 	void GenerateStaticMesh();
 
 	UFUNCTION(BlueprintCallable, Category = "Building")
-	void GenerateVolume();
+	void GenerateVolume(FName SpawnedActorsPathOverride);
 
 #endif
 	
 	UFUNCTION(BlueprintCallable, Category = "Building")
-	void AppendBuilding(UDynamicMesh* TargetMesh);
+	void AppendBuilding(UDynamicMesh* TargetMesh, FName SpawnedActorsPathOverride);
 
 	void ComputeMinMaxHeight();
 
 	UFUNCTION()
 	void SetReceivesDecals();
 
-#if WITH_EDITOR
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "General",
+		meta = (DisplayPriority = "150")
+	)
+	/* Folder used to spawn the volume. This setting is unused when generating from a combination or from blueprints. */
+	FName SpawnedActorsPath;
+
 
 protected:
 
+#if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent &PropertyChangedEvent) override;
-
 #endif
 
-private:
 	int GetFloorMaterialID() { return 0; }
 	int GetCeilingMaterialID() { return 1; }
 	int GetExteriorMaterialID()
@@ -136,10 +141,10 @@ private:
 	TWeakObjectPtr<AVolume> Volume = nullptr;
 	
 	UPROPERTY(VisibleAnywhere, DuplicateTransient, Category = "Building")
-	TArray<TObjectPtr<USplineMeshComponent>> SplineMeshComponents;
+	TArray<TWeakObjectPtr<USplineMeshComponent>> SplineMeshComponents;
 	
 	UPROPERTY(VisibleAnywhere, DuplicateTransient, Category = "Building")
-	TArray<TObjectPtr<UInstancedStaticMeshComponent>> InstancedStaticMeshComponents;
+	TArray<TWeakObjectPtr<UInstancedStaticMeshComponent>> InstancedStaticMeshComponents;
 
 	UPROPERTY(DuplicateTransient)
 	FString StaticMeshPath;
@@ -188,9 +193,6 @@ private:
 	
 	void AddWindowsMeshes();
 	void AddWindowsMeshes(FWindowsSpecification &WindowsSpecification, int i);
-
-	void DestroySplineMeshComponents();
-	void DestroyInstancedStaticMeshComponents();
 
 };
 

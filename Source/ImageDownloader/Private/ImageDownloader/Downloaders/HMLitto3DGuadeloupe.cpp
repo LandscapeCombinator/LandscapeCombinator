@@ -5,6 +5,7 @@
 #include "ImageDownloader/LogImageDownloader.h"
 
 #include "ConsoleHelpers/Console.h"
+#include "LCCommon/LCReporter.h"
 
 #include "HAL/FileManagerGeneric.h"
 #include "Misc/ScopedSlowTask.h"
@@ -18,7 +19,7 @@ void HMLitto3DGuadeloupe::Fetch(FString InputCRS, TArray<FString> InputFiles, TF
 {
 	if (!Console::ExecProcess(TEXT("7z"), TEXT(""), false))
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT(
 				"MissingRequirement",
 				"Please make sure 7z is installed on your computer and available in your PATH if you want to use Litto 3D Guadeloupe heightmaps."
@@ -36,7 +37,7 @@ void HMLitto3DGuadeloupe::Fetch(FString InputCRS, TArray<FString> InputFiles, TF
 
 	if (FileNamesNum == 0)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		ULCReporter::ShowError(FText::Format(
 			LOCTEXT("NoArchives", "Folder '{0}' does not contain any 7z file."),
 			FText::FromString(Folder)
 		));
@@ -77,7 +78,7 @@ void HMLitto3DGuadeloupe::Fetch(FString InputCRS, TArray<FString> InputFiles, TF
 		
 		if (AscFiles.Num() == 0)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			ULCReporter::ShowError(FText::Format(
 				LOCTEXT("NoHeightMaps", "After extraction, folder '{0}' did not contain any heightmap files."),
 				FText::FromString(ExtractionDir)
 			));
@@ -88,7 +89,7 @@ void HMLitto3DGuadeloupe::Fetch(FString InputCRS, TArray<FString> InputFiles, TF
 		
 	if (OutputFiles.Num() == 0)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		ULCReporter::ShowError(FText::Format(
 			LOCTEXT("NoHeightMaps2", "After extraction, folder '{0}' did not contain any heightmap files."),
 			FText::FromString(Folder)
 		));

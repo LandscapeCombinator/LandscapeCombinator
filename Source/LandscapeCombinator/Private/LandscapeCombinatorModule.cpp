@@ -10,22 +10,26 @@
 #include "LandscapeCombinator/LandscapeTexturer.h"
 #include "LandscapeCombinator/LandscapeTexturerCustomization.h"
 
+#include "LCCommon/LCReporter.h"
+
 #include "PropertyEditorDelegates.h"
 #include "PropertyEditorModule.h"
 #include "EditorUtilitySubsystem.h"
 #include "EditorUtilityWidgetBlueprint.h"
 
 #endif
-	
+
 IMPLEMENT_MODULE(FLandscapeCombinatorModule, LandscapeCombinator)
+
+#define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
 #if WITH_EDITOR
 
 void FLandscapeCombinatorModule::StartupModule()
 {
-    FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
-    PropertyModule.RegisterCustomClassLayout(ALandscapeSpawner::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FLandscapeSpawnerCustomization::MakeInstance));
-    PropertyModule.RegisterCustomClassLayout(ALandscapeTexturer::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FLandscapeTexturerCustomization::MakeInstance));
+	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
+	PropertyModule.RegisterCustomClassLayout(ALandscapeSpawner::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FLandscapeSpawnerCustomization::MakeInstance));
+	PropertyModule.RegisterCustomClassLayout(ALandscapeTexturer::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FLandscapeTexturerCustomization::MakeInstance));
 
 	FLandscapeCombinatorStyle::Initialize();
 	FLandscapeCombinatorStyle::ReloadTextures();
@@ -58,14 +62,22 @@ void FLandscapeCombinatorModule::ShutdownModule()
 
 void FLandscapeCombinatorModule::PluginButtonClicked()
 {
-    const FString WidgetPath = TEXT("/Script/Blutility.EditorUtilityWidgetBlueprint'/LandscapeCombinator/UI/LandscapeCombinator.LandscapeCombinator'");
+	ULCReporter::ShowError(
+		LOCTEXT(
+			"WidgetDisabled",
+			"This widget has been disabled for now. Please use Landscape Combination actors directly as in the L_LandscapeCombinatorExamples map."
+		)
+	);	
+
+	return;
+	// const FString WidgetPath = TEXT("/Script/Blutility.EditorUtilityWidgetBlueprint'/LandscapeCombinator/UI/LandscapeCombinator.LandscapeCombinator'");
 	
-	UEditorUtilitySubsystem* EditorUtilitySubsystem = GEditor->GetEditorSubsystem<UEditorUtilitySubsystem>();
-	UEditorUtilityWidgetBlueprint* WidgetBlueprint = LoadObject<UEditorUtilityWidgetBlueprint>(nullptr, *WidgetPath);
-	if (EditorUtilitySubsystem && WidgetBlueprint)
-	{
-		EditorUtilitySubsystem->SpawnAndRegisterTab(WidgetBlueprint);
-	}
+	// UEditorUtilitySubsystem* EditorUtilitySubsystem = GEditor->GetEditorSubsystem<UEditorUtilitySubsystem>();
+	// UEditorUtilityWidgetBlueprint* WidgetBlueprint = LoadObject<UEditorUtilityWidgetBlueprint>(nullptr, *WidgetPath);
+	// if (EditorUtilitySubsystem && WidgetBlueprint)
+	// {
+	// 	EditorUtilitySubsystem->SpawnAndRegisterTab(WidgetBlueprint);
+	// }
 }
 
 void FLandscapeCombinatorModule::RegisterMenus()
@@ -84,3 +96,5 @@ void FLandscapeCombinatorModule::RegisterMenus()
 }
 
 #endif
+
+#undef LOCTEXT_NAMESPACE 
