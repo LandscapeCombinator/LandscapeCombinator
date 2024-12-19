@@ -18,7 +18,7 @@ void HMFunction::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<v
 		GDALDataset *Dataset = (GDALDataset *) GDALOpen(TCHAR_TO_UTF8(*InputFile), GA_Update);
 		if (!Dataset)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok,
+			ULCReporter::ShowError(
 				FText::Format(
 					LOCTEXT("HMFunction::Fetch::1", "Image Downloader Error: Could not open heightmap file '{0}'.\nError: {1}"),
 					FText::FromString(InputFile),
@@ -33,7 +33,7 @@ void HMFunction::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<v
 
 		if (!Band)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			ULCReporter::ShowError(FText::Format(
 				LOCTEXT("HMFunction::Fetch::2", "Internal error: Could not get raster band of file {0}.\nError: {1}"),
 				FText::FromString(InputFile),
 				FText::FromString(FString(CPLGetLastErrorMsg()))
@@ -49,7 +49,7 @@ void HMFunction::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<v
 
 		if (!Data)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok,
+			ULCReporter::ShowError(
 				LOCTEXT("HMFunction::Fetch::3", "Internal error: Could not allocate memory.")
 			);
 			GDALClose(Dataset);
@@ -62,7 +62,7 @@ void HMFunction::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<v
 
 		if (Err != CE_None)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			ULCReporter::ShowError(FText::Format(
 				LOCTEXT("HMFunction::Fetch::4", "Internal error: Could not read data from file {0}.\nError: {1}"),
 				FText::FromString(InputFile),
 				FText::FromString(FString(CPLGetLastErrorMsg()))
@@ -84,7 +84,7 @@ void HMFunction::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<v
 
 		if (Err != CE_None)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			ULCReporter::ShowError(FText::Format(
 				LOCTEXT("HMFunction::Fetch::5", "Internal error: Could not write data to dataset in file {0}.\nError: {1}"),
 				FText::FromString(InputFile),
 				FText::FromString(FString(CPLGetLastErrorMsg()))

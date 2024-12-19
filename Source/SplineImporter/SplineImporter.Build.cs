@@ -27,14 +27,26 @@ public class SplineImporter : ModuleRules
 				"PCG",
 				"Foliage",
 				"Landscape",
+				"SlateCore",
 
-				// Other Dependencies
+				// Landscape Combinator Dependencies
 				"LandscapeUtils",
 				"Coordinates",
 				"GDALInterface",
 				"FileDownloader",
-				"OSMUserData"
+				"OSMUserData",
+				"LCCommon"
 			}
 		);
+
+		if (Target.bBuildEditor)
+		{
+			PublicDependencyModuleNames.AddRange(
+				new string[]
+				{
+					"UnrealEd"
+				}
+			);
+		}
 	}
 }

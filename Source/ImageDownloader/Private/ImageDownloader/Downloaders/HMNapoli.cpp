@@ -39,7 +39,7 @@ void HMNapoli::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<voi
 			FString FileContent = "";
 			if (!FFileHelper::LoadFileToString(FileContent, *CSVFile))
 			{
-				FMessageDialog::Open(EAppMsgType::Ok,
+				ULCReporter::ShowError(
 					FText::Format(
 						LOCTEXT("HMNapoli::Fetch", "Could not read file {0}."),
 						FText::FromString(CSVFile)
@@ -64,7 +64,7 @@ void HMNapoli::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<voi
 
 			if (URLs.IsEmpty())
 			{
-				FMessageDialog::Open(EAppMsgType::Ok,
+				ULCReporter::ShowError(
 					FText::Format(
 						LOCTEXT("HMNapoli::Fetch", "Could not find valid URLs in file {0}."),
 						FText::FromString(CSVFile)

@@ -15,9 +15,9 @@
 
 FString GetPluginBaseDir(FString PluginName)
 {
-    TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(PluginName);
+	TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(PluginName);
 
-    if (Plugin.IsValid()) return Plugin->GetBaseDir();
+	if (Plugin.IsValid()) return Plugin->GetBaseDir();
 	else return "";
 }
 

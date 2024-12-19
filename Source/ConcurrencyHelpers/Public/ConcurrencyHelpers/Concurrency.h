@@ -7,9 +7,15 @@
 
 #include "Async/Async.h"
 
+namespace ConcurrencyOperators
+{
+	CONCURRENCYHELPERS_API TFunction<void(TFunction<void(bool)>)> operator >> (TFunction<void(TFunction<void(bool)>)> Action1, TFunction<void(TFunction<void(bool)>)> Action2);
+}
+
 class CONCURRENCYHELPERS_API Concurrency
 {
 public:
+
 	template<typename T>
 	static void RunMany(TArray<T> Elements, TFunction<void( T Element, TFunction<void(bool)> )> Action, TFunction<void(bool)> OnComplete)
 	{
@@ -42,29 +48,30 @@ public:
 
 	
 	template<typename T>
-	static void RunSuccessively(TArray<T> Elements, TFunction<void(T Element, TFunction<void(bool)> OnCompleteOne)> Action, TFunction<void(bool)> OnCompleteAll)
+	static void RunSuccessivelyFrom(const TArray<T> &Elements, int Index, TFunction<void(T Element, TFunction<void(bool)> OnCompleteOne)> Action, TFunction<void(bool)> OnCompleteAll)
 	{
-		TFunction<void(int)> Loop = [Action, Elements, OnCompleteAll, Loop](int32 Index)
+		if (Index >= Elements.Num())
 		{
-			if (Index >= Elements.Num())
+			if (OnCompleteAll) OnCompleteAll(true);
+			return;
+		}
+
+		Action(Elements[Index], [Elements, OnCompleteAll, Index, Action](bool bSuccess)
+		{
+			if (!bSuccess)
 			{
-				if (OnCompleteAll) OnCompleteAll(true);
+				if (OnCompleteAll) OnCompleteAll(false);
 				return;
 			}
 
-			Action(Elements[Index], [Loop, OnCompleteAll, Index](bool bSuccess)
-			{
-				if (!bSuccess)
-				{
-					if (OnCompleteAll) OnCompleteAll(false);
-					return;
-				}
-
-				Loop(Index + 1);
-			});
-		};
-
-		Loop(0);
+			RunSuccessivelyFrom(Elements, Index + 1, Action, OnCompleteAll);
+		});
+	}
+	
+	template<typename T>
+	static void RunSuccessively(const TArray<T> &Elements, TFunction<void(T Element, TFunction<void(bool)> OnCompleteOne)> Action, TFunction<void(bool)> OnCompleteAll)
+	{
+		RunSuccessivelyFrom(Elements, 0, Action, OnCompleteAll);
 	}
 
 	static void RunAsync(TFunction<void()> Action);
@@ -72,10 +79,8 @@ public:
 	static void RunOnGameThread(TFunction<void()> Action);
 	static void RunOnGameThreadAndWait(TFunction<void()> Action);
 	
-	static TFunction<void(TFunction<void(bool)>)> Combine(TFunction<void(TFunction<void(bool)>)> Action1, TFunction<void(TFunction<void(bool)>)> Action2);
-	static TFunction<void(TFunction<void(bool)>)> Pure(TFunction<void()> Action);
-	static TFunction<void(TFunction<void(bool)>)> CombineLeft(TFunction<void(TFunction<void(bool)>)> Action1, TFunction<void()> Action2);
-	static TFunction<void(TFunction<void(bool)>)> CombineRight(TFunction<void()> Action1, TFunction<void(TFunction<void(bool)>)> Action2);
+	static TFunction<void(TFunction<void(bool)>)> Return(TFunction<void()> Action);
 
-	static void ShowDialog(const FText& Message, bool* bShowedDialog);
+	// to help the type-checker
+	static TFunction<void(TFunction<void(bool)>)> I(TFunction<void(TFunction<void(bool)>)> Action);
 };

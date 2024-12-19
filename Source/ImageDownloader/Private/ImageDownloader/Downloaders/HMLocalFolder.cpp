@@ -18,7 +18,7 @@ void HMLocalFolder::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunctio
 
 	if (FileNames.Num() == 0)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		ULCReporter::ShowError(FText::Format(
 			LOCTEXT("EmptyFolder", "Folder {0} is empty."),
 			FText::FromString(Folder)
 		));

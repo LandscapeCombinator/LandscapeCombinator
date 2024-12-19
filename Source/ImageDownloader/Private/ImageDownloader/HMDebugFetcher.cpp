@@ -39,7 +39,7 @@ void HMDebugFetcher::Fetch(FString InputCRS, TArray<FString> InputFiles, TFuncti
 		else
 		{
 			UE_LOG(LogImageDownloader, Error, TEXT("Phase %s failed."), *Name);
-			FMessageDialog::Open(EAppMsgType::Ok,
+			ULCReporter::ShowError(
 				FText::Format(
 					LOCTEXT("HMDebugFetcher::Fetch", "Image Downloader Error: There was an error during Phase {0}."),
 					FText::FromString(Name)

@@ -7,6 +7,9 @@
 #include "LandscapeUtils/LandscapeUtils.h"
 #include "GDALInterface/GDALInterface.h"
 #include "OSMUserData/OSMUserData.h"
+#include "LCCommon/LCReporter.h"
+#include "LCCommon/LCSettings.h"
+#include "LCCommon/LCBlueprintLibrary.h"
 
 #include "LandscapeSplineActor.h"
 #include "ILandscapeSplineInterface.h"
@@ -27,19 +30,6 @@
 #include "Misc/MessageDialog.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
-
-
-void ASplineImporter::Clear()
-{
-	for (auto& SplineCollection : SplineOwners)
-	{
-		if (IsValid(SplineCollection))
-		{
-			SplineCollection->Destroy();
-		}
-	}
-	SplineOwners.Reset();
-}
 
 void ASplineImporter::SetOverpassShortQuery()
 {
@@ -71,13 +61,13 @@ void ASplineImporter::SetOverpassShortQuery()
 	Super::SetOverpassShortQuery();
 }
 
-void ASplineImporter::Import(TFunction<void(bool)> OnComplete)
+void ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, TFunction<void(bool)> OnComplete)
 {
 	AActor *ActorOrLandscapeToPlaceSplines = ActorOrLandscapeToPlaceSplinesSelection.GetActor(this->GetWorld());
 
 	if (!IsValid(ActorOrLandscapeToPlaceSplines))
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("ASplineImporter::GenerateSplines::1", "Please select an actor on which to place your splines.")
 		);
 
@@ -90,7 +80,7 @@ void ASplineImporter::Import(TFunction<void(bool)> OnComplete)
 		ActorOrLandscapeToPlaceSplines->GetRootComponent()->Mobility != EComponentMobility::Static
 	)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		ULCReporter::ShowError(FText::Format(
 			LOCTEXT("ASplineImporter::GenerateSplines::NoStatic", "Please make sure that {0}'s mobility is set to static."),
 			FText::FromString(ActorOrLandscapeToPlaceSplines->GetActorNameOrLabel())
 		));
@@ -107,7 +97,9 @@ void ASplineImporter::Import(TFunction<void(bool)> OnComplete)
 	{
 		if (!ActorOrLandscapeToPlaceSplines->IsA<ALandscape>())
 		{
-			FMessageDialog::Open(EAppMsgType::Ok,
+			FMessageDialog::Open(
+				EAppMsgCategory::Error,
+				EAppMsgType::Ok,
 				FText::Format(
 					LOCTEXT("ASplineImporter::GenerateSplines::2", "Actor {0} is not a landscape"),
 					FText::FromString(ActorOrLandscapeToPlaceSplinesLabel)
@@ -123,7 +115,7 @@ void ASplineImporter::Import(TFunction<void(bool)> OnComplete)
 				"After the splines are added, you must go to\n"
 				"Landscape Mode > Manage > Splines\n"
 				"to manage the splines as usual. By selecting all control points or all segments, and then going to their Details panel, you can choose "
-				"to paint a landscape layer for the roads, or you can add spline meshes to form your roads.\n"	
+				"to paint a landscape layer for the roads, or you can add spline meshes to form your roads.\nContinue?"	
 			),
 			FText::FromString(ActorOrLandscapeToPlaceSplinesLabel)
 		);
@@ -133,28 +125,31 @@ void ASplineImporter::Import(TFunction<void(bool)> OnComplete)
 		IntroMessage = FText::Format(
 			LOCTEXT("ASplineImporter::GenerateSplines::Intro2",
 				"Splines will now be added to {0}. You can monitor the progress in the Output Log. "
-				"For splines that represent buildings perimeters, you can use the plugin's class BuildingsFromSplines to create buildings automatically."
+				"For splines that represent buildings perimeters, you can use the plugin's class "
+				"BuildingsFromSplines to create buildings automatically.\nContinue?"
 			),
 			FText::FromString(ActorOrLandscapeToPlaceSplinesLabel)
 		);
 	}
 	
-	if (!bSilentMode)
+	if (!ULCReporter::ShowMessage(
+		IntroMessage,
+		"SuppressSplineIntroduction",
+		LOCTEXT("SplineIntroductionTitle", "Information on Splines"),
+		true,
+		FAppStyle::GetBrush("Icons.InfoWithColor.Large")
+	))
 	{
-		EAppReturnType::Type UserResponse = FMessageDialog::Open(EAppMsgType::OkCancel, IntroMessage);
-		if (UserResponse == EAppReturnType::Cancel) 
-		{
-			UE_LOG(LogSplineImporter, Log, TEXT("User cancelled adding landscape splines."));
+		UE_LOG(LogSplineImporter, Log, TEXT("User cancelled adding splines."));
 
-			if (OnComplete) OnComplete(false);
-			return;
-		}
+		if (OnComplete) OnComplete(false);
+		return;
 	}
 
 	// Delete existing spline collections before generating new ones
-	Clear();
+	Execute_Cleanup(this, false);
 
-	LoadGDALDataset([this, OnComplete, Landscape, ActorOrLandscapeToPlaceSplines](GDALDataset* Dataset) {
+	LoadGDALDataset([this, OnComplete, Landscape, ActorOrLandscapeToPlaceSplines, SpawnedActorsPathOverride](GDALDataset* Dataset) {
 		if (Dataset)
 		{
 			TArray<FPointList> PointLists = GDALInterface::GetPointLists(Dataset);
@@ -162,7 +157,7 @@ void ASplineImporter::Import(TFunction<void(bool)> OnComplete)
 
 			if (PointLists.IsEmpty())
 			{
-				FMessageDialog::Open(EAppMsgType::Ok,
+				ULCReporter::ShowError(
 					LOCTEXT("No splines", "Warning: The dataset did not contain any spline, please double check your query.")
 				);
 
@@ -183,7 +178,7 @@ void ASplineImporter::Import(TFunction<void(bool)> OnComplete)
 
 			if (!OGRTransform)
 			{
-				FMessageDialog::Open(EAppMsgType::Ok,
+				ULCReporter::ShowError(
 					LOCTEXT("LandscapeNotFound", "Landscape Combinator Error: Could not create OGR Coordinate Transformation.")
 				);
 				if (OnComplete) OnComplete(false);
@@ -197,7 +192,7 @@ void ASplineImporter::Import(TFunction<void(bool)> OnComplete)
 			}
 			else
 			{
-				GenerateRegularSplines(ActorOrLandscapeToPlaceSplines, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
+				GenerateRegularSplines(SpawnedActorsPathOverride, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
 			}
 #else
 
@@ -207,7 +202,7 @@ void ASplineImporter::Import(TFunction<void(bool)> OnComplete)
 				if (OnComplete) OnComplete(false);
 				return;
 			}
-			GenerateRegularSplines(ActorOrLandscapeToPlaceSplines, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
+			GenerateRegularSplines(SpawnedActorsPathOverride, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
 
 #endif
 
@@ -220,21 +215,19 @@ void ASplineImporter::Import(TFunction<void(bool)> OnComplete)
 	});
 }
 
-#include "Engine/World.h"
-
 void ASplineImporter::GenerateRegularSplines(
-	AActor *Actor,
+	FName SpawnedActorsPathOverride,
 	FCollisionQueryParams CollisionQueryParams,
 	OGRCoordinateTransformation *OGRTransform,
 	UGlobalCoordinates *GlobalCoordinates,
 	TArray<FPointList> &PointLists
 )
 {
-	UWorld *World = Actor->GetWorld();
+	UWorld *World = GetWorld();
 
 	if (!World)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("NoWorld", "Internal error while creating splines: NULL World pointer.")
 		);
 		return;
@@ -247,11 +240,12 @@ void ASplineImporter::GenerateRegularSplines(
 
 #if WITH_EDITOR
 		SplineOwner->SetActorLabel("SC_" + this->GetActorNameOrLabel());
+		ULCBlueprintLibrary::SetFolderPath2(SplineOwner, SpawnedActorsPathOverride, SpawnedActorsPath);
 #endif
 
 		if (!SplineOwner)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok,
+			ULCReporter::ShowError(
 				LOCTEXT("NoWorld", "Internal error while creating splines. Could not spawn a SplineCollection.")
 			);
 			return;
@@ -280,7 +274,7 @@ void ASplineImporter::GenerateRegularSplines(
 
 			if (!SplineOwner)
 			{
-				FMessageDialog::Open(EAppMsgType::Ok,
+				ULCReporter::ShowError(
 					LOCTEXT("SpawnActorFailed", "Internal error while creating splines. Could not spawn a SplineCollection.")
 				);
 				return;
@@ -288,6 +282,7 @@ void ASplineImporter::GenerateRegularSplines(
 
 #if WITH_EDITOR
 			SplineOwner->SetActorLabel("SC_" + this->GetActorNameOrLabel() + FString::FromInt(i));
+			ULCBlueprintLibrary::SetFolderPath2(SplineOwner, SpawnedActorsPathOverride, SpawnedActorsPath);
 #endif
 
 			SplineOwner->Tags.Add(SplinesTag);
@@ -299,7 +294,7 @@ void ASplineImporter::GenerateRegularSplines(
 			
 			if (!SplineOwner)
 			{
-				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+				ULCReporter::ShowError(FText::Format(
 					LOCTEXT("SpawnActorFailed2", "Internal error while creating splines. Could not spawn {0}."),
 					FText::FromString(ActorToSpawn->GetName())
 				));
@@ -308,6 +303,7 @@ void ASplineImporter::GenerateRegularSplines(
 
 #if WITH_EDITOR
 			SplineOwner->SetActorLabel(SplineOwner->GetActorNameOrLabel() + "_" + FString::FromInt(i));
+			ULCBlueprintLibrary::SetFolderPath2(SplineOwner, SpawnedActorsPathOverride, SpawnedActorsPath);
 #endif
 
 			SplineOwner->Tags.Add(SplinesTag);
@@ -340,7 +336,7 @@ void ASplineImporter::AddRegularSpline(
 		SplineComponent = NewObject<USplineComponent>(SplineOwner);
 		if (!IsValid(SplineComponent))
 		{
-			FMessageDialog::Open(EAppMsgType::Ok,
+			ULCReporter::ShowError(
 				LOCTEXT("SplineComponentFailed", "Could not create SplineComponent.")
 			);
 			return;
@@ -357,7 +353,7 @@ void ASplineImporter::AddRegularSpline(
 		SplineComponent = SplineOwner->GetComponentByClass<USplineComponent>();
 		if (!IsValid(SplineComponent))
 		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			ULCReporter::ShowError(FText::Format(
 				LOCTEXT("SplineComponentFailed", "Could not get valid SplineComponent in {0}."),
 				FText::FromString(ActorToSpawn->GetName())
 			));
@@ -449,7 +445,7 @@ void ASplineImporter::GenerateLandscapeSplines(
 	}
 	else
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("NoLandscapeSplineActor", "Could not create a landscape spline actor for Landscape {0}."),
 				FText::FromString(LandscapeLabel)
@@ -473,7 +469,7 @@ void ASplineImporter::GenerateLandscapeSplines(
 
 	if (!LandscapeSplinesComponent)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("NoLandscapeSplinesComponent", "Could not create a landscape splines component for Landscape {0}."),
 				FText::FromString(LandscapeLabel)
@@ -635,6 +631,34 @@ void ASplineImporter::AddLandscapeSplines(
 		// FIXME: Update is Slow
 		//ControlPoint1->UpdateSplinePoints();
 		//ControlPoint2->UpdateSplinePoints();
+	}
+}
+
+AActor *ASplineImporter::Duplicate(FName FromName, FName ToName)
+{
+	if (ASplineImporter *NewSplineImporter =
+		Cast<ASplineImporter>(GEditor->GetEditorSubsystem<UEditorActorSubsystem>()->DuplicateActor(this)))
+	{
+		NewSplineImporter->ActorOrLandscapeToPlaceSplinesSelection.ActorTag =
+			ULCBlueprintLibrary::ReplaceName(
+				ActorOrLandscapeToPlaceSplinesSelection.ActorTag,
+				FromName,
+				ToName
+			);
+		NewSplineImporter->BoundingActorSelection.ActorTag =
+			ULCBlueprintLibrary::ReplaceName(
+				BoundingActorSelection.ActorTag,
+				FromName,
+				ToName
+			);
+		NewSplineImporter->SplinesTag = ULCBlueprintLibrary::ReplaceName(SplinesTag, FromName, ToName);
+		NewSplineImporter->SplineComponentsTag = ULCBlueprintLibrary::ReplaceName(SplineComponentsTag, FromName, ToName);
+		return NewSplineImporter;
+	}
+	else
+	{
+		ULCReporter::ShowError(LOCTEXT("ASplineImporter::DuplicateActor", "Failed to duplicate actor."));
+		return nullptr;
 	}
 }
 

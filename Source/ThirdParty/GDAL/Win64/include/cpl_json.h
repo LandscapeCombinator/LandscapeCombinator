@@ -260,7 +260,7 @@ class CPL_DLL CPLJSONArray : public CPLJSONObject
     /** Iterator to first element */
     ConstIterator begin() const
     {
-        return ConstIterator(*this, true);
+        return ConstIterator(*this, false);
     }
 
     /** Iterator to after last element */

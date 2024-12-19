@@ -8,6 +8,8 @@
 
 #define LOCTEXT_NAMESPACE "FConcurrencyHelpersModule"
 
+using namespace ConcurrencyOperators;
+
 void Concurrency::RunAsync(TFunction<void()> Action)
 {
 	Async(EAsyncExecution::Thread, [Action]() { Action(); });
@@ -33,7 +35,7 @@ void Concurrency::RunOnGameThread(TFunction<void()> Action)
 		return;
 	}
 	
-    AsyncTask(ENamedThreads::GameThread, [Action]() { Action(); });
+	AsyncTask(ENamedThreads::GameThread, [Action]() { Action(); });
 }
 
 void Concurrency::RunOnGameThreadAndWait(TFunction<void()> Action)
@@ -44,24 +46,24 @@ void Concurrency::RunOnGameThreadAndWait(TFunction<void()> Action)
 		return;
 	}
 
-    FEvent* SyncEvent = FPlatformProcess::GetSynchEventFromPool(false);
-    if (!SyncEvent)
-    {
-        UE_LOG(LogConcurrencyHelpers, Error, TEXT("Failed to create sync event for RunOnGameThreadAndWait."));
-        return;
-    }
+	FEvent* SyncEvent = FPlatformProcess::GetSynchEventFromPool(false);
+	if (!SyncEvent)
+	{
+		UE_LOG(LogConcurrencyHelpers, Error, TEXT("Failed to create sync event for RunOnGameThreadAndWait."));
+		return;
+	}
 
-    AsyncTask(ENamedThreads::GameThread, [Action = MoveTemp(Action), SyncEvent]()
-    {
-        Action();
-        SyncEvent->Trigger();
-    });
+	AsyncTask(ENamedThreads::GameThread, [Action = MoveTemp(Action), SyncEvent]()
+	{
+		Action();
+		SyncEvent->Trigger();
+	});
 
-    SyncEvent->Wait();
-    FPlatformProcess::ReturnSynchEventToPool(SyncEvent);
+	SyncEvent->Wait();
+	FPlatformProcess::ReturnSynchEventToPool(SyncEvent);
 }
 
-TFunction<void(TFunction<void(bool)>)> Concurrency::Combine(TFunction<void(TFunction<void(bool)>)> Action1, TFunction<void(TFunction<void(bool)>)> Action2)
+TFunction<void(TFunction<void(bool)>)> ConcurrencyOperators::operator >> (TFunction<void(TFunction<void(bool)>)> Action1, TFunction<void(TFunction<void(bool)>)> Action2)
 {
 	return [Action1, Action2](TFunction<void(bool)> OnComplete)
 	{
@@ -73,7 +75,7 @@ TFunction<void(TFunction<void(bool)>)> Concurrency::Combine(TFunction<void(TFunc
 	};
 }
 
-TFunction<void(TFunction<void(bool)>)> Concurrency::Pure(TFunction<void()> Action)
+TFunction<void(TFunction<void(bool)>)> Concurrency::Return(TFunction<void()> Action)
 {
 	return [Action](TFunction<void(bool)> OnComplete)
 	{
@@ -82,26 +84,9 @@ TFunction<void(TFunction<void(bool)>)> Concurrency::Pure(TFunction<void()> Actio
 	};
 }
 
-TFunction<void(TFunction<void(bool)>)> Concurrency::CombineLeft(TFunction<void(TFunction<void(bool)>)> Action1, TFunction<void()> Action2)
+TFunction<void(TFunction<void(bool)>)> Concurrency::I(TFunction<void(TFunction<void(bool)>)> Action)
 {
-	return Combine(Action1, Pure(Action2));
-}
-
-TFunction<void(TFunction<void(bool)>)> Concurrency::CombineRight(TFunction<void()> Action1, TFunction<void(TFunction<void(bool)>)> Action2)
-{
-	return Combine(Pure(Action1), Action2);
-}
-
-void Concurrency::ShowDialog(const FText& Message, bool* bShowedDialog)
-{
-	// if we have a null pointer, or a pointer pointing to false, we show the dialog
-	if (!bShowedDialog || !*bShowedDialog)
-	{
-		// if the pointer is non-null, we set its value to true
-		if (bShowedDialog) *bShowedDialog = true;
-
-		FMessageDialog::Open(EAppMsgType::Ok, Message);
-	}
+	return [Action](TFunction<void(bool)> OnComplete) { Action(OnComplete); };
 }
 
 #undef LOCTEXT_NAMESPACE

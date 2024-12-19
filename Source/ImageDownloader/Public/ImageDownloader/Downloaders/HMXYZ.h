@@ -11,7 +11,6 @@ class HMXYZ: public HMFetcher
 {
 public:
 	HMXYZ(
-		bool bSilentMode0,
 		bool bAllowInvalidTiles0,
 		FString Name0, FString Layer0, FString Format0, FString URL0,
 		int Zoom0, int MinX0, int MaxX0, int MinY0, int MaxY0,
@@ -19,7 +18,6 @@ public:
 		bool bUseTerrariumFormula0,
 		FString CRS0)
 	{
-		bSilentMode = bSilentMode0;
 		Name = Name0;
 		Layer = Layer0;
 		Format = Format0;
@@ -39,7 +37,6 @@ public:
 	void Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
 
 private:
-	bool bSilentMode;
 	bool bAllowInvalidTiles;
 	FString Name;
 	FString Layer;

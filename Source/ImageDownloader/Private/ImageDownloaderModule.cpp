@@ -12,8 +12,8 @@ IMPLEMENT_MODULE(FImageDownloaderModule, ImageDownloader)
 
 void FImageDownloaderModule::StartupModule()
 {
-    FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
-    PropertyModule.RegisterCustomClassLayout(ABasicImageDownloader::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FBasicImageDownloaderCustomization::MakeInstance));
+	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
+	PropertyModule.RegisterCustomClassLayout(ABasicImageDownloader::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FBasicImageDownloaderCustomization::MakeInstance));
 }
 
 #endif

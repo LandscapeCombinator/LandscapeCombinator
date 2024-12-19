@@ -24,7 +24,13 @@ public:
 
 	OGRGeometry *Geometry = nullptr;
 
-	void Import(TFunction<void(bool)> OnComplete) override;
+	void OnGenerate(FName SpawnedActorsPathOverride, TFunction<void(bool)> OnComplete) override;
+
+	virtual bool Cleanup_Implementation(bool bSkipPrompt) override { Geometry = nullptr; return true; }
+
+#if WITH_EDITOR
+	virtual AActor* Duplicate(FName FromName, FName ToName) override;
+#endif
 
 protected:
 	virtual void SetOverpassShortQuery() override;

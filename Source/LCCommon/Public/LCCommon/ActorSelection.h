@@ -14,7 +14,7 @@ enum class EActorSelectionMode: uint8 {
 
 
 USTRUCT(BlueprintType)
-struct SPLINEIMPORTER_API FActorSelection
+struct LCCOMMON_API FActorSelection
 {
 	GENERATED_BODY()
 

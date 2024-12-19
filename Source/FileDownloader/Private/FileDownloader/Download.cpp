@@ -3,6 +3,7 @@
 #include "FileDownloader/Download.h"
 #include "FileDownloader/LogFileDownloader.h"
 #include "FileDownloader/FileDownloaderStyle.h"
+#include "LCCommon/LCReporter.h"
 
 #include "ConcurrencyHelpers/Concurrency.h"
 
@@ -208,7 +209,7 @@ void Download::DownloadMany(TArray<FString> URLs, FString Directory, TFunction<v
 
 		if (NumElements == 0)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok,
+			ULCReporter::ShowError(
 				FText::Format(
 					LOCTEXT("Download::DownloadMany", "URL could not be parsed to extract a file name: {0}"),
 					FText::FromString(URL)

@@ -9,14 +9,14 @@ public class BuildingFromSpline : ModuleRules
 	{
 		CppStandard = CppStandardVersion.Cpp20;
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
-        IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
+		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
 
-        PublicDependencyModuleNames.AddRange(
+		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
 				"Core",
-                "GeometryFramework",
-            }
+				"GeometryFramework",
+			}
 		);
 			
 		
@@ -29,16 +29,17 @@ public class BuildingFromSpline : ModuleRules
 				"GeometryCore",
 				"GeometryScriptingCore",
 
-				// Other Dependencies
-				"OSMUserData"
+				// Landscape Combinator Dependencies
+				"OSMUserData",
+				"LCCommon"
 			}
 		);
 
 		if (Target.bBuildEditor)
-        {
-            PrivateDependencyModuleNames.Add("UnrealEd");
-            PrivateDependencyModuleNames.Add("PropertyEditor");
-            PrivateDependencyModuleNames.Add("GeometryScriptingEditor");
+		{
+			PrivateDependencyModuleNames.Add("UnrealEd");
+			PrivateDependencyModuleNames.Add("PropertyEditor");
+			PrivateDependencyModuleNames.Add("GeometryScriptingEditor");
 		}
 
 

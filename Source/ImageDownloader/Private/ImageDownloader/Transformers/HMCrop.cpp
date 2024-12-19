@@ -18,7 +18,7 @@ void HMCrop::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(
 
 	if (InputFiles.Num() != 1)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("HMCrop::Fetch", "Image Downloader Error: The AdaptResolution and CropCoordinates options are not available for sources that are made of multiple images.")
 		);
 		if (OnComplete) OnComplete(false);

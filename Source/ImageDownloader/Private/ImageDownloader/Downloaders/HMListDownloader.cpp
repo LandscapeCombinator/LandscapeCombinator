@@ -4,6 +4,7 @@
 #include "ImageDownloader/Directories.h"
 #include "ConcurrencyHelpers/Concurrency.h"
 #include "FileDownloader/Download.h"
+#include "LCCommon/LCReporter.h"
 #include "GDALInterfaceModule.h"
 
 #include "Interfaces/IPluginManager.h"
@@ -21,7 +22,7 @@ void HMListDownloader::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunc
 	FString FileContent = "";
 	if (!FFileHelper::LoadFileToString(FileContent, *AbsoluteListOfLinks) && !FFileHelper::LoadFileToString(FileContent, *ListOfLinks))
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("HMListDownloader::Fetch", "Could not read file {0}."),
 				FText::FromString(ListOfLinks)
@@ -36,7 +37,7 @@ void HMListDownloader::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunc
 
 	if (Lines0.Num() == 0)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("HMListDownloader::Fetch", "File {0} does not contain any link."),
 				FText::FromString(ListOfLinks)
@@ -58,7 +59,7 @@ void HMListDownloader::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunc
 
 		if (NumElements == 0)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok,
+			ULCReporter::ShowError(
 				FText::Format(
 					LOCTEXT("HMListDownloader::Fetch", "Line {0} is not a valid link."),
 					FText::FromString(ListOfLinks)

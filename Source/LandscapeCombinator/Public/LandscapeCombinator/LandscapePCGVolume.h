@@ -7,19 +7,22 @@
 #include "PCGComponent.h"
 #include "Landscape.h"
 
-#include "SplineImporter/ActorSelection.h"
+#include "LCCommon/ActorSelection.h"
 #include "LandscapeUtils/LandscapeUtils.h"
+#include "LCCommon/LCGenerator.h"
 
 #include "LandscapePCGVolume.generated.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
 UCLASS(BlueprintType)
-class LANDSCAPECOMBINATOR_API ALandscapePCGVolume : public APCGVolume
+class LANDSCAPECOMBINATOR_API ALandscapePCGVolume : public APCGVolume, public ILCGenerator
 {
 	GENERATED_BODY()
 
 public:
+
+	virtual TArray<UObject*> GetGeneratedObjects() const override { return TArray<UObject*>(); }
 
 	ALandscapePCGVolume(const FObjectInitializer& ObjectInitializer) : APCGVolume(ObjectInitializer)
 	{
@@ -46,6 +49,14 @@ public:
 
 	UFUNCTION(CallInEditor, BlueprintCallable, Category = "LandscapePCGVolume")
 	void SetPositionAndBounds();
+
+	virtual void OnGenerate(FName SpawnedActorsPathOverride, TFunction<void(bool)> OnComplete) override;
+
+	virtual bool Cleanup_Implementation(bool bSkipPrompt) override;
+
+#if WITH_EDITOR
+	virtual AActor* Duplicate(FName FromName, FName ToName) override;
+#endif
 };
 
 #undef LOCTEXT_NAMESPACE

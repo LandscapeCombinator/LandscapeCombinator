@@ -75,7 +75,7 @@ void HMAndRunFetcher::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunct
 
 			if (!bSuccessLambda)
 			{
-				FMessageDialog::Open(EAppMsgType::Ok,
+				ULCReporter::ShowError(
 					LOCTEXT("LambdaFail", "Image Downloader Error: There was an error while running lambda in AndRunFetcher.")
 				); 
 			}

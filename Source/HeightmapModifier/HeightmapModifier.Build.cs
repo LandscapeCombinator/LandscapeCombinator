@@ -8,10 +8,10 @@ public class HeightmapModifier : ModuleRules
 	{
 		CppStandard = CppStandardVersion.Cpp20;
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
-        IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
+		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
 
-        // Unreal Dependencies
-        PublicDependencyModuleNames.AddRange(
+		// Unreal Dependencies
+		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
 				"Core",
@@ -29,17 +29,19 @@ public class HeightmapModifier : ModuleRules
 				"Foliage",
 				"Engine",
 				"Landscape",
+				"SlateCore",
 				
-				// Other Dependencies
+				// Landscape Combinator Dependencies
 				"GDALInterface",
 				"LandscapeUtils",
-				"ConsoleHelpers"
+				"ConsoleHelpers",
+				"LCCommon"
 			}
 		);
 
-        if (Target.bBuildEditor)
-        {
-            PrivateDependencyModuleNames.Add("UnrealEd");
-        }
+		if (Target.bBuildEditor)
+		{
+			PrivateDependencyModuleNames.Add("UnrealEd");
+		}
 	}
 }

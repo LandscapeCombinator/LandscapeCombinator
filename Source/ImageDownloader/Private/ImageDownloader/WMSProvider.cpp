@@ -5,6 +5,7 @@
 #include "ImageDownloader/LogImageDownloader.h"
 
 #include "FileDownloader/Download.h"
+#include "LCCommon/LCReporter.h"
 
 #include "Internationalization/Regex.h"
 #include "Internationalization/TextLocalizationResource.h" 
@@ -41,7 +42,7 @@ void FWMSProvider::SetFromURL(FString URL, TArray<FString> ExcludeCRS, TFunction
 			}
 			else
 			{
-				FMessageDialog::Open(EAppMsgType::Ok,
+				ULCReporter::ShowError(
 					FText::Format(
 						LOCTEXT("FWMSProvider::SetURL", "Error while downloading {0}."),
 						FText::FromString(URL)
@@ -58,7 +59,7 @@ bool FWMSProvider::LoadFromFile(TArray<FString> ExcludeCRS, TFunction<bool(FStri
 	CapabilitiesContent = "";
 	if (!FFileHelper::LoadFileToString(CapabilitiesContent, *CapabilitiesFile))
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("FWMSProvider::LoadFromFile", "Could not read file {0}."),
 				FText::FromString(CapabilitiesFile)
@@ -211,7 +212,7 @@ bool FWMSProvider::LoadFromFile(TArray<FString> ExcludeCRS, TFunction<bool(FStri
 
 	if (Titles.IsEmpty())
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("FWMSProvider::LoadFromFile::2", "Could not find any layer in file {0}."),
 				FText::FromString(CapabilitiesFile)
@@ -224,7 +225,7 @@ bool FWMSProvider::LoadFromFile(TArray<FString> ExcludeCRS, TFunction<bool(FStri
 
 	if (GetMapURL.IsEmpty())
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("FWMSProvider::LoadFromFile::GetMapURL", "Could not find GetMapURL in XML capabilities.")
 		);
 		return false;
@@ -294,7 +295,7 @@ bool FWMSProvider::CreateURL(
 	{
 		if (MinLong < MinAllowedLong)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			ULCReporter::ShowError(FText::Format(
 				LOCTEXT("GenericWMSMinLong", "MinLong ({0}) is smaller than MinAllowedLong ({1})"),
 				FText::AsNumber(MinLong),
 				FText::AsNumber(MinAllowedLong)
@@ -303,7 +304,7 @@ bool FWMSProvider::CreateURL(
 		}
 		if (MaxLong > MaxAllowedLong)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			ULCReporter::ShowError(FText::Format(
 				LOCTEXT("GenericWMSMaxLong", "MaxLong ({0}) is larger than MaxAllowedLong ({1})"),
 				FText::AsNumber(MaxLong),
 				FText::AsNumber(MaxAllowedLong)
@@ -312,7 +313,7 @@ bool FWMSProvider::CreateURL(
 		}
 		if (MinLat < MinAllowedLat)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			ULCReporter::ShowError(FText::Format(
 				LOCTEXT("GenericWMSMinLat", "MinLat ({0}) is smaller than MinAllowedLat ({1})"),
 				FText::AsNumber(MinLat),
 				FText::AsNumber(MinAllowedLat)
@@ -321,7 +322,7 @@ bool FWMSProvider::CreateURL(
 		}
 		if (MaxLat > MaxAllowedLat)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			ULCReporter::ShowError(FText::Format(
 				LOCTEXT("GenericWMSMaxLat", "MaxLat ({0}) is larger than MaxAllowedLat ({1})"),
 				FText::AsNumber(MaxLat),
 				FText::AsNumber(MaxAllowedLat)
@@ -332,7 +333,7 @@ bool FWMSProvider::CreateURL(
 
 	if (MinLong >= MaxLong)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		ULCReporter::ShowError(FText::Format(
 			LOCTEXT("MinMaxLong", "MinLong ({0}) is larger than MaxLong ({1})"),
 			FText::AsNumber(MinLong),
 			FText::AsNumber(MaxLong)
@@ -342,7 +343,7 @@ bool FWMSProvider::CreateURL(
 
 	if (MinLong >= MaxLong)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		ULCReporter::ShowError(FText::Format(
 			LOCTEXT("MinMaxLat", "MinLat ({0}) is larger than MaxLat ({1})"),
 			FText::AsNumber(MinLat),
 			FText::AsNumber(MaxLat)
@@ -352,7 +353,7 @@ bool FWMSProvider::CreateURL(
 
 	if (Width <= 0)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("GenericWMSInitErrorNegativeWidth", "The width is not positive.")
 		);
 
@@ -361,7 +362,7 @@ bool FWMSProvider::CreateURL(
 
 	if (MaxWidth != 0 && Width > MaxWidth)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		ULCReporter::ShowError(FText::Format(
 			LOCTEXT("GenericWMSInitErrorLargeWidth", "The width is higher than {0}px, which is not supported by this WMS."),
 			FText::AsNumber(MaxWidth, &FNumberFormattingOptions::DefaultNoGrouping())
 		));
@@ -371,7 +372,7 @@ bool FWMSProvider::CreateURL(
 
 	if (Height <= 0)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("GenericWMSInitErrorNegativeHeight", "The height is not positive.")
 		);
 
@@ -380,7 +381,7 @@ bool FWMSProvider::CreateURL(
 
 	if (MaxHeight != 0 && Height > MaxHeight)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		ULCReporter::ShowError(FText::Format(
 			LOCTEXT("GenericWMSInitErrorLargeHeight", "The height is higher than {0}px, which is not supported by this WMS."),
 			FText::AsNumber(MaxHeight, &FNumberFormattingOptions::DefaultNoGrouping())	
 		));
@@ -390,7 +391,7 @@ bool FWMSProvider::CreateURL(
 
 	if (GetMapURL.IsEmpty())
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("NoWMSProvider", "There is something wrong with the WMS provider (GetMap URL not found), please try to reload it.")
 		);
 		return false;
@@ -398,7 +399,7 @@ bool FWMSProvider::CreateURL(
 
 	if (Name.IsEmpty())
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("NoWMSName", "There is something wrong with the WMS layer name, please try to reload the WMS provider.")
 		);
 		return false;
@@ -406,7 +407,7 @@ bool FWMSProvider::CreateURL(
 
 	if (CRS.IsEmpty())
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("NoWMSCRS", "There is something wrong with the WMS CRS, please try to reload the WMS provider.")
 		);
 		return false;

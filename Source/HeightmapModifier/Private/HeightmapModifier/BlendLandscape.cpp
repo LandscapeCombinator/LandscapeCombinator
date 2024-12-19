@@ -2,7 +2,8 @@
 
 #include "HeightmapModifier/BlendLandscape.h"
 #include "HeightmapModifier/LogHeightmapModifier.h"
-
+#include "LCCommon/LCReporter.h"
+#include "LCCommon/LCSettings.h"
 #include "LandscapeUtils/LandscapeUtils.h"
 
 #include "Kismet/GameplayStatics.h"
@@ -102,7 +103,7 @@ void UBlendLandscape::BlendWithLandscape()
 
 	if (!LandscapeToBlendWith)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("UBlendLandscape::BlendWithLandscape", "Please select a LandscapeToBlendWith")
 		);
 		return;
@@ -110,7 +111,7 @@ void UBlendLandscape::BlendWithLandscape()
 
 	if (LandscapeToBlendWith == Landscape)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("UBlendLandscape::BlendWithLandscape", "Please select a LandscapeToBlendWith different than this one")
 		);
 		return;
@@ -119,7 +120,7 @@ void UBlendLandscape::BlendWithLandscape()
 	FVector2D OtherMinMaxX, OtherMinMaxY, UnusedOtherMinMaxZ;
 	if (!LandscapeUtils::GetLandscapeBounds(LandscapeToBlendWith, OtherMinMaxX, OtherMinMaxY, UnusedOtherMinMaxZ))
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		ULCReporter::ShowError(FText::Format(
 			LOCTEXT("UBlendLandscape::BlendWithLandscape::2", "Could not compute landscape bounds of Landscape {0}."),
 			FText::FromString(LandscapeToBlendWith->GetActorNameOrLabel())
 		));
@@ -158,7 +159,7 @@ void UBlendLandscape::BlendWithLandscape()
 
 		if (OtherSizeX <= 0 || OtherSizeY <= 0)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+			ULCReporter::ShowError(FText::Format(
 				LOCTEXT("UBlendLandscape::BlendWithLandscape::2", "Could not blend with Landscape{0}. Its resolution might be too small."),
 				FText::FromString(LandscapeToBlendWith->GetActorNameOrLabel())
 			));
@@ -218,7 +219,7 @@ void UBlendLandscape::BlendWithLandscape()
 			int OtherLayerIndex = LandscapeToBlendWith->CreateLayer();
 			if (OtherLayerIndex == INDEX_NONE)
 			{
-				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+				ULCReporter::ShowError(FText::Format(
 					LOCTEXT("UHeightmapModifier::ModifyHeightmap::10", "Could not create landscape layer. Make sure that edit layers are enabled on Landscape {0}."),
 					FText::FromString(LandscapeToBlendWith->GetActorNameOrLabel())
 				));
@@ -286,7 +287,7 @@ void UBlendLandscape::BlendWithLandscape()
 			int LayerIndex = Landscape->CreateLayer();
 			if (LayerIndex == INDEX_NONE)
 			{
-				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+				ULCReporter::ShowError(FText::Format(
 					LOCTEXT("UHeightmapModifier::ModifyHeightmap::10", "Could not create landscape layer. Make sure that edit layers are enabled on Landscape {0}."),
 					FText::FromString(Landscape->GetActorNameOrLabel())
 				));
@@ -311,16 +312,20 @@ void UBlendLandscape::BlendWithLandscape()
 			*LandscapeToBlendWith->GetActorNameOrLabel(), OtherX1, OtherX2, OtherY1, OtherY2
 		);
 
-		if (!bSilentMode)
-		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		ULCReporter::ShowMessage(
+			FText::Format(
 				LOCTEXT(
 					"UBlendLandscape::BlendWithLandscape::Finished",
 					"Finished blending with Landscape {0}."
 				),
-				FText::FromString(LandscapeToBlendWith->GetActorNameOrLabel())
-			));
-		}
+				FText::FromString(LandscapeToBlendWith->GetActorNameOrLabel()),
+				false
+			),
+			"SuppressBlendInfoMessages",
+			LOCTEXT("BlendLandscapeFinishedTitle", "Landscape Blending"),
+			false,
+			FAppStyle::GetBrush("Icons.InfoWithColor.Large")
+		);
 		return;
 	}
 	else
@@ -329,7 +334,7 @@ void UBlendLandscape::BlendWithLandscape()
 			*LandscapeToBlendWith->GetActorNameOrLabel(),
 			*Landscape->GetActorNameOrLabel()
 		);
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		ULCReporter::ShowError(FText::Format(
 			LOCTEXT("UBlendLandscape::BlendWithLandscape::Skip", "Skipping blending with Landscape {0}, which does not overlap with Landscape {1}."),
 			FText::FromString(LandscapeToBlendWith->GetActorNameOrLabel()),
 			FText::FromString(Landscape->GetActorNameOrLabel())

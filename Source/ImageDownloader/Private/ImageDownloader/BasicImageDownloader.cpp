@@ -1,6 +1,7 @@
 // Copyright 2023 LandscapeCombinator. All Rights Reserved.
 
 #include "ImageDownloader/BasicImageDownloader.h"
+#include "LCCommon/LCReporter.h"
 
 #include "Misc/MessageDialog.h"
 
@@ -17,7 +18,7 @@ void ABasicImageDownloader::DownloadImages()
 {
 	if (!ImageDownloader)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("ABasicImageDownloader::DownloadImagesForLandscape", "ImageDownloader is not set, you may want to create one, or spawn a new BasicImageDownloader")
 		);
 		return;

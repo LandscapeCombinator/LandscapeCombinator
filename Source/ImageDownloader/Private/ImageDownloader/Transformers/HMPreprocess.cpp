@@ -16,7 +16,7 @@ void HMPreprocess::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction
 {
 	if (!ExternalTool || ExternalTool->Command.IsEmpty())
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("HMPreprocess::Fetch", "Please enter a preprocessing command, or disable the preprocessing phase.")
 		); 
 		if (OnComplete) OnComplete(false);

@@ -12,7 +12,7 @@
 
 void Directories::CouldNotInitializeDirectory(FString Dir)
 {
-	FMessageDialog::Open(EAppMsgType::Ok,
+	ULCReporter::ShowError(
 		FText::Format(
 			LOCTEXT("DirectoryError", "Could not create or clear directory '{0}'."),
 			FText::FromString(Dir)

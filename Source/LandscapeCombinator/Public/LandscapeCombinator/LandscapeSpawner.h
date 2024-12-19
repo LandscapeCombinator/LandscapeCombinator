@@ -6,6 +6,8 @@
 #include "ImageDownloader/ImageDownloader.h"
 
 #include "ConsoleHelpers/ExternalTool.h"
+#include "LCCommon/LCGenerator.h"
+#include "LCCommon/ActorSelection.h"
 
 #include "GenericPlatform/GenericPlatformMisc.h"
 #include "CoreMinimal.h"
@@ -53,23 +55,26 @@ enum class EDecalCreation : uint8
 	MapTiler UMETA(DisplayName = "MapTiler"),
 };
 
+UENUM(BlueprintType)
+enum class ELandscapeKind : uint8
+{
+	Landscape,
+	DynamicMesh
+};
+
 UCLASS(BlueprintType)
-class LANDSCAPECOMBINATOR_API ALandscapeSpawner : public AActor
+class LANDSCAPECOMBINATOR_API ALandscapeSpawner : public AActor, public ILCGenerator
 {
 	GENERATED_BODY()
 
 public:
 	ALandscapeSpawner();
 
+	virtual TArray<UObject*> GetGeneratedObjects() const override;
+
 	/********************
 	 * General Settings *
 	 ********************/
-
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Meta",
-		meta = (DisplayPriority = "-1")
-	)
-	bool bSilentMode = false;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "General",
@@ -106,7 +111,29 @@ public:
 	/* If you are using World Partition, check this option if you want to create landscape streaming proxies. */
 	/* This is useful if you have a large landscape, but it might slow things down for small landscapes. */
 	bool bCreateLandscapeStreamingProxies = false;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "General",
+		meta = (DisplayPriority = "4")
+	)
+	/* Folder used to spawn the actors. This setting is unused when generating from a combination or from blueprints. */
+	FName SpawnedActorsPath;
 	
+	/************
+	 * Blending *
+	 ************/
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Blending",
+		meta = (DisplayPriority = "0")
+	)
+	bool bBlendLandscapeWithAnotherLandscape = false;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Blending",
+		meta = (EditCondition = "bBLendLandscapeWithAnotherLandscape", EditConditionHides, DisplayPriority = "1")
+	)
+	FActorSelection LandscapeToBlendWith;
 
 	/**********
 	 * Decals *
@@ -211,17 +238,21 @@ public:
 
 	/* Spawn the Landscape. */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeSpawner",
-		meta = (DisplayPriority = "0")
+		meta = (DisplayPriority = "-1")
 	)
-	void SpawnLandscape();
+	void SpawnLandscape() { SpawnLandscape(SpawnedActorsPath, nullptr); };
 
-	void SpawnLandscape(TFunction<void(ALandscape*)> OnComplete);
+	void SpawnLandscape(FName SpawnedActorsPathOverride, TFunction<void(ALandscape*)> OnComplete);
+	virtual void OnGenerate(FName SpawnedActorsPathOverride, TFunction<void(bool)> OnComplete) override;
+
+	virtual bool Cleanup_Implementation(bool bSkipPrompt) override { return DeleteGeneratedObjects(bSkipPrompt); }
+	virtual AActor* Duplicate(FName FromName, FName ToName) override;
 
 #endif
 	
-	/* Delete the previously spawned landscape. */
+	/* Delete the previously spawned landscape and decal. */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeSpawner",
-		meta = (DisplayPriority = "1")
+		meta = (DisplayPriority = "0")
 	)
 	void DeleteLandscape();
 
@@ -284,6 +315,12 @@ public:
 		meta = (EditCondition = "false", EditConditionHides)
 	)
 	TWeakObjectPtr<ALandscape> SpawnedLandscape = nullptr;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, DuplicateTransient, Category = "LandscapeSpawner",
+		meta = (EditCondition = "false", EditConditionHides)
+	)
+	TArray<ALandscapeStreamingProxy*> SpawnedLandscapeStreamingProxies;
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, DuplicateTransient, Category = "LandscapeSpawner",

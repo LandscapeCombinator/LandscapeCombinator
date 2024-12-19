@@ -9,6 +9,8 @@
 #include "FileDownloader/Download.h"
 #include "GDALInterface/GDALInterface.h"
 #include "MapboxHelpers/MapboxHelpers.h"
+#include "LCCommon/LCReporter.h"
+#include "LCCommon/LCSettings.h"
 
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
@@ -31,7 +33,7 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 
 	if (!bGeoreferenceSlippyTiles && CRS.IsEmpty())
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("HMXYZ::Fetch::CRS", "Please provide a valid CRS for your XYZ tiles.")
 		);
 		if (OnComplete) OnComplete(false);
@@ -49,7 +51,7 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 	
 	if (MinX > MaxX || MinY > MaxY)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+		ULCReporter::ShowError(FText::Format(
 			LOCTEXT("HMXYZ::Fetch::Tiles", "For XYZ tiles, MinX ({0}) must be <= than MaxX ({1}), and MinY ({2}) must be <= MaxY ({3})."),
 			FText::AsNumber(MinX),
 			FText::AsNumber(MaxX),
@@ -62,18 +64,19 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 
 	int NumTiles = (MaxX - MinX + 1) * (MaxY - MinY + 1);
 
-	if (!bSilentMode && NumTiles > 16)
+	if (NumTiles >= 100)
 	{
-		EAppReturnType::Type UserResponse = FMessageDialog::Open(EAppMsgType::OkCancel,
+		if (!ULCReporter::ShowMessage(
 			FText::Format(
 				LOCTEXT(
-					"HMXYZ::Fetch::ManyTiles",
-					"Your parameters require downloading and processing {0} tiles.\nPress OK if you want to continue, or Cancel."
+					"ManyTiles",
+					"Your parameters require downloading and processing a lot of tiles ({0}).\nContinue?"
 				),
 				FText::AsNumber(NumTiles)
-			)
-		);
-		if (UserResponse == EAppReturnType::Cancel)
+			),
+			"SuppressManyTilesWarning",
+			LOCTEXT("ManyTilesTitle", "Many Tiles Warning")
+		))
 		{
 			if (OnComplete) OnComplete(false);
 			return;
@@ -84,7 +87,7 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 	{
 		if (!Console::ExecProcess(TEXT("7z"), TEXT(""), false, false))
 		{
-			FMessageDialog::Open(EAppMsgType::Ok,
+			ULCReporter::ShowError(
 				LOCTEXT(
 					"MissingRequirement",
 					"Please make sure 7z is installed on your computer and available in your PATH if you want to use a compressed format."
@@ -105,6 +108,8 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 		)
 	);
 	Task->MakeDialog();
+
+	UE_LOG(LogImageDownloader, Log, TEXT("Downloading and Georeferencing %d tiles"), NumTiles);
 
 	Concurrency::RunMany(
 		NumTiles,
@@ -136,7 +141,7 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 							DecodedFile = FPaths::Combine(Directories::DownloadDir(), FString::Format(TEXT("{0}-{1}-{2}-{3}-decoded.{4}"), { Layer, Zoom, X, Y, Format }));
 							if (!MapboxHelpers::DecodeMapboxThreeBands(DownloadFile, DecodedFile, bUseTerrariumFormula, bShowedDialog))
 							{
-								Concurrency::ShowDialog(
+								ULCReporter::ShowOneError(
 									FText::Format(
 										LOCTEXT("HMXYZ::Fetch::Decode", "Could not decode file {0}."),
 										FText::FromString(DownloadFile)
@@ -166,7 +171,7 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 
 							if (TileFiles.Num() != 1)
 							{
-								Concurrency::ShowDialog(
+								ULCReporter::ShowOneError(
 									FText::Format(
 										LOCTEXT("HMXYZ::Fetch::Extract", "Expected one {0} file inside the archive {1}, but found {2}."),
 										FText::FromString(ImageFormat),
@@ -217,9 +222,9 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 			);
 		},
 
-		[OnComplete, Task, bShowedDialog](bool bSuccess)
+		[OnComplete, Task, bShowedDialog, NumTiles](bool bSuccess)
 		{
-			AsyncTask(ENamedThreads::GameThread, [Task]() { Task->Destroy(); });
+			Concurrency::RunOnGameThread([Task]() { Task->Destroy(); });
 			if (bShowedDialog) delete(bShowedDialog);
 			if (OnComplete) OnComplete(bSuccess);
 		}

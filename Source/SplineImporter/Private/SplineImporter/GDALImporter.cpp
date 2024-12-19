@@ -7,6 +7,7 @@
 #include "LandscapeUtils/LandscapeUtils.h"
 #include "GDALInterface/GDALInterface.h"
 #include "OSMUserData/OSMUserData.h"
+#include "LCCommon/LCReporter.h"
 
 #include "LandscapeSplineActor.h"
 #include "ILandscapeSplineInterface.h"
@@ -72,7 +73,7 @@ void AGDALImporter::LoadGDALDatasetFromShortQuery(FString ShortQuery, TFunction<
 		BoundingActor->GetActorBounds(true, Origin, BoxExtent);
 		if (!ALevelCoordinates::GetCRSCoordinatesFromOriginExtent(BoundingActor->GetWorld(), Origin, BoxExtent, "EPSG:4326", Coordinates))
 		{
-			FMessageDialog::Open(EAppMsgType::Ok,
+			ULCReporter::ShowError(
 				LOCTEXT("LoadGDALDatasetFromShortQuery2", "Internal error while reading coordinates. Make sure that your level coordinates are valid.")
 			);
 			if (OnComplete) OnComplete(nullptr);

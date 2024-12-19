@@ -64,11 +64,12 @@ public class GDALInterface : ModuleRules
 				"InputCore",
 				"CoreUObject",
 				"Engine",
-                "HTTP",
-                "Projects",
+				"HTTP",
+				"Projects",
 
-				// Other Dependencies
+				// Landscape Combinator Dependencies
 				"FileDownloader",
+				"LCCommon"
 			}
 		);
 	}

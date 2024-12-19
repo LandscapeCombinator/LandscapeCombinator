@@ -8,10 +8,10 @@ public class ImageDownloader : ModuleRules
 	{
 		CppStandard = CppStandardVersion.Cpp20;
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
-        IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
+		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
 
-        // Unreal Dependencies
-        PublicDependencyModuleNames.AddRange(
+		// Unreal Dependencies
+		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
 				"Core",
@@ -29,17 +29,17 @@ public class ImageDownloader : ModuleRules
 				"HTTP",
 				"Projects",
 				"Landscape",
-                "DeveloperSettings",
 
 				// Landscape Combinator Dependencies
-                "Coordinates",
-                "GDALInterface",
-                "FileDownloader",
-                "ConcurrencyHelpers",
-                "ConsoleHelpers",
+				"Coordinates",
+				"GDALInterface",
+				"FileDownloader",
+				"ConcurrencyHelpers",
+				"ConsoleHelpers",
 				"LandscapeUtils",
-				"MapboxHelpers"
-            }
+				"MapboxHelpers",
+				"LCCommon"
+			}
 		);
 	}
 }

@@ -92,21 +92,33 @@ public:
 	)
 	FVector SplinePointsOffset;
 
-	void Import(TFunction<void(bool)> OnComplete) override;
+	void OnGenerate(FName SpawnedActorsPathOverride, TFunction<void(bool)> OnComplete) override;
+	
+	UPROPERTY(
+		EditAnywhere, DuplicateTransient, Category = "GDALImporter",
+		meta = (EditCondition = "false", EditConditionHides)
+	)
+	TArray<TWeakObjectPtr<AActor>> SplineOwners;
 
-	void Clear() override;
+	virtual TArray<UObject*> GetGeneratedObjects() const {
+		TArray<UObject*> GeneratedObjects;
+		for (const TWeakObjectPtr<AActor>& SplineOwner : SplineOwners)
+		{
+			if (SplineOwner.IsValid())
+			{
+				GeneratedObjects.Add(SplineOwner.Get());
+			}
+		}
+		return GeneratedObjects;
+	}
+
+	virtual bool Cleanup_Implementation(bool bSkipPrompt) override { return DeleteGeneratedObjects(bSkipPrompt); }
 
 protected:
 	virtual void SetOverpassShortQuery() override;
 
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, DuplicateTransient, Category = "GDALImporter",
-		meta = (EditCondition = "false", EditConditionHides)
-	)
-	TArray<TObjectPtr<AActor>> SplineOwners;
-
 	void GenerateRegularSplines(
-		AActor *Actor,
+		FName SpawnedActorsPathOverride,
 		FCollisionQueryParams CollisionQueryParams,
 		OGRCoordinateTransformation *OGRTransform,
 		UGlobalCoordinates *GlobalCoordinates,
@@ -149,6 +161,8 @@ protected:
 		FPointList& PointList,
 		TMap<FVector2D, ULandscapeSplineControlPoint*>& Points
 	);
+
+	virtual AActor* Duplicate(FName FromName, FName ToName) override;
 #endif
 
 };

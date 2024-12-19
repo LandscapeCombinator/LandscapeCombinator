@@ -4,6 +4,8 @@
 #include "BuildingFromSpline/Building.h"
 #include "BuildingFromSpline/LogBuildingFromSpline.h"
 #include "OSMUserData/OSMUserData.h"
+#include "LCCommon/LCReporter.h"
+#include "LCCommon/LCBlueprintLibrary.h"
 
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
@@ -31,6 +33,7 @@
 
 #include "GeometryScript/CreateNewAssetUtilityFunctions.h"
 #include "Editor/EditorEngine.h"
+
 extern UNREALED_API class UEditorEngine* GEditor;
 
 #endif
@@ -82,65 +85,31 @@ ABuilding::ABuilding() : AActor()
 	BuildingConfiguration = CreateDefaultSubobject<UBuildingConfiguration>(TEXT("Building Configuration"));
 }
 
-void ABuilding::DeleteBuilding()
+bool ABuilding::Cleanup_Implementation(bool bSkipPrompt)
 {
-	DestroySplineMeshComponents();
-	DestroyInstancedStaticMeshComponents();
-	
-	if (IsValid(StaticMeshComponent))
-	{
-		RemoveInstanceComponent(StaticMeshComponent);
-		StaticMeshComponent->DestroyComponent();
-		StaticMeshComponent = nullptr;
-	}
-	
+	if (!DeleteGeneratedObjects(bSkipPrompt)) return false;
+
 	if (IsValid(DynamicMeshComponent))
 	{
 		DynamicMeshComponent->SetNumMaterials(0);
 		DynamicMeshComponent->GetDynamicMesh()->Reset();
 	}
 
-	if (Volume.IsValid())
-	{
-		Volume->Destroy();
-		Volume = nullptr;
-	}
-}
-
-void ABuilding::DestroySplineMeshComponents()
-{
-	TRACE_CPUPROFILER_EVENT_SCOPE_STR("DestroySplineMeshComponents");
-
-	for (auto& SplineMeshComponent : SplineMeshComponents)
-	{
-		if (IsValid(SplineMeshComponent))
-		{
-			RemoveInstanceComponent(SplineMeshComponent);
-			SplineMeshComponent->DestroyComponent();
-		}
-	}
+	Volume = nullptr;
 	SplineMeshComponents.Empty();
+	InstancedStaticMeshComponents.Empty();
+
+	return true;
 }
 
-void ABuilding::DestroyInstancedStaticMeshComponents()
+void ABuilding::DeleteBuilding()
 {
-	TRACE_CPUPROFILER_EVENT_SCOPE_STR("DestroyInstancedStaticMeshComponents");
-
-	for (auto& InstancedStaticMeshComponent : InstancedStaticMeshComponents)
-	{
-		if (IsValid(InstancedStaticMeshComponent))
-		{
-			RemoveInstanceComponent(InstancedStaticMeshComponent);
-			InstancedStaticMeshComponent->ClearInstances();
-			InstancedStaticMeshComponent->DestroyComponent();
-		}
-	}
-	InstancedStaticMeshComponents.Empty();
+	Execute_Cleanup(this, true);
 }
 
 void ABuilding::Destroyed()
 {
-	DeleteBuilding();
+	Execute_Cleanup(this, true);
 	Super::Destroyed();
 }
 
@@ -1251,39 +1220,44 @@ void ABuilding::SetReceivesDecals()
 
 	for (auto& SplineMeshComponent : SplineMeshComponents)
 	{
-		if (IsValid(SplineMeshComponent)) SplineMeshComponent->bReceivesDecals = BuildingConfiguration->bBuildingReceiveDecals;
+		if (SplineMeshComponent.IsValid()) SplineMeshComponent->bReceivesDecals = BuildingConfiguration->bBuildingReceiveDecals;
 	}
 
 	for (auto& InstancedStaticMeshComponent : InstancedStaticMeshComponents)
 	{
-		if (IsValid(InstancedStaticMeshComponent)) InstancedStaticMeshComponent->bReceivesDecals = BuildingConfiguration->bBuildingReceiveDecals;
+		if (InstancedStaticMeshComponent.IsValid()) InstancedStaticMeshComponent->bReceivesDecals = BuildingConfiguration->bBuildingReceiveDecals;
 	}
 }
 
 void ABuilding::GenerateBuilding()
 {
+	GenerateBuilding_Internal(SpawnedActorsPath);
+}
+
+bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)
+{
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("GenerateBuilding");
 
-	if (bIsGenerating) return;
+	if (bIsGenerating) return false;
 
 	bIsGenerating = true;
 	
-	DeleteBuilding();
+	Execute_Cleanup(this, false);
 
 	if (!IsValid(BuildingConfiguration))
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("NoBuildingConfiguration", "Internal Error: BuildingConfiguration is null.")
 		);
-		return;
+		return false;
 	}
 
 	if (!IsValid(DynamicMeshComponent))
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("NoBuildingConfiguration", "Internal Error: DynamicMeshComponent is null.")
 		);
-		return;
+		return false;
 	}
 
 	bool bFetchFromUserData = BuildingConfiguration->AutoComputeNumFloors();
@@ -1293,10 +1267,30 @@ void ABuilding::GenerateBuilding()
 		BuildingConfiguration->NumFloors = UKismetMathLibrary::RandomIntegerInRange(BuildingConfiguration->MinNumFloors, BuildingConfiguration->MaxNumFloors);
 	}
 	
-	AppendBuilding(DynamicMeshComponent->GetDynamicMesh());
+	AppendBuilding(DynamicMeshComponent->GetDynamicMesh(), SpawnedActorsPathOverride);
 	SetReceivesDecals();
 
 	bIsGenerating = false;
+	return true;
+}
+
+void ABuilding::OnGenerate(FName SpawnedActorsPathOverride, TFunction<void(bool)> OnComplete)
+{
+	bool bSuccess = GenerateBuilding_Internal(SpawnedActorsPathOverride);
+	OnComplete(bSuccess);
+}
+
+TArray<UObject *> ABuilding::GetGeneratedObjects() const
+{
+	TArray<UObject*> Result;
+	for (auto& Component : InstancedStaticMeshComponents)
+		if (Component.IsValid()) Result.Add(Component.Get());
+
+	for (auto& Component : SplineMeshComponents)
+		if (Component.IsValid()) Result.Add(Component.Get());
+
+	if (Volume.IsValid()) Result.Add(Volume.Get());
+	return Result;
 }
 
 void ABuilding::AddWindowsMeshes(FWindowsSpecification &WindowsSpecification, int i)
@@ -1442,7 +1436,7 @@ void ABuilding::AppendBuildingStructure(UDynamicMesh* TargetMesh)
 	}
 }
 
-void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
+void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh, FName SpawnedActorsPathOverride)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendBuilding");
 
@@ -1479,7 +1473,7 @@ void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 
 	if (BuildingConfiguration->bConvertToVolume)
 	{
-		GenerateVolume();
+		GenerateVolume(SpawnedActorsPathOverride);
 	}
 
 	if (BuildingConfiguration->bConvertToStaticMesh || BuildingConfiguration->bConvertToVolume)
@@ -1517,13 +1511,6 @@ void ABuilding::AppendBuilding(UDynamicMesh* TargetMesh)
 
 #if WITH_EDITOR
 
-void ABuilding::ConvertToStaticMesh()
-{
-	TRACE_CPUPROFILER_EVENT_SCOPE_STR("ConvertToStaticMesh");
-	GenerateStaticMesh();
-	DynamicMeshComponent->GetDynamicMesh()->Reset();
-}
-
 void ABuilding::GenerateStaticMesh()
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("GenerateStaticMesh");
@@ -1541,7 +1528,7 @@ void ABuilding::GenerateStaticMesh()
 
 		if (Outcome != EGeometryScriptOutcomePins::Success)
 		{
-			FMessageDialog::Open(EAppMsgType::Ok,
+			ULCReporter::ShowError(
 				LOCTEXT("StaticMeshError", "Internal error while creating unique asset path name.")
 			);
 			return;
@@ -1555,7 +1542,7 @@ void ABuilding::GenerateStaticMesh()
 
 	if (Outcome != EGeometryScriptOutcomePins::Success || !StaticMesh)
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("StaticMeshError", "Internal error while creating static mesh for building. You may want to regenerate the building.")
 		);
 		return;
@@ -1582,15 +1569,7 @@ void ABuilding::GenerateStaticMesh()
 	AddInstanceComponent(StaticMeshComponent);
 }
 
-void ABuilding::ConvertToVolume()
-{
-	TRACE_CPUPROFILER_EVENT_SCOPE_STR("ConvertToVolume");
-
-	GenerateVolume();
-	DynamicMeshComponent->GetDynamicMesh()->Reset();
-}
-
-void ABuilding::GenerateVolume()
+void ABuilding::GenerateVolume(FName SpawnedActorsPathOverride)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("GenerateVolume");
 
@@ -1611,13 +1590,13 @@ void ABuilding::GenerateVolume()
 
 	if (Outcome != EGeometryScriptOutcomePins::Success || !Volume.IsValid())
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("StaticMeshError", "Internal error while creating volume.")
 		);
 		return;
 	}
 	
-	Volume->SetFolderPath(FName(this->GetFolderPath().ToString() + "Volume"));
+	ULCBlueprintLibrary::SetFolderPath2(Volume.Get(), SpawnedActorsPathOverride, SpawnedActorsPath);
 
 	UOSMUserData *BuildingOSMUserData = Cast<UOSMUserData>(this->GetRootComponent()->GetAssetUserDataOfClass(UOSMUserData::StaticClass()));
 	UOSMUserData *VolumeOSMUserData = NewObject<UOSMUserData>(Volume->GetRootComponent());

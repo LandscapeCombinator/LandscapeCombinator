@@ -20,7 +20,7 @@ void HMDegreeFilter::Fetch(FString InputCRS, TArray<FString> InputFiles, TFuncti
 
 	if (OutputFiles.IsEmpty())
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		ULCReporter::ShowError(
 			LOCTEXT("HMDegreeFilter", "No files left after Viewfinder Panoramas filtering. Check your MinLong, MaxLong, MinLat, MaxLat values.")
 		); 
 		if (OnComplete) OnComplete(false);
