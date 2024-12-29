@@ -3,6 +3,7 @@
 #include "ImageDownloader/Downloaders/HMViewfinderDownloader.h"
 #include "ConsoleHelpers/Console.h"
 #include "ImageDownloader/Directories.h"
+#include "LCCommon/LCReporter.h"
 
 #include "ConcurrencyHelpers/Concurrency.h"
 #include "FileDownloader/Download.h"

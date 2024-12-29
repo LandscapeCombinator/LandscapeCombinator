@@ -4,6 +4,7 @@
 #include "ImageDownloader/TilesCounter.h"
 #include "ImageDownloader/Directories.h"
 #include "ImageDownloader/LogImageDownloader.h"
+#include "LCCommon/LCReporter.h"
 
 #include "GDALInterface/GDALInterface.h"
 

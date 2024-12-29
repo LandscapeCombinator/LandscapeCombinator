@@ -4,6 +4,7 @@
 #include "ImageDownloader/Directories.h"
 #include "ImageDownloader/LogImageDownloader.h"
 #include "GDALInterface/GDALInterface.h"
+#include "LCCommon/LCReporter.h"
 
 #include "HAL/PlatformFile.h"
 #include "Misc/ScopedSlowTask.h"

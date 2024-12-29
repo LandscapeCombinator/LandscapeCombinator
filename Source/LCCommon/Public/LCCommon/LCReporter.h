@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Kismet/BlueprintFunctionLibrary.h"
+#include "Styling/AppStyle.h"
 #include "LCReporter.generated.h"
 
 UCLASS()

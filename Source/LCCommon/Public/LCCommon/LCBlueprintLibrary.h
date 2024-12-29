@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Kismet/BlueprintFunctionLibrary.h"
+#include "GameFramework/Actor.h"
 #include "LCBlueprintLibrary.generated.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"

@@ -244,12 +244,12 @@ Remove-Item -Force -Recurse "*UE$EngineVersion*.zip"
 
 foreach($Plugin in
     @(
-        "LandscapeCombinator",
-        "ImageDownloader",
-        "BuildingFromSpline",
-        "SplineImporter",
-        "Coordinates",
-        "HeightmapModifier"
+        "LandscapeCombinator"
+        # "ImageDownloader",
+        # "BuildingFromSpline",
+        # "SplineImporter",
+        # "Coordinates",
+        # "HeightmapModifier"
     ))
 {
     New-Archive -Plugin $Plugin;

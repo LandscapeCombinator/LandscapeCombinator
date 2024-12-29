@@ -37,6 +37,7 @@
 #include "ImageDownloader/Transformers/HMFunction.h"
 
 #include "LCCommon/LCReporter.h"
+#include "LCCommon/LCSettings.h"
 #include "Coordinates/LevelCoordinates.h"
 #include "LandscapeUtils/LandscapeUtils.h"
 

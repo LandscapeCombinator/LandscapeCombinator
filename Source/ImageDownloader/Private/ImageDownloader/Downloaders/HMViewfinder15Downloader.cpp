@@ -1,6 +1,7 @@
 // Copyright 2023 LandscapeCombinator. All Rights Reserved.
 
 #include "ImageDownloader/Downloaders/HMViewfinder15Downloader.h"
+#include "LCCommon/LCReporter.h"
 #include "Misc/MessageDialog.h"
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"

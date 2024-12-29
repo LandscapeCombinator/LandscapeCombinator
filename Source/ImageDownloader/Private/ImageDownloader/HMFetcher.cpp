@@ -3,6 +3,7 @@
 #include "ImageDownloader/HMFetcher.h"
 #include "ImageDownloader/LogImageDownloader.h"
 #include "ConcurrencyHelpers/Concurrency.h"
+#include "LCCommon/LCReporter.h"
 
 #include "Interfaces/IPluginManager.h"
 #include "Kismet/GameplayStatics.h"
