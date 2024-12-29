@@ -2,6 +2,7 @@
 
 #include "ImageDownloader/HMDebugFetcher.h"
 #include "ImageDownloader/LogImageDownloader.h"
+#include "LCCommon/LCReporter.h"
 
 #include "Async/Async.h"
 #include "Misc/MessageDialog.h"

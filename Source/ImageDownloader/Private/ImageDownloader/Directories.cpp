@@ -2,6 +2,7 @@
 
 #include "ImageDownloader/Directories.h"
 #include "ImageDownloader/LogImageDownloader.h"
+#include "LCCommon/LCReporter.h"
 
 #include "HAL/PlatformFile.h"
 #include "Misc/MessageDialog.h"

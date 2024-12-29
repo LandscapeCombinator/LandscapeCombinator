@@ -6,7 +6,10 @@
 #include "UObject/Interface.h"
 #include "Delegates/Delegate.h"
 #include "Kismet/BlueprintAsyncActionBase.h"
+
+#if WITH_EDITOR
 #include "Subsystems/EditorActorSubsystem.h"
+#endif
 
 #include "LCGenerator.generated.h"
 
@@ -47,9 +50,11 @@ public:
 	bool Cleanup(bool bSkipPrompt);
 
 	bool DeleteGeneratedObjects(bool bSkipPrompt);
-	void ChangeRootPath(FName FromRootPath, FName ToRootPath);
 
 #if WITH_EDITOR
+
+	void ChangeRootPath(FName FromRootPath, FName ToRootPath);
+
 	virtual AActor* Duplicate(FName FromName, FName ToName)
 	{
 		return GEditor->GetEditorSubsystem<UEditorActorSubsystem>()->DuplicateActor(Cast<AActor>(this));

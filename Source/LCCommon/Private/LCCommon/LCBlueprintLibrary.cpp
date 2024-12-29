@@ -1,9 +1,8 @@
 // Copyright 2023 LandscapeCombinator. All Rights Reserved.
 
 #include "LCCommon/LCBlueprintLibrary.h"
-
+#include "EngineUtils.h"
 #include "Kismet/GameplayStatics.h"
-#include "Engine.h"
 
 #if WITH_EDITOR
 #include "EditorActorFolders.h"

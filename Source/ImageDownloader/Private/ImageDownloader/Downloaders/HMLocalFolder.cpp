@@ -2,6 +2,7 @@
 
 #include "ImageDownloader/Downloaders/HMLocalFolder.h"
 #include "ImageDownloader/LogImageDownloader.h"
+#include "LCCommon/LCReporter.h"
 
 #include "HAL/FileManagerGeneric.h"
 #include "Misc/MessageDialog.h"

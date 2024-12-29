@@ -1,6 +1,7 @@
 // Copyright 2023 LandscapeCombinator. All Rights Reserved.
 
 #include "ImageDownloader/Transformers/HMDegreeFilter.h"
+#include "LCCommon/LCReporter.h"
 #include "Misc/MessageDialog.h"
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"

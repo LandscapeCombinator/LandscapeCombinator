@@ -1,6 +1,9 @@
 #include "LCCommon/LCReporter.h"
 #include "Misc/MessageDialog.h"
+
+#if WITH_EDITOR
 #include "Dialogs/Dialogs.h"
+#endif
 
 #define LOCTEXT_NAMESPACE "FLCCommonModule"
 

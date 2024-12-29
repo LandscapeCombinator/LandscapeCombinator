@@ -2,6 +2,7 @@
 
 #include "ImageDownloader/Transformers/HMReadCRS.h"
 #include "ImageDownloader/LogImageDownloader.h"
+#include "LCCommon/LCReporter.h"
 
 #include "GDALInterface/GDALInterface.h"
 #include "Misc/MessageDialog.h"

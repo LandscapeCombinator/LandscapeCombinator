@@ -2,6 +2,7 @@
 
 #include "ImageDownloader/Downloaders/HMLocalFile.h"
 #include "ImageDownloader/LogImageDownloader.h"
+#include "LCCommon/LCReporter.h"
 
 #include "Misc/MessageDialog.h"
 #include "Misc/Paths.h"

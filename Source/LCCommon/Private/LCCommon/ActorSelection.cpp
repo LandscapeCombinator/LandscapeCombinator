@@ -1,6 +1,7 @@
 // Copyright 2023 LandscapeCombinator. All Rights Reserved.
 
 #include "LCCommon/ActorSelection.h"
+#include "LCCommon/LCReporter.h"
 
 #include "CoreMinimal.h"
 #include "Kismet/GameplayStatics.h"

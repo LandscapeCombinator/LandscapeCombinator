@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Kismet/BlueprintAsyncActionBase.h"
+#include "LCCommon/LCGenerator.h"
 #include "NodeGenerator.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FSuccessDelegate);

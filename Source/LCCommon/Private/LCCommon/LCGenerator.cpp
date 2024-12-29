@@ -53,6 +53,8 @@ bool ILCGenerator::DeleteGeneratedObjects(bool bSkipPrompt)
 	return true;
 }
 
+#if WITH_EDITOR
+
 void ILCGenerator::ChangeRootPath(FName FromRootPath, FName ToRootPath)
 {
 	TArray<UObject*> GeneratedObjects = GetGeneratedObjects();
@@ -69,5 +71,7 @@ void ILCGenerator::ChangeRootPath(FName FromRootPath, FName ToRootPath)
 		}
 	}
 }
+
+#endif
 
 #undef LOCTEXT_NAMESPACE

@@ -100,6 +100,8 @@ bool ALandscapeCombination::Cleanup_Implementation(bool bSkipPrompt)
 	return true;
 }
 
+#if WITH_EDITOR
+
 AActor* ALandscapeCombination::Duplicate(FName FromName, FName ToName)
 {
 	if (ALandscapeCombination *NewCombination =
@@ -141,5 +143,7 @@ AActor* ALandscapeCombination::Duplicate(FName FromName, FName ToName)
 		return nullptr;
 	}
 }
+
+#endif
 
 #undef LOCTEXT_NAMESPACE
