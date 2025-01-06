@@ -473,6 +473,49 @@ bool GDALInterface::GetMinMax(FVector2D &MinMax, TArray<FString> Files)
 	return true;
 }
 
+FString GDALInterface::GetColorInterpretation(const FString &File)
+{
+	GDALDataset *Dataset = (GDALDataset *)GDALOpen(TCHAR_TO_UTF8(*File), GA_ReadOnly);
+	if (!Dataset) {
+		ULCReporter::ShowError(
+			FText::Format(LOCTEXT("GetColorInterpretationError", "Could not open file '{0}' to read color interpretation.\n{1}"),
+				FText::FromString(File),
+				FText::FromString(FString(CPLGetLastErrorMsg()))
+			)
+		);
+		return "";
+	}
+
+	if (Dataset->GetRasterCount() < 1)
+	{
+		ULCReporter::ShowError(
+			FText::Format(LOCTEXT("GetColorInterpretationError2", "File '{0}' should have at least one band to read color interpretation"),
+				FText::FromString(File)
+			)
+		);
+		GDALClose(Dataset);
+		return "";
+	}
+
+	GDALRasterBand* Band = Dataset->GetRasterBand(1);
+	if (!Band) {
+		ULCReporter::ShowError(
+			FText::Format(LOCTEXT("GetColorInterpretationError3", "Could not get band for file '{0}'"),
+				FText::FromString(File),
+				FText::FromString(FString(CPLGetLastErrorMsg()))
+			)
+		);
+		GDALClose(Dataset);
+		return "";
+	}
+
+	GDALColorInterp ColorInterp = Band->GetColorInterpretation();
+	const char* ColorInterpName = GDALGetColorInterpretationName(ColorInterp);
+	GDALClose(Dataset);
+
+	return FString(ColorInterpName);
+}
+
 bool GDALInterface::ConvertToPNG(FString SourceFile, FString TargetFile, int MinAltitude, int MaxAltitude, int PrecisionPercent)
 {
 	TArray<FString> Args;
@@ -560,7 +603,7 @@ bool GDALInterface::Translate(FString SourceFile, FString TargetFile, TArray<FSt
 	if (!DstDataset)
 	{
 		FString Error = FString(CPLGetLastErrorMsg());
-		UE_LOG(LogGDALInterface, Error, TEXT("Error while translating: %s to %s:\n"), *SourceFile, *TargetFile, *Error);
+		UE_LOG(LogGDALInterface, Error, TEXT("Error while translating: %s to %s:\n%s"), *SourceFile, *TargetFile, *Error);
 		ULCReporter::ShowError(FText::Format(
 			LOCTEXT("ConvertGDALTranslateError",
 				"Internal GDALTranslate error while converting dataset from file {0} to PNG.\nIt is possible that the source image is not a heightmap.\n{1}"),

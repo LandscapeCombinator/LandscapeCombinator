@@ -52,6 +52,7 @@ public:
 	static bool Warp(FString SourceFile, FString TargetFile, TArray<FString> Args);
 	static bool Merge(TArray<FString> SourceFiles, FString TargetFile);
 	static bool AddGeoreference(FString InputFile, FString OutputFile, FString CRS, double MinLong, double MaxLong, double MinLat, double MaxLat);
+	static FString GetColorInterpretation(const FString &File);
 
 	static bool ReadColorsFromFile(FString File, int &OutWidth, int &OutHeight, TArray<FColor> &OutColors);
 	static bool ReadHeightmapFromFile(FString File, int& OutWidth, int& OutHeight, TArray<float>& OutHeightmap);
