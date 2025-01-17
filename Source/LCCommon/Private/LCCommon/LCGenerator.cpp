@@ -47,6 +47,10 @@ bool ILCGenerator::DeleteGeneratedObjects(bool bSkipPrompt)
 			ULCBlueprintLibrary::DeleteFolder(*Actor->GetWorld(), Actor->GetFolder());
 #endif
 		}
+		else if (UActorComponent *Component = Cast<UActorComponent>(Object))
+		{
+			Component->DestroyComponent();
+		}
 		else if (IsValid(Object)) Object->MarkAsGarbage();
 	}
 	GeneratedObjects.Empty();
