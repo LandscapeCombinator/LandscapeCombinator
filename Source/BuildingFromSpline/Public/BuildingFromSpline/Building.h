@@ -82,7 +82,7 @@ public:
 #endif
 	
 	UFUNCTION(BlueprintCallable, Category = "Building")
-	void AppendBuilding(UDynamicMesh* TargetMesh, FName SpawnedActorsPathOverride);
+	bool AppendBuilding(UDynamicMesh* TargetMesh, FName SpawnedActorsPathOverride);
 
 	void ComputeMinMaxHeight();
 
@@ -99,6 +99,15 @@ public:
 
 
 protected:
+	FWallSegment *DummyFiller = nullptr;
+	double LevelsHeightsSum = 0;
+	UDataTable *LevelsTable;
+	UDataTable *WallSegmentsTable;
+	TArray<FLevelDescription*> LevelDescriptions;
+
+	TMap<FLevelDescription*, TArray<TArray<FWallSegment*>>> WallSegmentsAtSplinePoint;
+	TMap<FLevelDescription*, TArray<double>> FillersSizeAtSplinePoint;
+	bool InitializeWallSegments();
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent &PropertyChangedEvent) override;
@@ -170,29 +179,21 @@ protected:
 	void ComputeOffsetPolygons();
 	TArray<FVector2D> MakePolygon(bool bInternalWall, double BeginDistance, double Length);
 	FVector2D GetShiftedPoint(TArray<FTransform> Frames, int Index, double Shift, bool bIsLoop);
-	void ComputeWindowsPositionsParameterizedByDistance(FWindowsSpecification &WindowsSpecification);
-	TArray<float> GetSafeWindowsPositions(const TArray<float> &WindowsPositions, float WindowsWidth);
 
-	void AppendWallsWithHoles(
-		UDynamicMesh* TargetMesh, bool bInternalWall, double WallHeight,
-		double HolesWidth, double HolesHeight, double HoleDistanceToFloor, double ZOffset,
-		const TArray<float> &HolesPositions,
-		int MaterialID
+	bool AppendWallsWithHoles(
+		UDynamicMesh* TargetMesh, bool bInternalWall, double ZOffset,
+		FLevelDescription *LevelDescription, int MaterialID
 	);
-	void AppendWallsWithHoles(
-		UDynamicMesh* TargetMesh, bool bInternalWall, double WallHeight, double ZOffset,
-		FWindowsSpecification &WindowsSpecification, int MaterialID
-	);
-	void AppendWallsWithHoles(UDynamicMesh* TargetMesh);
-	void AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, double Length, double Height, double ZOffset);
+	bool AppendWallsWithHoles(UDynamicMesh* TargetMesh);
+	void AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, double Length, double Thickness, double Height, FVector Offset);
 	void AppendAlongSpline(UDynamicMesh* TargetMesh, bool bInternalWall, double BeginDistance, double Length, double Height, double ZOffset, int MaterialID);
 	void AppendRoof(UDynamicMesh* TargetMesh);
 	bool AppendFloors(UDynamicMesh *TargetMesh);
 	void AppendBuildingStructure(UDynamicMesh* TargetMesh);
 	bool AppendBuildingWithoutInside(UDynamicMesh *TargetMesh);
 	
-	void AddWindowsMeshes();
-	void AddWindowsMeshes(FWindowsSpecification &WindowsSpecification, int i);
+	bool AddWindowsMeshes();
+	bool AddWindowsMeshes(FLevelDescription *LevelDescription, double ZOffset);
 
 };
 

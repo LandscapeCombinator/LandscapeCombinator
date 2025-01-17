@@ -197,8 +197,9 @@ bool FWMSProvider::LoadFromFile(TArray<FString> ExcludeCRS, TFunction<bool(FStri
 		// We don't want to add the root layer, so we stop (continue) now.
 		if (Name == "0" && !LayerParams.Contains("queryable=\"1\"")) continue;
 
-		// We ignore layers that explicitly contain queryable="0"
-		if (LayerParams.Contains("queryable=\"0\"")) continue;
+		// Initially, we ignored layers that explicitly contain queryable="0", but in NRW WMS server
+		// there are layers with queryable="0" that should not be ignored. The check is commented out.
+		// if (LayerParams.Contains("queryable=\"0\"")) continue;
 
 		Names.Add(Name);
 		Titles.Add(Title);
@@ -290,6 +291,8 @@ bool FWMSProvider::CreateURL(
 	FString &URL, bool &bGeoTiff, FString &FileExt
 )
 {
+
+#if 0 // skip bound checks for now, because we parse max longitude/latitude wrong for the NRW WMS server
 	// if one bound is non zero, we check all the bounds
 	if (MinAllowedLong != 0 && MaxAllowedLong != 0 && MinAllowedLat != 0 && MaxAllowedLat != 0)
 	{
@@ -383,11 +386,12 @@ bool FWMSProvider::CreateURL(
 	{
 		ULCReporter::ShowError(FText::Format(
 			LOCTEXT("GenericWMSInitErrorLargeHeight", "The height is higher than {0}px, which is not supported by this WMS."),
-			FText::AsNumber(MaxHeight, &FNumberFormattingOptions::DefaultNoGrouping())	
+			FText::AsNumber(MaxHeight, &FNumberFormattingOptions::DefaultNoGrouping())
 		));
 
 		return false;
 	}
+#endif
 
 	if (GetMapURL.IsEmpty())
 	{
@@ -412,7 +416,6 @@ bool FWMSProvider::CreateURL(
 		);
 		return false;
 	}
-
 				
 	bGeoTiff = CapabilitiesContent.Contains("image/geotiff");
 	bool bTiff = CapabilitiesContent.Contains("image/tiff");
