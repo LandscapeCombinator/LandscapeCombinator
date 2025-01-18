@@ -4,10 +4,16 @@
 #include "BuildingFromSpline/BuildingsFromSplines.h"
 #include "BuildingFromSpline/DataTablesOverride.h"
 
+#include "Engine/DataTable.h"
+#include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 
 #include "Materials/MaterialInterface.h"
 #include "OSMUserData/OSMUserData.h"
+
+#if WITH_EDITOR
+#include "Editor/EditorEngine.h"
+#endif
 
 #define LOCTEXT_NAMESPACE "FBuildingFromSplineModule"
 
@@ -50,6 +56,8 @@ TArray<FName> UBuildingConfiguration::GetWallSegmentNames()
 	Result.Add("BeginRepeat");
 	Result.Add("EndRepeat");
 
+// this list is only used in editor
+#if WITH_EDITOR
 	UDataTable *WallSegmentsTable = LoadObject<UDataTable>(nullptr, TEXT("/Script/Engine.DataTable'/LandscapeCombinator/Buildings/DT_WallSegments.DT_WallSegments'"));
 	ADataTablesOverride* DataTablesOverride = 
 		Cast<ADataTablesOverride>(UGameplayStatics::GetActorOfClass(
@@ -63,6 +71,7 @@ TArray<FName> UBuildingConfiguration::GetWallSegmentNames()
 
 	if (IsValid(WallSegmentsTable))
 		Result.Append(WallSegmentsTable->GetRowNames());
+#endif
 
 	return Result;
 }
@@ -73,6 +82,8 @@ TArray<FName> UBuildingConfiguration::GetLevelNames()
 	Result.Add("BeginRepeat");
 	Result.Add("EndRepeat");
 
+// this list is only used in editor
+#if WITH_EDITOR
 	UDataTable *LevelsTable = LoadObject<UDataTable>(nullptr, TEXT("/Script/Engine.DataTable'/LandscapeCombinator/Buildings/DT_Levels.DT_Levels'"));
 	ADataTablesOverride* DataTablesOverride = 
 		Cast<ADataTablesOverride>(UGameplayStatics::GetActorOfClass(
@@ -86,6 +97,7 @@ TArray<FName> UBuildingConfiguration::GetLevelNames()
 
 	if (IsValid(LevelsTable))
 		Result.Append(LevelsTable->GetRowNames());
+#endif
 
 	return Result;
 }
@@ -151,116 +163,6 @@ bool UBuildingConfiguration::AutoComputeNumFloors()
 	{
 		return false;
 	}
-}
-
-template<class T>
-static bool UBuildingConfiguration::Expand(
-	TArray<T*> &OutItems,
-	const TArray<FName> Ids,
-	TFunction<T*(FName)> GetItem,
-	TFunction<double(T*)> GetSize,
-	double TargetSize
-)
-{
-	OutItems.Empty();
-	if (!AreValidIds(Ids, GetItem)) return false;
-
-	TArray<int> LoopStarts;
-	TArray<int> LoopEnds;
-	TArray<double> LoopSizes;
-	bool bInsideLoop = false;
-	int ArraySize = Ids.Num();
-	double CurrentLoopSize = 0;
-	double OverallSizes = 0; // initialized with items that are outside loops
-
-	// first pass on the array to find loops and their sizes
-	for (int IdIndex = 0; IdIndex < ArraySize; IdIndex++)
-	{
-		const FName &Id = Ids[IdIndex];
-		if (Id == "BeginRepeat")
-		{
-			LoopStarts.Add(IdIndex);
-			bInsideLoop = true;
-		}
-		else if (Id == "EndRepeat")
-		{
-			LoopEnds.Add(IdIndex);
-			LoopSizes.Add(CurrentLoopSize);
-			bInsideLoop = false;
-			CurrentLoopSize = 0;
-		}
-		else
-		{
-			T *Item = GetItem(Id);
-			// should never happen because we check `AreValidIds` at the beginning of the function
-			if (!Item) return false;
-
-			if (bInsideLoop) CurrentLoopSize += GetSize(Item);
-			else OverallSizes += GetSize(Item);
-		}
-	}
-
-	// if we are already above the threshold, return an empty array
-	if (OverallSizes > TargetSize) return true;
-
-	// compute how many times each loop can be unrolled, in a fair way
-	TArray<int> LoopUnrollCounts;
-	LoopUnrollCounts.Init(0, LoopSizes.Num());
-	while (true)
-	{
-		bool bUnrolled = false;
-
-		for (int LoopIndex = 0; LoopIndex < LoopSizes.Num(); LoopIndex++)
-		{
-			if (OverallSizes + LoopSizes[LoopIndex] <= TargetSize)
-			{
-				if (LoopSizes[LoopIndex] <= 0)
-				{
-					UE_LOG(LogBuildingFromSpline, Warning, TEXT("Invalid loop size: %d, continuing anyway"), LoopSizes[LoopIndex]);
-					continue;
-				}
-				LoopUnrollCounts[LoopIndex]++;
-				OverallSizes += LoopSizes[LoopIndex];
-				bUnrolled = true;
-			}
-		}
-		
-		if (!bUnrolled) break;
-	}
-
-	// second pass on the loop to unroll the loops
-	int IdIndex = 0;
-	int LoopIndex = 0;
-	while (IdIndex < ArraySize)
-	{
-		const FName &Id = Ids[IdIndex];
-		if (Id == "BeginRepeat")
-		{
-			int LoopEnd = LoopEnds[LoopIndex];
-			int UnrollCount = LoopUnrollCounts[LoopIndex];
-
-			for (int i = 0; i < UnrollCount; i++)
-			{
-				for (int j = IdIndex + 1; j < LoopEnd; j++)
-				{
-					T* Item = GetItem(Ids[j]);
-					if (Item) OutItems.Add(Item);
-				}
-			}
-
-			IdIndex = LoopEnd + 1; // Skip to the end of the loop
-			LoopIndex++;
-		}
-		else
-		{
-			// these are items outside any loop
-			T* Item = GetItem(Id);
-			if (Item) OutItems.Add(Item);
-			IdIndex += 1;
-		}
-	}
-
-	return true;
 }
 
 #undef LOCTEXT_NAMESPACE

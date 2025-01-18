@@ -28,6 +28,7 @@
 #include "Stats/Stats.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Misc/MessageDialog.h"
+#include "Engine/World.h"
 
 
 #if WITH_EDITOR
