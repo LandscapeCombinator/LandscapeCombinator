@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Engine/DataTable.h"
+#include "GameFramework/Actor.h"
 #include "CoreMinimal.h"
 #include "DataTablesOverride.generated.h"
 
