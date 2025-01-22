@@ -88,7 +88,7 @@ enum class EWallSegmentKind : uint8
 };
 
 USTRUCT(BlueprintType)
-struct FWallSegment : public FTableRowBase
+struct FWallSegment
 {
 	GENERATED_BODY()
 
@@ -140,36 +140,61 @@ struct FWallSegment : public FTableRowBase
 		}
 	}
 
-	bool operator==(const FWallSegment& Other) const
-	{
-		if (this == &Other) return true;
-		if (WallSegmentKind != Other.WallSegmentKind) return false;
-		if (Attachments != Other.Attachments) return false;
-
-		switch (WallSegmentKind)
-		{
-			case EWallSegmentKind::FillerWall:
-				return MinSegmentLength == Other.MinSegmentLength;
-			case EWallSegmentKind::FixedSizeWall:
-				return SegmentLength == Other.SegmentLength;
-			case EWallSegmentKind::Hole:
-				return
-					SegmentLength == MinSegmentLength &&
-					HoleDistanceToFloor == Other.HoleDistanceToFloor &&
-					HoleHeight == Other.HoleHeight;
-			default:
-				return false;
-		}
-	}
+	bool operator==(const FWallSegment& Other) const = default;
 
 	friend uint32 GetTypeHash(const FWallSegment& WallSegment)
 	{
-		return FCrc::MemCrc32(&WallSegment, sizeof(FWallSegment));
+		uint32 Result = 0;
+		Result = FCrc::MemCrc32(&WallSegment.WallSegmentKind, sizeof(EWallSegmentKind), Result);
+		Result = FCrc::MemCrc32(&WallSegment.SegmentLength, sizeof(double), Result);
+		Result = FCrc::MemCrc32(&WallSegment.MinSegmentLength, sizeof(double), Result);
+		for (auto &Attachment : WallSegment.Attachments)
+		{
+			Result = FCrc::MemCrc32(&Attachment, sizeof(FAttachment), Result);
+		}
+		return Result;
+	}
+
+	FString ToString() const
+	{
+		FString Result;
+		Result += "WallSegmentKind: ";
+		Result += UEnum::GetValueAsString(WallSegmentKind);
+		Result += ", SegmentLength: ";
+		Result += FString::SanitizeFloat(SegmentLength);
+		Result += ", MinSegmentLength: ";
+		Result += FString::SanitizeFloat(MinSegmentLength);
+		Result += ", HoleDistanceToFloor: ";
+		Result += FString::SanitizeFloat(HoleDistanceToFloor);
+		Result += ", HoleHeight: ";
+		Result += FString::SanitizeFloat(HoleHeight);
+		Result += ", Attachments: ";
+		Result += FString::FromInt(Attachments.Num());
+		return Result;
 	}
 };
 
 USTRUCT(BlueprintType)
-struct FLevelDescription : public FTableRowBase
+struct FLoop
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Loop")
+	int StartIndex = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Loop")
+	int EndIndex = 0;
+
+	bool operator==(const FLoop& Other) const = default;
+
+	friend uint32 GetTypeHash(const FLoop& Loop)
+	{
+		return FCrc::MemCrc32(&Loop, sizeof(FLoop));
+	}
+};
+
+USTRUCT(BlueprintType)
+struct FLevelDescription
 {
 	GENERATED_BODY()
 
@@ -185,24 +210,48 @@ struct FLevelDescription : public FTableRowBase
 	)
 	double FloorThickness = 20;
 
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "WindowsSpecification",
-		meta = (GetOptions="BuildingConfiguration.GetWallSegmentNames", DisplayPriority = "2")
-	)
-    TArray<FName> WallSegmentsIds;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WindowsSpecification", meta = (DisplayPriority = "2"))
+    TArray<FWallSegment> WallSegments;
 
-	bool GetWallSegments(TArray<FWallSegment*> &OutWallSegments, UDataTable *WallSegmentsTable, double TargetSize) const;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WindowsSpecification", meta = (DisplayPriority = "3"))
+    TArray<FLoop> WallSegmentLoops;
 
-	bool operator==(const FLevelDescription& Other) const
-	{
-		return LevelHeight == Other.LevelHeight
-			&& FloorThickness == Other.FloorThickness
-			&& WallSegmentsIds == Other.WallSegmentsIds;
-	}
+	bool operator==(const FLevelDescription& Other) const = default;
 
 	friend uint32 GetTypeHash(const FLevelDescription& LevelDescription)
 	{
-		return FCrc::MemCrc32(&LevelDescription, sizeof(FLevelDescription));
+		uint32 Result = 0;
+		Result = FCrc::MemCrc32(&LevelDescription.LevelHeight, sizeof(double), Result);
+		Result = FCrc::MemCrc32(&LevelDescription.FloorThickness, sizeof(double), Result);
+		for (auto &WallSegment : LevelDescription.WallSegments)
+		{
+			uint32 WallSegmentHash = GetTypeHash(WallSegment);
+			Result = FCrc::MemCrc32(&WallSegmentHash, sizeof(uint32), Result);
+		}
+		for (auto &Loop : LevelDescription.WallSegmentLoops)
+		{
+			Result = FCrc::MemCrc32(&Loop, sizeof(FLoop), Result);
+		}
+		return Result;
+	}
+
+	FString ToString() const
+	{
+		FString Result;
+		Result += "LevelHeight: ";
+		Result += FString::SanitizeFloat(LevelHeight);
+		Result += ", FloorThickness: ";
+		Result += FString::SanitizeFloat(FloorThickness);
+		Result += ", WallSegments: ";
+		Result += FString::FromInt(WallSegments.Num());
+		for (auto &WallSegment : WallSegments)
+		{
+			Result += ", ";
+			Result += WallSegment.ToString();
+		}
+		Result += ", WallSegmentLoops: ";
+		Result += FString::FromInt(WallSegmentLoops.Num());
+		return Result;
 	}
 };
 
@@ -225,111 +274,139 @@ public:
 
 	// check that all ids are valid, and that BeginRepeat and EndRepeat only appear in a well
 	// parenthesized manner
-	template<class T>
-	static bool AreValidIds(
-		const TArray<FName> Ids,
-		TFunction<T*(FName)> GetItem
-	)
+	static bool AreValidLoops(int NumItems, const TArray<FLoop> &Loops)
 	// template code goes in header to avoid linker error
 	{
-		bool bInRepeat = false;
-		for (const FName& Id : Ids)
+		int LastSeenIndex = -1;
+		for (const FLoop& Loop : Loops)
 		{
-			if (Id == "BeginRepeat")
+			if (LastSeenIndex < Loop.StartIndex && 0 <= Loop.StartIndex && Loop.StartIndex <= Loop.EndIndex && Loop.EndIndex < NumItems)
 			{
-				if (bInRepeat)
-				{
-					ULCReporter::ShowError(
-						LOCTEXT("InvalidBeginRepeat", "Found 'BeginRepeat' but already in repeat block."),
-						LOCTEXT("InvalidIds", "Invalid List of Ids")
-					);
-					return false;
-				}
-				bInRepeat = true;
-			}
-			else if (Id == "EndRepeat")
-			{
-				if (!bInRepeat)
-				{
-					ULCReporter::ShowError(
-						LOCTEXT("InvalidEndRepeat", "Found 'EndRepeat' but not in repeat block."),
-						LOCTEXT("InvalidIds", "Invalid List of Ids")
-					);
-					return false;
-				}
-				bInRepeat = false;
+				// valid loop
+				LastSeenIndex = Loop.EndIndex;
 			}
 			else
 			{
-				T* Item = GetItem(Id);
-				if (!Item)
+				if (Loop.StartIndex < 0)
 				{
 					ULCReporter::ShowError(
-						FText::Format(LOCTEXT("InvalidId", "Found invalid Id: '{0}.'"), { FText::FromString(Id.ToString()) }),
-						LOCTEXT("InvalidIds", "Invalid List of Ids")
+						FText::Format(
+							LOCTEXT(
+								"InvalidStartIndex", "Invalid loop ({0}, {1}) found in loops array:\n"
+								"StartIndex ({0}) must be >= 0"
+							),
+							FText::AsNumber(Loop.StartIndex),
+							FText::AsNumber(Loop.EndIndex)
+						)
 					);
-					return false;
 				}
+				else if (LastSeenIndex >= Loop.StartIndex)
+				{
+					ULCReporter::ShowError(
+						FText::Format(
+							LOCTEXT(
+								"InvalidEndIndex", "Invalid loop ({0}, {1}) found in loops array:\n"
+								"EndIndex ({1}) of previous loop must be >= StartIndex ({0})"
+							),
+							FText::AsNumber(Loop.StartIndex),
+							FText::AsNumber(Loop.EndIndex)
+						)
+					);
+				}
+				else if (Loop.EndIndex >= NumItems)
+				{
+					ULCReporter::ShowError(
+						FText::Format(
+							LOCTEXT(
+								"InvalidEndIndex", "Invalid loop ({0}, {1}) found in loops array:\n"
+								"EndIndex ({1}) must be < NumItems ({2})"
+							),
+							FText::AsNumber(Loop.StartIndex),
+							FText::AsNumber(Loop.EndIndex),
+							FText::AsNumber(NumItems)
+						)
+					);
+				}
+				else if (Loop.StartIndex > Loop.EndIndex)
+				{
+					ULCReporter::ShowError(
+						FText::Format(
+							LOCTEXT(
+								"InvalidLoop", "Invalid loop ({0}, {1}) found in loops array:\n"
+								"StartIndex ({0}) must be <= EndIndex ({1})"
+							),
+							FText::AsNumber(Loop.StartIndex),
+							FText::AsNumber(Loop.EndIndex)
+						)
+					);
+				}
+				else
+				{
+					check(false);
+				}
+				return false;
+				
 			}
 		}
-
-		if (bInRepeat)
-		{
-			ULCReporter::ShowError(
-				LOCTEXT("InCompleteRepeatBlock", "Incomplete repeat block, no 'EndRepeat' found."),
-				LOCTEXT("InvalidIds", "Invalid List of Ids")
-			);
-			return false;
-		}
-
 		return true;
 	}
 
 	template<class T>
 	static bool Expand(
-		TArray<T*> &OutItems,
-		const TArray<FName> Ids,
-		TFunction<T*(FName)> GetItem,
-		TFunction<double(T*)> GetSize,
+		TArray<T> &OutItems,
+		const TArray<T> &Items,
+		const TArray<FLoop> &Loops,
+		TFunction<double(const T&)> GetSize,
 		double TargetSize
 	)
 	// template code goes in header to avoid linker error
 	{
 		OutItems.Empty();
-		if (!AreValidIds(Ids, GetItem)) return false;
+		if (!AreValidLoops(Items.Num(), Loops)) return false;
 
-		TArray<int> LoopStarts;
-		TArray<int> LoopEnds;
+		int NumLoops = Loops.Num();
 		TArray<double> LoopSizes;
-		bool bInsideLoop = false;
-		int ArraySize = Ids.Num();
-		double CurrentLoopSize = 0;
+		LoopSizes.SetNum(NumLoops);
+		// bool bInsideLoop = false;
+		int NumItems = Items.Num();
 		double OverallSizes = 0; // initialized with items that are outside loops
 
-		// first pass on the array to find loops and their sizes
-		for (int IdIndex = 0; IdIndex < ArraySize; IdIndex++)
+		int LoopIndex = 0;
+		double CurrentLoopSize = 0;
+
+		// first pass on the array to find the size of each loop
+		for (int IdIndex = 0; IdIndex < NumItems; IdIndex++)
 		{
-			const FName &Id = Ids[IdIndex];
-			if (Id == "BeginRepeat")
+			if (LoopIndex < NumLoops)
 			{
-				LoopStarts.Add(IdIndex);
-				bInsideLoop = true;
+				// before the next loop
+				if (IdIndex < Loops[LoopIndex].StartIndex)
+				{
+					OverallSizes += GetSize(Items[IdIndex]);
+				}
+				// at the beginning of a loop
+				else if (IdIndex == Loops[LoopIndex].StartIndex)
+				{
+					CurrentLoopSize = GetSize(Items[IdIndex]);
+				}
+				// in the middle of a loop
+				else if (IdIndex < Loops[LoopIndex].EndIndex)
+				{
+					CurrentLoopSize += GetSize(Items[IdIndex]);
+				}
+				// at the end of a loop
+				else if (IdIndex == Loops[LoopIndex].EndIndex)
+				{
+					CurrentLoopSize += GetSize(Items[IdIndex]);
+					LoopSizes[LoopIndex] = CurrentLoopSize;
+					CurrentLoopSize = 0;
+					LoopIndex++;
+				}
 			}
-			else if (Id == "EndRepeat")
-			{
-				LoopEnds.Add(IdIndex);
-				LoopSizes.Add(CurrentLoopSize);
-				bInsideLoop = false;
-				CurrentLoopSize = 0;
-			}
+			// there are no more loops
 			else
 			{
-				T *Item = GetItem(Id);
-				// should never happen because we check `AreValidIds` at the beginning of the function
-				if (!Item) return false;
-
-				if (bInsideLoop) CurrentLoopSize += GetSize(Item);
-				else OverallSizes += GetSize(Item);
+				OverallSizes += GetSize(Items[IdIndex]);
 			}
 		}
 
@@ -343,7 +420,7 @@ public:
 		{
 			bool bUnrolled = false;
 
-			for (int LoopIndex = 0; LoopIndex < LoopSizes.Num(); LoopIndex++)
+			for (LoopIndex = 0; LoopIndex < LoopSizes.Num(); LoopIndex++)
 			{
 				if (OverallSizes + LoopSizes[LoopIndex] <= TargetSize)
 				{
@@ -363,45 +440,40 @@ public:
 
 		// second pass on the loop to unroll the loops
 		int IdIndex = 0;
-		int LoopIndex = 0;
-		while (IdIndex < ArraySize)
+		LoopIndex = 0;
+		while (IdIndex < NumItems)
 		{
-			const FName &Id = Ids[IdIndex];
-			if (Id == "BeginRepeat")
+			if (LoopIndex < NumLoops)
 			{
-				int LoopEnd = LoopEnds[LoopIndex];
-				int UnrollCount = LoopUnrollCounts[LoopIndex];
-
-				for (int i = 0; i < UnrollCount; i++)
+				// before the next loop
+				if (IdIndex < Loops[LoopIndex].StartIndex)
 				{
-					for (int j = IdIndex + 1; j < LoopEnd; j++)
-					{
-						T* Item = GetItem(Ids[j]);
-						if (Item) OutItems.Add(Item);
-					}
+					OutItems.Add(Items[IdIndex]);
+					IdIndex++;
 				}
-
-				IdIndex = LoopEnd + 1; // Skip to the end of the loop
-				LoopIndex++;
+				// at the beginning of a loop
+				else if (IdIndex == Loops[LoopIndex].StartIndex)
+				{
+					for (int k = 0; k < LoopUnrollCounts[LoopIndex]; k++)
+					{
+						for (int j = Loops[LoopIndex].StartIndex; j <= Loops[LoopIndex].EndIndex; j++)
+						{
+							OutItems.Add(Items[j]);
+						}
+					}
+					IdIndex = Loops[LoopIndex].EndIndex + 1;
+					LoopIndex++;
+				}
 			}
+			// there are no more loops
 			else
 			{
-				// these are items outside any loop
-				T* Item = GetItem(Id);
-				if (Item) OutItems.Add(Item);
-				IdIndex += 1;
+				OutItems.Add(Items[IdIndex]);
+				IdIndex++;
 			}
 		}
-
 		return true;
 	}
-
-
-	UFUNCTION()
-	static TArray<FName> GetWallSegmentNames();
-
-	UFUNCTION()
-	static TArray<FName> GetLevelNames();
 
 	UFUNCTION()
 	bool OwnerIsBFS();
@@ -605,21 +677,14 @@ public:
 
 	/** Levels */
 
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Building|Levels",
-		meta = (GetOptions="BuildingConfiguration.GetLevelNames", DisplayPriority = "1")
-	)
-	TArray<FName> Levels = {
-		"GroundLevel",
-		"BeginRepeat",
-		"LevelA",
-		"LevelB",
-		"EndRepeat"
-	};
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building|Levels", meta = (DisplayPriority = "1"))
+	TArray<FLevelDescription> Levels;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building|Levels", meta = (DisplayPriority = "2"))
+	TArray<FLoop> LevelLoops;
 
 
 	/** Roof Settings */
-
 
 	/* Build roof */
 	UPROPERTY(
