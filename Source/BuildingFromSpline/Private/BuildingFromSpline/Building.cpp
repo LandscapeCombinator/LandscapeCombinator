@@ -84,11 +84,8 @@ ABuilding::ABuilding() : AActor()
 
 	BuildingConfiguration = CreateDefaultSubobject<UBuildingConfiguration>(TEXT("Building Configuration"));
 
-	DummyFiller = new FWallSegment();
-	if (DummyFiller)
-	{
-		DummyFiller->WallSegmentKind = EWallSegmentKind::FillerWall;
-	}
+	DummyFiller.WallSegmentKind = EWallSegmentKind::FillerWall;
+	DummyFiller.MinSegmentLength = 0;
 }
 
 bool ABuilding::Cleanup_Implementation(bool bSkipPrompt)
@@ -482,14 +479,14 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 				FTransform(
 					FRotator::ZeroRotator,
 					FVector(0, 0, CurrentHeight),
-					FVector(1, 1, LevelDescription->FloorThickness)
+					FVector(1, 1, LevelDescription.FloorThickness)
 				),
 				true
 			);
 		}
 
 		// we update the CurrentHeight outside the "if" to use for the flat roof
-		CurrentHeight += LevelDescription->LevelHeight;
+		CurrentHeight += LevelDescription.LevelHeight;
 	}
 	
 
@@ -731,7 +728,7 @@ void ABuilding::AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, dou
 
 bool ABuilding::AppendWallsWithHoles(
 	UDynamicMesh* TargetMesh, bool bInternalWall, double ZOffset,
-	FLevelDescription *LevelDescription, int MaterialID
+	const FLevelDescription &LevelDescription, int MaterialID
 )
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendWallsWithHoles");
@@ -739,7 +736,7 @@ bool ABuilding::AppendWallsWithHoles(
 	double OffsetIfInternal = 0;
 	if (bInternalWall && BuildingConfiguration->bBuildFloorTiles)
 	{
-		OffsetIfInternal = LevelDescription->FloorThickness;
+		OffsetIfInternal = LevelDescription.FloorThickness;
 	}
 
 	// original number of spline points (without subdivisions)
@@ -749,47 +746,47 @@ bool ABuilding::AppendWallsWithHoles(
 		double CurrentDistance = BaseClockwiseSplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineIndexToBaseSplineIndex[i]);
 		for (auto WallSegment : WallSegmentsAtSplinePoint[LevelDescription][i])
 		{
-			switch (WallSegment->WallSegmentKind)
+			switch (WallSegment.WallSegmentKind)
 			{
 			case EWallSegmentKind::FillerWall:
 			{
 				if (FillersSizeAtSplinePoint[LevelDescription][i] > 0)
 				{
-					AppendAlongSpline(TargetMesh, bInternalWall, CurrentDistance, FillersSizeAtSplinePoint[LevelDescription][i], LevelDescription->LevelHeight - OffsetIfInternal, ZOffset + OffsetIfInternal, MaterialID);
+					AppendAlongSpline(TargetMesh, bInternalWall, CurrentDistance, FillersSizeAtSplinePoint[LevelDescription][i], LevelDescription.LevelHeight - OffsetIfInternal, ZOffset + OffsetIfInternal, MaterialID);
 					CurrentDistance += FillersSizeAtSplinePoint[LevelDescription][i];
 				}
 				break;
 			}
 			case EWallSegmentKind::FixedSizeWall:
 			{
-				AppendAlongSpline(TargetMesh, bInternalWall, CurrentDistance, WallSegment->SegmentLength, LevelDescription->LevelHeight - OffsetIfInternal, ZOffset + OffsetIfInternal, MaterialID);
-				CurrentDistance += WallSegment->SegmentLength;
+				AppendAlongSpline(TargetMesh, bInternalWall, CurrentDistance, WallSegment.SegmentLength, LevelDescription.LevelHeight - OffsetIfInternal, ZOffset + OffsetIfInternal, MaterialID);
+				CurrentDistance += WallSegment.SegmentLength;
 				break;
 			}
 			case EWallSegmentKind::Hole:
 			{
 				// below the hole
-				double BelowHoleHeight = FMath::Max(0, WallSegment->HoleDistanceToFloor - OffsetIfInternal);
+				double BelowHoleHeight = FMath::Max(0, WallSegment.HoleDistanceToFloor - OffsetIfInternal);
 				if (BelowHoleHeight > 0)
 				{
-					AppendAlongSpline(TargetMesh, bInternalWall, CurrentDistance, WallSegment->SegmentLength,
+					AppendAlongSpline(TargetMesh, bInternalWall, CurrentDistance, WallSegment.SegmentLength,
 						BelowHoleHeight,
 						ZOffset + OffsetIfInternal, MaterialID
 					);
 				}
 
 				// above the hole
-				const double RemainingHeight = LevelDescription->LevelHeight - OffsetIfInternal - BelowHoleHeight - WallSegment->HoleHeight;
+				const double RemainingHeight = LevelDescription.LevelHeight - OffsetIfInternal - BelowHoleHeight - WallSegment.HoleHeight;
 				if (RemainingHeight > 0)
 				{
 					AppendAlongSpline(
-						TargetMesh, bInternalWall, CurrentDistance, WallSegment->SegmentLength,
+						TargetMesh, bInternalWall, CurrentDistance, WallSegment.SegmentLength,
 						RemainingHeight,
-						ZOffset + OffsetIfInternal + BelowHoleHeight + WallSegment->HoleHeight, MaterialID
+						ZOffset + OffsetIfInternal + BelowHoleHeight + WallSegment.HoleHeight, MaterialID
 					);
 				}
 
-				CurrentDistance += WallSegment->SegmentLength;
+				CurrentDistance += WallSegment.SegmentLength;
 				break;
 			}
 			}
@@ -847,9 +844,9 @@ bool ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 		);
 	}
 
-	TMap<FLevelDescription*, UDynamicMesh*> LevelMeshes;
+	TMap<FLevelDescription, UDynamicMesh*> LevelMeshes;
 
-	auto AddMesh = [this, TargetMesh, &LevelMeshes](FLevelDescription *LevelDescription, double CurrentHeight) -> bool
+	auto AddMesh = [this, TargetMesh, &LevelMeshes](const FLevelDescription &LevelDescription, double CurrentHeight) -> bool
 	{
 		if (!LevelMeshes.Contains(LevelDescription))
 		{
@@ -879,7 +876,7 @@ bool ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 	for (auto &LevelDescription : LevelDescriptions)
 	{
 		if (!AddMesh(LevelDescription, CurrentHeigth)) return false;
-		CurrentHeigth += LevelDescription->LevelHeight;
+		CurrentHeigth += LevelDescription.LevelHeight;
 	}
 
 	for (auto& [_, LevelMesh] : LevelMeshes)
@@ -1112,19 +1109,13 @@ bool ABuilding::InitializeWallSegments()
 
 	for (auto &LevelDescription : LevelDescriptions)
 	{
-		if (!LevelDescription)
-		{
-			ULCReporter::ShowError(LOCTEXT("InvalidLevelDescription", "Attempting to create a building with an invalid level description"));
-			return false;
-		}
-
-		if (LevelDescription->LevelHeight < 0)
+		if (LevelDescription.LevelHeight < 0)
 		{
 			ULCReporter::ShowError(LOCTEXT("NegativeWallHeight", "Attempting to create a building with negative Wall height"));
 			return false;
 		}
 
-		TArray<TArray<FWallSegment*>> ThisLevelWallSegmentsAtSplinePoint;
+		TArray<TArray<FWallSegment>> ThisLevelWallSegmentsAtSplinePoint;
 		ThisLevelWallSegmentsAtSplinePoint.SetNum(NumSplinePoints);
 		WallSegmentsAtSplinePoint.Add(LevelDescription, ThisLevelWallSegmentsAtSplinePoint);
 
@@ -1140,20 +1131,26 @@ bool ABuilding::InitializeWallSegments()
 			double Distance2 = BaseClockwiseSplineComponent->GetDistanceAlongSplineAtSplinePoint(BaseIndexNext);
 			double Length = Distance2 - Distance1;
 
-			if (!LevelDescription->GetWallSegments(WallSegmentsAtSplinePoint[LevelDescription][i], WallSegmentsTable, Length)) return false;
+			if (!UBuildingConfiguration::Expand<FWallSegment>(
+				WallSegmentsAtSplinePoint[LevelDescription][i],
+				LevelDescription.WallSegments,
+				LevelDescription.WallSegmentLoops,
+				[&](const FWallSegment &WallSegment) { return WallSegment.GetReferenceSize(); },
+				Length
+			)) return false;
 
 			double SegmentsSize = 0;
 			int NumFillers = 0;
 
 			for (auto WallSegment : WallSegmentsAtSplinePoint[LevelDescription][i])
 			{
-				if (WallSegment->WallSegmentKind == EWallSegmentKind::FillerWall)
+				if (WallSegment.WallSegmentKind == EWallSegmentKind::FillerWall)
 				{
 					NumFillers++;
 				}
 				else
 				{
-					SegmentsSize += WallSegment->GetReferenceSize();
+					SegmentsSize += WallSegment.GetReferenceSize();
 				}
 			}
 
@@ -1191,7 +1188,7 @@ bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("GenerateBuilding");
 
-	// if (bIsGenerating) return false;
+	if (bIsGenerating) return false;
 
 	bIsGenerating = true;
 
@@ -1207,61 +1204,14 @@ bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)
 		ULCReporter::ShowError(
 			LOCTEXT("NoBuildingConfiguration", "Internal Error: BuildingConfiguration is null.")
 		);
-		bIsGenerating = false;
 		return false;
 	}
-
-	LevelsTable = LoadObject<UDataTable>(nullptr, TEXT("/Script/Engine.DataTable'/LandscapeCombinator/Buildings/DT_Levels.DT_Levels'"));
-	WallSegmentsTable = LoadObject<UDataTable>(nullptr, TEXT("/Script/Engine.DataTable'/LandscapeCombinator/Buildings/DT_WallSegments.DT_WallSegments'"));
-	ADataTablesOverride* DataTablesOverride = Cast<ADataTablesOverride>(UGameplayStatics::GetActorOfClass(GetWorld(), ADataTablesOverride::StaticClass()));
-	if (IsValid(DataTablesOverride))
-	{		
-		if (IsValid(DataTablesOverride->LevelsTable))
-		{
-			LevelsTable = DataTablesOverride->LevelsTable;
-		}
-		if (IsValid(DataTablesOverride->WallSegmentsTable))
-		{
-			WallSegmentsTable = DataTablesOverride->WallSegmentsTable;
-		}
-	}
-
-	if (!IsValid(LevelsTable))
-	{
-		ULCReporter::ShowError(
-			LOCTEXT("NoLevelsTable", "Internal Error: LevelsTable is null.")
-		);
-		bIsGenerating = false;
-		return false;
-	}
-
-	if (!IsValid(WallSegmentsTable))
-	{
-		ULCReporter::ShowError(
-			LOCTEXT("NoWallSegmentsTable", "Internal Error: WallSegmentsTable is null.")
-		);
-		bIsGenerating = false;
-		return false;
-	}
-
-	auto FetchLevel = [this](const FName &Id) -> FLevelDescription*
-	{
-		auto *Row = LevelsTable->FindRow<FLevelDescription>(Id, TEXT("FetchLevel"));
-		if (!Row)
-		{
-			ULCReporter::ShowError(FText::Format(
-				LOCTEXT("FetchLevelError", "Invalid Level Id: '{0}'"),
-				{ FText::FromString(Id.ToString()) }
-			));
-		}
-		return Row;
-	};
 
 	if (!UBuildingConfiguration::Expand<FLevelDescription>(
 		LevelDescriptions,
 		BuildingConfiguration->Levels,
-		FetchLevel,
-		[](FLevelDescription* Segment) { return 1; },
+		BuildingConfiguration->LevelLoops,
+		[](const FLevelDescription &Level) { return 1; },
 		BuildingConfiguration->NumFloors
 	))
 	{
@@ -1271,7 +1221,7 @@ bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)
 
 	LevelsHeightsSum = 0;
 	for (auto &LevelDescription : LevelDescriptions)
-		LevelsHeightsSum += LevelDescription->LevelHeight;
+		LevelsHeightsSum += LevelDescription.LevelHeight;
 
 	if (!IsValid(DynamicMeshComponent))
 	{
@@ -1322,7 +1272,7 @@ TArray<UObject *> ABuilding::GetGeneratedObjects() const
 	return Result;
 }
 
-bool ABuilding::AddWindowsMeshes(FLevelDescription* LevelDescription, double ZOffset)
+bool ABuilding::AddWindowsMeshes(const FLevelDescription &LevelDescription, double ZOffset)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AddWindowsMeshes");
 	
@@ -1333,7 +1283,7 @@ bool ABuilding::AddWindowsMeshes(FLevelDescription* LevelDescription, double ZOf
 		double CurrentDistance = BaseClockwiseSplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineIndexToBaseSplineIndex[i]);
 		for (auto &WallSegment : WallSegmentsAtSplinePoint[LevelDescription][i])
 		{
-			for (auto &Attachment: WallSegment->Attachments)
+			for (auto &Attachment: WallSegment.Attachments)
 			{
 				switch (Attachment.AttachmentKind)
 				{
@@ -1412,13 +1362,13 @@ bool ABuilding::AddWindowsMeshes(FLevelDescription* LevelDescription, double ZOf
 				}
 			}
 
-			if (WallSegment->WallSegmentKind == EWallSegmentKind::FillerWall)
+			if (WallSegment.WallSegmentKind == EWallSegmentKind::FillerWall)
 			{
 				CurrentDistance += FillersSizeAtSplinePoint[LevelDescription][i];
 			}
 			else
 			{
-				CurrentDistance += WallSegment->SegmentLength;
+				CurrentDistance += WallSegment.SegmentLength;
 			}
 		}
 	}
@@ -1512,13 +1462,8 @@ bool ABuilding::AddWindowsMeshes()
 	double CurrentHeight = BuildingConfiguration->ExtraWallBottom;
 	for (auto& LevelDescription : LevelDescriptions)
 	{
-		if (!LevelDescription)
-		{
-			UE_LOG(LogBuildingFromSpline, Error, TEXT("Skipping invalid Level Description"));
-			continue;
-		}
 		if (!AddWindowsMeshes(LevelDescription, CurrentHeight)) return false;
-		CurrentHeight += LevelDescription->LevelHeight;
+		CurrentHeight += LevelDescription.LevelHeight;
 	}
 
 	return true;

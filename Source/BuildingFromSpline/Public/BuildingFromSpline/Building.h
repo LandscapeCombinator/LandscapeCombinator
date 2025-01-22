@@ -99,14 +99,14 @@ public:
 
 
 protected:
-	FWallSegment *DummyFiller = nullptr;
+	FWallSegment DummyFiller;
 	double LevelsHeightsSum = 0;
 	UDataTable *LevelsTable;
 	UDataTable *WallSegmentsTable;
-	TArray<FLevelDescription*> LevelDescriptions;
+	TArray<FLevelDescription> LevelDescriptions;
 
-	TMap<FLevelDescription*, TArray<TArray<FWallSegment*>>> WallSegmentsAtSplinePoint;
-	TMap<FLevelDescription*, TArray<double>> FillersSizeAtSplinePoint;
+	TMap<FLevelDescription, TArray<TArray<FWallSegment>>> WallSegmentsAtSplinePoint;
+	TMap<FLevelDescription, TArray<double>> FillersSizeAtSplinePoint;
 	bool InitializeWallSegments();
 
 #if WITH_EDITOR
@@ -182,7 +182,7 @@ protected:
 
 	bool AppendWallsWithHoles(
 		UDynamicMesh* TargetMesh, bool bInternalWall, double ZOffset,
-		FLevelDescription *LevelDescription, int MaterialID
+		const FLevelDescription &LevelDescription, int MaterialID
 	);
 	bool AppendWallsWithHoles(UDynamicMesh* TargetMesh);
 	void AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, double Length, double Thickness, double Height, FVector Offset);
@@ -193,7 +193,7 @@ protected:
 	bool AppendBuildingWithoutInside(UDynamicMesh *TargetMesh);
 	
 	bool AddWindowsMeshes();
-	bool AddWindowsMeshes(FLevelDescription *LevelDescription, double ZOffset);
+	bool AddWindowsMeshes(const FLevelDescription &LevelDescription, double ZOffset);
 
 };
 
