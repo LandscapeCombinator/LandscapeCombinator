@@ -117,8 +117,51 @@ struct FWallSegment
 	)
 	double HoleHeight = 100;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "WallSegment",
+		meta = (EditCondition = "WallSegmentKind == EWallSegmentKind::Hole", EditConditionHides, DisplayPriority = "1")
+	)
+	int UnderHoleInteriorMaterialIndex = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "WallSegment",
+		meta = (EditCondition = "WallSegmentKind == EWallSegmentKind::Hole", EditConditionHides, DisplayPriority = "2")
+	)
+	int OverHoleInteriorMaterialIndex = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "WallSegment",
+		meta = (EditCondition = "WallSegmentKind == EWallSegmentKind::Hole", EditConditionHides, DisplayPriority = "3")
+	)
+	int UnderHoleExteriorMaterialIndex = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "WallSegment",
+		meta = (EditCondition = "WallSegmentKind == EWallSegmentKind::Hole", EditConditionHides, DisplayPriority = "4")
+	)
+	int OverHoleExteriorMaterialIndex = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "WallSegment",
+		meta = (EditCondition = "WallSegmentKind != EWallSegmentKind::Hole", EditConditionHides, DisplayPriority = "1")
+	)
+	int InteriorWallMaterialIndex = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "WallSegment",
+		meta = (EditCondition = "WallSegmentKind != EWallSegmentKind::Hole", EditConditionHides, DisplayPriority = "2")
+	)
+	int ExteriorWallMaterialIndex = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "WallSegment", meta = (DisplayPriority = "10"))
+	bool bOverrideWallThickness = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "WallSegment",
+		meta = (EditCondition = "bOverrideWallThickness", EditConditionHides, DisplayPriority = "11")
+	)
+	double InternalWallThickness = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "WallSegment",
+		meta = (EditCondition = "bOverrideWallThickness", EditConditionHides, DisplayPriority = "12")
+	)
+	double ExternalWallThickness = 0;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WallSegment",
-		meta = (DisplayPriority = "1")
+		meta = (DisplayPriority = "100")
 	)
 	TArray<FAttachment> Attachments;
 
@@ -148,6 +191,17 @@ struct FWallSegment
 		Result = FCrc::MemCrc32(&WallSegment.WallSegmentKind, sizeof(EWallSegmentKind), Result);
 		Result = FCrc::MemCrc32(&WallSegment.SegmentLength, sizeof(double), Result);
 		Result = FCrc::MemCrc32(&WallSegment.MinSegmentLength, sizeof(double), Result);
+		Result = FCrc::MemCrc32(&WallSegment.HoleDistanceToFloor, sizeof(double), Result);
+		Result = FCrc::MemCrc32(&WallSegment.HoleHeight, sizeof(double), Result);
+		Result = FCrc::MemCrc32(&WallSegment.UnderHoleInteriorMaterialIndex, sizeof(int), Result);
+		Result = FCrc::MemCrc32(&WallSegment.OverHoleInteriorMaterialIndex, sizeof(int), Result);
+		Result = FCrc::MemCrc32(&WallSegment.UnderHoleExteriorMaterialIndex, sizeof(int), Result);
+		Result = FCrc::MemCrc32(&WallSegment.OverHoleExteriorMaterialIndex, sizeof(int), Result);
+		Result = FCrc::MemCrc32(&WallSegment.InteriorWallMaterialIndex, sizeof(int), Result);
+		Result = FCrc::MemCrc32(&WallSegment.ExteriorWallMaterialIndex, sizeof(int), Result);
+		Result = FCrc::MemCrc32(&WallSegment.bOverrideWallThickness, sizeof(bool), Result);
+		Result = FCrc::MemCrc32(&WallSegment.InternalWallThickness, sizeof(double), Result);
+		Result = FCrc::MemCrc32(&WallSegment.ExternalWallThickness, sizeof(double), Result);
 		for (auto &Attachment : WallSegment.Attachments)
 		{
 			Result = FCrc::MemCrc32(&Attachment, sizeof(FAttachment), Result);
@@ -206,14 +260,27 @@ struct FLevelDescription
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "WindowsSpecification",
-		meta = (DisplayPriority = "1")
+		meta = (DisplayPriority = "2")
 	)
 	double FloorThickness = 20;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WindowsSpecification", meta = (DisplayPriority = "2"))
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "WindowsSpecification",
+		meta = (DisplayPriority = "10")
+	)
+	int FloorMaterialIndex = 0;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "WindowsSpecification",
+		meta = (DisplayPriority = "11")
+	)
+	/* Ceiling Material Index for the floor below this one */
+	int UnderFloorMaterialIndex = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WindowsSpecification", meta = (DisplayPriority = "100"))
     TArray<FWallSegment> WallSegments;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WindowsSpecification", meta = (DisplayPriority = "3"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WindowsSpecification", meta = (DisplayPriority = "101"))
     TArray<FLoop> WallSegmentLoops;
 
 	bool operator==(const FLevelDescription& Other) const = default;
@@ -546,39 +613,35 @@ public:
 	)
 	bool bBuildingReceiveDecals = false;
 
-
 	/** Materials */
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
+		meta = (DisplayPriority = "0")
+	)
+	TArray<TObjectPtr<UMaterialInterface>> Materials;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
-		meta = (EditCondition = "BuildingGeometry == EBuildingGeometry::BuildingWithFloorsAndEmptyInside", EditConditionHides, DisplayPriority = "2")
+		meta = (EditCondition = "BuildingGeometry == EBuildingGeometry::BuildingWithFloorsAndEmptyInside", EditConditionHides, DisplayPriority = "0")
 	)
-	TObjectPtr<UMaterialInterface> InteriorMaterial;
+	int InteriorMaterialIndex = 0;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
-		meta = (DisplayPriority = "3")
+		meta = (DisplayPriority = "1")
 	)
-	TObjectPtr<UMaterialInterface> ExteriorMaterial;
+	int ExteriorMaterialIndex = 0;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials", meta = (DisplayPriority = "2")
+	)
+	int RoofMaterialIndex = 0;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
-		meta = (EditCondition = "BuildingGeometry == EBuildingGeometry::BuildingWithFloorsAndEmptyInside", EditConditionHides, DisplayPriority = "4")
+		meta = (EditCondition = "BuildingGeometry == EBuildingGeometry::BuildingWithFloorsAndEmptyInside && RoofKind != RoofKind::None", EditConditionHides, DisplayPriority = "3")
 	)
-	TObjectPtr<UMaterialInterface> FloorMaterial;
-
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
-		meta = (EditCondition = "BuildingGeometry == EBuildingGeometry::BuildingWithFloorsAndEmptyInside", EditConditionHides, DisplayPriority = "5")
-	)
-	TObjectPtr<UMaterialInterface> CeilingMaterial;
-
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
-		meta = (DisplayPriority = "6")
-	)
-	TObjectPtr<UMaterialInterface> RoofMaterial;
-	
+	int UnderRoofMaterialIndex = 0;
 
 	/** Structural Settings */
 	
@@ -693,7 +756,6 @@ public:
 	)
 	ERoofKind RoofKind = ERoofKind::Flat;
 
-	
 	/* The length of the roof that goes outside the building */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Roof",
