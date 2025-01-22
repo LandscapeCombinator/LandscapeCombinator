@@ -474,7 +474,7 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 			UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
 				FloorMesh,
 				FGeometryScriptGroupLayer(),
-				PolygroupIDs[0], // TODO: polygroup ID of the floor, is there a way to ensure it?
+				PolygroupIDs[3], // TODO: polygroup ID of the floor, is there a way to ensure it?
 				LevelDescription.FloorMaterialIndex, // new material ID
 				bIsValidPolygroupID,
 				false,

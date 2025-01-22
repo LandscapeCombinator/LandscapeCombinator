@@ -451,11 +451,6 @@ public:
 				{
 					OverallSizes += GetSize(Items[IdIndex]);
 				}
-				// at the beginning of a loop
-				else if (IdIndex == Loops[LoopIndex].StartIndex)
-				{
-					CurrentLoopSize = GetSize(Items[IdIndex]);
-				}
 				// in the middle of a loop
 				else if (IdIndex < Loops[LoopIndex].EndIndex)
 				{
@@ -468,6 +463,11 @@ public:
 					LoopSizes[LoopIndex] = CurrentLoopSize;
 					CurrentLoopSize = 0;
 					LoopIndex++;
+				}
+				// at the beginning of a loop (different than the end)
+				else if (IdIndex == Loops[LoopIndex].StartIndex)
+				{
+					CurrentLoopSize = GetSize(Items[IdIndex]);
 				}
 			}
 			// there are no more loops
