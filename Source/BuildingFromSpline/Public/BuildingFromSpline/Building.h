@@ -112,32 +112,6 @@ protected:
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent &PropertyChangedEvent) override;
 #endif
-
-	int GetFloorMaterialID() { return 0; }
-	int GetCeilingMaterialID() { return 1; }
-	int GetExteriorMaterialID()
-	{ 
-		if (IsValid(BuildingConfiguration) && BuildingConfiguration->BuildingGeometry == EBuildingGeometry::BuildingWithFloorsAndEmptyInside)
-		{
-			return 2;
-		}
-		else
-		{
-			return 0;
-		}
-	}
-	int GetInteriorMaterialID() { return 3; }
-	int GetRoofMaterialID()
-	{ 
-		if (IsValid(BuildingConfiguration) && BuildingConfiguration->BuildingGeometry == EBuildingGeometry::BuildingWithFloorsAndEmptyInside)
-		{
-			return 4;
-		}
-		else
-		{
-			return 1;
-		}
-	}
 	
 	UPROPERTY()
 	bool bIsGenerating = false;
@@ -177,16 +151,13 @@ protected:
 	TArray<int> SplineIndexToBaseSplineIndex;
 	void ComputeBaseVertices();
 	void ComputeOffsetPolygons();
-	TArray<FVector2D> MakePolygon(bool bInternalWall, double BeginDistance, double Length);
+	TArray<FVector2D> MakePolygon(bool bInternalWall, double BeginDistance, double Length, double Thickness);
 	FVector2D GetShiftedPoint(TArray<FTransform> Frames, int Index, double Shift, bool bIsLoop);
 
-	bool AppendWallsWithHoles(
-		UDynamicMesh* TargetMesh, bool bInternalWall, double ZOffset,
-		const FLevelDescription &LevelDescription, int MaterialID
-	);
+	bool AppendWallsWithHoles(UDynamicMesh* TargetMesh, bool bInternalWall, double ZOffset, const FLevelDescription &LevelDescription);
 	bool AppendWallsWithHoles(UDynamicMesh* TargetMesh);
 	void AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, double Length, double Thickness, double Height, FVector Offset);
-	void AppendAlongSpline(UDynamicMesh* TargetMesh, bool bInternalWall, double BeginDistance, double Length, double Height, double ZOffset, int MaterialID);
+	void AppendAlongSpline(UDynamicMesh* TargetMesh, bool bInternalWall, double BeginDistance, double Length, double Height, double ZOffset, double Thickness, int MaterialID);
 	void AppendRoof(UDynamicMesh* TargetMesh);
 	bool AppendFloors(UDynamicMesh *TargetMesh);
 	void AppendBuildingStructure(UDynamicMesh* TargetMesh);

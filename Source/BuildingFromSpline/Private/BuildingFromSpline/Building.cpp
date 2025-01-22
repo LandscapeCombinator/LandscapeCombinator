@@ -389,13 +389,13 @@ void ABuilding::DeflateFrames(TArray<FTransform> Frames, TArray<FVector2D>& OutO
 	return;
 }
 
-void ABuilding::AppendAlongSpline(UDynamicMesh* TargetMesh, bool bInternalWall, double BeginDistance, double Length, double Height, double ZOffset, int MaterialID)
+void ABuilding::AppendAlongSpline(UDynamicMesh* TargetMesh, bool bInternalWall, double BeginDistance, double Length, double Height, double ZOffset, double Thickness, int MaterialID)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendAlongSpline");
 
 	if (Length <= 0) return;
 	
-	TArray<FVector2D> Polygon = MakePolygon(bInternalWall, BeginDistance, Length);
+	TArray<FVector2D> Polygon = MakePolygon(bInternalWall, BeginDistance, Length, Thickness);
 
 	/* Allocate and build WallMesh */
 
@@ -408,7 +408,6 @@ void ABuilding::AppendAlongSpline(UDynamicMesh* TargetMesh, bool bInternalWall, 
 		Polygon,
 		Height
 	);
-
 	
 	/* Remap the material ID */
 
@@ -455,18 +454,6 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 		return false;
 	}
 
-	bool bIsValidPolygroupID;
-	UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
-		FloorMesh,
-		FGeometryScriptGroupLayer(),
-		PolygroupIDs[2], // TODO: polygroup ID of the ceiling, is there a way to ensure it?
-		GetCeilingMaterialID(), // new material ID
-		bIsValidPolygroupID,
-		false,
-		nullptr
-	);
-
-
 	/* Add several copies of the FloorMesh at every floor */
 
 	double CurrentHeight = MinHeightLocal + BuildingConfiguration->ExtraWallBottom;
@@ -474,6 +461,26 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 	{
 		if (BuildingConfiguration->bBuildFloorTiles)
 		{
+			bool bIsValidPolygroupID;
+			UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
+				FloorMesh,
+				FGeometryScriptGroupLayer(),
+				PolygroupIDs[2], // TODO: polygroup ID of the ceiling, is there a way to ensure it?
+				LevelDescription.UnderFloorMaterialIndex, // new material ID
+				bIsValidPolygroupID,
+				false,
+				nullptr
+			);
+			UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
+				FloorMesh,
+				FGeometryScriptGroupLayer(),
+				PolygroupIDs[0], // TODO: polygroup ID of the floor, is there a way to ensure it?
+				LevelDescription.FloorMaterialIndex, // new material ID
+				bIsValidPolygroupID,
+				false,
+				nullptr
+			);
+
 			UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(
 				TargetMesh, FloorMesh,
 				FTransform(
@@ -493,7 +500,7 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 	/* Add the last floor with roof material for flat roof kind */
 	if (BuildingConfiguration->RoofKind == ERoofKind::Flat)
 	{
-		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(FloorMesh, 0, GetRoofMaterialID());
+		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(FloorMesh, 0, BuildingConfiguration->RoofMaterialIndex);
 	
 		UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(
 			TargetMesh, FloorMesh,
@@ -549,7 +556,7 @@ bool ABuilding::AppendBuildingWithoutInside(UDynamicMesh* TargetMesh)
 		SimpleBuildingMesh,
 		FGeometryScriptGroupLayer(),
 		PolygroupIDs[0], // TODO: polygroup ID of the sides of the polygon, is there a way to ensure it?
-		GetExteriorMaterialID(),
+		BuildingConfiguration->ExteriorMaterialIndex,
 		bIsValidPolygroupID,
 		false,
 		nullptr
@@ -561,7 +568,7 @@ bool ABuilding::AppendBuildingWithoutInside(UDynamicMesh* TargetMesh)
 			SimpleBuildingMesh,
 			FGeometryScriptGroupLayer(),
 			PolygroupIDs[3], // TODO: polygroup ID of the top of the polygon, is there a way to ensure it?
-			GetRoofMaterialID(),
+			BuildingConfiguration->RoofMaterialIndex,
 			bIsValidPolygroupID,
 			false,
 			nullptr
@@ -578,7 +585,7 @@ bool ABuilding::AppendBuildingWithoutInside(UDynamicMesh* TargetMesh)
 	return true;
 }
 
-TArray<FVector2D> ABuilding::MakePolygon(bool bInternalWall, double BeginDistance, double Length)
+TArray<FVector2D> ABuilding::MakePolygon(bool bInternalWall, double BeginDistance, double Length, double Thickness)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("MakePolygon");
 
@@ -644,13 +651,9 @@ TArray<FVector2D> ABuilding::MakePolygon(bool bInternalWall, double BeginDistanc
 		FVector2D WallDirection = (LastLocation - PrevPoint).GetSafeNormal();
 		FVector2D InsideDirection = WallDirection.GetRotated(90);
 		if (bInternalWall)
-		{
-			Add(LastLocation + BuildingConfiguration->InternalWallThickness * InsideDirection);
-		}
+			Add(LastLocation + Thickness * InsideDirection);
 		else
-		{
-			Add(LastLocation - BuildingConfiguration->ExternalWallThickness * InsideDirection);
-		}
+			Add(LastLocation - Thickness * InsideDirection);
 	}
 
 	for (i = LastIndex; i >= BeginIndex; i--)
@@ -676,13 +679,9 @@ TArray<FVector2D> ABuilding::MakePolygon(bool bInternalWall, double BeginDistanc
 		FVector2D InsideDirection = WallDirection.GetRotated(90);
 
 		if (bInternalWall)
-		{
-			Add(FirstLocation + BuildingConfiguration->InternalWallThickness * InsideDirection);
-		}
+			Add(FirstLocation + Thickness * InsideDirection);
 		else
-		{
-			Add(FirstLocation - BuildingConfiguration->ExternalWallThickness * InsideDirection);
-		}
+			Add(FirstLocation - Thickness * InsideDirection);
 	}
 
 	if (!bInternalWall)
@@ -726,10 +725,7 @@ void ABuilding::AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, dou
 	SplineMeshComponent->MarkRenderStateDirty();
 }
 
-bool ABuilding::AppendWallsWithHoles(
-	UDynamicMesh* TargetMesh, bool bInternalWall, double ZOffset,
-	const FLevelDescription &LevelDescription, int MaterialID
-)
+bool ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh, bool bInternalWall, double ZOffset, const FLevelDescription &LevelDescription)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendWallsWithHoles");
 
@@ -746,20 +742,34 @@ bool ABuilding::AppendWallsWithHoles(
 		double CurrentDistance = BaseClockwiseSplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineIndexToBaseSplineIndex[i]);
 		for (auto WallSegment : WallSegmentsAtSplinePoint[LevelDescription][i])
 		{
+			double Thickness = bInternalWall ? BuildingConfiguration->InternalWallThickness : BuildingConfiguration->ExternalWallThickness;
+			if (WallSegment.bOverrideWallThickness)
+			{
+				Thickness = bInternalWall ? WallSegment.InternalWallThickness : WallSegment.ExternalWallThickness;
+			}
+
 			switch (WallSegment.WallSegmentKind)
 			{
 			case EWallSegmentKind::FillerWall:
 			{
 				if (FillersSizeAtSplinePoint[LevelDescription][i] > 0)
 				{
-					AppendAlongSpline(TargetMesh, bInternalWall, CurrentDistance, FillersSizeAtSplinePoint[LevelDescription][i], LevelDescription.LevelHeight - OffsetIfInternal, ZOffset + OffsetIfInternal, MaterialID);
+					AppendAlongSpline(
+						TargetMesh, bInternalWall, CurrentDistance, FillersSizeAtSplinePoint[LevelDescription][i],
+						LevelDescription.LevelHeight - OffsetIfInternal, ZOffset + OffsetIfInternal, Thickness,
+						bInternalWall ? WallSegment.InteriorWallMaterialIndex : WallSegment.ExteriorWallMaterialIndex
+					);
 					CurrentDistance += FillersSizeAtSplinePoint[LevelDescription][i];
 				}
 				break;
 			}
 			case EWallSegmentKind::FixedSizeWall:
 			{
-				AppendAlongSpline(TargetMesh, bInternalWall, CurrentDistance, WallSegment.SegmentLength, LevelDescription.LevelHeight - OffsetIfInternal, ZOffset + OffsetIfInternal, MaterialID);
+				AppendAlongSpline(
+					TargetMesh, bInternalWall, CurrentDistance, WallSegment.SegmentLength,
+					LevelDescription.LevelHeight - OffsetIfInternal, ZOffset + OffsetIfInternal, Thickness,
+					bInternalWall ? WallSegment.InteriorWallMaterialIndex : WallSegment.ExteriorWallMaterialIndex
+				);
 				CurrentDistance += WallSegment.SegmentLength;
 				break;
 			}
@@ -769,9 +779,10 @@ bool ABuilding::AppendWallsWithHoles(
 				double BelowHoleHeight = FMath::Max(0, WallSegment.HoleDistanceToFloor - OffsetIfInternal);
 				if (BelowHoleHeight > 0)
 				{
-					AppendAlongSpline(TargetMesh, bInternalWall, CurrentDistance, WallSegment.SegmentLength,
-						BelowHoleHeight,
-						ZOffset + OffsetIfInternal, MaterialID
+					AppendAlongSpline(
+						TargetMesh, bInternalWall, CurrentDistance, WallSegment.SegmentLength,
+						BelowHoleHeight, ZOffset + OffsetIfInternal, Thickness,
+						bInternalWall ? WallSegment.UnderHoleInteriorMaterialIndex : WallSegment.UnderHoleExteriorMaterialIndex
 					);
 				}
 
@@ -781,8 +792,8 @@ bool ABuilding::AppendWallsWithHoles(
 				{
 					AppendAlongSpline(
 						TargetMesh, bInternalWall, CurrentDistance, WallSegment.SegmentLength,
-						RemainingHeight,
-						ZOffset + OffsetIfInternal + BelowHoleHeight + WallSegment.HoleHeight, MaterialID
+						RemainingHeight, ZOffset + OffsetIfInternal + BelowHoleHeight + WallSegment.HoleHeight, Thickness,
+						bInternalWall ? WallSegment.OverHoleInteriorMaterialIndex : WallSegment.OverHoleExteriorMaterialIndex
 					);
 				}
 
@@ -806,7 +817,8 @@ bool ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 	{
 		AppendAlongSpline(
 			TargetMesh, true, 0, BaseClockwiseSplineComponent->GetSplineLength(),
-			BuildingConfiguration->ExtraWallBottom, MinHeightLocal, GetInteriorMaterialID()
+			BuildingConfiguration->ExtraWallBottom, MinHeightLocal,
+			BuildingConfiguration->InternalWallThickness, BuildingConfiguration->InteriorMaterialIndex
 		);
 	}
 
@@ -816,7 +828,8 @@ bool ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 	{
 		AppendAlongSpline(
 			TargetMesh, false, 0, BaseClockwiseSplineComponent->GetSplineLength(),
-			BuildingConfiguration->ExtraWallBottom, MinHeightLocal, GetExteriorMaterialID()
+			BuildingConfiguration->ExtraWallBottom, MinHeightLocal,
+			BuildingConfiguration->ExternalWallThickness, BuildingConfiguration->ExteriorMaterialIndex
 		);
 	}
 
@@ -828,7 +841,7 @@ bool ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 			TargetMesh, true, 0, BaseClockwiseSplineComponent->GetSplineLength(),
 			BuildingConfiguration->ExtraWallTop,
 			MinHeightLocal + BuildingConfiguration->ExtraWallBottom + LevelsHeightsSum,
-			GetInteriorMaterialID()
+			BuildingConfiguration->InternalWallThickness, BuildingConfiguration->InteriorMaterialIndex
 		);
 	}
 
@@ -840,7 +853,7 @@ bool ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 			TargetMesh, false, 0, BaseClockwiseSplineComponent->GetSplineLength(),
 			BuildingConfiguration->ExtraWallTop,
 			MinHeightLocal + BuildingConfiguration->ExtraWallBottom + LevelsHeightsSum,
-			GetExteriorMaterialID()
+			BuildingConfiguration->ExternalWallThickness, BuildingConfiguration->ExteriorMaterialIndex
 		);
 	}
 
@@ -855,11 +868,11 @@ bool ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 
 			if (BuildingConfiguration->bBuildInternalWalls)
 			{
-				if (!AppendWallsWithHoles(DynamicMesh, true, 0, LevelDescription, GetInteriorMaterialID())) return false;
+				if (!AppendWallsWithHoles(DynamicMesh, true, 0, LevelDescription)) return false;
 			}
 			if (BuildingConfiguration->bBuildExternalWalls)
 			{
-				if (!AppendWallsWithHoles(DynamicMesh, false, 0, LevelDescription, GetExteriorMaterialID())) return false;
+				if (!AppendWallsWithHoles(DynamicMesh, false, 0, LevelDescription)) return false;
 			}
 		}
 
@@ -892,7 +905,6 @@ bool ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 
 void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 {
-
 	/* Allocate RoofMesh */
 
 	TObjectPtr<UDynamicMesh> RoofMesh = NewObject<UDynamicMesh>(this);
@@ -948,7 +960,7 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 			BuildingConfiguration->RoofThickness
 		);
 
-		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, GetRoofMaterialID());
+		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, BuildingConfiguration->RoofMaterialIndex);
 
 		/* Set the Polygroup ID of ceiling to CeilingMaterialID */
 
@@ -972,7 +984,7 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 			RoofMesh,
 			FGeometryScriptGroupLayer(),
 			PolygroupIDs[2], // TODO: polygroup ID of the ceiling, is there a way to ensure it?
-			GetCeilingMaterialID(), // new material ID
+			BuildingConfiguration->UnderRoofMaterialIndex, // new material ID
 			bIsValidPolygroupID,
 			false,
 			nullptr
@@ -1018,7 +1030,7 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 		SweepPath, {}, {}, true
 	);
 
-	UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, GetRoofMaterialID());
+	UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, BuildingConfiguration->RoofMaterialIndex);
 
 	/* Connection from the walls to the roof, inside */
 
@@ -1050,7 +1062,7 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 			FTransform(), { {0, 0}, {0, 0.01}, {0, 0.02}, {0, 0.05}, {0, 0.1}, {0, 0.2}, {0, 0.4}, {0, 0.6}, {0, 0.8},  {0, 0.9},  {0, 0.95},  {0, 0.98},  {0, 0.99}, {0, 1} },
 			SweepPath, {}, {}, true
 		);
-		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, GetInteriorMaterialID());
+		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, BuildingConfiguration->InteriorMaterialIndex);
 	}
 	
 
@@ -1495,20 +1507,14 @@ void ABuilding::AppendBuildingStructure(UDynamicMesh* TargetMesh)
 		{
 			if (!AppendFloors(TargetMesh)) return;
 		}
-
-		DynamicMeshComponent->SetMaterial(0, BuildingConfiguration->FloorMaterial);
-		DynamicMeshComponent->SetMaterial(1, BuildingConfiguration->CeilingMaterial);
-		DynamicMeshComponent->SetMaterial(2, BuildingConfiguration->ExteriorMaterial);
-		DynamicMeshComponent->SetMaterial(3, BuildingConfiguration->InteriorMaterial);
-		DynamicMeshComponent->SetMaterial(4, BuildingConfiguration->RoofMaterial);
 	}
 	else
 	{
 		AppendBuildingWithoutInside(TargetMesh);
-
-		DynamicMeshComponent->SetMaterial(0, BuildingConfiguration->ExteriorMaterial);
-		DynamicMeshComponent->SetMaterial(1, BuildingConfiguration->RoofMaterial);
 	}
+
+	for (int i = 0; i < BuildingConfiguration->Materials.Num(); i++)
+		DynamicMeshComponent->SetMaterial(i, BuildingConfiguration->Materials[i]);
 }
 
 bool ABuilding::AppendBuilding(UDynamicMesh* TargetMesh, FName SpawnedActorsPathOverride)
