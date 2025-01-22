@@ -1301,6 +1301,8 @@ bool ABuilding::AddWindowsMeshes(const FLevelDescription &LevelDescription, doub
 				{
 					case EAttachmentKind::InstancedStaticMeshComponent:
 					{
+						if (!Attachment.Mesh) break;
+
 						UInstancedStaticMeshComponent *ISM = nullptr;
 						if (!MeshToISM.Contains(Attachment.Mesh))
 						{
@@ -1345,6 +1347,8 @@ bool ABuilding::AddWindowsMeshes(const FLevelDescription &LevelDescription, doub
 					}
 					case EAttachmentKind::SplineMeshComponent:
 					{
+						if (!Attachment.Mesh) break;
+
 						AddSplineMesh(
 							Attachment.Mesh, CurrentDistance, Attachment.OverrideWidth, Attachment.OverrideThickness, Attachment.OverrideHeight,
 							Attachment.Offset + FVector(0, 0, MinHeightLocal +ZOffset)
@@ -1353,6 +1357,8 @@ bool ABuilding::AddWindowsMeshes(const FLevelDescription &LevelDescription, doub
 					}
 					case EAttachmentKind::Actor:
 					{
+						if (!IsValid(Attachment.ActorClass)) break;
+
 						AActor *NewActor = GetWorld()->SpawnActor<AActor>(Attachment.ActorClass);
 						FVector ActorOrigin, ActorExtent;
 						NewActor->GetActorBounds(true, ActorOrigin, ActorExtent);
