@@ -82,8 +82,7 @@ struct FAttachment
 UENUM(BlueprintType)
 enum class EWallSegmentKind : uint8
 {
-	FillerWall,
-	FixedSizeWall,
+	Wall,
 	Hole
 };
 
@@ -92,20 +91,14 @@ struct FWallSegment
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WallSegment",
-		meta = (DisplayPriority = "0")
-	)
-	EWallSegmentKind WallSegmentKind = EWallSegmentKind::FillerWall;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WallSegment", meta = (DisplayPriority = "-1"))
+	EWallSegmentKind WallSegmentKind = EWallSegmentKind::Wall;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WallSegment",
-		meta = (EditCondition = "WallSegmentKind == EWallSegmentKind::FixedSizeWall || WallSegmentKind == EWallSegmentKind::Hole", EditConditionHides, DisplayPriority = "1")
-	)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WallSegment", meta = (DisplayPriority = "0"))
+	bool bAutoExpand = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WallSegment", meta = (DisplayPriority = "1"))
 	double SegmentLength = 100;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WallSegment",
-		meta = (EditCondition = "WallSegmentKind == EWallSegmentKind::FillerWall", EditConditionHides, DisplayPriority = "1")
-	)
-	double MinSegmentLength = 100;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WallSegment",
 		meta = (EditCondition = "WallSegmentKind == EWallSegmentKind::Hole", EditConditionHides, DisplayPriority = "1")
@@ -160,28 +153,8 @@ struct FWallSegment
 	)
 	double ExternalWallThickness = 0;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WallSegment",
-		meta = (DisplayPriority = "100")
-	)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WallSegment", meta = (DisplayPriority = "100"))
 	TArray<FAttachment> Attachments;
-
-	double GetReferenceSize() const
-	{
-		switch (WallSegmentKind)
-		{
-			case EWallSegmentKind::FillerWall:
-				return MinSegmentLength;
-			case EWallSegmentKind::FixedSizeWall:
-				return SegmentLength;
-			case EWallSegmentKind::Hole:
-				return SegmentLength;
-			default:
-			{
-				check(false);
-				return 0;
-			}
-		}
-	}
 
 	bool operator==(const FWallSegment& Other) const = default;
 
@@ -189,8 +162,8 @@ struct FWallSegment
 	{
 		uint32 Result = 0;
 		Result = FCrc::MemCrc32(&WallSegment.WallSegmentKind, sizeof(EWallSegmentKind), Result);
+		Result = FCrc::MemCrc32(&WallSegment.bAutoExpand, sizeof(bool), Result);
 		Result = FCrc::MemCrc32(&WallSegment.SegmentLength, sizeof(double), Result);
-		Result = FCrc::MemCrc32(&WallSegment.MinSegmentLength, sizeof(double), Result);
 		Result = FCrc::MemCrc32(&WallSegment.HoleDistanceToFloor, sizeof(double), Result);
 		Result = FCrc::MemCrc32(&WallSegment.HoleHeight, sizeof(double), Result);
 		Result = FCrc::MemCrc32(&WallSegment.UnderHoleInteriorMaterialIndex, sizeof(int), Result);
@@ -216,8 +189,6 @@ struct FWallSegment
 		Result += UEnum::GetValueAsString(WallSegmentKind);
 		Result += ", SegmentLength: ";
 		Result += FString::SanitizeFloat(SegmentLength);
-		Result += ", MinSegmentLength: ";
-		Result += FString::SanitizeFloat(MinSegmentLength);
 		Result += ", HoleDistanceToFloor: ";
 		Result += FString::SanitizeFloat(HoleDistanceToFloor);
 		Result += ", HoleHeight: ";
@@ -276,6 +247,14 @@ struct FLevelDescription
 	)
 	/* Ceiling Material Index for the floor below this one */
 	int UnderFloorMaterialIndex = 0;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "WindowsSpecification",
+		meta = (DisplayPriority = "12")
+	)
+	/* if checked, the wall segments correspond to the space between two corners
+	 * if unchecked, the wall segments correspond to the whole level, all around the building */
+	bool bResetWallSegmentsOnCorners = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WindowsSpecification", meta = (DisplayPriority = "100"))
     TArray<FWallSegment> WallSegments;

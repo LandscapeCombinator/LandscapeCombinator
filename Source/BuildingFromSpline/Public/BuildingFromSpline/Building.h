@@ -140,16 +140,20 @@ protected:
 	TArray<FTransform> BaseClockwiseFrames;
 	TArray<double> BaseClockwiseFramesTimes;
 	TArray<FVector2D> BaseVertices2D;
-	TArray<FVector2D> InternalWallPolygon;
-	TArray<FVector2D> ExternalWallPolygon;
-	TArray<int> IndexToInternalIndex;
-	TMap<UStaticMesh*, UInstancedStaticMeshComponent*> MeshToISM;
 
+	// these three maps contain the shifted polygons, one entry per thickness given in user's BuildingConfiguration
+	TMap<double, TArray<FVector2D>> InternalWallPolygons;
+	TMap<double, TArray<FVector2D>> ExternalWallPolygons;
+	TMap<double, TArray<int>> IndexToInternalIndex;
+	void ComputeBaseVertices();
+	void AddInternalThickness(double Thickness);
+	void AddExternalThickness(double Thickness);
+
+	TMap<UStaticMesh*, UInstancedStaticMeshComponent*> MeshToISM;
 	FVector2D GetIntersection(FVector2D Point1, FVector2D Direction1, FVector2D Point2, FVector2D Direction2);
 	void DeflateFrames(TArray<FTransform> Frames, TArray<FVector2D>& OutOffsetPolygon, TArray<int>& OutIndexToOffsetIndex, double Offset);
 
 	TArray<int> SplineIndexToBaseSplineIndex;
-	void ComputeBaseVertices();
 	void ComputeOffsetPolygons();
 	TArray<FVector2D> MakePolygon(bool bInternalWall, double BeginDistance, double Length, double Thickness);
 	FVector2D GetShiftedPoint(TArray<FTransform> Frames, int Index, double Shift, bool bIsLoop);
@@ -163,8 +167,8 @@ protected:
 	void AppendBuildingStructure(UDynamicMesh* TargetMesh);
 	bool AppendBuildingWithoutInside(UDynamicMesh *TargetMesh);
 	
-	bool AddWindowsMeshes();
-	bool AddWindowsMeshes(const FLevelDescription &LevelDescription, double ZOffset);
+	bool AddAttachments();
+	bool AddAttachments(const FLevelDescription &LevelDescription, double ZOffset);
 
 };
 
