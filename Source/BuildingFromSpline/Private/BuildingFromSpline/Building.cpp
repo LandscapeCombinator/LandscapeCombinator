@@ -1420,8 +1420,9 @@ bool ABuilding::AddAttachments(const FLevelDescription &LevelDescription, double
 					{
 						if (!Attachment.Mesh) break;
 
+						double Width = Attachment.OverrideWidth > 0 ? Attachment.OverrideWidth : WallSegment.SegmentLength;
 						AddSplineMesh(
-							Attachment.Mesh, CurrentDistance, Attachment.OverrideWidth, Attachment.OverrideThickness, Attachment.OverrideHeight,
+							Attachment.Mesh, CurrentDistance, Width, Attachment.OverrideThickness, Attachment.OverrideHeight,
 							RotatedOffset + FVector(0, 0, MinHeightLocal + ZOffset), Attachment.SplineMeshAxis
 						);
 						break;
