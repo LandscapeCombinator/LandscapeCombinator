@@ -5,6 +5,7 @@
 #include "Engine/StaticMesh.h"
 #include "Engine/DataTable.h"
 #include "Components/ActorComponent.h" 
+#include "Components/SplineMeshComponent.h"
 #include "CoreMinimal.h"
 
 #include "LCCommon/LCReporter.h"
@@ -42,33 +43,39 @@ USTRUCT(BlueprintType)
 struct FAttachment
 {
 	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "1"))
 	EAttachmentKind AttachmentKind = EAttachmentKind::InstancedStaticMeshComponent;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment",
-		meta=(EditConditionHides, EditCondition="AttachmentKind == EAttachmentKind::Actor"))
+		meta=(EditConditionHides, EditCondition="AttachmentKind == EAttachmentKind::Actor", DisplayPriority = "2"))
 	TSubclassOf<AActor> ActorClass;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment",
-		meta=(EditConditionHides, EditCondition="AttachmentKind != EAttachmentKind::Actor"))
+		meta=(EditConditionHides, EditCondition="AttachmentKind != EAttachmentKind::Actor", DisplayPriority = "3"))
 	TObjectPtr<UStaticMesh> Mesh;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment")
-	// offset from the bottom/start of the wall segment
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "4"))
+	/* offset from the bottom/start of the wall segment:
+	 * X is the tangent direction, Y is the inside direction, Z is the up direction */
 	FVector Offset = FVector(0, 0, 0);
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment")
-	// rotation relative to the wall segment
-	FRotator Rotator = FRotator::ZeroRotator;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment",
+		meta=(EditConditionHides, EditCondition="AttachmentKind != EAttachmentKind::SplineMeshComponent", DisplayPriority = "5"))
+	/* by default, the attachment is rotated alongside the tangent, you can use this variable
+	 * to add an extra rotation to the attachment */
+	FRotator ExtraRotation = FRotator::ZeroRotator;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment",
+		meta=(EditConditionHides, EditCondition="AttachmentKind == EAttachmentKind::SplineMeshComponent", DisplayPriority = "5"))
+	TEnumAsByte<ESplineMeshAxis::Type> SplineMeshAxis;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "6"))
 	double OverrideWidth = 0;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "7"))
 	double OverrideHeight = 0;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "8"))
 	double OverrideThickness = 0;
 
 	bool operator==(const FAttachment& Other) const = default;
