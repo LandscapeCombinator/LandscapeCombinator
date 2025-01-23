@@ -160,7 +160,7 @@ protected:
 
 	bool AppendWallsWithHoles(UDynamicMesh* TargetMesh, bool bInternalWall, double ZOffset, const FLevelDescription &LevelDescription);
 	bool AppendWallsWithHoles(UDynamicMesh* TargetMesh);
-	void AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, double Length, double Thickness, double Height, FVector Offset);
+	void AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, double Length, double Thickness, double Height, FVector Offset, ESplineMeshAxis::Type SplineMeshAxis);
 	void AppendAlongSpline(UDynamicMesh* TargetMesh, bool bInternalWall, double BeginDistance, double Length, double Height, double ZOffset, double Thickness, int MaterialID);
 	void AppendRoof(UDynamicMesh* TargetMesh);
 	bool AppendFloors(UDynamicMesh *TargetMesh);

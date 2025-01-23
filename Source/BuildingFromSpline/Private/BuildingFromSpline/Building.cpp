@@ -732,7 +732,7 @@ TArray<FVector2D> ABuilding::MakePolygon(bool bInternalWall, double BeginDistanc
 	return Result;
 }
 
-void ABuilding::AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, double Length, double Thickness, double Height, FVector Offset)
+void ABuilding::AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, double Length, double Thickness, double Height, FVector Offset, ESplineMeshAxis::Type SplineMeshAxis)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AddSplineMesh");
 
@@ -741,6 +741,7 @@ void ABuilding::AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, dou
 	USplineMeshComponent *SplineMeshComponent = NewObject<USplineMeshComponent>(RootComponent);
 	SplineMeshComponents.Add(SplineMeshComponent);
 	SplineMeshComponent->SetStaticMesh(StaticMesh);
+	SplineMeshComponent->SetForwardAxis(SplineMeshAxis, false);
 	SplineMeshComponent->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
 	SplineMeshComponent->CreationMethod = EComponentCreationMethod::UserConstructionScript;
 	SplineMeshComponent->RegisterComponent();
@@ -755,8 +756,24 @@ void ABuilding::AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, dou
 	EndTangent = EndTangent.GetSafeNormal() * Length;
 
 	FBox BoundingBox = StaticMesh->GetBoundingBox();
-	double NewScaleY = Thickness / BoundingBox.GetExtent()[1] / 2;
-	double NewScaleZ = Height / BoundingBox.GetExtent()[2] / 2;
+	int YIndex, ZIndex;
+	if (SplineMeshAxis == ESplineMeshAxis::X)
+	{
+		YIndex = 1;
+		ZIndex = 2;
+	}
+	else if (SplineMeshAxis == ESplineMeshAxis::Y)
+	{
+		YIndex = 2;
+		ZIndex = 0;
+	}
+	else
+	{
+		YIndex = 0;
+		ZIndex = 1;
+	}
+	double NewScaleY = Thickness > 0 ? Thickness / BoundingBox.GetExtent()[YIndex] / 2 : 1;
+	double NewScaleZ = Height > 0 ? Height / BoundingBox.GetExtent()[ZIndex] / 2 : 1;
 	SplineMeshComponent->SetStartAndEnd(StartPos, StartTangent, EndPos, EndTangent, false);
 	SplineMeshComponent->SetStartScale( { NewScaleY, NewScaleZ }, false);
 	SplineMeshComponent->SetEndScale( { NewScaleY, NewScaleZ }, false);
@@ -1350,6 +1367,12 @@ bool ABuilding::AddAttachments(const FLevelDescription &LevelDescription, double
 		{
 			for (auto &Attachment: WallSegment.Attachments)
 			{
+				FVector AttachmentLocation = BaseClockwiseSplineComponent->GetLocationAtDistanceAlongSpline(CurrentDistance, ESplineCoordinateSpace::World);
+				FVector AttachmentTangent = BaseClockwiseSplineComponent->GetTangentAtDistanceAlongSpline(CurrentDistance, ESplineCoordinateSpace::World);
+				FQuat AttachmentRotation = FQuat::FindBetweenVectors(FVector(1, 0, 0), AttachmentTangent);
+				double AttachmentTangentAngle = AttachmentRotation.Rotator().Yaw;
+				FVector RotatedOffset = Attachment.Offset.RotateAngleAxis(AttachmentTangentAngle, FVector(0, 0, 1));
+
 				switch (Attachment.AttachmentKind)
 				{
 					case EAttachmentKind::InstancedStaticMeshComponent:
@@ -1380,11 +1403,6 @@ bool ABuilding::AddAttachments(const FLevelDescription &LevelDescription, double
 						}
 						
 						FBox BoundingBox = Attachment.Mesh->GetBoundingBox();
-						FVector MeshLocation = BaseClockwiseSplineComponent->GetLocationAtDistanceAlongSpline(CurrentDistance, ESplineCoordinateSpace::World);
-						FVector MeshTangent = BaseClockwiseSplineComponent->GetTangentAtDistanceAlongSpline(CurrentDistance, ESplineCoordinateSpace::World);
-						MeshLocation.Z += ZOffset;
-						MeshLocation += Attachment.Offset;
-						
 						FVector Scale(
 							Attachment.OverrideWidth > 0 ? Attachment.OverrideWidth / BoundingBox.GetExtent()[0] / 2 : 1,
 							Attachment.OverrideThickness > 0 ? Attachment.OverrideThickness / BoundingBox.GetExtent()[1] / 2 : 1,
@@ -1392,8 +1410,8 @@ bool ABuilding::AddAttachments(const FLevelDescription &LevelDescription, double
 						);
 
 						FTransform Transform;
-						Transform.SetLocation(MeshLocation);
-						Transform.SetRotation(FQuat::FindBetweenVectors(FVector(1, 0, 0), MeshTangent));
+						Transform.SetLocation(AttachmentLocation + RotatedOffset + FVector(0, 0, ZOffset));
+						Transform.SetRotation(AttachmentRotation * FQuat(Attachment.ExtraRotation));
 						Transform.SetScale3D(Scale);
 						ISM->AddInstance(Transform, true);
 						break;
@@ -1404,7 +1422,7 @@ bool ABuilding::AddAttachments(const FLevelDescription &LevelDescription, double
 
 						AddSplineMesh(
 							Attachment.Mesh, CurrentDistance, Attachment.OverrideWidth, Attachment.OverrideThickness, Attachment.OverrideHeight,
-							Attachment.Offset + FVector(0, 0, MinHeightLocal +ZOffset)
+							RotatedOffset + FVector(0, 0, MinHeightLocal + ZOffset), Attachment.SplineMeshAxis
 						);
 						break;
 					}
@@ -1415,10 +1433,7 @@ bool ABuilding::AddAttachments(const FLevelDescription &LevelDescription, double
 						AActor *NewActor = GetWorld()->SpawnActor<AActor>(Attachment.ActorClass);
 						FVector ActorOrigin, ActorExtent;
 						NewActor->GetActorBounds(true, ActorOrigin, ActorExtent);
-						FVector ActorLocation = BaseClockwiseSplineComponent->GetLocationAtDistanceAlongSpline(CurrentDistance, ESplineCoordinateSpace::World);
-						FVector ActorTangent = BaseClockwiseSplineComponent->GetTangentAtDistanceAlongSpline(CurrentDistance, ESplineCoordinateSpace::World);
 						NewActor->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
-						ActorLocation += Attachment.Offset + FVector(0, 0, ZOffset);
 
 						FVector Scale(
 							Attachment.OverrideWidth > 0 ? Attachment.OverrideWidth / ActorExtent[0] / 2 : 1,
@@ -1426,8 +1441,8 @@ bool ABuilding::AddAttachments(const FLevelDescription &LevelDescription, double
 							Attachment.OverrideHeight > 0 ? Attachment.OverrideHeight / ActorExtent[2] / 2 : 1
 						);
 						NewActor->SetActorScale3D(Scale);
-						NewActor->SetActorLocation(ActorLocation);
-						NewActor->SetActorRotation(FQuat::FindBetweenVectors(FVector(1, 0, 0), ActorTangent));
+						NewActor->SetActorLocation(AttachmentLocation + RotatedOffset + FVector(0, 0, ZOffset));
+						NewActor->SetActorRotation(AttachmentRotation * FQuat(Attachment.ExtraRotation));
 						break;
 					}
 				}
@@ -1446,85 +1461,6 @@ bool ABuilding::AddAttachments(const FLevelDescription &LevelDescription, double
 
 	return true;
 }
-
-// void ABuilding::AddAttachments(FWindowsSpecification &WindowsSpecification, int i)
-// {
-	
-// 	if (!WindowsSpecification.WindowsMesh) return;
-
-// 	if (i >= BuildingConfiguration->NumFloors) return;
-
-// 	TArray<float> SafeWindowsPositions = GetSafeWindowsPositions(WindowsSpecification.WindowsPositions, WindowsSpecification.WindowsWidth);
-
-// 	switch (WindowsSpecification.WindowsMeshKind)
-// 	{
-// 		case EWindowsMeshKind::None:
-// 			return;
-
-// 		case EWindowsMeshKind::InstancedStaticMeshComponent:
-// 		{
-// 			UInstancedStaticMeshComponent *ISM = nullptr;
-// 			if (!MeshToISM.Contains(WindowsSpecification.WindowsMesh))
-// 			{
-// 				ISM = NewObject<UInstancedStaticMeshComponent>(RootComponent);
-// 				ISM->SetStaticMesh(WindowsSpecification.WindowsMesh);
-// 				ISM->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
-// 				ISM->CreationMethod = EComponentCreationMethod::UserConstructionScript;
-// 				ISM->RegisterComponent(); 
-// 				AddInstanceComponent(ISM);
-// 				MeshToISM.Add(WindowsSpecification.WindowsMesh, ISM);
-// 				InstancedStaticMeshComponents.Add(ISM);
-// 			}
-// 			else
-// 			{
-// 				ISM = MeshToISM[WindowsSpecification.WindowsMesh];
-// 			}
-
-// 			if (!ISM)
-// 			{
-// 				UE_LOG(LogBuildingFromSpline, Error, TEXT("Could not create ISM for window meshes"));
-// 				return;
-// 			}
-			
-// 			FBox BoundingBox = WindowsSpecification.WindowsMesh->GetBoundingBox();
-// 			for (auto& WindowPosition : SafeWindowsPositions)
-// 			{
-// 				FVector MeshLocation = BaseClockwiseSplineComponent->GetLocationAtDistanceAlongSpline(WindowPosition, ESplineCoordinateSpace::World);
-// 				FVector MeshTangent = BaseClockwiseSplineComponent->GetTangentAtDistanceAlongSpline(WindowPosition, ESplineCoordinateSpace::World);
-// 				MeshLocation.Z += BuildingConfiguration->ExtraWallBottom + i * BuildingConfiguration->FloorHeight + WindowsSpecification.WindowsDistanceToFloor;
-				
-// 				FVector Scale(
-// 					WindowsSpecification.WindowsWidth/ BoundingBox.GetExtent()[0] / 2,
-// 					1,
-// 					WindowsSpecification.WindowsHeight / BoundingBox.GetExtent()[2] / 2
-// 				);
-
-// 				FTransform Transform;
-// 				Transform.SetLocation(MeshLocation);
-// 				Transform.SetRotation(FQuat::FindBetweenVectors(FVector(1, 0, 0), MeshTangent));
-// 				Transform.SetScale3D(Scale);
-// 				ISM->AddInstance(Transform, true);
-// 			}
-
-// 			return;
-// 		}
-
-// 		case EWindowsMeshKind::SplineMeshComponent:
-// 		{
-// 			for (auto& WindowPosition : SafeWindowsPositions)
-// 			{
-// 				AddSplineMesh(
-// 					WindowsSpecification.WindowsMesh, WindowPosition, WindowsSpecification.WindowsWidth, WindowsSpecification.WindowsHeight,
-// 					MinHeightLocal + BuildingConfiguration->ExtraWallBottom + i * BuildingConfiguration->FloorHeight + WindowsSpecification.WindowsDistanceToFloor
-// 				);
-// 			}
-// 			return;
-// 		}
-
-// 		default:
-// 			return;
-// 	}
-// }
 	
 bool ABuilding::AddAttachments()
 {
