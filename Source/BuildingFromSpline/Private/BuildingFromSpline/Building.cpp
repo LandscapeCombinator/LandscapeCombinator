@@ -1288,6 +1288,8 @@ bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)
 		return false;
 	}
 
+	bool bFetchFromUserData = BuildingConfiguration->AutoComputeNumFloors();
+
 	if (!UBuildingConfiguration::Expand<FLevelDescription>(
 		LevelDescriptions,
 		BuildingConfiguration->Levels,
@@ -1312,8 +1314,6 @@ bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)
 		bIsGenerating = false;
 		return false;
 	}
-
-	bool bFetchFromUserData = BuildingConfiguration->AutoComputeNumFloors();
 
 	if (!bFetchFromUserData && BuildingConfiguration->bUseRandomNumFloors)
 	{

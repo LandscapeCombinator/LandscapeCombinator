@@ -41,9 +41,9 @@ bool UBuildingConfiguration::AutoComputeNumFloors()
 
 	if (!BuildingOSMUserData) return false;
 	
-	if (BuildingOSMUserData->Fields.Contains("levels"))
+	if (BuildingOSMUserData->Fields.Contains("building_levels"))
 	{
-		FString LevelsString = BuildingOSMUserData->Fields["levels"];
+		FString LevelsString = BuildingOSMUserData->Fields["building_levels"];
 		int NumLevels = FCString::Atoi(*LevelsString);
 		if (NumLevels > 0)
 		{
@@ -51,17 +51,14 @@ bool UBuildingConfiguration::AutoComputeNumFloors()
 			Building->BuildingConfiguration->NumFloors = NumLevels;
 			return true;
 		}
+		// we don't return false to give a chance to the 'height' field below
 		else if (!LevelsString.IsEmpty())
 		{
 			UE_LOG(LogBuildingFromSpline, Warning, TEXT("Ignoring levels field: '%s'"), *LevelsString);
-			return false;
-		}
-		else
-		{
-			return false;
 		}
 	}
-	else if (BuildingOSMUserData->Fields.Contains("height"))
+
+	if (BuildingOSMUserData->Fields.Contains("height"))
 	{
 		FString HeightString = BuildingOSMUserData->Fields["height"];
 		double Height = FCString::Atod(*HeightString);

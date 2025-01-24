@@ -65,6 +65,11 @@ public:
 	)
 	void GenerateBuildings(FName SpawnedActorsPathOverride);
 
+	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Buildings",
+		meta = (DisplayPriority = "3", DisplayName = "Generate Buildings")
+	)
+	void GenerateBuildingsEditor() { GenerateBuildings(FName()); }
+
 	virtual void OnGenerate(FName SpawnedActorsPathOverride, TFunction<void(bool)> OnComplete) override;
 
 	virtual TArray<UObject*> GetGeneratedObjects() const {
@@ -82,7 +87,7 @@ public:
 	virtual bool Cleanup_Implementation(bool bSkipPrompt) override;
 
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Buildings",
-		meta = (DisplayPriority = "4")
+		meta = (DisplayPriority = "4", DisplayName = "Clear Buildings")
 	)
 	void ClearBuildings();
 
