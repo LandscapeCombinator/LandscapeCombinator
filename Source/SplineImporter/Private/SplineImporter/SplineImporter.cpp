@@ -262,11 +262,15 @@ void ASplineImporter::GenerateRegularSplines(
 			FText::AsNumber(NumLists)
 		)
 	);
-	SplinesTask.MakeDialog();
+	SplinesTask.MakeDialog(true);
 
 	int i = 0;
 	for (auto &PointList : PointLists)
 	{
+		if (SplinesTask.ShouldCancel())
+		{
+			break;
+		}
 		i++;
 		if (SplineOwnerKind == ESplineOwnerKind::ManySplineCollections)
 		{

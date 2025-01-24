@@ -659,28 +659,28 @@ public:
 	/* Random number of floors */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
-		meta = (EditCondition = "!AutoComputeNumFloors()", EditConditionHides, DisplayPriority = "20")
+		meta = (EditCondition = "!bAutoComputeNumFloors", EditConditionHides, DisplayPriority = "20")
 	)
 	bool bUseRandomNumFloors = false;
 	
 	/* The number of floors (including ground level) */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
-		meta = (EditCondition = "!AutoComputeNumFloors() && !bUseRandomNumFloors", EditConditionHides, DisplayPriority = "21")
+		meta = (EditCondition = "!bAutoComputeNumFloors && !bUseRandomNumFloors", EditConditionHides, DisplayPriority = "21")
 	)
 	int NumFloors = 3;
 	
 	/* Minimum number of floors */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
-		meta = (EditCondition = "!AutoComputeNumFloors() && bUseRandomNumFloors", EditConditionHides, DisplayPriority = "22")
+		meta = (EditCondition = "!bAutoComputeNumFloors && bUseRandomNumFloors", EditConditionHides, DisplayPriority = "22")
 	)
 	int MinNumFloors = 3;
 	
 	/* Maximum number of floors */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
-		meta = (EditCondition = "!AutoComputeNumFloors() && bUseRandomNumFloors", EditConditionHides, DisplayPriority = "23")
+		meta = (EditCondition = "!bAutoComputeNumFloors && bUseRandomNumFloors", EditConditionHides, DisplayPriority = "23")
 	)
 	int MaxNumFloors = 5;
 
