@@ -67,7 +67,7 @@ struct FAttachment
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment",
 		meta=(EditConditionHides, EditCondition="AttachmentKind == EAttachmentKind::SplineMeshComponent", DisplayPriority = "5"))
-	TEnumAsByte<ESplineMeshAxis::Type> SplineMeshAxis;
+	TEnumAsByte<ESplineMeshAxis::Type> SplineMeshAxis = ESplineMeshAxis::X;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "6"))
 	double OverrideWidth = 0;
