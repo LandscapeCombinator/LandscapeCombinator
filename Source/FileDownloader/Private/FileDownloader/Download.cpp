@@ -19,8 +19,8 @@
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
-float SleepSeconds = 0.05;
-float TimeoutSeconds = 10;
+float SleepSeconds = 0.1;
+float TimeoutSeconds = 100;
 TMap<FString, int> ExpectedSizeCache; 
 
 FString Shorten(FString Input)

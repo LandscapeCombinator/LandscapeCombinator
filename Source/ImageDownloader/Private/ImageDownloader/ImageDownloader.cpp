@@ -31,7 +31,6 @@
 #include "ImageDownloader/Transformers/HMToPNG.h"
 #include "ImageDownloader/Transformers/HMMerge.h"
 #include "ImageDownloader/Transformers/HMReadCRS.h"
-#include "ImageDownloader/Transformers/HMWriteCRS.h"
 #include "ImageDownloader/Transformers/HMConvert.h"
 #include "ImageDownloader/Transformers/HMAddMissingTiles.h"
 #include "ImageDownloader/Transformers/HMFunction.h"
@@ -54,11 +53,6 @@ UImageDownloader::UImageDownloader()
 	PreprocessingTool = CreateDefaultSubobject<UExternalTool>(TEXT("Preprocessing Tool"));
 }
 
-TArray<FString> UImageDownloader::GetTitles()
-{
-	return WMSProvider.Titles;
-}
-
 FString RenameCRS(FString CRS)
 {
 	if (CRS == "IGNF:UTM20W84GUAD")
@@ -75,6 +69,10 @@ FString RenameCRS(FString CRS)
 	}
 }
 
+TArray<FString> UImageDownloader::GetTitles()
+{
+	return WMS_Provider.Titles;
+}
 
 HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 {
@@ -168,35 +166,20 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 					return nullptr;
 				}
 
-				AutoSetSize();
+				AutoSetResolution();
 
-				bool bGeoTiff;
-				FString QueryURL, FileExt;
-				bool bSuccess = WMSProvider.CreateURL(
-					WMS_Width, WMS_Height,
+				HMFetcher *WMSFetcher = new HMWMS(
+					WMS_Provider,
+					WMS_MaxTileWidth, WMS_MaxTileHeight,
 					WMS_Name, WMS_CRS, WMS_X_IsLong,
 					WMS_MinAllowedLong, WMS_MaxAllowedLong, WMS_MinAllowedLat, WMS_MaxAllowedLat,
 					WMS_MinLong, WMS_MaxLong, WMS_MinLat, WMS_MaxLat,
-					QueryURL, bGeoTiff, FileExt
+					bWMSSingleTile, WMS_ResolutionPixelsPerUnit
 				);
-
-				if (!bSuccess) return nullptr;
-
-				uint32 Hash = FTextLocalizationResource::HashString(QueryURL);
-				FString FileName = FString::Format(TEXT("WMS_{0}.{1}"), { Hash, FileExt });
-				
-				HMFetcher *WMSFetcher = new HMURL(QueryURL, FileName, RenameCRS(WMS_CRS));
 
 				if (!WMSFetcher) return nullptr;
 
-				HMFetcher* Result = new HMDebugFetcher("WMS_Download", WMSFetcher, true);
-
-				if (!bGeoTiff)
-				{
-					Result = Result->AndThen(new HMDebugFetcher("WMS_WriteCRS", new HMWriteCRS(Name, WMS_Width, WMS_Height, WMS_MinLong, WMS_MaxLong, WMS_MinLat, WMS_MaxLat)));
-				}
-
-				return Result;
+				return new HMDebugFetcher("WMS_Download", WMSFetcher, true);
 			}
 			else if (IsXYZ())
 			{
@@ -641,7 +624,7 @@ bool UImageDownloader::IsXYZ()
 
 bool UImageDownloader::HasMultipleLayers()
 {
-	return WMSProvider.Titles.Num() >= 2;
+	return WMS_Provider.Titles.Num() >= 2;
 }
 
 void UImageDownloader::SetLargestPossibleCoordinates()
@@ -662,22 +645,23 @@ bool UImageDownloader::AllowsParametersSelection()
 	return IsWMS() || (IsXYZ() && bGeoreferenceSlippyTiles) || ImageSourceKind == EImageSourceKind::Napoli;
 }
 
-bool UImageDownloader::CanAutoSetSize()
+bool UImageDownloader::CanAutoSetResolution()
 {
 	return ImageSourceKind == EImageSourceKind::IGN_Heightmaps;
 }
 
-void UImageDownloader::AutoSetSize()
+void UImageDownloader::AutoSetResolution()
 {
 	if (ImageSourceKind == EImageSourceKind::IGN_Heightmaps)
 	{
-		WMS_MinLat = FMath::RoundToZero(WMS_MinLat);
-		WMS_MaxLat = FMath::RoundToZero(WMS_MaxLat);
-		WMS_MinLong = FMath::RoundToZero(WMS_MinLong);
-		WMS_MaxLong = FMath::RoundToZero(WMS_MaxLong);
+		WMS_ResolutionPixelsPerUnit = 1;
+		// WMS_MinLat = FMath::RoundToZero(WMS_MinLat);
+		// WMS_MaxLat = FMath::RoundToZero(WMS_MaxLat);
+		// WMS_MinLong = FMath::RoundToZero(WMS_MinLong);
+		// WMS_MaxLong = FMath::RoundToZero(WMS_MaxLong);
 		
-		WMS_Width = WMS_MaxLong - WMS_MinLong;
-		WMS_Height = WMS_MaxLat - WMS_MinLat;
+		// WMS_Width = WMS_MaxLong - WMS_MinLong;
+		// WMS_Height = WMS_MaxLat - WMS_MinLat;
 	}
 }
 
@@ -921,31 +905,31 @@ void UImageDownloader::PostEditChangeProperty(FPropertyChangedEvent& Event)
 
 void UImageDownloader::OnLayerChanged()
 {
-	int LayerIndex = WMSProvider.Titles.Find(WMS_Title);
+	int LayerIndex = WMS_Provider.Titles.Find(WMS_Title);
 	if (LayerIndex == INDEX_NONE)
 	{
 		WMS_Help = FString::Format(TEXT("Could not find Layer {0}"), { WMS_Title });
 		return;
 	}
-	WMS_Name = WMSProvider.Names[LayerIndex];
+	WMS_Name = WMS_Provider.Names[LayerIndex];
 	WMS_Help = "Please enter the coordinates using the following CRS:";
-	WMS_CRS = WMSProvider.CRSs[LayerIndex];
+	WMS_CRS = WMS_Provider.CRSs[LayerIndex];
 	if (WMS_X_IsLong)
 	{
-		WMS_MinAllowedLong = WMSProvider.MinXs[LayerIndex];
-		WMS_MaxAllowedLong = WMSProvider.MaxXs[LayerIndex];
-		WMS_MinAllowedLat = WMSProvider.MinYs[LayerIndex];
-		WMS_MaxAllowedLat = WMSProvider.MaxYs[LayerIndex];
+		WMS_MinAllowedLong = WMS_Provider.MinXs[LayerIndex];
+		WMS_MaxAllowedLong = WMS_Provider.MaxXs[LayerIndex];
+		WMS_MinAllowedLat = WMS_Provider.MinYs[LayerIndex];
+		WMS_MaxAllowedLat = WMS_Provider.MaxYs[LayerIndex];
 	}
 	else
 	{
-		WMS_MinAllowedLong = WMSProvider.MinYs[LayerIndex];
-		WMS_MaxAllowedLong = WMSProvider.MaxYs[LayerIndex];
-		WMS_MinAllowedLat = WMSProvider.MinXs[LayerIndex];
-		WMS_MaxAllowedLat = WMSProvider.MaxXs[LayerIndex];
+		WMS_MinAllowedLong = WMS_Provider.MinYs[LayerIndex];
+		WMS_MaxAllowedLong = WMS_Provider.MaxYs[LayerIndex];
+		WMS_MinAllowedLat = WMS_Provider.MinXs[LayerIndex];
+		WMS_MaxAllowedLat = WMS_Provider.MaxXs[LayerIndex];
 	}
 	WMS_SearchCRS = FString::Format(TEXT("https://duckduckgo.com/?q={0}+site%3Aepsg.io"), { WMS_CRS });
-	WMS_Abstract = WMSProvider.Abstracts[LayerIndex];
+	WMS_Abstract = WMS_Provider.Abstracts[LayerIndex];
 }
 
 void UImageDownloader::OnImageSourceChanged(TFunction<void(bool)> OnComplete)
@@ -1035,7 +1019,7 @@ void UImageDownloader::ResetWMSProvider(TArray<FString> ExcludeCRS, TFunction<bo
 	}
 	else
 	{
-		WMSProvider.SetFromURL(
+		WMS_Provider.SetFromURL(
 			CapabilitiesURL,
 			ExcludeCRS,
 			LayerFilter,
@@ -1059,12 +1043,12 @@ void UImageDownloader::ResetWMSProvider(TArray<FString> ExcludeCRS, TFunction<bo
 					WMS_Help = FString::Format(TEXT("There was an error while loading WMS Provider from URL: {0}"), { CapabilitiesURL });
 				}
 				
-				WMS_MaxWidth = WMSProvider.MaxWidth;
-				WMS_MaxHeight = WMSProvider.MaxHeight;
+				WMS_MaxWidth = WMS_Provider.MaxWidth;
+				WMS_MaxHeight = WMS_Provider.MaxHeight;
 
-				if (!WMSProvider.Titles.Contains(WMS_Title) && !WMSProvider.Titles.IsEmpty())
+				if (!WMS_Provider.Titles.Contains(WMS_Title) && !WMS_Provider.Titles.IsEmpty())
 				{
-					WMS_Title = WMSProvider.Titles[0];
+					WMS_Title = WMS_Provider.Titles[0];
 					OnLayerChanged();
 				}
 
