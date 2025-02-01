@@ -32,7 +32,11 @@ void HMToPNG::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void
 	double MaxAltitude = Altitudes[1];
 
 	FScopedSlowTask ToPNGTask(InputFiles.Num(), LOCTEXT("ToPNGTask", "GDAL Interface: Translating Files to PNG"));
-	ToPNGTask.MakeDialog(true);
+
+	if (InputFiles.Num() > 10)
+	{
+		ToPNGTask.MakeDialog(true);
+	}
 
 	for (int32 i = 0; i < InputFiles.Num(); i++)
 	{
@@ -64,7 +68,7 @@ void HMToPNG::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void
 			}
 		}
 	}
-
+	
 	if (OnComplete) OnComplete(true);
 	return;
 }
