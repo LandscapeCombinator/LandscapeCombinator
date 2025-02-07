@@ -20,8 +20,9 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 	{
 		ULCReporter::ShowOneError(
 			FText::Format(
-				LOCTEXT("MapboxHelpers::6", "Could not read file {0} using GDAL."),
-				FText::FromString(OutputFile)
+				LOCTEXT("MapboxHelpers::6", "Could not read file {0} using GDAL:\n{1}"),
+				FText::FromString(InputFile),
+				FText::FromString(CPLGetLastErrorMsg())
 			),
 			bShowedDialog
 		);
@@ -234,8 +235,9 @@ bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile
 	{
 		ULCReporter::ShowOneError(
 			FText::Format(
-				LOCTEXT("MapboxHelpers::6", "Could not read file {0} using GDAL."),
-				FText::FromString(OutputFile)
+				LOCTEXT("MapboxHelpers::6", "Could not read (three bands) file {0} using GDAL.\n{1}"),
+				FText::FromString(InputFile),
+				FText::FromString(CPLGetLastErrorMsg())
 			),
 			bShowedDialog
 		);
