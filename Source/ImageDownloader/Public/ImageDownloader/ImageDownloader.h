@@ -83,9 +83,16 @@ public:
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
+		meta = (DisplayPriority = "-18")
+	)
+	/* Merge all downloaded images into a single image */
+	bool bMergeImages = false;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
 			EditCondition = "AllowsParametersSelection()",
-			EditConditionHides, DisplayPriority = "-9"
+			EditConditionHides, DisplayPriority = "-15"
 		)
 	)
 	/* Whether to enter coordinates manually or using a bounding actor. */
@@ -95,7 +102,7 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
 			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromBoundingActor",
-			EditConditionHides, DisplayPriority = "-8"
+			EditConditionHides, DisplayPriority = "-10"
 		)
 	)
 	/* Select a Location Volume (or any other actor) that will be used to compute the WMS coordinates or XYZ tiles.
@@ -860,15 +867,9 @@ public:
 	/***********
 	 * Actions *
 	 ***********/
-	
-	void DownloadImages(TObjectPtr<UGlobalCoordinates> GlobalCoordinates, TFunction<void(TArray<FString>)> OnComplete);
-	void DownloadMergedImage(bool bEnsureOneBand, TObjectPtr<UGlobalCoordinates> GlobalCoordinates, TFunction<void(FString, FString)> OnComplete);
 
-	UFUNCTION(BlueprintCallable, CallInEditor, Category = "ImageDownloader",
-		meta = (DisplayPriority = "10")
-	)
-	void DownloadMergedImage() { DownloadMergedImage(false, ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false), nullptr); };
-	
+	void DownloadImages(bool bEnsureOneBand, TObjectPtr<UGlobalCoordinates> GlobalCoordinates, TFunction<void(TArray<FString>, FString)> OnComplete);
+
 	/* This deletes all the images, included downloaded files. */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "ImageDownloader",
 		meta = (DisplayPriority = "11")
@@ -916,7 +917,7 @@ public:
 #endif
 	
 	HMFetcher* CreateFetcher(
-		FString Name, bool bForceMerge, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG,
+		FString Name, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG,
 		TFunction<bool(HMFetcher*)> RunBeforePNG, TObjectPtr<UGlobalCoordinates> GlobalCoordinates
 	);
 

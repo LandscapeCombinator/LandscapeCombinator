@@ -33,6 +33,7 @@ public:
 	TObjectPtr<UTexture2D> Texture;
 
 	static ADecalActor* CreateDecal(UWorld *World, FString Path);
+	static TArray<ADecalActor*> CreateDecals(UWorld *World, TArray<FString> Paths);
 	static ADecalActor* CreateDecal(UWorld *World, FString Path, FVector4d &OutCoordinates);
 };
 

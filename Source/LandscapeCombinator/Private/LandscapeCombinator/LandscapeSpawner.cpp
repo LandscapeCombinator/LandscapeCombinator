@@ -48,12 +48,15 @@ ALandscapeSpawner::ALandscapeSpawner()
 TArray<UObject*> ALandscapeSpawner::GetGeneratedObjects() const
 {
 	TArray<UObject*> Result;
-	if (DecalActor.IsValid()) Result.Add(DecalActor.Get());
+
+	for (auto &DecalActor : DecalActors)
+	{
+		if (IsValid(DecalActor)) Result.Add(DecalActor);
+	}
 
 	for (auto &LandscapeStreamingProxy: SpawnedLandscapeStreamingProxies)
 	{
-		if (IsValid(LandscapeStreamingProxy))
-			Result.Add(LandscapeStreamingProxy);
+		if (IsValid(LandscapeStreamingProxy)) Result.Add(LandscapeStreamingProxy);
 	}
 	if (SpawnedLandscape.IsValid()) Result.Add(SpawnedLandscape.Get());
 
@@ -178,9 +181,9 @@ void ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, TFunctio
 
 	bool bIsGridBased = LandscapeSubsystem && LandscapeSubsystem->IsGridBased();
 
+	HeightmapDownloader->bMergeImages = !bIsGridBased;
 	HMFetcher* Fetcher = HeightmapDownloader->CreateFetcher(
 		LandscapeLabel,
-		!bIsGridBased,
 		true,
 		true,
 		true,
@@ -383,23 +386,37 @@ void ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, TFunctio
 							}
 
 
-							DecalDownloader->DownloadMergedImage(false, GlobalCoordinates, [this, SpawnedActorsPathOverride, OnComplete](FString DownloadedImage, FString ImageCRS)
+							DecalDownloader->DownloadImages(false, GlobalCoordinates, [this, SpawnedActorsPathOverride, OnComplete](TArray<FString> DownloadedImages, FString ImageCRS)
 							{
-								DecalActor = UDecalCoordinates::CreateDecal(this->GetWorld(), DownloadedImage);
-								if (DecalActor.Get())
-								{
-									DecalActor->GetDecal()->SortOrder = DecalSortOrder;
+								DecalActors = UDecalCoordinates::CreateDecals(this->GetWorld(), DownloadedImages);
+
 #if WITH_EDITOR
-									ULCBlueprintLibrary::SetFolderPath2(DecalActor.Get(), SpawnedActorsPathOverride, SpawnedActorsPath);
+								for (auto &DecalActor : DecalActors)
+								{
+									ULCBlueprintLibrary::SetFolderPath2(DecalActor, SpawnedActorsPathOverride, SpawnedActorsPath);
+									DecalActor->GetDecal()->SortOrder = DecalSortOrder;
+								}
 #endif
 
+								if (DecalActors.Num() > 0)
+								{
 									ULCReporter::ShowInfo(
 										FText::Format(
-											LOCTEXT("LandscapeCreated2", "Landscape {0} was created successfully with Decals"),
-											FText::FromString(LandscapeLabel)
+											LOCTEXT("LandscapeCreated2", "Landscape {0} was created successfully with {1} Decals"),
+											FText::FromString(LandscapeLabel),
+											FText::AsNumber(DecalActors.Num())
 										),
 										"SuppressSpawnedLandscapeInfo",
 										LOCTEXT("SpawnedLandscapeTitle", "Spawned Landscape with Decals")
+									);
+								}
+								else
+								{
+									ULCReporter::ShowError(
+										FText::Format(
+											LOCTEXT("LandscapeCreatedError", "There was an error while creating Landscape {0}"),
+											FText::FromString(LandscapeLabel)
+										)
 									);
 								}
 

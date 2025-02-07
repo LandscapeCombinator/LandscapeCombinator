@@ -4,6 +4,7 @@
 #include "ImageDownloader/Directories.h"
 #include "ImageDownloader/LogImageDownloader.h"
 #include "LCCommon/LCReporter.h"
+#include "ConcurrencyHelpers/Concurrency.h"
 
 #include "FileDownloader/Download.h"
 #include "GDALInterface/GDALInterface.h"

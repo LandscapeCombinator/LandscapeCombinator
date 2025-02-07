@@ -326,7 +326,7 @@ public:
 		EditAnywhere, BlueprintReadWrite, DuplicateTransient, Category = "LandscapeSpawner",
 		meta = (EditCondition = "false", EditConditionHides)
 	)
-	TWeakObjectPtr<ADecalActor> DecalActor = nullptr;
+	TArray<ADecalActor*> DecalActors;
 
 protected:
 
