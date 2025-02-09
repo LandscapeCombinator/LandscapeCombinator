@@ -66,7 +66,7 @@ bool ULCReporter::ShowMapTilerFreeTierWarning()
 	return ULCReporter::ShowMessage(
 		LOCTEXT(
 			"UImageDownloader::OnImageSourceChanged::MapTilerWarning",
-			"Please check your MapTiler account to make sure you remain within the free tier.\nRequests can be expensive once you go beyond the free tier.\n.Continue?"
+			"Please check your MapTiler account to make sure you remain within the free tier.\nRequests can be expensive once you go beyond the free tier.\nContinue?"
 		),
 		"SuppressFreeTierWarning",
 		LOCTEXT("MapTilerWarningTitle", "MapTiler Free Tier Warning")

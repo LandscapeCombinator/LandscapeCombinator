@@ -10,23 +10,7 @@
  * Copyright (c) 2008, Andrey Kiselev <dron@ak4719.spb.edu>
  * Copyright (c) 2010-2013, Even Rouault <even dot rouault at spatialys.com>
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * SPDX-License-Identifier: MIT
  ****************************************************************************/
 
 #ifndef GDAL_ALG_PRIV_H_INCLUDED
@@ -68,11 +52,13 @@ typedef struct
     GSpacing nLineSpace;
     GSpacing nBandSpace;
     GDALDataType eBurnValueType;
+
     union
     {
         const std::int64_t *int64_values;
         const double *double_values;
     } burnValues;
+
     GDALBurnValueSrc eBurnValueSource;
     GDALRasterMergeAlg eMergeAlg;
     bool bFillSetVisitedPoints;
@@ -167,6 +153,14 @@ struct IntEqualityTest
 typedef GDALRasterPolygonEnumeratorT<std::int64_t, IntEqualityTest>
     GDALRasterPolygonEnumerator;
 
+constexpr const char *GDAL_APPROX_TRANSFORMER_CLASS_NAME =
+    "GDALApproxTransformer";
+constexpr const char *GDAL_GEN_IMG_TRANSFORMER_CLASS_NAME =
+    "GDALGenImgProjTransformer";
+constexpr const char *GDAL_RPC_TRANSFORMER_CLASS_NAME = "GDALRPCTransformer";
+
+bool GDALIsTransformer(void *hTransformerArg, const char *pszClassName);
+
 typedef void *(*GDALTransformDeserializeFunc)(CPLXMLNode *psTree);
 
 void CPL_DLL *GDALRegisterTransformDeserializer(
@@ -196,6 +190,8 @@ bool GDALTransformIsTranslationOnPixelBoundaries(
 
 bool GDALTransformIsAffineNoRotation(GDALTransformerFunc pfnTransformer,
                                      void *pTransformerArg);
+
+bool GDALTransformHasFastClone(void *pTransformerArg);
 
 typedef struct _CPLQuadTree CPLQuadTree;
 
@@ -250,6 +246,68 @@ typedef struct
     char **papszGeolocationInfo;
 
 } GDALGeoLocTransformInfo;
+
+/************************************************************************/
+/* ==================================================================== */
+/*                       GDALReprojectionTransformer                    */
+/* ==================================================================== */
+/************************************************************************/
+
+struct GDALReprojectionTransformInfo
+{
+    GDALTransformerInfo sTI;
+    char **papszOptions = nullptr;
+    double dfTime = 0.0;
+
+    OGRCoordinateTransformation *poForwardTransform = nullptr;
+    OGRCoordinateTransformation *poReverseTransform = nullptr;
+
+    GDALReprojectionTransformInfo() : sTI()
+    {
+        memset(&sTI, 0, sizeof(sTI));
+    }
+
+    GDALReprojectionTransformInfo(const GDALReprojectionTransformInfo &) =
+        delete;
+    GDALReprojectionTransformInfo &
+    operator=(const GDALReprojectionTransformInfo &) = delete;
+};
+
+/************************************************************************/
+/* ==================================================================== */
+/*                       GDALGenImgProjTransformer                      */
+/* ==================================================================== */
+/************************************************************************/
+
+typedef struct
+{
+
+    GDALTransformerInfo sTI;
+
+    double adfSrcGeoTransform[6];
+    double adfSrcInvGeoTransform[6];
+
+    void *pSrcTransformArg;
+    GDALTransformerFunc pSrcTransformer;
+
+    void *pReprojectArg;
+    GDALTransformerFunc pReproject;
+
+    double adfDstGeoTransform[6];
+    double adfDstInvGeoTransform[6];
+
+    void *pDstTransformArg;
+    GDALTransformerFunc pDstTransformer;
+
+    // Memorize the value of the CHECK_WITH_INVERT_PROJ at the time we
+    // instantiated the object, to be able to decide if
+    // GDALRefreshGenImgProjTransformer() must do something or not.
+    bool bCheckWithInvertPROJ;
+
+    // Set to TRUE when the transformation pipline is a custom one.
+    bool bHasCustomTransformationPipeline;
+
+} GDALGenImgProjTransformInfo;
 
 /************************************************************************/
 /*      Color table related                                             */

@@ -9,23 +9,7 @@
  * Copyright (c) 2002, Frank Warmerdam
  * Copyright (c) 2008-2013, Even Rouault <even dot rouault at spatialys.com>
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * SPDX-License-Identifier: MIT
  ****************************************************************************/
 
 #ifndef OGR_API_H_INCLUDED
@@ -88,6 +72,39 @@ typedef void *OGRCoordinateTransformationH;
 
 struct _CPLXMLNode;
 
+/* OGRGeomCoordinatePrecisionH */
+
+/** Value for a unknown coordinate precision. */
+#define OGR_GEOM_COORD_PRECISION_UNKNOWN 0
+
+/** Opaque type for OGRGeomCoordinatePrecision */
+typedef struct OGRGeomCoordinatePrecision *OGRGeomCoordinatePrecisionH;
+
+OGRGeomCoordinatePrecisionH CPL_DLL OGRGeomCoordinatePrecisionCreate(void);
+void CPL_DLL OGRGeomCoordinatePrecisionDestroy(OGRGeomCoordinatePrecisionH);
+double CPL_DLL
+    OGRGeomCoordinatePrecisionGetXYResolution(OGRGeomCoordinatePrecisionH);
+double CPL_DLL
+    OGRGeomCoordinatePrecisionGetZResolution(OGRGeomCoordinatePrecisionH);
+double CPL_DLL
+    OGRGeomCoordinatePrecisionGetMResolution(OGRGeomCoordinatePrecisionH);
+char CPL_DLL **
+    OGRGeomCoordinatePrecisionGetFormats(OGRGeomCoordinatePrecisionH);
+CSLConstList CPL_DLL OGRGeomCoordinatePrecisionGetFormatSpecificOptions(
+    OGRGeomCoordinatePrecisionH, const char *pszFormatName);
+void CPL_DLL OGRGeomCoordinatePrecisionSet(OGRGeomCoordinatePrecisionH,
+                                           double dfXYResolution,
+                                           double dfZResolution,
+                                           double dfMResolution);
+void CPL_DLL OGRGeomCoordinatePrecisionSetFromMeter(OGRGeomCoordinatePrecisionH,
+                                                    OGRSpatialReferenceH hSRS,
+                                                    double dfXYMeterResolution,
+                                                    double dfZMeterResolution,
+                                                    double dfMResolution);
+void CPL_DLL OGRGeomCoordinatePrecisionSetFormatSpecificOptions(
+    OGRGeomCoordinatePrecisionH, const char *pszFormatName,
+    CSLConstList papszOptions);
+
 /* From base OGRGeometry class */
 
 OGRErr CPL_DLL OGR_G_CreateFromWkb(const void *, OGRSpatialReferenceH,
@@ -137,6 +154,21 @@ OGRErr CPL_DLL OGR_G_ExportToWkb(OGRGeometryH, OGRwkbByteOrder,
                                  unsigned char *);
 OGRErr CPL_DLL OGR_G_ExportToIsoWkb(OGRGeometryH, OGRwkbByteOrder,
                                     unsigned char *);
+
+/** Opaque type for WKB export options */
+typedef struct OGRwkbExportOptions OGRwkbExportOptions;
+
+OGRwkbExportOptions CPL_DLL *OGRwkbExportOptionsCreate(void);
+void CPL_DLL OGRwkbExportOptionsDestroy(OGRwkbExportOptions *);
+void CPL_DLL OGRwkbExportOptionsSetByteOrder(OGRwkbExportOptions *,
+                                             OGRwkbByteOrder);
+void CPL_DLL OGRwkbExportOptionsSetVariant(OGRwkbExportOptions *,
+                                           OGRwkbVariant);
+void CPL_DLL OGRwkbExportOptionsSetPrecision(OGRwkbExportOptions *,
+                                             OGRGeomCoordinatePrecisionH);
+OGRErr CPL_DLL OGR_G_ExportToWkbEx(OGRGeometryH, unsigned char *,
+                                   const OGRwkbExportOptions *);
+
 int CPL_DLL OGR_G_WkbSize(OGRGeometryH hGeom);
 size_t CPL_DLL OGR_G_WkbSizeEx(OGRGeometryH hGeom);
 OGRErr CPL_DLL OGR_G_ImportFromWkt(OGRGeometryH, char **);
@@ -210,8 +242,11 @@ OGRGeometryH CPL_DLL OGR_G_Boundary(OGRGeometryH) CPL_WARN_UNUSED_RESULT;
 OGRGeometryH CPL_DLL OGR_G_ConvexHull(OGRGeometryH) CPL_WARN_UNUSED_RESULT;
 OGRGeometryH CPL_DLL OGR_G_ConcaveHull(OGRGeometryH, double dfRatio,
                                        bool bAllowHoles) CPL_WARN_UNUSED_RESULT;
-OGRGeometryH CPL_DLL OGR_G_Buffer(OGRGeometryH, double,
-                                  int) CPL_WARN_UNUSED_RESULT;
+OGRGeometryH CPL_DLL OGR_G_Buffer(OGRGeometryH, double dfDist,
+                                  int nQuadSegs) CPL_WARN_UNUSED_RESULT;
+OGRGeometryH CPL_DLL OGR_G_BufferEx(OGRGeometryH, double dfDist,
+                                    CSLConstList papszOptions)
+    CPL_WARN_UNUSED_RESULT;
 OGRGeometryH CPL_DLL OGR_G_Intersection(OGRGeometryH,
                                         OGRGeometryH) CPL_WARN_UNUSED_RESULT;
 OGRGeometryH CPL_DLL OGR_G_Union(OGRGeometryH,
@@ -230,7 +265,9 @@ OGRGeometryH CPL_DLL OGR_G_SymDifference(OGRGeometryH,
 double CPL_DLL OGR_G_Distance(OGRGeometryH, OGRGeometryH);
 double CPL_DLL OGR_G_Distance3D(OGRGeometryH, OGRGeometryH);
 double CPL_DLL OGR_G_Length(OGRGeometryH);
+double CPL_DLL OGR_G_GeodesicLength(OGRGeometryH);
 double CPL_DLL OGR_G_Area(OGRGeometryH);
+double CPL_DLL OGR_G_GeodesicArea(OGRGeometryH);
 bool CPL_DLL OGR_G_IsClockwise(OGRGeometryH hGeom);
 int CPL_DLL OGR_G_Centroid(OGRGeometryH, OGRGeometryH);
 OGRGeometryH CPL_DLL OGR_G_Value(OGRGeometryH,
@@ -246,6 +283,17 @@ OGRGeometryH CPL_DLL OGR_G_MakeValidEx(OGRGeometryH,
 OGRGeometryH CPL_DLL OGR_G_Normalize(OGRGeometryH) CPL_WARN_UNUSED_RESULT;
 int CPL_DLL OGR_G_IsSimple(OGRGeometryH);
 int CPL_DLL OGR_G_IsRing(OGRGeometryH);
+
+/** This option causes OGR_G_SetPrecision()
+  * to not attempt at preserving the topology */
+#define OGR_GEOS_PREC_NO_TOPO (1 << 0)
+
+/** This option causes OGR_G_SetPrecision()
+  * to retain collapsed elements */
+#define OGR_GEOS_PREC_KEEP_COLLAPSED (1 << 1)
+
+OGRGeometryH CPL_DLL OGR_G_SetPrecision(OGRGeometryH, double dfGridSize,
+                                        int nFlags) CPL_WARN_UNUSED_RESULT;
 
 OGRGeometryH CPL_DLL OGR_G_Polygonize(OGRGeometryH) CPL_WARN_UNUSED_RESULT;
 
@@ -434,6 +482,11 @@ void CPL_DLL OGR_GFld_SetNullable(OGRGeomFieldDefnH hDefn, int);
 
 int CPL_DLL OGR_GFld_IsIgnored(OGRGeomFieldDefnH hDefn);
 void CPL_DLL OGR_GFld_SetIgnored(OGRGeomFieldDefnH hDefn, int);
+
+OGRGeomCoordinatePrecisionH
+    CPL_DLL OGR_GFld_GetCoordinatePrecision(OGRGeomFieldDefnH);
+void CPL_DLL OGR_GFld_SetCoordinatePrecision(OGRGeomFieldDefnH,
+                                             OGRGeomCoordinatePrecisionH);
 
 /* OGRFeatureDefn */
 
@@ -632,6 +685,9 @@ typedef void *OGRSFDriverH;
 const char CPL_DLL *OGR_L_GetName(OGRLayerH);
 OGRwkbGeometryType CPL_DLL OGR_L_GetGeomType(OGRLayerH);
 
+/* Defined in gdal.h to avoid circular dependency with ogr_api.h */
+/* GDALDatasetH CPL_DLL OGR_L_GetDataset(OGRLayerH hLayer); */
+
 /** Result item of OGR_L_GetGeometryTypes */
 typedef struct
 {
@@ -671,7 +727,7 @@ OGRFeatureH CPL_DLL OGR_L_GetNextFeature(OGRLayerH) CPL_WARN_UNUSED_RESULT;
 /** Conveniency macro to iterate over features of a layer.
  *
  * Typical usage is:
- * <pre>
+ * \code{.cpp}
  * OGR_FOR_EACH_FEATURE_BEGIN(hFeat, hLayer)
  * {
  *      // Do something, including continue, break;
@@ -679,14 +735,14 @@ OGRFeatureH CPL_DLL OGR_L_GetNextFeature(OGRLayerH) CPL_WARN_UNUSED_RESULT;
  *      // outside of the loop, in which case use OGR_F_Destroy(hFeat))
  * }
  * OGR_FOR_EACH_FEATURE_END(hFeat)
- * </pre>
+ * \endcode
  *
  * In C++, you might want to use instead range-based loop:
- * <pre>
+ * \code{.cpp}
  * for( auto&& poFeature: poLayer )
  * {
  * }
- * </pre>
+ * \endcode
  *
  * @param hFeat variable name for OGRFeatureH. The variable will be declared
  *              inside the macro body.
@@ -765,6 +821,8 @@ GIntBig CPL_DLL OGR_L_GetFeatureCount(OGRLayerH, int);
 OGRErr CPL_DLL OGR_L_GetExtent(OGRLayerH, OGREnvelope *, int);
 OGRErr CPL_DLL OGR_L_GetExtentEx(OGRLayerH, int iGeomField,
                                  OGREnvelope *psExtent, int bForce);
+OGRErr CPL_DLL OGR_L_GetExtent3D(OGRLayerH hLayer, int iGeomField,
+                                 OGREnvelope3D *psExtent3D, int bForce);
 int CPL_DLL OGR_L_TestCapability(OGRLayerH, const char *);
 OGRErr CPL_DLL OGR_L_CreateField(OGRLayerH, OGRFieldDefnH, int);
 OGRErr CPL_DLL OGR_L_CreateGeomField(OGRLayerH hLayer,

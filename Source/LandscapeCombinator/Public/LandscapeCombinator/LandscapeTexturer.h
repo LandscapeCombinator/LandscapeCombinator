@@ -37,7 +37,7 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "General",
 		meta = (DisplayPriority = "1")
 	)
-	int DecalSortOrder = 0;
+	int DecalsSortOrder = 0;
 
 	virtual TArray<UObject*> GetGeneratedObjects() const override
 	{

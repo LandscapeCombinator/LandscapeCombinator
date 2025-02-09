@@ -21,7 +21,6 @@
 #include "ImageDownloader/Transformers/HMLitto3DGuadeloupeRenamer.h"
 #include "ImageDownloader/Transformers/HMViewfinder15Renamer.h"
 
-#include "ImageDownloader/Transformers/HMDecodeMapbox.h"
 #include "ImageDownloader/Transformers/HMDegreeFilter.h"
 #include "ImageDownloader/Transformers/HMDegreeRenamer.h"
 #include "ImageDownloader/Transformers/HMPreprocess.h"

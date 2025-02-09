@@ -27,6 +27,8 @@
 #include "cpl_string.h"
 #include "ogr_core.h"
 
+#include <list>
+#include <map>
 #include <vector>
 #include <set>
 
@@ -61,11 +63,17 @@ typedef enum
     SWQ_CONCAT,
     SWQ_SUBSTR,
     SWQ_HSTORE_GET_VALUE,
+
     SWQ_AVG,
+    SWQ_AGGREGATE_BEGIN = SWQ_AVG,
     SWQ_MIN,
     SWQ_MAX,
     SWQ_COUNT,
     SWQ_SUM,
+    SWQ_STDDEV_POP,
+    SWQ_STDDEV_SAMP,
+    SWQ_AGGREGATE_END = SWQ_STDDEV_SAMP,
+
     SWQ_CAST,
     SWQ_CUSTOM_FUNC,  /* only if parsing done in bAcceptCustomFuncs mode */
     SWQ_ARGUMENT_LIST /* temporary value only set during parsing and replaced by
@@ -102,10 +110,16 @@ class swq_expr_node;
 class swq_select;
 class OGRGeometry;
 
+struct CPL_UNSTABLE_API swq_evaluation_context
+{
+    bool bUTF8Strings = false;
+};
+
 typedef swq_expr_node *(*swq_field_fetcher)(swq_expr_node *op,
                                             void *record_handle);
-typedef swq_expr_node *(*swq_op_evaluator)(swq_expr_node *op,
-                                           swq_expr_node **sub_field_values);
+typedef swq_expr_node *(*swq_op_evaluator)(
+    swq_expr_node *op, swq_expr_node **sub_field_values,
+    const swq_evaluation_context &sContext);
 typedef swq_field_type (*swq_op_checker)(
     swq_expr_node *op, int bAllowMismatchTypeOnFieldComparison);
 
@@ -114,6 +128,7 @@ class swq_custom_func_registrar;
 class CPL_UNSTABLE_API swq_expr_node
 {
     swq_expr_node *Evaluate(swq_field_fetcher pfnFetcher, void *record,
+                            const swq_evaluation_context &sContext,
                             int nRecLevel);
     void reset();
 
@@ -144,7 +159,8 @@ class CPL_UNSTABLE_API swq_expr_node
                          int bAllowMismatchTypeOnFieldComparison,
                          swq_custom_func_registrar *poCustomFuncRegistrar,
                          int depth = 0);
-    swq_expr_node *Evaluate(swq_field_fetcher pfnFetcher, void *record);
+    swq_expr_node *Evaluate(swq_field_fetcher pfnFetcher, void *record,
+                            const swq_evaluation_context &sContext);
     swq_expr_node *Clone();
 
     void ReplaceBetweenByGEAndLERecurse();
@@ -176,6 +192,10 @@ class CPL_UNSTABLE_API swq_expr_node
     /* nOperation == SWQ_CUSTOM_FUNC */
     char *string_value = nullptr; /* column name when SNT_COLUMN */
 
+    // May be transiently used by swq_parser.h, but should not be relied upon
+    // after parsing. swq_col_def.bHidden captures it afterwards.
+    bool bHidden = false;
+
     static CPLString QuoteIfNecessary(const CPLString &, char chQuote = '\'');
     static CPLString Quote(const CPLString &, char chQuote = '\'');
 };
@@ -201,6 +221,7 @@ class CPL_UNSTABLE_API swq_custom_func_registrar
     virtual ~swq_custom_func_registrar()
     {
     }
+
     virtual const swq_operation *GetOperator(const char *) = 0;
 };
 
@@ -275,12 +296,14 @@ swq_expr_compile2(const char *where_clause, swq_field_list *field_list,
 */
 int CPL_UNSTABLE_API swq_test_like(const char *input, const char *pattern);
 
-swq_expr_node CPL_UNSTABLE_API *SWQGeneralEvaluator(swq_expr_node *,
-                                                    swq_expr_node **);
+swq_expr_node CPL_UNSTABLE_API *
+SWQGeneralEvaluator(swq_expr_node *, swq_expr_node **,
+                    const swq_evaluation_context &sContext);
 swq_field_type CPL_UNSTABLE_API
 SWQGeneralChecker(swq_expr_node *node, int bAllowMismatchTypeOnFieldComparison);
-swq_expr_node CPL_UNSTABLE_API *SWQCastEvaluator(swq_expr_node *,
-                                                 swq_expr_node **);
+swq_expr_node CPL_UNSTABLE_API *
+SWQCastEvaluator(swq_expr_node *, swq_expr_node **,
+                 const swq_evaluation_context &sContext);
 swq_field_type CPL_UNSTABLE_API
 SWQCastChecker(swq_expr_node *node, int bAllowMismatchTypeOnFieldComparison);
 const char CPL_UNSTABLE_API *SWQFieldTypeToString(swq_field_type field_type);
@@ -301,6 +324,8 @@ typedef enum
     SWQCF_MAX = SWQ_MAX,
     SWQCF_COUNT = SWQ_COUNT,
     SWQCF_SUM = SWQ_SUM,
+    SWQCF_STDDEV_POP = SWQ_STDDEV_POP,
+    SWQCF_STDDEV_SAMP = SWQ_STDDEV_SAMP,
     SWQCF_CUSTOM
 } swq_col_func;
 
@@ -318,6 +343,7 @@ typedef struct
     int field_length;
     int field_precision;
     int distinct_flag;
+    bool bHidden;
     OGRwkbGeometryType eGeomType;
     int nSRID;
     swq_expr_node *expr;
@@ -338,13 +364,30 @@ class CPL_UNSTABLE_API swq_summary
         bool operator()(const CPLString &, const CPLString &) const;
     };
 
+    //! Return the sum, using Kahan-Babuska-Neumaier algorithm.
+    // Cf cf KahanBabushkaNeumaierSum of https://en.wikipedia.org/wiki/Kahan_summation_algorithm#Further_enhancements
+    double sum() const
+    {
+        return sum_only_finite_terms ? sum_acc + sum_correction : sum_acc;
+    }
+
     GIntBig count = 0;
 
     std::vector<CPLString> oVectorDistinctValues{};
     std::set<CPLString, Comparator> oSetDistinctValues{};
-    double sum = 0.0;
+    bool sum_only_finite_terms = true;
+    // Sum accumulator. To get the accurate sum, use the sum() method
+    double sum_acc = 0.0;
+    // Sum correction term.
+    double sum_correction = 0.0;
     double min = 0.0;
     double max = 0.0;
+
+    // Welford's online algorithm for variance:
+    // https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
+    double mean_for_variance = 0.0;
+    double sq_dist_from_mean_acc = 0.0;  // "M2"
+
     CPLString osMin{};
     CPLString osMax{};
 };
@@ -399,10 +442,17 @@ class CPL_UNSTABLE_API swq_select
 
     char *raw_select = nullptr;
 
-    int PushField(swq_expr_node *poExpr, const char *pszAlias = nullptr,
-                  int distinct_flag = FALSE);
-    int result_columns = 0;
-    swq_col_def *column_defs = nullptr;
+    int PushField(swq_expr_node *poExpr, const char *pszAlias,
+                  bool distinct_flag, bool bHidden);
+
+    int PushExcludeField(swq_expr_node *poExpr);
+
+    int result_columns() const
+    {
+        return static_cast<int>(column_defs.size());
+    }
+
+    std::vector<swq_col_def> column_defs{};
     std::vector<swq_summary> column_summary{};
 
     int PushTableDef(const char *pszDataSource, const char *pszTableName,
@@ -438,16 +488,28 @@ class CPL_UNSTABLE_API swq_select
                  swq_select_parse_options *poParseOptions);
 
     char *Unparse();
-    void Dump(FILE *);
+
+    bool bExcludedGeometry = false;
+
+  private:
+    bool IsFieldExcluded(int src_index, const char *table, const char *field);
+
+    // map of EXCLUDE columns keyed according to the index of the
+    // asterisk with which it should be associated. key of -1 is
+    // used for column lists that have not yet been associated with
+    // an asterisk.
+    std::map<int, std::list<swq_col_def>> m_exclude_fields{};
 };
 
-CPLErr CPL_UNSTABLE_API swq_select_parse(swq_select *select_info,
-                                         swq_field_list *field_list,
-                                         int parse_flags);
-
+/* This method should generally be invoked with pszValue set, except when
+ * called on a non-DISTINCT column definition of numeric type (SWQ_BOOLEAN,
+ * SWQ_INTEGER, SWQ_INTEGER64, SWQ_FLOAT), in which case pdfValue should
+ * rather be set.
+ */
 const char CPL_UNSTABLE_API *swq_select_summarize(swq_select *select_info,
                                                   int dest_column,
-                                                  const char *value);
+                                                  const char *pszValue,
+                                                  const double *pdfValue);
 
 int CPL_UNSTABLE_API swq_is_reserved_keyword(const char *pszStr);
 
@@ -458,6 +520,8 @@ char CPL_UNSTABLE_API *OGRHStoreGetValue(const char *pszHStore,
 void swq_fixup(swq_parse_context *psParseContext);
 swq_expr_node *swq_create_and_or_or(swq_op op, swq_expr_node *left,
                                     swq_expr_node *right);
+int swq_test_like(const char *input, const char *pattern, char chEscape,
+                  bool insensitive, bool bUTF8Strings);
 #endif
 
 #endif /* #ifndef DOXYGEN_SKIP */

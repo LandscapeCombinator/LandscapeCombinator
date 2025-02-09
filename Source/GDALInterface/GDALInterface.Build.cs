@@ -14,6 +14,7 @@ public class GDALInterface : ModuleRules
 		CppStandard = CppStandardVersion.Cpp20;
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
+		PublicDefinitions.Add("__STDC_VERSION__=0");
 
 		// GDAL
 
@@ -55,8 +56,7 @@ public class GDALInterface : ModuleRules
 				"Core",
 			}
 		);
-			
-		
+
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
