@@ -625,7 +625,7 @@ public:
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
-		meta = (EditCondition = "BuildingGeometry == EBuildingGeometry::BuildingWithFloorsAndEmptyInside && RoofKind != RoofKind::None", EditConditionHides, DisplayPriority = "3")
+		meta = (EditCondition = "BuildingGeometry == EBuildingGeometry::BuildingWithFloorsAndEmptyInside && RoofKind != ERoofKind::None", EditConditionHides, DisplayPriority = "3")
 	)
 	int UnderRoofMaterialIndex = 0;
 
@@ -651,38 +651,38 @@ public:
 		meta = (DisplayPriority = "19")
 	)
 	/**
-	 * If true and if the Asset User Data contains a levels value, the number of floors
-	 * is set to this value. If it contains a height value, the number of
-	 * floors is set to the height in meters divided by 3 meters. */
+	  * If true (this takes precedence over NumFloors or UseRandomNumFloors) and if the Asset User Data
+	  * contains a levels value, the number of floors is set to this value .
+	  * If it contains a height value, the number of floors is set to the height in meters divided by 3 meters. */
 	bool bAutoComputeNumFloors = true;
 
 	/* Random number of floors */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
-		meta = (EditCondition = "!bAutoComputeNumFloors", EditConditionHides, DisplayPriority = "20")
+		meta = (DisplayPriority = "20")
 	)
-	bool bUseRandomNumFloors = false;
+	bool bUseRandomNumFloors = true;
 	
 	/* The number of floors (including ground level) */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
-		meta = (EditCondition = "!bAutoComputeNumFloors && !bUseRandomNumFloors", EditConditionHides, DisplayPriority = "21")
+		meta = (EditCondition = "!bUseRandomNumFloors", EditConditionHides, DisplayPriority = "21")
 	)
-	int NumFloors = 3;
+	int NumFloors = 5;
 	
 	/* Minimum number of floors */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
-		meta = (EditCondition = "!bAutoComputeNumFloors && bUseRandomNumFloors", EditConditionHides, DisplayPriority = "22")
+		meta = (EditCondition = "bUseRandomNumFloors", EditConditionHides, DisplayPriority = "22")
 	)
-	int MinNumFloors = 3;
+	int MinNumFloors = 4;
 	
 	/* Maximum number of floors */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
-		meta = (EditCondition = "!bAutoComputeNumFloors && bUseRandomNumFloors", EditConditionHides, DisplayPriority = "23")
+		meta = (EditCondition = "bUseRandomNumFloors", EditConditionHides, DisplayPriority = "23")
 	)
-	int MaxNumFloors = 5;
+	int MaxNumFloors = 8;
 
 
 	/* The number of subdivisions in a wall (increase it if you want smoothly bended borders) */

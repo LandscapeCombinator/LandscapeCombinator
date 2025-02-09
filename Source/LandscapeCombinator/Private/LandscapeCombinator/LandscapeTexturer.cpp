@@ -42,7 +42,7 @@ void ALandscapeTexturer::CreateDecal(TObjectPtr<UGlobalCoordinates> GlobalCoordi
 		for (auto &DecalActor : DecalActors)
 		{
 			ULCBlueprintLibrary::SetFolderPath2(DecalActor, SpawnedActorsPathOverride, SpawnedActorsPath);
-			DecalActor->GetDecal()->SortOrder = DecalSortOrder;
+			DecalActor->GetDecal()->SortOrder = DecalsSortOrder;
 		}
 #endif
 

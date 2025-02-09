@@ -10,23 +10,7 @@
  * Copyright (c) 1999,  Les Technologies SoftMap Inc.
  * Copyright (c) 2008-2013, Even Rouault <even dot rouault at spatialys.com>
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * SPDX-License-Identifier: MIT
  ****************************************************************************/
 
 #ifndef OGR_SPATIALREF_H_INCLUDED
@@ -92,6 +76,7 @@ class CPL_DLL OGR_SRSNode
     {
         return nChildren;
     }
+
     OGR_SRSNode *GetChild(int);
     const OGR_SRSNode *GetChild(int) const;
 
@@ -109,6 +94,7 @@ class CPL_DLL OGR_SRSNode
     {
         return pszValue;
     }
+
     void SetValue(const char *);
 
     void MakeValueSafe();
@@ -192,6 +178,8 @@ class CPL_DLL OGRSpatialReference
     OGRSpatialReference &operator=(const OGRSpatialReference &);
     OGRSpatialReference &operator=(OGRSpatialReference &&);
 
+    OGRSpatialReference &AssignAndSetThreadSafe(const OGRSpatialReference &);
+
     int Reference();
     int Dereference();
     int GetReferenceCount() const;
@@ -205,6 +193,7 @@ class CPL_DLL OGRSpatialReference
     void dumpReadable();
     OGRErr exportToWkt(char **) const;
     OGRErr exportToWkt(char **ppszWKT, const char *const *papszOptions) const;
+    std::string exportToWkt(const char *const *papszOptions = nullptr) const;
     OGRErr exportToPrettyWkt(char **, int = FALSE) const;
     // cppcheck-suppress functionStatic
     OGRErr exportToPROJJSON(char **, const char *const *papszOptions) const;
@@ -216,6 +205,8 @@ class CPL_DLL OGRSpatialReference
     OGRErr exportVertCSToPanorama(int *) const;
     OGRErr exportToERM(char *pszProj, char *pszDatum, char *pszUnits);
     OGRErr exportToMICoordSys(char **) const;
+    OGRErr exportToCF1(char **ppszGridMappingName, char ***ppapszKeyValues,
+                       char **ppszUnits, CSLConstList papszOptions) const;
 
     OGRErr importFromWkt(char **)
         /*! @cond Doxygen_Suppress */
@@ -256,6 +247,7 @@ class CPL_DLL OGRSpatialReference
                          const char *pszUnits);
     OGRErr importFromUrl(const char *);
     OGRErr importFromMICoordSys(const char *);
+    OGRErr importFromCF1(CSLConstList papszKeyValues, const char *pszUnits);
 
     OGRErr morphToESRI();
     OGRErr morphFromESRI();
@@ -318,11 +310,13 @@ class CPL_DLL OGRSpatialReference
         /*! @endcond */
         ;
     double GetLinearUnits(const char ** = nullptr) const;
+
     /*! @cond Doxygen_Suppress */
     double GetLinearUnits(std::nullptr_t) const
     {
         return GetLinearUnits(static_cast<const char **>(nullptr));
     }
+
     /*! @endcond */
 
     double GetTargetLinearUnits(const char *pszTargetKey,
@@ -334,12 +328,14 @@ class CPL_DLL OGRSpatialReference
         ;
     double GetTargetLinearUnits(const char *pszTargetKey,
                                 const char **ppszRetName = nullptr) const;
+
     /*! @cond Doxygen_Suppress */
     double GetTargetLinearUnits(const char *pszTargetKey, std::nullptr_t) const
     {
         return GetTargetLinearUnits(pszTargetKey,
                                     static_cast<const char **>(nullptr));
     }
+
     /*! @endcond */
 
     OGRErr SetAngularUnits(const char *pszName, double dfInRadians);
@@ -349,11 +345,13 @@ class CPL_DLL OGRSpatialReference
         /*! @endcond */
         ;
     double GetAngularUnits(const char ** = nullptr) const;
+
     /*! @cond Doxygen_Suppress */
     double GetAngularUnits(std::nullptr_t) const
     {
         return GetAngularUnits(static_cast<const char **>(nullptr));
     }
+
     /*! @endcond */
 
     double GetPrimeMeridian(char **) const
@@ -362,17 +360,20 @@ class CPL_DLL OGRSpatialReference
         /*! @endcond */
         ;
     double GetPrimeMeridian(const char ** = nullptr) const;
+
     /*! @cond Doxygen_Suppress */
     double GetPrimeMeridian(std::nullptr_t) const
     {
         return GetPrimeMeridian(static_cast<const char **>(nullptr));
     }
+
     /*! @endcond */
 
     bool IsEmpty() const;
     int IsGeographic() const;
     int IsDerivedGeographic() const;
     int IsProjected() const;
+    int IsDerivedProjected() const;
     int IsGeocentric() const;
     bool IsDynamic() const;
 
@@ -530,7 +531,7 @@ class CPL_DLL OGRSpatialReference
     /** Interrupted Goode Homolosine */
     OGRErr SetIGH();
 
-    /** Gall Stereograpic */
+    /** Gall Stereographic */
     OGRErr SetGS(double dfCentralMeridian, double dfFalseEasting,
                  double dfFalseNorthing);
 
@@ -749,6 +750,7 @@ struct CPL_DLL OGRSpatialReferenceReleaser
             poSRS->Release();
     }
 };
+
 /*! @endcond */
 
 /************************************************************************/
@@ -802,7 +804,8 @@ class CPL_DLL OGRCoordinateTransformation
      *
      * This method is the same as the C function OCTTransformEx().
      *
-     * @param nCount number of points to transform.
+     * @param nCount number of points to transform (`size_t` type since 3.9,
+     *               `int` in previous versions).
      * @param x array of nCount X vertices, modified in place. Should not be
      * NULL.
      * @param y array of nCount Y vertices, modified in place. Should not be
@@ -811,10 +814,10 @@ class CPL_DLL OGRCoordinateTransformation
      * @param pabSuccess array of per-point flags set to TRUE if that point
      * transforms, or FALSE if it does not. Might be NULL.
      *
-     * @return TRUE if some or all points transform successfully, or FALSE if
-     * if none transform.
+     * @return TRUE if a transformation could be found (but not all points may
+     * have necessarily succeed to transform), otherwise FALSE.
      */
-    int Transform(int nCount, double *x, double *y, double *z = nullptr,
+    int Transform(size_t nCount, double *x, double *y, double *z = nullptr,
                   int *pabSuccess = nullptr);
 
     /**
@@ -822,7 +825,8 @@ class CPL_DLL OGRCoordinateTransformation
      *
      * This method is the same as the C function OCTTransform4D().
      *
-     * @param nCount number of points to transform.
+     * @param nCount number of points to transform (`size_t` type since 3.9,
+     *               `int` in previous versions).
      * @param x array of nCount X vertices, modified in place. Should not be
      * NULL.
      * @param y array of nCount Y vertices, modified in place. Should not be
@@ -832,10 +836,10 @@ class CPL_DLL OGRCoordinateTransformation
      * @param pabSuccess array of per-point flags set to TRUE if that point
      * transforms, or FALSE if it does not. Might be NULL.
      *
-     * @return TRUE if some or all points transform successfully, or FALSE if
-     * if none transform.
+     * @return TRUE if a transformation could be found (but not all points may
+     * have necessarily succeed to transform), otherwise FALSE.
      */
-    virtual int Transform(int nCount, double *x, double *y, double *z,
+    virtual int Transform(size_t nCount, double *x, double *y, double *z,
                           double *t, int *pabSuccess) = 0;
 
     /**
@@ -843,7 +847,8 @@ class CPL_DLL OGRCoordinateTransformation
      *
      * This method is the same as the C function OCTTransform4DWithErrorCodes().
      *
-     * @param nCount number of points to transform.
+     * @param nCount number of points to transform (`size_t` type since 3.9,
+     *               `int` in previous versions).
      * @param x array of nCount X vertices, modified in place. Should not be
      * NULL.
      * @param y array of nCount Y vertices, modified in place. Should not be
@@ -853,11 +858,11 @@ class CPL_DLL OGRCoordinateTransformation
      * @param panErrorCodes Output array of nCount value that will be set to 0
      * for success, or a non-zero value for failure. Refer to PROJ 8 public
      * error codes. Might be NULL
-     * @return TRUE if some or all points transform successfully, or FALSE if
-     * if none transform.
+     * @return TRUE if a transformation could be found (but not all points may
+     * have necessarily succeed to transform), otherwise FALSE.
      * @since GDAL 3.3, and PROJ 8 to be able to use PROJ public error codes
      */
-    virtual int TransformWithErrorCodes(int nCount, double *x, double *y,
+    virtual int TransformWithErrorCodes(size_t nCount, double *x, double *y,
                                         double *z, double *t,
                                         int *panErrorCodes);
 

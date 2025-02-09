@@ -6,23 +6,7 @@
  ******************************************************************************
  * Copyright (c) 2017-2018 NextGIS, <info@nextgis.com>
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * SPDX-License-Identifier: MIT
  ****************************************************************************/
 
 #ifndef CPL_JSON_H_INCLUDED
@@ -47,6 +31,7 @@ typedef void *JSONObjectH;
 CPL_C_START
 
 class CPLJSONArray;
+
 /*! @endcond */
 
 /**
@@ -138,6 +123,7 @@ class CPL_DLL CPLJSONObject
     {
         return m_poJsonObject;
     }
+
     /*! @endcond */
 
     // getters
@@ -162,11 +148,13 @@ class CPL_DLL CPLJSONObject
     CPLJSONObject GetObj(const std::string &osName) const;
     CPLJSONObject operator[](const std::string &osName) const;
     Type GetType() const;
+
     /*! @cond Doxygen_Suppress */
     std::string GetName() const
     {
         return m_osKey;
     }
+
     /*! @endcond */
 
     std::vector<CPLJSONObject> GetChildren() const;
@@ -212,21 +200,26 @@ class CPL_DLL CPLJSONArray : public CPLJSONObject
             : m_oSelf(oSelf), m_nIdx(bStart ? 0 : oSelf.Size())
         {
         }
+
         ~ConstIterator() = default;
+
         CPLJSONObject &operator*() const
         {
             m_oObj = m_oSelf[m_nIdx];
             return m_oObj;
         }
+
         ConstIterator &operator++()
         {
             m_nIdx++;
             return *this;
         }
+
         bool operator==(const ConstIterator &it) const
         {
             return m_nIdx == it.m_nIdx;
         }
+
         bool operator!=(const ConstIterator &it) const
         {
             return m_nIdx != it.m_nIdx;
@@ -251,8 +244,9 @@ class CPL_DLL CPLJSONArray : public CPLJSONObject
     /** Iterator to first element */
     ConstIterator begin() const
     {
-        return ConstIterator(*this, false);
+        return ConstIterator(*this, true);
     }
+
     /** Iterator to after last element */
     ConstIterator end() const
     {

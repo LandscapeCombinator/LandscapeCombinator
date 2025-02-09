@@ -10,7 +10,7 @@
 #endif
 
 /* --prefix directory for GDAL install */
-#define GDAL_PREFIX "/home/edif/.conan2/p/b/gdal2555e0cae7e2d/p"
+#define GDAL_PREFIX "/home/edif/miniconda3/envs/gdal3.10.1"
 
 /* The size of `int', as computed by sizeof. */
 #define SIZEOF_INT 4
@@ -62,10 +62,10 @@
 #define HAVE_PTHREAD_MUTEX_ADAPTIVE_NP 1
 
 /* Define to 1 if you have the `pthread_spin_lock' function. */
-#define HAVE_PTHREAD_SPIN_LOCK 1
+/* #undef HAVE_PTHREAD_SPIN_LOCK */
 
 /* Define to 1 if you have the `pthread_atfork' function. */
-#define HAVE_PTHREAD_ATFORK 1
+/* #undef HAVE_PTHREAD_ATFORK */
 
 /* Define to 1 if you have the 5 args `mremap' function. */
 #define HAVE_5ARGS_MREMAP 1
@@ -180,6 +180,9 @@
 
 /* Define to 1 if you have the `sched_getaffinity' function. */
 #define HAVE_SCHED_GETAFFINITY 1
+
+/* Define to 1 if you have the `std::shared_mutex' function. */
+#define HAVE_SHARED_MUTEX 1
 
 /* Define to 1 if you have the `uselocale' function. */
 #define HAVE_USELOCALE 1

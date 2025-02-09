@@ -1290,6 +1290,11 @@ bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)
 
 	bool bFetchFromUserData = BuildingConfiguration->AutoComputeNumFloors();
 
+	if (!bFetchFromUserData && BuildingConfiguration->bUseRandomNumFloors)
+	{
+		BuildingConfiguration->NumFloors = UKismetMathLibrary::RandomIntegerInRange(BuildingConfiguration->MinNumFloors, BuildingConfiguration->MaxNumFloors);
+	}
+
 	if (!UBuildingConfiguration::Expand<FLevelDescription>(
 		LevelDescriptions,
 		BuildingConfiguration->Levels,
@@ -1313,11 +1318,6 @@ bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)
 		);
 		bIsGenerating = false;
 		return false;
-	}
-
-	if (!bFetchFromUserData && BuildingConfiguration->bUseRandomNumFloors)
-	{
-		BuildingConfiguration->NumFloors = UKismetMathLibrary::RandomIntegerInRange(BuildingConfiguration->MinNumFloors, BuildingConfiguration->MaxNumFloors);
 	}
 	
 	if (!AppendBuilding(DynamicMeshComponent->GetDynamicMesh(), SpawnedActorsPathOverride))
