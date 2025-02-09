@@ -9,23 +9,7 @@
  * Copyright (c) 2001, Frank Warmerdam
  * Copyright (c) 2008-2012, Even Rouault <even dot rouault at spatialys.com>
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * SPDX-License-Identifier: MIT
  ****************************************************************************/
 
 #ifndef GDAL_ALG_H_INCLUDED
@@ -109,6 +93,7 @@ typedef struct
     void *(*pfnCreateSimilar)(void *pTransformerArg, double dfSrcRatioX,
                               double dfSrcRatioY);
 } GDALTransformerInfo;
+
 /*! @endcond */
 
 /*! @cond Doxygen_Suppress */
@@ -257,6 +242,8 @@ GDALSuggestedWarpOutput(GDALDatasetH hSrcDS, GDALTransformerFunc pfnTransformer,
 
 /** Flag for GDALSuggestedWarpOutput2() to ask to round-up output size */
 #define GDAL_SWO_ROUND_UP_SIZE 0x1
+/** Flag for GDALSuggestedWarpOutput2() to ask to force square pixels  */
+#define GDAL_SWO_FORCE_SQUARE_PIXEL 0x2
 
 CPLErr CPL_DLL CPL_STDCALL GDALSuggestedWarpOutput2(
     GDALDatasetH hSrcDS, GDALTransformerFunc pfnTransformer,
@@ -307,6 +294,9 @@ typedef struct
     int nElevFieldMax;
     int nIDField;
     int nNextID;
+
+    GIntBig nWrittenFeatureCountSinceLastCommit;
+    GIntBig nTransactionCommitInterval;
 } OGRContourWriterInfo;
 
 CPLErr CPL_DLL OGRContourWriter(double, int, double *, double *, void *pInfo);
@@ -353,6 +343,11 @@ GDALDatasetH CPL_DLL GDALViewshedGenerate(
     GDALViewshedMode eMode, double dfMaxDistance, GDALProgressFunc pfnProgress,
     void *pProgressArg, GDALViewshedOutputType heightMode,
     CSLConstList papszExtraOptions);
+
+bool CPL_DLL GDALIsLineOfSightVisible(
+    const GDALRasterBandH, const int xA, const int yA, const double zA,
+    const int xB, const int yB, const double zB, int *pnxTerrainIntersection,
+    int *pnyTerrainIntersection, CSLConstList papszOptions);
 
 /************************************************************************/
 /*      Rasterizer API - geometries burned into GDAL raster.            */

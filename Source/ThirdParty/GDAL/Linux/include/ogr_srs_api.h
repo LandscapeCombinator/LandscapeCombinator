@@ -9,23 +9,7 @@
  * Copyright (c) 2000, Frank Warmerdam
  * Copyright (c) 2008-2013, Even Rouault <even dot rouault at spatialys.com>
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * SPDX-License-Identifier: MIT
  ****************************************************************************/
 
 #ifndef OGR_SRS_API_H_INCLUDED
@@ -493,6 +477,9 @@ OGRErr CPL_DLL OSRImportFromMICoordSys(OGRSpatialReferenceH, const char *);
 OGRErr CPL_DLL OSRImportFromERM(OGRSpatialReferenceH, const char *,
                                 const char *, const char *);
 OGRErr CPL_DLL OSRImportFromUrl(OGRSpatialReferenceH, const char *);
+OGRErr CPL_DLL OSRImportFromCF1(OGRSpatialReferenceH,
+                                CSLConstList papszKeyValues,
+                                const char *pszUnits);
 
 OGRErr CPL_DLL CPL_STDCALL OSRExportToWkt(OGRSpatialReferenceH, char **);
 OGRErr CPL_DLL OSRExportToWktEx(OGRSpatialReferenceH, char **ppszResult,
@@ -511,6 +498,9 @@ OGRErr CPL_DLL OSRExportToPanorama(OGRSpatialReferenceH, long *, long *, long *,
                                    long *, double *);
 OGRErr CPL_DLL OSRExportToMICoordSys(OGRSpatialReferenceH, char **);
 OGRErr CPL_DLL OSRExportToERM(OGRSpatialReferenceH, char *, char *, char *);
+OGRErr CPL_DLL OSRExportToCF1(OGRSpatialReferenceH, char **ppszGridMappingName,
+                              char ***ppapszKeyValues, char **ppszUnits,
+                              CSLConstList papszOptions);
 
 OGRErr CPL_DLL OSRMorphToESRI(OGRSpatialReferenceH);
 OGRErr CPL_DLL OSRMorphFromESRI(OGRSpatialReferenceH);
@@ -547,6 +537,7 @@ int CPL_DLL OSRIsGeographic(OGRSpatialReferenceH);
 int CPL_DLL OSRIsDerivedGeographic(OGRSpatialReferenceH);
 int CPL_DLL OSRIsLocal(OGRSpatialReferenceH);
 int CPL_DLL OSRIsProjected(OGRSpatialReferenceH);
+int CPL_DLL OSRIsDerivedProjected(OGRSpatialReferenceH);
 int CPL_DLL OSRIsCompound(OGRSpatialReferenceH);
 int CPL_DLL OSRIsGeocentric(OGRSpatialReferenceH);
 int CPL_DLL OSRIsVertical(OGRSpatialReferenceH);
@@ -569,6 +560,8 @@ OGRErr CPL_DLL OSRSetWellKnownGeogCS(OGRSpatialReferenceH hSRS,
                                      const char *pszName);
 OGRErr CPL_DLL CPL_STDCALL OSRSetFromUserInput(OGRSpatialReferenceH hSRS,
                                                const char *);
+OGRErr CPL_DLL OSRSetFromUserInputEx(OGRSpatialReferenceH hSRS, const char *,
+                                     CSLConstList papszOptions);
 OGRErr CPL_DLL OSRCopyGeogCSFrom(OGRSpatialReferenceH hSRS,
                                  const OGRSpatialReferenceH hSrcSRS);
 OGRErr CPL_DLL OSRSetTOWGS84(OGRSpatialReferenceH hSRS, double, double, double,
@@ -1011,6 +1004,8 @@ OSRGetCRSInfoListFromDatabase(const char *pszAuthName,
                               int *pnOutResultCount);
 
 void CPL_DLL OSRDestroyCRSInfoList(OSRCRSInfo **list);
+
+char CPL_DLL **OSRGetAuthorityListFromDatabase(void);
 
 /* -------------------------------------------------------------------- */
 /*      OGRCoordinateTransform C API.                                   */

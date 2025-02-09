@@ -7,23 +7,7 @@
  ******************************************************************************
  * Copyright (c) 2022, Planet Labs
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * SPDX-License-Identifier: MIT
  ****************************************************************************/
 
 #ifndef GDAL_CACHED_PIXEL_ACCESSOR_INCLUDED
@@ -320,22 +304,27 @@ template <> struct GDALCachedPixelAccessorGetDataType<GByte>
 {
     static constexpr GDALDataType DataType = GDT_Byte;
 };
+
 template <> struct GDALCachedPixelAccessorGetDataType<GInt8>
 {
     static constexpr GDALDataType DataType = GDT_Int8;
 };
+
 template <> struct GDALCachedPixelAccessorGetDataType<GUInt16>
 {
     static constexpr GDALDataType DataType = GDT_UInt16;
 };
+
 template <> struct GDALCachedPixelAccessorGetDataType<GInt16>
 {
     static constexpr GDALDataType DataType = GDT_Int16;
 };
+
 template <> struct GDALCachedPixelAccessorGetDataType<GUInt32>
 {
     static constexpr GDALDataType DataType = GDT_UInt32;
 };
+
 template <> struct GDALCachedPixelAccessorGetDataType<GInt32>
 {
     static constexpr GDALDataType DataType = GDT_Int32;
@@ -346,6 +335,7 @@ template <> struct GDALCachedPixelAccessorGetDataType<unsigned long>
 {
     static constexpr GDALDataType DataType = GDT_UInt64;
 };
+
 template <> struct GDALCachedPixelAccessorGetDataType<long>
 {
     static constexpr GDALDataType DataType = GDT_Int64;
@@ -355,18 +345,22 @@ template <> struct GDALCachedPixelAccessorGetDataType<GUInt64>
 {
     static constexpr GDALDataType DataType = GDT_UInt64;
 };
+
 template <> struct GDALCachedPixelAccessorGetDataType<GInt64>
 {
     static constexpr GDALDataType DataType = GDT_Int64;
 };
+
 template <> struct GDALCachedPixelAccessorGetDataType<float>
 {
     static constexpr GDALDataType DataType = GDT_Float32;
 };
+
 template <> struct GDALCachedPixelAccessorGetDataType<double>
 {
     static constexpr GDALDataType DataType = GDT_Float64;
 };
+
 /*! @endcond */
 
 /************************************************************************/

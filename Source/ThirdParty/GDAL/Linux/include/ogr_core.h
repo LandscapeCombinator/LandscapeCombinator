@@ -9,23 +9,7 @@
  * Copyright (c) 1999, Frank Warmerdam
  * Copyright (c) 2007-2014, Even Rouault <even dot rouault at spatialys.com>
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * SPDX-License-Identifier: MIT
  ****************************************************************************/
 
 #ifndef OGR_CORE_H_INCLUDED
@@ -48,8 +32,11 @@
 extern "C++"
 {
 #if !defined(DOXYGEN_SKIP)
+#include <cmath>
 #include <limits>
 #endif
+
+    class OGREnvelope3D;
 
     /**
      * Simple container for a bounding region (rectangle)
@@ -228,6 +215,12 @@ extern "C++"
         /** Assignment operator */
         OGREnvelope3D &operator=(const OGREnvelope3D &) = default;
 
+        /** Returns TRUE if MinZ and MaxZ are both valid numbers. */
+        bool Is3D() const
+        {
+            return std::isfinite(MinZ) && std::isfinite(MaxZ);
+        }
+
         /** Minimum Z value */
         double MinZ;
 
@@ -398,6 +391,13 @@ typedef int OGRBoolean;
 /*      ogr_geometry.h related definitions.                             */
 /* -------------------------------------------------------------------- */
 
+#if defined(HAVE_GCC_DIAGNOSTIC_PUSH) && __STDC_VERSION__ < 202311L
+/* wkbPoint25D and friends cause warnings with -Wpedantic prior to C23. */
+/* Cf https://github.com/OSGeo/gdal/issues/2322 */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
+
 /**
  * List of well known binary geometry types.  These are used within the BLOBs
  * but are also returned from OGRGeometry::getGeometryType() to identify the
@@ -518,6 +518,10 @@ typedef enum
     wkbGeometryCollection25D = 0x80000007 /**< 2.5D extension as per 99-402 */
 #endif
 } OGRwkbGeometryType;
+
+#if defined(HAVE_GCC_DIAGNOSTIC_PUSH) && __STDC_VERSION__ < 202311L
+#pragma GCC diagnostic pop
+#endif
 
 /* clang-format off */
 /**
@@ -782,8 +786,8 @@ typedef enum
 
 typedef enum
 {
-    /** Simple 32bit integer */ OFTInteger = 0,
-    /** List of 32bit integers */ OFTIntegerList = 1,
+    /** Single signed 32bit integer */ OFTInteger = 0,
+    /** List of signed 32bit integers */ OFTIntegerList = 1,
     /** Double Precision floating point */ OFTReal = 2,
     /** List of doubles */ OFTRealList = 3,
     /** String of ASCII chars */ OFTString = 4,
@@ -794,8 +798,8 @@ typedef enum
     /** Date */ OFTDate = 9,
     /** Time */ OFTTime = 10,
     /** Date and Time */ OFTDateTime = 11,
-    /** Single 64bit integer */ OFTInteger64 = 12,
-    /** List of 64bit integers */ OFTInteger64List = 13,
+    /** Single signed 64bit integer */ OFTInteger64 = 12,
+    /** List of signed 64bit integers */ OFTInteger64List = 13,
     OFTMaxType = 13
 } OGRFieldType;
 
@@ -955,23 +959,12 @@ typedef union
         float Second; /* with millisecond accuracy. at the end of the structure,
                          so as to keep it 12 bytes on 32 bit */
     } Date;
+
     /*! @endcond */
 } OGRField;
 
-#ifdef __cplusplus
 /** Return the number of milliseconds from a datetime with decimal seconds */
-inline int OGR_GET_MS(float fSec)
-{
-    if (CPLIsNan(fSec))
-        return 0;
-    if (fSec >= 999)
-        return 999;
-    if (fSec <= 0)
-        return 0;
-    const float fValue = (fSec - static_cast<int>(fSec)) * 1000 + 0.5f;
-    return static_cast<int>(fValue);
-}
-#endif  // __cplusplus
+int CPL_DLL OGR_GET_MS(float fSec);
 
 /** Option for OGRParseDate() to ask for lax checks on the input format */
 #define OGRPARSEDATE_OPTION_LAX 1
@@ -993,6 +986,8 @@ int CPL_DLL OGRParseDate(const char *pszInput, OGRField *psOutput,
                         */
 #define OLCFastGetExtent                                                       \
     "FastGetExtent" /**< Layer capability for fast extent retrieval */
+#define OLCFastGetExtent3D                                                     \
+    "FastGetExtent3D" /**< Layer capability for fast 3D extent retrieval */
 #define OLCCreateField                                                         \
     "CreateField" /**< Layer capability for field creation                     \
                    */

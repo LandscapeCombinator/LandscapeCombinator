@@ -149,7 +149,7 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "Decals",
 		meta = (EditCondition = "DecalCreation != EDecalCreation::None", EditConditionHides, DisplayPriority = "0")
 	)
-	int DecalSortOrder = 0;
+	int DecalsSortOrder = 0;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Decals",
