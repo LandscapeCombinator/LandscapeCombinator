@@ -97,7 +97,7 @@ public:
 
 protected:
 
-	void GenerateBuilding(USplineComponent* SplineComponent, FName SpawnedActorsPathOverride);
+	bool GenerateBuilding(USplineComponent* SplineComponent, FName SpawnedActorsPathOverride);
 	TArray<USplineComponent*> FindSplineComponents();
 	TArray<AActor*> FindActors();
 };
