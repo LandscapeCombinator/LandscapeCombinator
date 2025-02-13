@@ -113,12 +113,9 @@ void ABuildingsFromSplines::GenerateBuildings(FName SpawnedActorsPathOverride)
 
 	for (int i = 0; i < NumComponents; i++)
 	{
-		if (GenerateTask.ShouldCancel())
-		{
-			break;
-		}
+		if (GenerateTask.ShouldCancel()) break;
 		GenerateTask.EnterProgressFrame(1);
-		GenerateBuilding(SplineComponents[i], SpawnedActorsPathOverride);
+		if (!GenerateBuilding(SplineComponents[i], SpawnedActorsPathOverride)) break;
 	}
 
 #if WITH_EDITOR
@@ -131,10 +128,10 @@ void ABuildingsFromSplines::ClearBuildings()
 	Execute_Cleanup(this, false);
 }
 
-void ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent, FName SpawnedActorsPathOverride)
+bool ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent, FName SpawnedActorsPathOverride)
 {
 	int NumPoints = SplineComponent->GetNumberOfSplinePoints();
-	if (NumPoints < 2) return;
+	if (NumPoints < 2) return false;
 
 	FVector Location = SplineComponent->GetWorldLocationAtSplinePoint(0);
 
@@ -193,7 +190,7 @@ void ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent, 
 	Building->SetIsSpatiallyLoaded(bBuildingsSpatiallyLoaded);
 #endif
 
-	Building->GenerateBuilding_Internal(SpawnedActorsPathOverride);
+	return Building->GenerateBuilding_Internal(SpawnedActorsPathOverride);
 }
 
 #if WITH_EDITOR
