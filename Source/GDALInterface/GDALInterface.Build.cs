@@ -36,6 +36,7 @@ public class GDALInterface : ModuleRules
 			foreach (string SOFile in Directory.GetFiles(Path.Combine(GDALDirectory, "bin"), "*.so"))
 			{
 				PublicAdditionalLibraries.Add(SOFile);
+				RuntimeDependencies.Add(Path.Combine("$(BinaryOutputDir)", Path.GetFileName(SOFile)), SOFile);
 			}
 		}
 
