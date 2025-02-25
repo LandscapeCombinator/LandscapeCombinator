@@ -123,6 +123,29 @@ void UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 	DecalActor->SetDecalMaterial(MI_GeoDecal);
 }
 
+TArray<ADecalActor*> UDecalCoordinates::CreateDecals(UWorld *World, TArray<FString> Paths)
+{
+	TArray<ADecalActor*> DecalActors;
+	bool bFailed = false;
+	for (auto &Path : Paths)
+	{
+		TObjectPtr<ADecalActor> DecalActor = UDecalCoordinates::CreateDecal(World, Path);
+		if (IsValid(DecalActor))
+		{
+			DecalActors.Add(DecalActor);
+		}
+		else
+		{
+			ULCReporter::ShowError(
+				LOCTEXT("UDecalCoordinates::CreateDecals", "There was an error while creating a decal actor")
+			);
+			return {};
+		}
+	}
+
+	return DecalActors;
+}
+
 ADecalActor* UDecalCoordinates::CreateDecal(UWorld* World, FString Path)
 {
 	FVector4d UnusedCoordinates;

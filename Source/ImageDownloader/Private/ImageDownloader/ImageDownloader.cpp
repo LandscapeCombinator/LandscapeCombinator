@@ -15,6 +15,7 @@
 #include "ImageDownloader/Downloaders/HMListDownloader.h"
 #include "ImageDownloader/Downloaders/HMXYZ.h"
 #include "ImageDownloader/Downloaders/HMNapoli.h"
+#include "ImageDownloader/Downloaders/HMWMS.h"
 
 #include "ImageDownloader/Transformers/HMSwissALTI3DRenamer.h"
 #include "ImageDownloader/Transformers/HMLitto3DGuadeloupeRenamer.h"
@@ -346,7 +347,7 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 }
 
 HMFetcher* UImageDownloader::CreateFetcher(
-	FString Name, bool bForceMerge, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG,
+	FString Name, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG,
 	TFunction<bool(HMFetcher*)> RunBeforePNG, TObjectPtr<UGlobalCoordinates> GlobalCoordinates
 )
 {
@@ -425,7 +426,7 @@ HMFetcher* UImageDownloader::CreateFetcher(
 		Result = Result->AndThen(new HMDebugFetcher("AdaptImage", new HMCrop(Name, Coordinates, ImageSize)));
 	}
 
-	if (bForceMerge)
+	if (bMergeImages)
 	{
 		Result = Result->AndThen(new HMDebugFetcher("Merge", new HMMerge(Name)));
 	}
@@ -1058,7 +1059,7 @@ void UImageDownloader::ResetWMSProvider(TArray<FString> ExcludeCRS, TFunction<bo
 	}
 }
 
-void UImageDownloader::DownloadImages(TObjectPtr<UGlobalCoordinates> GlobalCoordinates, TFunction<void(TArray<FString>)> OnComplete)
+void UImageDownloader::DownloadImages(bool bEnsureOneBand, TObjectPtr<UGlobalCoordinates> GlobalCoordinates, TFunction<void(TArray<FString>, FString)> OnComplete)
 {
 	AActor *Owner = GetOwner();
 	if (!IsValid(Owner))
@@ -1066,18 +1067,18 @@ void UImageDownloader::DownloadImages(TObjectPtr<UGlobalCoordinates> GlobalCoord
 		ULCReporter::ShowError(
 			LOCTEXT("UImageDownloader::DownloadImages::NoOwner", "Internal Error: Could not find UImageDownloader Owner.")
 		);
-		if (OnComplete) OnComplete(TArray<FString>());
+		if (OnComplete) OnComplete(TArray<FString>(), "");
 		return;
 	}
 	
-	HMFetcher *Fetcher = CreateFetcher(Owner->GetActorNameOrLabel(), false, false, false, false, nullptr, GlobalCoordinates);
+	HMFetcher *Fetcher = CreateFetcher(Owner->GetActorNameOrLabel(), bEnsureOneBand, false, false, nullptr, GlobalCoordinates);
 
 	if (!Fetcher)
 	{
 		ULCReporter::ShowError(
 			LOCTEXT("UImageDownloader::DownloadImages::NoFetcher", "Could not make image fetcher.")
 		);
-		if (OnComplete) OnComplete(TArray<FString>());
+		if (OnComplete) OnComplete(TArray<FString>(), "");
 		return;
 	}
 
@@ -1087,7 +1088,7 @@ void UImageDownloader::DownloadImages(TObjectPtr<UGlobalCoordinates> GlobalCoord
 		{
 			if (OnComplete)
 			{
-				OnComplete(Fetcher->OutputFiles);
+				OnComplete(Fetcher->OutputFiles, Fetcher->OutputCRS);
 			}
 			delete Fetcher;
 			return;
@@ -1098,52 +1099,10 @@ void UImageDownloader::DownloadImages(TObjectPtr<UGlobalCoordinates> GlobalCoord
 			ULCReporter::ShowError(
 				LOCTEXT("UImageDownloader::DownloadImages::Failure", "There was an error while downloading or preparing the files.")
 			);
-			if (OnComplete) OnComplete(TArray<FString>());
+			if (OnComplete) OnComplete(TArray<FString>(), "");
 			return;
 		}
 	});
 }
-
-void UImageDownloader::DownloadMergedImage(bool bEnsureOneBand, TObjectPtr<UGlobalCoordinates> GlobalCoordinates, TFunction<void(FString, FString)> OnComplete)
-{
-	AActor *Owner = GetOwner();
-	if (!IsValid(Owner))
-	{
-		ULCReporter::ShowError(
-			LOCTEXT("UImageDownloader::DownloadMergedImage::NoOwner", "Internal Error: Could not find UImageDownloader Owner.")
-		);
-		return;
-	}
-	
-	FString Name = Owner->GetActorNameOrLabel();
-	HMFetcher *Fetcher = CreateFetcher(Name, true, bEnsureOneBand, false, false, nullptr, GlobalCoordinates);
-
-	if (!Fetcher)
-	{
-		ULCReporter::ShowError(
-			LOCTEXT("UImageDownloader::DownloadMergedImage::NoFetcher", "Could not make image fetcher.")
-		);
-		return;
-	}
-
-	Fetcher->Fetch("", {}, [this, Fetcher, OnComplete](bool bSuccess)
-	{
-		if (bSuccess && Fetcher->OutputFiles.Num() == 1)
-		{
-			if (OnComplete) OnComplete(Fetcher->OutputFiles[0], Fetcher->OutputCRS);
-			delete Fetcher;
-			return;
-		}
-		else
-		{
-			delete Fetcher;
-			ULCReporter::ShowError(
-				LOCTEXT("UImageDownloader::DownloadMergedImage::Failure", "There was an error while downloading or preparing the files.")
-			);
-			return;
-		}
-	});
-}
-
 
 #undef LOCTEXT_NAMESPACE
