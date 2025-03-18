@@ -1,4 +1,4 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #pragma once
 
@@ -7,7 +7,7 @@
 #include "LCReporter.generated.h"
 
 UCLASS()
-class LCCOMMON_API ULCReporter : public UBlueprintFunctionLibrary
+class LCREPORTER_API ULCReporter : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
 

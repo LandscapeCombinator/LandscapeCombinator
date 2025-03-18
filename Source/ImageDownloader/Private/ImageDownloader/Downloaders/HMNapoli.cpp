@@ -1,9 +1,9 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "ImageDownloader/Downloaders/HMNapoli.h"
 #include "ImageDownloader/Directories.h"
 #include "ImageDownloader/LogImageDownloader.h"
-#include "LCCommon/LCReporter.h"
+#include "LCReporter/LCReporter.h"
 
 #include "FileDownloader/Download.h"
 #include "GDALInterface/GDALInterface.h"

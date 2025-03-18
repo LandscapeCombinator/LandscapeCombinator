@@ -1,8 +1,8 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "LandscapeUtils/LandscapeUtils.h"
 #include "LandscapeUtils/LogLandscapeUtils.h"
-#include "LCCommon/LCReporter.h"
+#include "LCReporter/LCReporter.h"
 
 #include "Internationalization/Regex.h"
 #include "Kismet/GameplayStatics.h"
@@ -122,6 +122,8 @@ TArray<ALandscapeStreamingProxy*> LandscapeUtils::GetLandscapeStreamingProxies(A
 // Parameters to collide with this actor only, ignoring all other actors
 FCollisionQueryParams LandscapeUtils::CustomCollisionQueryParams(AActor *Actor)
 {
+	if (!IsValid(Actor)) return FCollisionQueryParams();
+
 	UWorld *World = Actor->GetWorld();
 	TArray<AActor*> Actors;
 	UGameplayStatics::GetAllActorsOfClass(World, AActor::StaticClass(), Actors);
@@ -147,6 +149,53 @@ FCollisionQueryParams LandscapeUtils::CustomCollisionQueryParams(AActor *Actor)
 			{
 				CollisionQueryParams.AddIgnoredActor(SomeActor);
 			}
+		}
+	}
+
+	return CollisionQueryParams;
+}
+
+// Parameters to collide with these actors only, ignoring all other actors
+FCollisionQueryParams LandscapeUtils::CustomCollisionQueryParams(TArray<AActor*> CollidingActors)
+{
+	if (CollidingActors.IsEmpty() || !IsValid(CollidingActors[0]))
+	{
+		ULCReporter::ShowError(LOCTEXT("InvalidCollidingActors", "Invalid colliding actors for custom collision query"));
+		return FCollisionQueryParams();
+	}
+
+	TSet<AActor*> CollidingActorsSet = TSet<AActor*>(CollidingActors);
+	for (auto &CollidingActor: CollidingActors)
+	{
+		if (ALandscape *Landscape = Cast<ALandscape>(CollidingActor))
+		{
+			TArray<ALandscapeStreamingProxy*> LandscapeStreamingProxies = GetLandscapeStreamingProxies(Landscape);
+			for (auto &LandscapeStreamingProxy: LandscapeStreamingProxies) CollidingActorsSet.Add(LandscapeStreamingProxy);
+		}
+	}
+
+	UWorld *World = nullptr;
+	for (auto &CollidingActor: CollidingActors)
+	{
+		World = CollidingActor->GetWorld();
+		if (IsValid(World)) break;
+	}
+
+	if (!IsValid(World))
+	{
+		ULCReporter::ShowError(LOCTEXT("InvalidWorld", "Invalid world for custom collision query"));
+		return FCollisionQueryParams();
+	}
+	
+	TArray<AActor*> Actors;
+	UGameplayStatics::GetAllActorsOfClass(World, AActor::StaticClass(), Actors);
+	FCollisionQueryParams CollisionQueryParams;
+
+	for (auto &SomeActor : Actors)
+	{
+		if (!CollidingActors.Contains(SomeActor))
+		{
+			CollisionQueryParams.AddIgnoredActor(SomeActor);
 		}
 	}
 

@@ -1,4 +1,4 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #pragma once
 
@@ -35,10 +35,16 @@ class SPLINEIMPORTER_API ASplineImporter : public AGDALImporter
 public:
 	ASplineImporter() : AGDALImporter() {};
 
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer",
+		meta = (DisplayPriority = "0")
+	)
+	bool bDeleteOldSplinesWhenCreatingSplines = false;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
 		meta = (DisplayPriority = "2")
 	)
-	FActorSelection ActorOrLandscapeToPlaceSplinesSelection;
+	FActorSelection ActorsOrLandscapesToPlaceSplinesSelection;
 
 	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
 		meta = (DisplayPriority = "3")
@@ -92,7 +98,7 @@ public:
 	)
 	FVector SplinePointsOffset;
 
-	void OnGenerate(FName SpawnedActorsPathOverride, TFunction<void(bool)> OnComplete) override;
+	void OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete) override;
 	
 	UPROPERTY(
 		EditAnywhere, DuplicateTransient, Category = "GDALImporter",
@@ -112,12 +118,13 @@ public:
 		return GeneratedObjects;
 	}
 
-	virtual bool Cleanup_Implementation(bool bSkipPrompt) override { return DeleteGeneratedObjects(bSkipPrompt); }
+	virtual bool Cleanup_Implementation(bool bSkipPrompt) override;
 
 protected:
 	virtual void SetOverpassShortQuery() override;
 
 	void GenerateRegularSplines(
+		bool bIsUserInitiated,
 		FName SpawnedActorsPathOverride,
 		FCollisionQueryParams CollisionQueryParams,
 		OGRCoordinateTransformation *OGRTransform,

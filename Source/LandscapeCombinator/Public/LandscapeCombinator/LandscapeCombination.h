@@ -1,4 +1,4 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #pragma once
 
@@ -7,6 +7,7 @@
 #include "BuildingFromSpline/BuildingsFromSplines.h"
 #include "SplineImporter/GDALImporter.h"
 #include "LCCommon/LCGenerator.h"
+#include "LCCommon/LCContinuousGeneration.h"
 
 #include "LandscapeCombination.generated.h"
 
@@ -18,7 +19,10 @@ class LANDSCAPECOMBINATOR_API ALandscapeCombination : public AActor, public ILCG
 	GENERATED_BODY()
 
 public:
-	ALandscapeCombination() {};
+	ALandscapeCombination()
+	{
+		ContinuousGeneration = CreateDefaultSubobject<ULCContinuousGeneration >(TEXT("ContinuousGeneration"));
+	};
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeCombination",
@@ -28,7 +32,7 @@ public:
 	FName SpawnedActorsPath = FName("GeneratedActors");
 
 	UFUNCTION(CallInEditor, Category = "LandscapeCombination", meta = (DisplayPriority = "0"))
-	virtual void GenerateActors() { Generate(SpawnedActorsPath); };
+	virtual void GenerateActors() { Generate(SpawnedActorsPath, true); };
 
 	UFUNCTION(CallInEditor, Category = "LandscapeCombination", meta = (DisplayPriority = "1"))
 	virtual void DeleteActors() { Execute_Cleanup(this, false); };
@@ -37,10 +41,10 @@ public:
 	// no need to keep them separately
 	virtual TArray<UObject*> GetGeneratedObjects() const override { return TArray<UObject*>(); }
 
-	UPROPERTY(EditAnywhere, DuplicateTransient, BlueprintReadWrite, Category = "LandscapeCombination", meta = (DisplayPriority = "5", MustImplement = "/Script/LCCommon.LCGenerator"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeCombination", meta = (DisplayPriority = "5", MustImplement = "/Script/LCCommon.LCGenerator"))
 	TArray<AActor*> Generators;
 	
-	virtual void OnGenerate(FName SpawnedActorsPathOverride, TFunction<void(bool)> OnComplete) override;
+	virtual void OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete) override;
 	virtual bool Cleanup_Implementation(bool bSkipPrompt) override;
 
 #if WITH_EDITOR
@@ -57,5 +61,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Duplication", meta = (DisplayPriority = "2"))
 	FName NewCombinationName = "NewCombination";
 #endif
+
+	UPROPERTY(
+		VisibleAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner",
+		meta = (DisplayPriority = "11", ShowOnlyInnerProperties)
+	)
+	TObjectPtr<ULCContinuousGeneration> ContinuousGeneration = nullptr;
 
 };

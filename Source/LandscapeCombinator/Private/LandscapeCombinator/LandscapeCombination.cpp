@@ -1,6 +1,6 @@
 #include "LandscapeCombinator/LandscapeCombination.h"
 #include "LandscapeCombinator/LogLandscapeCombinator.h"
-#include "LCCommon/LCReporter.h"
+#include "LCReporter/LCReporter.h"
 #include "LCCommon/LCBlueprintLibrary.h"
 #include "SplineImporter/SplineImporter.h"
 #include "ConcurrencyHelpers/Concurrency.h"
@@ -12,14 +12,14 @@ using namespace ConcurrencyOperators;
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
-void ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, TFunction<void(bool)> OnComplete)
+void ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete)
 {
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("Starting Combination with %d Generators"), Generators.Num());
 
 	Concurrency::RunSuccessively<AActor*>(
 		Generators,
 		
-		[this, SpawnedActorsPathOverride](AActor* Generator, TFunction<void(bool)> OnCompleteOne) -> void
+		[this, SpawnedActorsPathOverride, bIsUserInitiated](AActor* Generator, TFunction<void(bool)> OnCompleteOne) -> void
 		{
 			if (IsValid(Generator))
 			{
@@ -28,10 +28,11 @@ void ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, TFunctio
 					UE_LOG(LogLandscapeCombinator, Log, TEXT("Starting generator: %s"), *Generator->GetActorNameOrLabel());
 
 					if (SpawnedActorsPathOverride.IsNone())
-						Cast<ILCGenerator>(Generator)->Generate(FName(), OnCompleteOne);
+						Cast<ILCGenerator>(Generator)->Generate(FName(), bIsUserInitiated, OnCompleteOne);
 					else
 						Cast<ILCGenerator>(Generator)->Generate(
 							FName(SpawnedActorsPathOverride.ToString() / Generator->GetActorNameOrLabel()),
+							bIsUserInitiated,
 							OnCompleteOne
 						);
 				}
@@ -73,7 +74,7 @@ bool ALandscapeCombination::Cleanup_Implementation(bool bSkipPrompt)
 			FString ObjectsString;
 			for (UObject* Object : ObjectsToDelete)
 			{
-				ObjectsString += Object->GetName() + "\n";
+				if (IsValid(Object)) ObjectsString += Object->GetName() + "\n";
 			}
 			if (!ULCReporter::ShowMessage(
 				FText::Format(
@@ -108,6 +109,7 @@ AActor* ALandscapeCombination::Duplicate(FName FromName, FName ToName)
 		Cast<ALandscapeCombination>(GEditor->GetEditorSubsystem<UEditorActorSubsystem>()->DuplicateActor(Cast<AActor>(this)))
 	)
 	{
+		NewCombination->Generators.Empty();
 		for (auto &Generator : Generators)
 		{
 			if (!IsValid(Generator))

@@ -1,4 +1,4 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "LandscapeCombinator/LandscapeSpawner.h"
 #include "LandscapeCombinator/LogLandscapeCombinator.h"
@@ -12,7 +12,6 @@
 #include "Coordinates/LevelCoordinates.h"
 #include "ImageDownloader/HMDebugFetcher.h"
 #include "ImageDownloader/Transformers/HMMerge.h"
-#include "LCCommon/LCReporter.h"
 #include "LCCommon/LCSettings.h"
 #include "LCCommon/LCBlueprintLibrary.h"
 
@@ -41,8 +40,8 @@ ALandscapeSpawner::ALandscapeSpawner()
 	PrimaryActorTick.bCanEverTick = false;
 
 	HeightmapDownloader = CreateDefaultSubobject<UImageDownloader>(TEXT("HeightmapDownloader"));
-
 	DecalDownloader = CreateDefaultSubobject<UImageDownloader>(TEXT("DecalDownloader"));
+	PositionBasedGeneration = CreateDefaultSubobject<ULCPositionBasedGeneration >(TEXT("PositionBasedGeneration"));
 }
 
 TArray<UObject*> ALandscapeSpawner::GetGeneratedObjects() const
@@ -84,24 +83,6 @@ bool GetPixels(FIntPoint& InsidePixels, TArray<FString> Files)
 	return true;
 }
 
-bool GetCmPerPixelForCRS(FString CRS, int &CmPerPixel)
-{
-	if (CRS == "EPSG:4326" || CRS == "IGNF:WGS84G" || CRS == "EPSG:4269" || CRS == "EPSG:497" || CRS == "CRS:84")
-	{
-		CmPerPixel = 11111111;
-		return true;
-	}
-	else if (CRS == "IGNF:LAMB93" || CRS == "EPSG:2154" || CRS == "EPSG:4559" || CRS == "EPSG:2056" || CRS == "EPSG:3857" || CRS == "EPSG:25832" || CRS == "EPSG:2975" || CRS == "EPSG:32633")
-	{
-		CmPerPixel = 100;
-		return true;
-	}
-	else
-	{
-		return false;
-	}
-}
-
 void ALandscapeSpawner::DeleteLandscape()
 {
 	Execute_Cleanup(this, false);
@@ -128,7 +109,7 @@ AActor *ALandscapeSpawner::Duplicate(FName FromName, FName ToName)
 	}
 }
 
-void ALandscapeSpawner::OnGenerate(FName SpawnedActorsPathOverride, TFunction<void(bool)> OnComplete)
+void ALandscapeSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete)
 {
 	if (!Execute_Cleanup(this, false))
 	{
@@ -219,7 +200,7 @@ void ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, TFunctio
 				int CmPerPixel = 0;
 				TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false);
 
-				if (!GlobalCoordinates && !GetCmPerPixelForCRS(Fetcher->OutputCRS, CmPerPixel))
+				if (!GlobalCoordinates && !ULCBlueprintLibrary::GetCmPerPixelForCRS(Fetcher->OutputCRS, CmPerPixel))
 				{
 					ULCReporter::ShowError(
 						FText::Format(
@@ -252,10 +233,7 @@ void ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, TFunctio
 					SpawnedLandscape->SetActorLabel(LandscapeLabel);
 					ULCBlueprintLibrary::SetFolderPath2(SpawnedLandscape.Get(), SpawnedActorsPathOverride, SpawnedActorsPath);
 
-					if (!LandscapeTag.IsNone())
-					{
-						SpawnedLandscape->Tags.Add(LandscapeTag);
-					}
+					if (!LandscapeTag.IsNone()) SpawnedLandscape->Tags.Add(LandscapeTag);
 
 					if (IsValid(LandscapeMaterial))
 					{

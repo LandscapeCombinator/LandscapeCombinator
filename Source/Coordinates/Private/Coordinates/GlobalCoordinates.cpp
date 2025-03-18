@@ -1,8 +1,8 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "Coordinates/GlobalCoordinates.h"
 #include "LandscapeUtils/LandscapeUtils.h"
-#include "LCCommon/LCReporter.h"
+#include "LCReporter/LCReporter.h"
 
 #include "Landscape.h"
 #include "Misc/MessageDialog.h"

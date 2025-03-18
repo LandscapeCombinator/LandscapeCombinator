@@ -1,4 +1,4 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #pragma once
 
@@ -25,19 +25,35 @@ public:
 	/***********
 	 * Actions *
 	 ***********/
+	
+	virtual bool ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY) override
+	{
+		if (IsValid(ImageDownloader)) return ImageDownloader->ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY);
+		else
+		{
+			ULCReporter::ShowError(LOCTEXT("Error", "ImageDownloader is not set"));
+			return false;
+		}
+	}
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "General",
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer",
 		meta = (DisplayPriority = "0")
 	)
 	/* Folder used to spawn the actors. This setting is unused when generating from a combination or from blueprints. */
 	FName SpawnedActorsPath;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "General",
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer",
 		meta = (DisplayPriority = "1")
 	)
 	int DecalsSortOrder = 0;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer",
+		meta = (DisplayPriority = "2")
+	)
+	bool bDeleteOldDecalsWhenCreatingDecals = false;
 
 	virtual TArray<UObject*> GetGeneratedObjects() const override
 	{
@@ -49,12 +65,19 @@ public:
 		return Result;
 	}
 
-	virtual void OnGenerate(FName SpawnedActorsPathOverride, TFunction<void(bool)> OnComplete) override
+	virtual void OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete) override
 	{
-		CreateDecal(ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false), SpawnedActorsPathOverride, OnComplete);
+		CreateDecals(ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false), SpawnedActorsPathOverride, bIsUserInitiated, OnComplete);
 	}
 
-	virtual bool Cleanup_Implementation(bool bSkipPrompt) override { return DeleteGeneratedObjects(bSkipPrompt); }
+	virtual bool Cleanup_Implementation(bool bSkipPrompt) override {
+		if (DeleteGeneratedObjects(bSkipPrompt))
+		{
+			DecalActors.Empty();
+			return true;
+		}
+		else return false;
+	}
 
 	void DownloadImages(TFunction<void(bool)> OnComplete);
 	
@@ -62,9 +85,15 @@ public:
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeTexturer",
 		meta = (DisplayPriority = "10")
 	)
-	void CreateDecal() { CreateDecal(ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false), FName(), nullptr); };
+	void CreateDecals() { Generate(SpawnedActorsPath, true, nullptr); };
 	
-	void CreateDecal(TObjectPtr<UGlobalCoordinates> GlobalCoordinates, FName SpawnedActorsPathOverride, TFunction<void(bool)> OnComplete);
+	/* Delete all decal actors asoociated with this Landscape Texturer */
+	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeTexturer",
+		meta = (DisplayPriority = "10")
+	)
+	void ClearDecals() { Execute_Cleanup(this, false); }
+	
+	void CreateDecals(TObjectPtr<UGlobalCoordinates> GlobalCoordinates, FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete);
 
 	/* This preserves downloaded files but deleted all transformed images. */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeTexturer",
@@ -111,6 +140,12 @@ public:
 		meta = (DisplayPriority = "20")
 	)
 	TObjectPtr<UImageDownloader> ImageDownloader;
+
+	UPROPERTY(
+		VisibleAnywhere, Category = "LandscapeTexturer",
+		meta = (DisplayPriority = "21")
+	)
+	TObjectPtr<ULCPositionBasedGeneration> PositionBasedGeneration = nullptr;
 
 protected:
 

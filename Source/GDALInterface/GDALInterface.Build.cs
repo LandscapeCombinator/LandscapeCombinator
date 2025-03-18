@@ -1,4 +1,4 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.IO;
@@ -70,7 +70,7 @@ public class GDALInterface : ModuleRules
 
 				// Landscape Combinator Dependencies
 				"FileDownloader",
-				"LCCommon"
+				"LCReporter"
 			}
 		);
 	}

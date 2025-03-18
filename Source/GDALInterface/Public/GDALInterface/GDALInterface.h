@@ -1,4 +1,4 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #pragma once
 
@@ -67,7 +67,7 @@ public:
 	static void EPSG3857ToXYZTile(double Long, double Lat, int Zoom, int &OutX, int &OutY);
 
 	static GDALDataset* LoadGDALVectorDatasetFromFile(const FString &File);
-	static void LoadGDALVectorDatasetFromQuery(FString Query, TFunction<void(GDALDataset*)> OnComplete);
+	static void LoadGDALVectorDatasetFromQuery(FString Query, bool bIsUserInitiated, TFunction<void(GDALDataset*)> OnComplete);
 
 	static bool ExportMesh(const FDynamicMesh3 &Mesh, const FString &File);
 	static bool ExportPolygon(const TArray<FVector> &Points, const FString &File);

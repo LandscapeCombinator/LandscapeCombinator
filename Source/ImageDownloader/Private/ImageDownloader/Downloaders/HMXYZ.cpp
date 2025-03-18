@@ -1,4 +1,4 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "ImageDownloader/Downloaders/HMXYZ.h"
 #include "ImageDownloader/Directories.h"
@@ -9,7 +9,7 @@
 #include "FileDownloader/Download.h"
 #include "GDALInterface/GDALInterface.h"
 #include "MapboxHelpers/MapboxHelpers.h"
-#include "LCCommon/LCReporter.h"
+#include "LCReporter/LCReporter.h"
 #include "LCCommon/LCSettings.h"
 
 #include "Misc/FileHelper.h"
@@ -101,13 +101,18 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 
 	bool *bShowedDialog = new bool(false);
 
-	FScopedSlowTask *Task = new FScopedSlowTask(NumTiles,
-		FText::Format(
-			LOCTEXT("HMXYZ::Fetch::Task", "Downloading and Georeferencing {0} Tiles"),
-			FText::AsNumber(NumTiles)
-		)
-	);
-	Task->MakeDialog();
+	FScopedSlowTask *Task;
+	
+	if (bIsUserInitiated)
+	{
+		Task = new FScopedSlowTask(NumTiles,
+			FText::Format(
+				LOCTEXT("HMXYZ::Fetch::Task", "Downloading and Georeferencing {0} Tiles"),
+				FText::AsNumber(NumTiles)
+			)
+		);
+		Task->MakeDialog();
+	}
 
 	UE_LOG(LogImageDownloader, Log, TEXT("Downloading and Georeferencing %d tiles"), NumTiles);
 
@@ -215,17 +220,19 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 						}
 					}
 
-					Task->EnterProgressFrame(1);
+					if (bIsUserInitiated && Task) Task->EnterProgressFrame(1);
 					
 					if (OnCompleteElement) OnCompleteElement(bOneSuccess || bAllowInvalidTiles);
 				}
 			);
 		},
 
-		[OnComplete, Task, bShowedDialog, NumTiles](bool bSuccess)
+		[this, OnComplete, Task, bShowedDialog, NumTiles](bool bSuccess)
 		{
-			Concurrency::RunOnGameThread([Task]() { Task->Destroy(); });
-			if (bShowedDialog) delete(bShowedDialog);
+			Concurrency::RunOnGameThreadAndWait([this, Task, bShowedDialog]() {
+				if (bIsUserInitiated && Task) Task->Destroy();
+				if (bShowedDialog) delete(bShowedDialog);
+			});
 			if (OnComplete) OnComplete(bSuccess);
 		}
 	);

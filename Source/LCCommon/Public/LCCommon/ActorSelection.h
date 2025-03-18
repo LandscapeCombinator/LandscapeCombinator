@@ -1,4 +1,4 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #pragma once
 
@@ -34,4 +34,6 @@ struct LCCOMMON_API FActorSelection
 	FName ActorTag;
 
 	AActor* GetActor(const UWorld *World);
+
+	TArray<AActor*> GetAllActors(const UWorld *World);
 };

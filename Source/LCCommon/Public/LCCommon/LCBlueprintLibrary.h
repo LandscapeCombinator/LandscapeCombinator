@@ -1,4 +1,4 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #pragma once
 
@@ -27,6 +27,18 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="LandscapeCombinator")
 	static FName ReplaceName(FName Original, FName String1, FName String2);
+
+	UFUNCTION(BlueprintCallable, Category="LandscapeCombinator")
+	static bool GetCmPerPixelForCRS(FString CRS, int &CmPerPixel);
+
+	UFUNCTION(BlueprintCallable, Category="LandscapeCombinator")
+	static bool GetEditorViewClientPosition(FVector &OutPosition);
+
+	UFUNCTION(BlueprintCallable, Category="LandscapeCombinator")
+	static bool GetFirstPlayerPosition(FVector &OutPosition);
+
+	
+
 
 #if WITH_EDITOR
 

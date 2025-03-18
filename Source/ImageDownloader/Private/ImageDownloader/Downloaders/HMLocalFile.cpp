@@ -1,8 +1,8 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "ImageDownloader/Downloaders/HMLocalFile.h"
 #include "ImageDownloader/LogImageDownloader.h"
-#include "LCCommon/LCReporter.h"
+#include "LCReporter/LCReporter.h"
 
 #include "Misc/MessageDialog.h"
 #include "Misc/Paths.h"

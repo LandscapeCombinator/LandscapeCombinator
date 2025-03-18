@@ -1,4 +1,4 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #pragma once
 
@@ -18,6 +18,8 @@ public:
 	static bool GetLandscapeMinMaxZ(ALandscape *Landscape, FVector2D &MinMaxZ);
 	static TArray<ALandscapeStreamingProxy*> GetLandscapeStreamingProxies(ALandscape *Landscape);
 	static FCollisionQueryParams CustomCollisionQueryParams(AActor* Actor);
+	static FCollisionQueryParams CustomCollisionQueryParams(TArray<AActor*> CollidingActors);
+
 	static bool GetZ(UWorld* World, FCollisionQueryParams CollisionQueryParams, double x, double y, double &OutZ, bool bDrawDebugLine = false);
 	static bool GetZ(AActor* Actor, double x, double y, double &OutZ, bool bDrawDebugLine = false);
 

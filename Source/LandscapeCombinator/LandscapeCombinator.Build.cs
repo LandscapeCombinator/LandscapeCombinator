@@ -1,4 +1,4 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 // File originally written from the Unreal Engine template for plugins
 
@@ -28,7 +28,9 @@ public class LandscapeCombinator : ModuleRules
 				// Unreal Engine dependencies
 				"Projects",
 				"InputCore",
-				"GeometryFramework",
+                "GeometryCore",
+                "GeometryFramework",
+                "GeometryScriptingCore",
 				"CoreUObject",
 				"Engine",
 				"Foliage",
@@ -47,6 +49,7 @@ public class LandscapeCombinator : ModuleRules
 				"ImageDownloader",
 				"SplineImporter",
 				"BuildingFromSpline",
+				"LCReporter",
 				"LCCommon"
 			}
 		);

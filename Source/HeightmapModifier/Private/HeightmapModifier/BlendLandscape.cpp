@@ -1,8 +1,8 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "HeightmapModifier/BlendLandscape.h"
 #include "HeightmapModifier/LogHeightmapModifier.h"
-#include "LCCommon/LCReporter.h"
+#include "LCReporter/LCReporter.h"
 #include "LCCommon/LCSettings.h"
 #include "LandscapeUtils/LandscapeUtils.h"
 

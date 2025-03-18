@@ -1,11 +1,12 @@
 
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "BuildingFromSpline/BuildingsFromSplines.h"
 
 #include "OSMUserData/OSMUserData.h"
 #include "LCCommon/LCBlueprintLibrary.h"
-#include "LCCommon/LCReporter.h"
+#include "LCReporter/LCReporter.h"
+#include "ConcurrencyHelpers/Concurrency.h"
 
 #include "Components/SplineMeshComponent.h"
 #include "Logging/StructuredLog.h"
@@ -36,19 +37,22 @@ TArray<AActor*> ABuildingsFromSplines::FindActors()
 {
 	TArray<AActor*> Actors;
 
-	if (SplinesTag.IsNone())
-	{	
-		UGameplayStatics::GetAllActorsOfClass(this->GetWorld(), AActor::StaticClass(), Actors);
-	}
-	else
+	Concurrency::RunOnGameThreadAndWait([&Actors, this]()
 	{
-		UGameplayStatics::GetAllActorsWithTag(this->GetWorld(), SplinesTag, Actors);
-	}
+		if (SplinesTag.IsNone())
+		{	
+			UGameplayStatics::GetAllActorsOfClass(this->GetWorld(), AActor::StaticClass(), Actors);
+		}
+		else
+		{
+			UGameplayStatics::GetAllActorsWithTag(this->GetWorld(), SplinesTag, Actors);
+		}
+	});
 
 	return Actors;
 }
 
-TArray<USplineComponent*> ABuildingsFromSplines::FindSplineComponents()
+TArray<USplineComponent*> ABuildingsFromSplines::FindSplineComponents(bool bIsUserInitiated)
 {
 	TArray<USplineComponent*> Result;
 
@@ -75,7 +79,7 @@ TArray<USplineComponent*> ABuildingsFromSplines::FindSplineComponents()
 		}
 	}
 
-	if (Result.Num() == 0)
+	if (bIsUserInitiated && Result.Num() == 0)
 	{
 		ULCReporter::ShowError(
 			LOCTEXT("NoSplineComponentTagged", "BuildingsFromSplines: Could not find spline components with the given tags.")
@@ -85,22 +89,36 @@ TArray<USplineComponent*> ABuildingsFromSplines::FindSplineComponents()
 	return Result;
 }
 
-void ABuildingsFromSplines::OnGenerate(FName SpawnedActorsPathOverride, TFunction<void(bool)> OnComplete)
+void ABuildingsFromSplines::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete)
 {
-	GenerateBuildings(SpawnedActorsPathOverride);
+	Concurrency::RunOnGameThreadAndWait([&SpawnedActorsPathOverride, bIsUserInitiated, this](){
+		GenerateBuildings(SpawnedActorsPathOverride, bIsUserInitiated);
+	});
 	OnComplete(true);
 }
 
 bool ABuildingsFromSplines::Cleanup_Implementation(bool bSkipPrompt)
 {
-	return DeleteGeneratedObjects(bSkipPrompt);
+	if (DeleteGeneratedObjects(bSkipPrompt))
+	{
+		Buildings.Empty();
+		ProcessedSplines.Empty();
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
-void ABuildingsFromSplines::GenerateBuildings(FName SpawnedActorsPathOverride)
+void ABuildingsFromSplines::GenerateBuildings(FName SpawnedActorsPathOverride, bool bIsUserInitiated)
 {
-	if (!Execute_Cleanup(this, false)) return;
+	if (bDeleteOldBuildingsWhenCreatingBuildings)
+	{
+		if (!Execute_Cleanup(this, false)) return;
+	}
 
-	TArray<USplineComponent*> SplineComponents = FindSplineComponents();
+	TArray<USplineComponent*> SplineComponents = FindSplineComponents(bIsUserInitiated);
 	const int NumComponents = SplineComponents.Num();
 	UE_LOG(LogBuildingFromSpline, Log, TEXT("Found %d spline components to create buildings"), NumComponents);
 	FScopedSlowTask GenerateTask = FScopedSlowTask(NumComponents,
@@ -109,17 +127,29 @@ void ABuildingsFromSplines::GenerateBuildings(FName SpawnedActorsPathOverride)
 			FText::AsNumber(NumComponents)
 		)
 	);
-	GenerateTask.MakeDialog(true);
+	
+	if (bIsUserInitiated)
+	{
+		GenerateTask.MakeDialog(true);
+	}
 
 	for (int i = 0; i < NumComponents; i++)
 	{
-		if (GenerateTask.ShouldCancel()) break;
-		GenerateTask.EnterProgressFrame(1);
-		if (!GenerateBuilding(SplineComponents[i], SpawnedActorsPathOverride)) break;
+		if (bIsUserInitiated && GenerateTask.ShouldCancel()) break;
+		if (bIsUserInitiated) GenerateTask.EnterProgressFrame(1);
+	
+		if (bSkipExistingBuildings && ProcessedSplines.Contains(SplineComponents[i])) continue;
+		
+		if (GenerateBuilding(SplineComponents[i], SpawnedActorsPathOverride, bIsUserInitiated))
+			ProcessedSplines.Add(SplineComponents[i]);
+		else if (!bContinueDespiteErrors)
+			break;
 	}
 
 #if WITH_EDITOR
-	GEditor->NoteSelectionChange(); // to avoid folders being in rename mode
+	Concurrency::RunOnGameThread([](){
+		if (GEditor) GEditor->NoteSelectionChange(); // to avoid folders being in rename mode
+	});
 #endif
 }
 
@@ -128,7 +158,7 @@ void ABuildingsFromSplines::ClearBuildings()
 	Execute_Cleanup(this, false);
 }
 
-bool ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent, FName SpawnedActorsPathOverride)
+bool ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent, FName SpawnedActorsPathOverride, bool bIsUserInitiated)
 {
 	int NumPoints = SplineComponent->GetNumberOfSplinePoints();
 	if (NumPoints < 2) return false;

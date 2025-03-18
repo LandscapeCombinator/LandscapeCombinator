@@ -17,7 +17,7 @@ void UNodeGenerator::Activate()
 {
 	if (Generator.GetInterface())
 	{
-		Generator.GetInterface()->Generate(SpawnedActorsPath, [this](bool bSuccess) { TaskComplete(bSuccess); });
+		Generator.GetInterface()->Generate(SpawnedActorsPath, true, [this](bool bSuccess) { TaskComplete(bSuccess); });
 	}
 }
 

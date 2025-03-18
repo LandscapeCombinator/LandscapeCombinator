@@ -1,7 +1,7 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "SplineImporter/OGRGeometry.h"
-#include "LCCommon/LCReporter.h"
+#include "LCReporter/LCReporter.h"
 #include "LCCommon/LCBlueprintLibrary.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(OGRGeometry)
@@ -38,9 +38,9 @@ void AOGRGeometry::SetOverpassShortQuery()
 	Super::SetOverpassShortQuery();
 }
 
-void AOGRGeometry::OnGenerate(FName SpawnedActorsPathOverride, TFunction<void(bool)> OnComplete)
+void AOGRGeometry::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete)
 {
-	LoadGDALDataset([OnComplete, this](GDALDataset* Dataset)
+	LoadGDALDataset(bIsUserInitiated, [OnComplete, this](GDALDataset* Dataset)
 	{
 		if (!Dataset)
 		{

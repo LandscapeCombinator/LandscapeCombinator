@@ -1,4 +1,4 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "ImageDownloader/ImageDownloader.h"
 #include "ImageDownloader/LogImageDownloader.h"
@@ -35,7 +35,7 @@
 #include "ImageDownloader/Transformers/HMAddMissingTiles.h"
 #include "ImageDownloader/Transformers/HMFunction.h"
 
-#include "LCCommon/LCReporter.h"
+#include "LCReporter/LCReporter.h"
 #include "LCCommon/LCSettings.h"
 #include "Coordinates/LevelCoordinates.h"
 #include "LandscapeUtils/LandscapeUtils.h"
@@ -51,6 +51,25 @@
 UImageDownloader::UImageDownloader()
 {
 	PreprocessingTool = CreateDefaultSubobject<UExternalTool>(TEXT("Preprocessing Tool"));
+}
+
+
+bool UImageDownloader::ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY)
+{
+	if (IsXYZ())
+	{
+		XYZ_MinX = MinX;
+		XYZ_MaxX = MaxX;
+		XYZ_MinY = MinY;
+		XYZ_MaxY = MaxY;
+		XYZ_Zoom = Zoom;
+		ParametersSelection = EParametersSelection::Manual;
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 FString RenameCRS(FString CRS)

@@ -1,9 +1,10 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "Coordinates/LevelCoordinates.h"
 #include "Coordinates/DecalCoordinates.h"
 #include "FileDownloader/Download.h"
-#include "LCCommon/LCReporter.h"
+#include "LCReporter/LCReporter.h"
+#include "ConcurrencyHelpers/Concurrency.h"
 
 #include "Engine/DecalActor.h"
 #include "Engine/StaticMesh.h"
@@ -27,9 +28,11 @@ TObjectPtr<UGlobalCoordinates> ALevelCoordinates::GetGlobalCoordinates(UWorld* W
 {
 	TArray<AActor*> LevelCoordinatesCandidates0;
 
-	UGameplayStatics::GetAllActorsOfClass(World, ALevelCoordinates::StaticClass(), LevelCoordinatesCandidates0);
+	Concurrency::RunOnGameThreadAndWait([World, &LevelCoordinatesCandidates0]() {
+		UGameplayStatics::GetAllActorsOfClass(World, ALevelCoordinates::StaticClass(), LevelCoordinatesCandidates0);
+	});
 
-	TArray<AActor*> LevelCoordinatesCandidates = LevelCoordinatesCandidates0.FilterByPredicate([](AActor* Actor) { return !Actor->IsHidden(); });
+	TArray<AActor*> LevelCoordinatesCandidates = LevelCoordinatesCandidates0.FilterByPredicate([](AActor* Actor) { return IsValid(Actor) &&!Actor->IsHidden(); });
 
 	if (LevelCoordinatesCandidates.Num() == 0)
 	{
