@@ -1,9 +1,9 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "ImageDownloader/HMFetcher.h"
 #include "ImageDownloader/LogImageDownloader.h"
 #include "ConcurrencyHelpers/Concurrency.h"
-#include "LCCommon/LCReporter.h"
+#include "LCReporter/LCReporter.h"
 
 #include "Interfaces/IPluginManager.h"
 #include "Kismet/GameplayStatics.h"

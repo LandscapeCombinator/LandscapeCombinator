@@ -1,4 +1,4 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "LandscapeCombinatorModule.h"
 
@@ -9,8 +9,10 @@
 #include "LandscapeCombinator/LandscapeSpawnerCustomization.h"
 #include "LandscapeCombinator/LandscapeTexturer.h"
 #include "LandscapeCombinator/LandscapeTexturerCustomization.h"
+#include "LandscapeCombinator/LandscapeMesh.h"
+#include "LandscapeCombinator/LandscapeMeshCustomization.h"
 
-#include "LCCommon/LCReporter.h"
+#include "LCReporter/LCReporter.h"
 
 #include "PropertyEditorDelegates.h"
 #include "PropertyEditorModule.h"
@@ -28,6 +30,7 @@ IMPLEMENT_MODULE(FLandscapeCombinatorModule, LandscapeCombinator)
 void FLandscapeCombinatorModule::StartupModule()
 {
 	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
+	PropertyModule.RegisterCustomClassLayout(ALandscapeMesh::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FLandscapeMeshCustomization::MakeInstance));
 	PropertyModule.RegisterCustomClassLayout(ALandscapeSpawner::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FLandscapeSpawnerCustomization::MakeInstance));
 	PropertyModule.RegisterCustomClassLayout(ALandscapeTexturer::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FLandscapeTexturerCustomization::MakeInstance));
 

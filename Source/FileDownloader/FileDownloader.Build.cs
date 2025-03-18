@@ -1,4 +1,4 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -30,7 +30,7 @@ public class FileDownloader : ModuleRules
 
 				// Landscape Combinator Dependencies
 				"ConcurrencyHelpers",
-				"LCCommon"
+				"LCReporter"
 			}
 		);
 	}

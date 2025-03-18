@@ -1,11 +1,11 @@
-#include "LCCommon/LCReporter.h"
+#include "LCReporter/LCReporter.h"
 #include "Misc/MessageDialog.h"
 
 #if WITH_EDITOR
 #include "Dialogs/Dialogs.h"
 #endif
 
-#define LOCTEXT_NAMESPACE "FLCCommonModule"
+#define LOCTEXT_NAMESPACE "FLCReporterModule"
 
 void ULCReporter::ShowError(const FText& Message, const FText& Title)
 {

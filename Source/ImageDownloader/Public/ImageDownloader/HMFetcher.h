@@ -1,4 +1,4 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #pragma once
 
@@ -20,6 +20,7 @@ public:
 
 	TArray<FString> OutputFiles;
 	FString OutputCRS = "";
+	bool bIsUserInitiated = false;
 	
 	virtual void Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) = 0;
 

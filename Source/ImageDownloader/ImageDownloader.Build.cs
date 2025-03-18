@@ -1,4 +1,4 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -38,7 +38,8 @@ public class ImageDownloader : ModuleRules
 				"ConsoleHelpers",
 				"LandscapeUtils",
 				"MapboxHelpers",
-				"LCCommon"
+				"LCCommon",
+				"LCReporter"
 			}
 		);
 	}

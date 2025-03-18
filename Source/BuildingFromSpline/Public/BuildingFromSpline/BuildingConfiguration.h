@@ -1,4 +1,4 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #pragma once
 
@@ -8,7 +8,7 @@
 #include "Components/SplineMeshComponent.h"
 #include "CoreMinimal.h"
 
-#include "LCCommon/LCReporter.h"
+#include "LCReporter/LCReporter.h"
 
 #include "BuildingFromSpline/LogBuildingFromSpline.h"
 

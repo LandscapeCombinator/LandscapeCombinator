@@ -1,4 +1,4 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -24,7 +24,13 @@ public class LCCommon : ModuleRules
 			{
 				"CoreUObject",
 				"Engine",
-				"SlateCore"
+				"SlateCore",
+
+				// Landscape Combinator Dependencies
+				"GDALInterface",
+				"ConcurrencyHelpers",
+				"Coordinates",
+				"LCReporter"
 			}
 		);
 

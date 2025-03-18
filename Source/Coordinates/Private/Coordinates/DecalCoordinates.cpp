@@ -1,10 +1,11 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "Coordinates/DecalCoordinates.h"
 #include "Coordinates/LevelCoordinates.h"
 #include "Coordinates/LogCoordinates.h"
 #include "GDALInterface/GDALInterface.h"
-#include "LCCommon/LCReporter.h"
+#include "LCReporter/LCReporter.h"
+#include "ConcurrencyHelpers//Concurrency.h"
 
 #include "Components/DecalComponent.h"
 #include "Misc/Paths.h"
@@ -82,13 +83,29 @@ void UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 	double Y = (Top + Bottom) / 2;
 	double Z = DecalActor->GetActorLocation().Z;
 
-	DecalActor->GetDecal()->DecalSize = FVector(10000000, (Bottom - Top) / 2, (Right - Left) / 2);
-	DecalActor->SetActorRotation(FRotator(-90, 0, 0));
-	DecalActor->SetActorLocation(FVector(X, Y, Z));
+	UMaterial *M_GeoDecal = nullptr;
+	UMaterialInstanceDynamic *MI_GeoDecal = nullptr;
+	
+	Concurrency::RunOnGameThreadAndWait([this, &M_GeoDecal, &MI_GeoDecal, DecalActor, Bottom, Top, Right, Left, X, Y, Z]()
+	{
+		DecalActor->GetDecal()->DecalSize = FVector(10000000, (Bottom - Top) / 2, (Right - Left) / 2);
+		DecalActor->SetActorRotation(FRotator(-90, 0, 0));
+		DecalActor->SetActorLocation(FVector(X, Y, Z));
+		M_GeoDecal = 
+			Cast<UMaterial>(
+				StaticLoadObject(
+					UMaterial::StaticClass(),
+					nullptr,
+					*FString("/Script/Engine.Material'/LandscapeCombinator/Materials/M_GeoDecal.M_GeoDecal'")
+				)
+			);
 
+		if (!IsValid(M_GeoDecal)) return;
+		
+		MI_GeoDecal = UMaterialInstanceDynamic::Create(M_GeoDecal, this);
+	});
 
-	UMaterial *M_GeoDecal = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, *FString("/Script/Engine.Material'/LandscapeCombinator/Materials/M_GeoDecal.M_GeoDecal'")));
-	if (!M_GeoDecal)
+	if (!IsValid(M_GeoDecal) || !IsValid(MI_GeoDecal))
 	{
 		ULCReporter::ShowError(
 			LOCTEXT("UDecalCoordinates::PlaceDecal::M_GeoDecal", "Coordinates Internal Error: Could not find material M_GeoDecal.")
@@ -96,7 +113,6 @@ void UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 		return;
 	}
 
-	UMaterialInstanceDynamic *MI_GeoDecal = UMaterialInstanceDynamic::Create(M_GeoDecal, this);
 
 	int Width, Height;
 	TArray<FColor> Colors;
@@ -112,15 +128,17 @@ void UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 		return;
 	}
 
-	Texture = FImageUtils::CreateTexture2D(
-		Width, Height, Colors,
-		this, FString("T_GeoDecal_") + DecalActor->GetActorNameOrLabel(),
-		RF_Public | RF_Transactional,
-		FCreateTexture2DParameters()
-	);
+	Concurrency::RunOnGameThreadAndWait([&Width, &Height, &Colors, this, MI_GeoDecal, DecalActor]() {
+		Texture = FImageUtils::CreateTexture2D(
+			Width, Height, Colors,
+			this, FString("T_GeoDecal_") + DecalActor->GetActorNameOrLabel(),
+			RF_Public | RF_Transactional,
+			FCreateTexture2DParameters()
+		);
 
-	MI_GeoDecal->SetTextureParameterValue(FName("Texture"), Texture);
-	DecalActor->SetDecalMaterial(MI_GeoDecal);
+		MI_GeoDecal->SetTextureParameterValue(FName("Texture"), Texture);
+		DecalActor->SetDecalMaterial(MI_GeoDecal);
+	});
 }
 
 TArray<ADecalActor*> UDecalCoordinates::CreateDecals(UWorld *World, TArray<FString> Paths)
@@ -154,26 +172,41 @@ ADecalActor* UDecalCoordinates::CreateDecal(UWorld* World, FString Path)
 
 ADecalActor* UDecalCoordinates::CreateDecal(UWorld *World, FString Path, FVector4d &OutCoordinates)
 {
-	ADecalActor* DecalActor = World->SpawnActor<ADecalActor>();
-	if (!DecalActor)
+	if (!IsValid(World))
+	{
+		ULCReporter::ShowError(
+			LOCTEXT("UDecalCoordinates::CreateDecal::InvalidWorld", "Invalid World.")
+		);
+		return nullptr;
+	}
+
+	ADecalActor* DecalActor = nullptr;
+	UDecalCoordinates *DecalCoordinates = nullptr;
+	
+	Concurrency::RunOnGameThreadAndWait([&DecalActor, &DecalCoordinates, World, Path]{
+		DecalActor = World->SpawnActor<ADecalActor>();
+		if (!IsValid(DecalActor)) return;
+		FString BaseName = FPaths::GetBaseFilename(Path);
+
+#if WITH_EDITOR
+	DecalActor->SetActorLabel(FString("Decal_") + BaseName);
+#endif
+
+		DecalCoordinates = NewObject<UDecalCoordinates>(DecalActor->GetRootComponent());
+		if (!IsValid(DecalCoordinates)) return;
+		DecalCoordinates->CreationMethod = EComponentCreationMethod::UserConstructionScript;
+		DecalCoordinates->RegisterComponent();
+		DecalCoordinates->PathToGeoreferencedImage = Path;
+		DecalActor->AddInstanceComponent(DecalCoordinates);
+	});
+
+	if (!IsValid(DecalActor) || !IsValid(DecalCoordinates))
 	{
 		ULCReporter::ShowError(
 			LOCTEXT("UDecalCoordinates::CreateDecal", "Coordinates Internal Error: Could not spawn a Decal Actor.")
 		);
 		return nullptr;
 	}
-	FString BaseName = FPaths::GetBaseFilename(Path);
-
-#if WITH_EDITOR
-	DecalActor->SetActorLabel(FString("Decal_") + BaseName);
-#endif
-
-	UDecalCoordinates *DecalCoordinates = NewObject<UDecalCoordinates>(DecalActor->GetRootComponent());
-	DecalCoordinates->CreationMethod = EComponentCreationMethod::UserConstructionScript;
-	DecalCoordinates->RegisterComponent();
-	DecalActor->AddInstanceComponent(DecalCoordinates);
-
-	DecalCoordinates->PathToGeoreferencedImage = Path;
 
 	DecalCoordinates->PlaceDecal(OutCoordinates);
 

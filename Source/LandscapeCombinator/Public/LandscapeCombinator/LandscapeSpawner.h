@@ -1,4 +1,4 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #pragma once
 
@@ -8,6 +8,7 @@
 #include "ConsoleHelpers/ExternalTool.h"
 #include "LCCommon/LCGenerator.h"
 #include "LCCommon/ActorSelection.h"
+#include "LCReporter/LCReporter.h"
 
 #include "GenericPlatform/GenericPlatformMisc.h"
 #include "CoreMinimal.h"
@@ -55,13 +56,6 @@ enum class EDecalCreation : uint8
 	MapTiler UMETA(DisplayName = "MapTiler"),
 };
 
-UENUM(BlueprintType)
-enum class ELandscapeKind : uint8
-{
-	Landscape,
-	DynamicMesh
-};
-
 UCLASS(BlueprintType)
 class LANDSCAPECOMBINATOR_API ALandscapeSpawner : public AActor, public ILCGenerator
 {
@@ -69,6 +63,16 @@ class LANDSCAPECOMBINATOR_API ALandscapeSpawner : public AActor, public ILCGener
 
 public:
 	ALandscapeSpawner();
+	
+	virtual bool ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY) override
+	{
+		if (IsValid(HeightmapDownloader)) return HeightmapDownloader->ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY);
+		else
+		{
+			ULCReporter::ShowError(LOCTEXT("Error", "HeightmapDownloader is not set"));
+			return false;
+		}
+	}
 
 	virtual TArray<UObject*> GetGeneratedObjects() const override;
 
@@ -229,6 +233,11 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = "LandscapeSpawner")
 	TObjectPtr<UImageDownloader> DecalDownloader = nullptr;
 
+	UPROPERTY(
+		VisibleAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner",
+		meta = (DisplayPriority = "11", ShowOnlyInnerProperties)
+	)
+	TObjectPtr<ULCPositionBasedGeneration> PositionBasedGeneration = nullptr;
 	
 	/***********
 	 * Actions *
@@ -243,7 +252,7 @@ public:
 	void SpawnLandscape() { SpawnLandscape(SpawnedActorsPath, nullptr); };
 
 	void SpawnLandscape(FName SpawnedActorsPathOverride, TFunction<void(ALandscape*)> OnComplete);
-	virtual void OnGenerate(FName SpawnedActorsPathOverride, TFunction<void(bool)> OnComplete) override;
+	virtual void OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete) override;
 
 	virtual bool Cleanup_Implementation(bool bSkipPrompt) override { return DeleteGeneratedObjects(bSkipPrompt); }
 	virtual AActor* Duplicate(FName FromName, FName ToName) override;

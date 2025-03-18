@@ -1,11 +1,11 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 
 #include "BuildingFromSpline/Building.h"
 #include "BuildingFromSpline/LogBuildingFromSpline.h"
 #include "BuildingFromSpline/DataTablesOverride.h"
 #include "OSMUserData/OSMUserData.h"
-#include "LCCommon/LCReporter.h"
+#include "LCReporter/LCReporter.h"
 #include "LCCommon/LCBlueprintLibrary.h"
 
 #include "Kismet/GameplayStatics.h"
@@ -1274,9 +1274,9 @@ bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)
 	bIsGenerating = true;
 
 	ON_SCOPE_EXIT
-    {
-        bIsGenerating = false;
-    };
+	{
+		bIsGenerating = false;
+	};
 	
 	Execute_Cleanup(this, false);
 
@@ -1332,7 +1332,7 @@ bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)
 	return true;
 }
 
-void ABuilding::OnGenerate(FName SpawnedActorsPathOverride, TFunction<void(bool)> OnComplete)
+void ABuilding::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete)
 {
 	bool bSuccess = GenerateBuilding_Internal(SpawnedActorsPathOverride);
 	OnComplete(bSuccess);

@@ -1,6 +1,7 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "LCCommon/LCBlueprintLibrary.h"
+#include "LCCommon/LogLCCommon.h"
 #include "EngineUtils.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -44,8 +45,55 @@ void ULCBlueprintLibrary::GetSortedActorsOfClassWithTag(const UWorld* World, FNa
 	});
 }
 
+bool ULCBlueprintLibrary::GetCmPerPixelForCRS(FString CRS, int &CmPerPixel)
+{
+	if (CRS == "EPSG:4326" || CRS == "IGNF:WGS84G" || CRS == "EPSG:4269" || CRS == "EPSG:497" || CRS == "CRS:84")
+	{
+		CmPerPixel = 11111111;
+		return true;
+	}
+	else if (CRS == "IGNF:LAMB93" || CRS == "EPSG:2154" || CRS == "EPSG:4559" || CRS == "EPSG:2056" || CRS == "EPSG:3857" || CRS == "EPSG:25832" || CRS == "EPSG:2975" || CRS == "EPSG:32633")
+	{
+		CmPerPixel = 100;
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
 
+bool ULCBlueprintLibrary::GetEditorViewClientPosition(FVector &OutPosition)
+{
+#if WITH_EDITOR
+	if (!GEditor) return false;
 
+	for (FEditorViewportClient* ViewClient : GEditor->GetAllViewportClients())
+	{
+		if (ViewClient && ViewClient->IsPerspective())
+		{
+			OutPosition = ViewClient->GetViewLocation();
+			return true;
+		}
+	}
+	return false;
+#else
+	return false;
+#endif
+}
+
+bool ULCBlueprintLibrary::GetFirstPlayerPosition(FVector &OutPosition)
+{
+	if (APlayerController* PlayerController = UGameplayStatics::GetPlayerController(GWorld, 0))
+	{
+		if (APawn* Pawn = PlayerController->GetPawn())
+		{
+			OutPosition = Pawn->GetActorLocation();
+			return true;
+		}
+	}
+	return false;
+}
 
 #if WITH_EDITOR
 
@@ -71,8 +119,11 @@ void ULCBlueprintLibrary::DeleteFolder(UWorld &World, FFolder Folder)
 
 	FActorFolders::GetActorsFromFolders(World, InPaths, ActorsInFolder, Folder.GetRootObject());
 
+	UE_LOG(LogLCCommon, Log, TEXT("Folder %s has %d actors"), *FolderPath.ToString(), ActorsInFolder.Num());
+
 	if (ActorsInFolder.Num() == 0)
 	{
+		UE_LOG(LogLCCommon, Log, TEXT("Deleting Folder %s"), *FolderPath.ToString());
 		FActorFolders::Get().DeleteFolder(World, Folder);
 		FFolder Parent = Folder.GetParent();
 		if (Parent != Folder.GetRootObject()) DeleteFolder(World, Parent);

@@ -1,4 +1,4 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #pragma once
 
@@ -50,7 +50,7 @@ public:
 	UFUNCTION(CallInEditor, BlueprintCallable, Category = "LandscapePCGVolume")
 	void SetPositionAndBounds();
 
-	virtual void OnGenerate(FName SpawnedActorsPathOverride, TFunction<void(bool)> OnComplete) override;
+	virtual void OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete) override;
 
 	virtual bool Cleanup_Implementation(bool bSkipPrompt) override;
 

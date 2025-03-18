@@ -1,4 +1,4 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #pragma once
 
@@ -69,6 +69,8 @@ class IMAGEDOWNLOADER_API UImageDownloader : public UActorComponent
 
 public:
 	UImageDownloader();
+
+	bool ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY);
 
 	/**********************
 	 *  Heightmap Source  *

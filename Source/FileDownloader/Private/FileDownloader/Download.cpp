@@ -1,9 +1,9 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "FileDownloader/Download.h"
 #include "FileDownloader/LogFileDownloader.h"
 #include "FileDownloader/FileDownloaderStyle.h"
-#include "LCCommon/LCReporter.h"
+#include "LCReporter/LCReporter.h"
 
 #include "ConcurrencyHelpers/Concurrency.h"
 
@@ -253,8 +253,7 @@ void Download::DownloadMany(TArray<FString> URLs, TArray<FString> Files, TFuncti
 
 void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64 ExpectedSize, TFunction<void(bool)> OnComplete)
 {
-	// make sure we are in game thread to spawn download progress windows
-	AsyncTask(ENamedThreads::GameThread, [=]()
+	auto Action = [=]()
 	{
 		double *Downloaded = new double();
 
@@ -406,8 +405,10 @@ void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64
 			Window->RequestDestroyWindow();
 		}
 #endif
+	};
 
-	});
+	if (bProgress) Concurrency::RunOnGameThread(Action);
+	else Action();
 }
 
 void Download::AddExpectedSize(FString URL, int32 ExpectedSize)

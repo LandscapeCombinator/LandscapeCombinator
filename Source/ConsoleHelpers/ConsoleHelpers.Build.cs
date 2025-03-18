@@ -1,4 +1,4 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -28,7 +28,7 @@ public class ConsoleHelpers : ModuleRules
 				"HTTP",
 
 				// LandscapeCombinator Dependencies
-				"LCCommon"
+				"LCReporter"
 			}
 		);
 	}

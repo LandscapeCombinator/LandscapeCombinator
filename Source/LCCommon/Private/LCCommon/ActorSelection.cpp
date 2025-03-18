@@ -1,7 +1,7 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "LCCommon/ActorSelection.h"
-#include "LCCommon/LCReporter.h"
+#include "LCReporter/LCReporter.h"
 
 #include "CoreMinimal.h"
 #include "Kismet/GameplayStatics.h"
@@ -13,6 +13,14 @@
 
 AActor* FActorSelection::GetActor(const UWorld* World)
 {
+	if (!IsValid(World))
+	{
+		ULCReporter::ShowError(
+			LOCTEXT("ActorSelection::GetActor::InvalidWorld", "InvalidWorld")
+		);
+		return nullptr;
+	}
+
 	switch (ActorSelectionMode)
 	{
 		case EActorSelectionMode::Actor:
@@ -30,7 +38,7 @@ AActor* FActorSelection::GetActor(const UWorld* World)
 		case EActorSelectionMode::ActorTag:
 		{
 			TArray<AActor*> Actors;
-			UGameplayStatics::GetAllActorsOfClassWithTag(Cast<UObject>(World), AActor::StaticClass(), ActorTag, Actors);
+			UGameplayStatics::GetAllActorsOfClassWithTag(World, AActor::StaticClass(), ActorTag, Actors);
 
 			if (Actors.IsEmpty())
 			{
@@ -50,5 +58,54 @@ AActor* FActorSelection::GetActor(const UWorld* World)
 			return nullptr;
 	}
 }
+
+TArray<AActor*> FActorSelection::GetAllActors(const UWorld* World)
+{
+	if (!IsValid(World))
+	{
+		ULCReporter::ShowError(
+			LOCTEXT("ActorSelection::GetAllActors::InvalidWorld", "InvalidWorld")
+		);
+		return {};
+	}
+
+	switch (ActorSelectionMode)
+	{
+		case EActorSelectionMode::Actor:
+		{
+			if (!IsValid(Actor))
+			{
+				ULCReporter::ShowError(
+					LOCTEXT("ActorSelection::GetAllActors", "Landscape Combinator Actor Selection: Please select a valid actor")
+				);
+				return {};
+			};
+			return { Actor };
+		}
+
+		case EActorSelectionMode::ActorTag:
+		{
+			TArray<AActor*> Actors;
+			UGameplayStatics::GetAllActorsOfClassWithTag(World, AActor::StaticClass(), ActorTag, Actors);
+
+			if (Actors.IsEmpty())
+			{
+				ULCReporter::ShowError(FText::Format(
+					LOCTEXT("ActorSelection::GetAllActors", "Landscape Combinator Actor Selection: Could not find actor with tag {0}"),
+					FText::FromName(ActorTag)
+				));
+				return {};
+			}
+			else
+			{
+				return Actors;
+			}
+		}
+
+		default:
+			return {};
+	}
+}
+
 
 #undef LOCTEXT_NAMESPACE

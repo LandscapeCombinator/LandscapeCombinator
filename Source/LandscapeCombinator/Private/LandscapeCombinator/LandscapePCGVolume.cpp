@@ -1,7 +1,7 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "LandscapeCombinator/LandscapePCGVolume.h"
-#include "LCCommon/LCReporter.h"
+#include "LCReporter/LCReporter.h"
 #include "LCCommon/LCBlueprintLibrary.h"
 
 #include "PCGGraph.h"
@@ -23,7 +23,7 @@ void ALandscapePCGVolume::SetPositionAndBounds()
 	SetActorScale3D(Bounds / 100);
 }
 
-void ALandscapePCGVolume::OnGenerate(FName SpawnedActorsPathOverride, TFunction<void(bool)> OnComplete)
+void ALandscapePCGVolume::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete)
 {
 	if (IsValid(PCGComponent))
 	{

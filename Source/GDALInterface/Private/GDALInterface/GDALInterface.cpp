@@ -1,8 +1,8 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "GDALInterface/GDALInterface.h"
 #include "GDALInterface/LogGDALInterface.h"
-#include "LCCommon/LCReporter.h"
+#include "LCReporter/LCReporter.h"
 
 #include "FileDownloader/Download.h"
 
@@ -45,7 +45,9 @@ bool GDALInterface::HasCRS(FString File)
 
 	const char* ProjectionRef = Dataset->GetProjectionRef();
 	OGRSpatialReference UnusedRs;
-	return UnusedRs.importFromWkt(ProjectionRef) != OGRERR_NONE;
+	bool bResult = UnusedRs.importFromWkt(ProjectionRef) != OGRERR_NONE;
+	GDALClose(Dataset);
+	return bResult;
 }
 
 bool GDALInterface::SetCRSFromFile(OGRSpatialReference &InRs, FString File, bool bDialog)
@@ -63,7 +65,9 @@ bool GDALInterface::SetCRSFromFile(OGRSpatialReference &InRs, FString File, bool
 		return false;
 	}
 
-	return SetCRSFromDataset(InRs, Dataset, bDialog);
+	bool bSuccess = SetCRSFromDataset(InRs, Dataset, bDialog);
+	GDALClose(Dataset);
+	return bSuccess;
 }
 
 bool GDALInterface::SetCRSFromDataset(OGRSpatialReference& InRs, GDALDataset* Dataset, bool bDialog)
@@ -783,7 +787,7 @@ bool GDALInterface::ReadColorsFromFile(FString File, int &OutWidth, int &OutHeig
 		if (Dataset->GetRasterBand(4)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, AlphaBuffer, OutWidth, OutHeight, GDT_Byte, 0, 0) != CE_None)
 		{
 			UE_LOG(LogGDALInterface, Error, TEXT("Could not read alpha buffer."));
-			return false;
+			bError = true;
 		}
 	}
 	
@@ -1090,7 +1094,7 @@ GDALDataset* GDALInterface::LoadGDALVectorDatasetFromFile(const FString &File)
 	return Dataset;
 }
 
-void GDALInterface::LoadGDALVectorDatasetFromQuery(FString Query, TFunction<void(GDALDataset*)> OnComplete)
+void GDALInterface::LoadGDALVectorDatasetFromQuery(FString Query, bool bIsUserInitiated, TFunction<void(GDALDataset*)> OnComplete)
 {
 	UE_LOG(LogGDALInterface, Log, TEXT("Loading dataset from Overpass query: '%s'"), *Query);
 	UE_LOG(LogGDALInterface, Log, TEXT("Decoded URL: '%s'"), *(FGenericPlatformHttp::UrlDecode(Query)));
@@ -1100,14 +1104,11 @@ void GDALInterface::LoadGDALVectorDatasetFromQuery(FString Query, TFunction<void
 	uint32 Hash = FTextLocalizationResource::HashString(Query);
 	FString XmlFilePath = FPaths::Combine(DownloadDir, FString::Format(TEXT("overpass_query_{0}.xml"), { Hash }));
 
-	Download::FromURL(Query.Replace(TEXT(" "), TEXT("+")), XmlFilePath, true,
+	Download::FromURL(Query.Replace(TEXT(" "), TEXT("+")), XmlFilePath, bIsUserInitiated,
 		[Query, XmlFilePath, OnComplete](bool bWasSuccessful) {
 			if (bWasSuccessful && OnComplete)
 			{
-				// working on splines only works in GameThread
-				AsyncTask(ENamedThreads::GameThread, [Query, XmlFilePath, OnComplete]() {
-					OnComplete(LoadGDALVectorDatasetFromFile(XmlFilePath));
-				});
+				OnComplete(LoadGDALVectorDatasetFromFile(XmlFilePath));
 			}
 			else
 			{

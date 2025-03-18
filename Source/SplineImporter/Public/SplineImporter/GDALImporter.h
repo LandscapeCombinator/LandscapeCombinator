@@ -1,4 +1,4 @@
-// Copyright 2023 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #pragma once
 
@@ -33,6 +33,12 @@ enum class EVectorSource: uint8 {
 	LocalFile
 };
 
+UENUM(BlueprintType)
+enum class EBoundingMethod: uint8 {
+	BoundingActor,
+	TileNumbers
+};
+
 UCLASS()
 class SPLINEIMPORTER_API AGDALImporter : public AActor, public ILCGenerator
 {
@@ -40,6 +46,20 @@ class SPLINEIMPORTER_API AGDALImporter : public AActor, public ILCGenerator
 
 public:
 	AGDALImporter();
+	
+	virtual bool ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY) override
+	{
+		BoundingMethod = EBoundingMethod::TileNumbers;
+		BoundingZoneZoom = Zoom;
+		BoundingZoneMinX = MinX;
+		BoundingZoneMaxX = MaxX;
+		BoundingZoneMinY = MinY;
+		BoundingZoneMaxY = MaxY;
+		return true;
+	}
+
+	UPROPERTY(VisibleAnywhere, Category = "GDALImporter", meta = (DisplayPriority = "-1000"))
+	TObjectPtr<ULCPositionBasedGeneration> PositionBasedGeneration = nullptr;
 	
 	virtual TArray<UObject*> GetGeneratedObjects() const { return TArray<UObject*>(); };
 
@@ -69,11 +89,39 @@ public:
 	)
 	FString OverpassShortQueryPreset;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter", meta = (DisplayPriority = "10"))
+	EBoundingMethod BoundingMethod = EBoundingMethod::BoundingActor;
+
 	/* Use a volume, a landscape, or another rectangular actor to specify the area on which you want to import vector data. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
-		meta = (DisplayPriority = "2")
+		meta = (EditCondition = "BoundingMethod == EBoundingMethod::BoundingActor", EditConditionHides, DisplayPriority = "11")
 	)
 	FActorSelection BoundingActorSelection;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+		meta = (EditCondition = "BoundingMethod == EBoundingMethod::TileNumbers", EditConditionHides, DisplayPriority = "11")
+	)
+	int BoundingZoneZoom = 14;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+		meta = (EditCondition = "BoundingMethod == EBoundingMethod::TileNumbers", EditConditionHides, DisplayPriority = "12")
+	)
+	int BoundingZoneMinX = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+		meta = (EditCondition = "BoundingMethod == EBoundingMethod::TileNumbers", EditConditionHides, DisplayPriority = "13")
+	)
+	int BoundingZoneMaxX = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+		meta = (EditCondition = "BoundingMethod == EBoundingMethod::TileNumbers", EditConditionHides, DisplayPriority = "14")
+	)
+	int BoundingZoneMinY = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+		meta = (EditCondition = "BoundingMethod == EBoundingMethod::TileNumbers", EditConditionHides, DisplayPriority = "15")
+	)
+	int BoundingZoneMaxY = 0;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
@@ -83,7 +131,7 @@ public:
 	FName SpawnedActorsPath;
 
 	UFUNCTION(CallInEditor, Category = "GDALImporter")
-	void Import() { Generate(SpawnedActorsPath); }
+	void Import() { Generate(SpawnedActorsPath, true); }
 
 	UFUNCTION(CallInEditor, Category = "GDALImporter")
 	void Delete() { Execute_Cleanup(this, true); }
@@ -101,8 +149,8 @@ protected:
 	void PostEditChangeProperty(struct FPropertyChangedEvent&);
 #endif
 
-	void LoadGDALDataset(TFunction<void(GDALDataset*)> OnComplete);
-	void LoadGDALDatasetFromShortQuery(FString ShortQuery, TFunction<void(GDALDataset*)> OnComplete);
+	void LoadGDALDataset(bool bIsUserInitiated, TFunction<void(GDALDataset*)> OnComplete);
+	void LoadGDALDatasetFromShortQuery(FString ShortQuery, bool bIsUserInitiated, TFunction<void(GDALDataset*)> OnComplete);
 
 	virtual void SetOverpassShortQuery();
 };
