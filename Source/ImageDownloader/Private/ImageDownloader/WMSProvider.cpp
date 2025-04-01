@@ -416,16 +416,27 @@ bool FWMSProvider::CreateURL(
 		);
 		return false;
 	}
-				
-	bGeoTiff = CapabilitiesContent.Contains("image/geotiff");
-	bool bTiff = CapabilitiesContent.Contains("image/tiff");
-	FString ImageFormat = bGeoTiff ? "geotiff" : (bTiff ? "tiff" : "png");
+
+	int32 GeoTiffIndex = CapabilitiesContent.Find("image/geotiff");
+	int32 TiffIndex = CapabilitiesContent.Find("image/tiff");
+	bGeoTiff = GeoTiffIndex != INDEX_NONE;
+	bool bTiff = TiffIndex != INDEX_NONE;
+
+
+	FString ImageFormat;
+	if (bGeoTiff) {
+		ImageFormat = *CapabilitiesContent.Mid(GeoTiffIndex, 13);
+	} else if (bTiff) {
+		ImageFormat = *CapabilitiesContent.Mid(TiffIndex, 10);
+	} else {
+		ImageFormat = "image/png";
+	}
 	FileExt = bGeoTiff || bTiff ? "tif" : "png";
 
 	if (XIsLong)
 	{
 		URL = FString::Format(
-			TEXT("{0}LAYERS={1}&FORMAT=image/{2}&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&CRS={3}&STYLES=&BBOX={4},{5},{6},{7}&WIDTH={8}&HEIGHT={9}"),
+			TEXT("{0}LAYERS={1}&FORMAT={2}&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&CRS={3}&STYLES=&BBOX={4},{5},{6},{7}&WIDTH={8}&HEIGHT={9}"),
 			{
 				GetMapURL, Name, ImageFormat, CRS,
 				MinLong, MinLat, MaxLong, MaxLat,
@@ -436,7 +447,7 @@ bool FWMSProvider::CreateURL(
 	else
 	{
 		URL = FString::Format(
-			TEXT("{0}LAYERS={1}&FORMAT=image/{2}&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&CRS={3}&STYLES=&BBOX={4},{5},{6},{7}&WIDTH={8}&HEIGHT={9}"),
+			TEXT("{0}LAYERS={1}&FORMAT={2}&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&CRS={3}&STYLES=&BBOX={4},{5},{6},{7}&WIDTH={8}&HEIGHT={9}"),
 			{
 				GetMapURL, Name, ImageFormat, CRS,
 				MinLat, MinLong, MaxLat, MaxLong,
