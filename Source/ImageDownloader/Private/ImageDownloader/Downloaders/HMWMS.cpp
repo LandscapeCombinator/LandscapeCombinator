@@ -128,7 +128,7 @@ void HMWMS::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
                 {
                     if (bSuccess)
                     {
-                        if (!bGeoTiff)
+                        if (!bGeoTiff || GDALInterface::HasCRS(FileName))
                         {
                             const FString FileNameTiff = FPaths::GetBaseFilename(FileName) + TEXT(".tif");
                             GDALInterface::AddGeoreference(FileName, FileNameTiff, WMS_CRS, Bounds[i].X, Bounds[i].Y, Bounds[i].Z, Bounds[i].W);

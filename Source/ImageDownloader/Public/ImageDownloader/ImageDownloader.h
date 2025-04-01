@@ -356,12 +356,15 @@ public:
 	FString WMS_Help = "";
 
 	UPROPERTY(
-		VisibleAnywhere, Category = "Source",
+		EditAnywhere, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS()",
 			EditConditionHides, DisplayPriority = "8"
 		)
 	)
+	// This should not (almost never) be modified manually, as the WMS server may not supported
+	// the given CRS. There are rare cases where the parsed CRS is not correct, and in that
+	// case the CRS can be edited to the correct value (as found in the WMS server capabilities).
 	FString WMS_CRS = "";
 
 	UPROPERTY(
