@@ -6,6 +6,7 @@
 #include "GDALInterface/GDALInterface.h"
 #include "ConcurrencyHelpers/Concurrency.h"
 
+#include "Engine/World.h"
 #include "CompGeom/Delaunay2.h"
 #include "GeometryScript/MeshNormalsFunctions.h"
 #include "GeometryScript/MeshUVFunctions.h"

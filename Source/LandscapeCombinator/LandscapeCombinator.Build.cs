@@ -37,7 +37,6 @@ public class LandscapeCombinator : ModuleRules
 				"Landscape",
 				"PCG",
 				"ApplicationCore",
-				"StructUtils",
 
 				// Landscape Combinator dependencies
 				"Coordinates",

@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "GameFramework/Pawn.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "GameFramework/Actor.h"
 #include "LCBlueprintLibrary.generated.h"
