@@ -9,6 +9,7 @@
 #include "LCCommon/LCGenerator.h"
 #include "LCCommon/ActorSelection.h"
 #include "LandscapeMesh.h"
+#include "LCReporter/LCReporter.h"
 
 #include "GenericPlatform/GenericPlatformMisc.h"
 #include "Components/DynamicMeshComponent.h"

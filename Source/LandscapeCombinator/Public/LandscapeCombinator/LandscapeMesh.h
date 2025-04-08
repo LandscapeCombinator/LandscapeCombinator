@@ -2,11 +2,10 @@
 
 #pragma once
 
+#include "Coordinates/GlobalCoordinates.h"
 #include "Components/DynamicMeshComponent.h"
 #include "Polygon2.h"
 #include "LandscapeMesh.generated.h"
-
-#define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
 using namespace UE::Geometry;
 

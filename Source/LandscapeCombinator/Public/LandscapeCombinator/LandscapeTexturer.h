@@ -5,6 +5,7 @@
 #include "Coordinates/LevelCoordinates.h"
 #include "ImageDownloader/ImageDownloader.h"
 #include "LCCommon/LCGenerator.h"
+#include "LCReporter/LCReporter.h"
 
 #include "CoreMinimal.h"
 #include "Landscape.h"
