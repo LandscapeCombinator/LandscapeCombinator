@@ -4,6 +4,8 @@
 #include "LCCommon/LCGenerator.h"
 #include "LCCommon/LogLCCommon.h"
 #include "LCReporter/LCReporter.h"
+#include "Engine/World.h"
+#include "TimerManager.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 

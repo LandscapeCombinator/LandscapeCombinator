@@ -20,6 +20,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "LandscapeSubsystem.h"
 #include "Misc/MessageDialog.h"
+#include "Engine/World.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
@@ -154,7 +155,8 @@ void ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 
 		if (!GlobalCoordinates)
 		{
-			ALevelCoordinates *LevelCoordinates = this->GetWorld()->SpawnActor<ALevelCoordinates>();
+			UWorld *World = GetWorld();
+			ALevelCoordinates *LevelCoordinates = World->SpawnActor<ALevelCoordinates>();
 			GlobalCoordinates = LevelCoordinates->GlobalCoordinates;
 
 			FVector4d Coordinates = FVector4d();

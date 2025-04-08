@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Components/ActorComponent.h" 
+#include "Components/ActorComponent.h"
 #include "LCContinuousGeneration.generated.h"
 
 UCLASS(BlueprintType)
