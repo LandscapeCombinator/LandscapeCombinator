@@ -209,7 +209,7 @@ void ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 				if (OnComplete) OnComplete(false);
 				return;
 			}
-			GenerateRegularSplines(SpawnedActorsPathOverride, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
+			GenerateRegularSplines(bIsUserInitiated, SpawnedActorsPathOverride, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
 
 #endif
 

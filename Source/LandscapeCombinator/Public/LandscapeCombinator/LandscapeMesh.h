@@ -14,7 +14,7 @@ struct FHeightmap
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FHeightmap")
 	TSet<FVector> Points;
 
 	TPolygon2<double> Boundary;
@@ -27,7 +27,7 @@ struct FHeightmaps
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FHeightmaps")
 	TArray<FHeightmap> Heightmaps;
 };
 

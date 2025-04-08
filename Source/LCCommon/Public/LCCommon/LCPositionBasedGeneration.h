@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
+#include "Components/ActorComponent.h" 
 #include "LCPositionBasedGeneration.generated.h"
 
 USTRUCT(BlueprintType)
