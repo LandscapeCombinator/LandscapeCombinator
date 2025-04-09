@@ -393,6 +393,11 @@ HMFetcher* UImageDownloader::CreateFetcher(
 		Result = Result->AndThen(new HMDebugFetcher("Reproject", new HMReproject(Name, GlobalCoordinates->CRS)));
 	}
 
+	if (bMergeImages)
+	{
+		Result = Result->AndThen(new HMDebugFetcher("Merge", new HMMerge(Name)));
+	}
+
 	if (bAdaptResolution || bCropCoordinates)
 	{
 		FIntPoint ImageSize(0, 0);
@@ -442,11 +447,6 @@ HMFetcher* UImageDownloader::CreateFetcher(
 		}
 
 		Result = Result->AndThen(new HMDebugFetcher("AdaptImage", new HMCrop(Name, Coordinates, ImageSize)));
-	}
-
-	if (bMergeImages)
-	{
-		Result = Result->AndThen(new HMDebugFetcher("Merge", new HMMerge(Name)));
 	}
 
 	if (RunBeforePNG)
