@@ -33,14 +33,10 @@ public:
 	FName SpawnedActorsPath = FName("GeneratedActors");
 
 	UFUNCTION(CallInEditor, Category = "LandscapeCombination", meta = (DisplayPriority = "0"))
-	virtual void GenerateActors() {
-		Generate(SpawnedActorsPath, true, [this](bool bSuccess) { GenerationFinished(bSuccess); });
-	}
+	virtual void GenerateActors() { Generate(SpawnedActorsPath, true); }
 
 	UFUNCTION(CallInEditor, Category = "LandscapeCombination", meta = (DisplayPriority = "0"))
-	virtual void GenerateActorsNoPrompt() {
-		Generate(SpawnedActorsPath, false, [this](bool bSuccess) { GenerationFinished(bSuccess); });
-	}
+	virtual void GenerateActorsNoPrompt() { Generate(SpawnedActorsPath, false); }
 
 	UFUNCTION(CallInEditor, Category = "LandscapeCombination", meta = (DisplayPriority = "1"))
 	virtual void DeleteActors() { Execute_Cleanup(this, false); };
@@ -75,16 +71,4 @@ public:
 		meta = (DisplayPriority = "11", ShowOnlyInnerProperties)
 	)
 	TObjectPtr<ULCContinuousGeneration> ContinuousGeneration = nullptr;
-
-protected:
-	void GenerationFinished(bool bSuccess)
-	{
-		UE_LOG(
-			LogLandscapeCombinator, Log,
-			TEXT("Generation for %s finished: %s"),
-			*GetActorNameOrLabel(),
-			bSuccess ? TEXT("Success") : TEXT("Error")
-		);
-	}
-
 };

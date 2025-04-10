@@ -365,7 +365,7 @@ bool LandscapeUtils::SpawnLandscape(
 	TArray<FString> Heightmaps, FString LandscapeLabel, bool bCreateLandscapeStreamingProxies,
 	bool bAutoComponents, bool bDropData,
 	int QuadsPerSubsection0, int SectionsPerComponent0, FIntPoint ComponentCount0,
-	ALandscape* &OutSpawnedLandscape, TArray<ALandscapeStreamingProxy*> &OutSpawnedLandscapeStreamingProxies
+	ALandscape* &OutSpawnedLandscape, TArray<TObjectPtr<ALandscapeStreamingProxy>> &OutSpawnedLandscapeStreamingProxies
 )
 {
 	if (Heightmaps.IsEmpty())

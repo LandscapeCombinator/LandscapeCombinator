@@ -14,6 +14,7 @@
 #include "ImageDownloader/Transformers/HMMerge.h"
 #include "LCCommon/LCSettings.h"
 #include "LCCommon/LCBlueprintLibrary.h"
+#include "ConcurrencyHelpers/Concurrency.h"
 
 #include "Async/Async.h"
 #include "Components/DecalComponent.h"
@@ -369,11 +370,13 @@ void ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, TFunctio
 								DecalActors = UDecalCoordinates::CreateDecals(this->GetWorld(), DownloadedImages);
 
 #if WITH_EDITOR
-								for (auto &DecalActor : DecalActors)
-								{
-									ULCBlueprintLibrary::SetFolderPath2(DecalActor, SpawnedActorsPathOverride, SpawnedActorsPath);
-									DecalActor->GetDecal()->SortOrder = DecalsSortOrder;
-								}
+								Concurrency::RunOnGameThreadAndWait([this, SpawnedActorsPathOverride]() {
+									for (auto &DecalActor : DecalActors)
+									{
+										ULCBlueprintLibrary::SetFolderPath2(DecalActor, SpawnedActorsPathOverride, SpawnedActorsPath);
+										DecalActor->GetDecal()->SortOrder = DecalsSortOrder;
+									}
+								});
 #endif
 
 								if (DecalActors.Num() > 0)
