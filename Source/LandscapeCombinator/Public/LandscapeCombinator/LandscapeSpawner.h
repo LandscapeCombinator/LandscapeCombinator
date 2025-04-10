@@ -329,13 +329,13 @@ public:
 		EditAnywhere, BlueprintReadWrite, DuplicateTransient, Category = "LandscapeSpawner",
 		meta = (EditCondition = "false", EditConditionHides)
 	)
-	TArray<ALandscapeStreamingProxy*> SpawnedLandscapeStreamingProxies;
+	TArray<TObjectPtr<ALandscapeStreamingProxy>> SpawnedLandscapeStreamingProxies;
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, DuplicateTransient, Category = "LandscapeSpawner",
 		meta = (EditCondition = "false", EditConditionHides)
 	)
-	TArray<ADecalActor*> DecalActors;
+	TArray<TObjectPtr<ADecalActor>> DecalActors;
 
 protected:
 

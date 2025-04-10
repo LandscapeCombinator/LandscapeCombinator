@@ -45,28 +45,28 @@ public:
 	 ********************/
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "General",
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
 		meta = (DisplayPriority = "-1")
 	)
 	/* Label of the landscape to create. */
 	FString LandscapeMeshLabel = "SpawnedLandscapeMesh";
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "General",
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
 		meta = (DisplayPriority = "1")
 	)
 	/* Material to apply to the landscape */
 	TObjectPtr<UMaterialInterface> LandscapeMaterial = nullptr;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "General",
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
 		meta = (DisplayPriority = "2")
 	)
 	/* The scale in the Z-axis of your heightmap, ZScale = 1 corresponds to real-world size. */
 	double ZScale = 1;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "General",
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
 		meta = (DisplayPriority = "4")
 	)
 	/* Folder used to spawn the actors. This setting is unused when generating from a combination or from blueprints. */

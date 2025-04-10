@@ -25,9 +25,9 @@ public:
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "DecalCoordinates",
 		meta = (DisplayPriority = "5")
 	)
-	void PlaceDecal();
+	bool PlaceDecal();
 
-	void PlaceDecal(FVector4d &OutCoordinates);
+	bool PlaceDecal(FVector4d &OutCoordinates);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DecalCoordinates|Internal")
 	TObjectPtr<UTexture2D> Texture;

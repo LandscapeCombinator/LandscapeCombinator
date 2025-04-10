@@ -8,6 +8,7 @@
 #include "GDALInterface/GDALInterface.h"
 #include "OSMUserData/OSMUserData.h"
 #include "LCReporter/LCReporter.h"
+#include "ConcurrencyHelpers/Concurrency.h"
 
 #include "LandscapeSplineActor.h"
 #include "ILandscapeSplineInterface.h"
@@ -64,7 +65,8 @@ void AGDALImporter::LoadGDALDatasetFromShortQuery(FString ShortQuery, bool bIsUs
 
 	if (BoundingMethod == EBoundingMethod::BoundingActor)
 	{
-		AActor *BoundingActor = BoundingActorSelection.GetActor(this->GetWorld());
+		AActor *BoundingActor = nullptr;
+		Concurrency::RunOnGameThreadAndWait([&BoundingActor, this]() { BoundingActorSelection.GetActor(this->GetWorld()); });
 
 		if (!IsValid(BoundingActor))
 		{

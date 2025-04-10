@@ -109,7 +109,7 @@ public:
 	)
 	/* Select a Location Volume (or any other actor) that will be used to compute the WMS coordinates or XYZ tiles.
 	   You can click the "Set Source Parameters From Actor" button to force refresh after you move the actor */
-	AActor *ParametersBoundingActor = nullptr;
+	TObjectPtr<AActor> ParametersBoundingActor = nullptr;
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
@@ -491,9 +491,11 @@ public:
 			EditConditionHides, DisplayPriority = "33"
 		)
 	)
-	/* If true, a single tile with the required dimensions will be downloaded. If false, multiple
+	/**
+	 * If true, a single tile with the required dimensions will be downloaded. If false, multiple
 	 * tiles may be downloaded, each tile having maximum dimensions WMS_MaxTileWidth x WMS_MaxTileHeight.
-	 * The number of tiles is determined by the user-given resolution.  */
+	 * The number of tiles is determined by the user-given resolution.
+	 */
 	bool bWMSSingleTile = true;
 
 	UPROPERTY(
@@ -519,7 +521,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS() && !bWMSSingleTile && (!CanAutoSetResolution() || !bAutoSetResolution)",
+			EditCondition = "IsWMS() && (!CanAutoSetResolution() || !bAutoSetResolution)",
 			EditConditionHides, DisplayPriority = "50"
 		)
 	)

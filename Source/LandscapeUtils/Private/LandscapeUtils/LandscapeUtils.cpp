@@ -120,14 +120,18 @@ TArray<ALandscapeStreamingProxy*> LandscapeUtils::GetLandscapeStreamingProxies(A
 }
 
 // Parameters to collide with this actor only, ignoring all other actors
-FCollisionQueryParams LandscapeUtils::CustomCollisionQueryParams(AActor *Actor)
+bool LandscapeUtils::CustomCollisionQueryParams(AActor *Actor, FCollisionQueryParams &CollisionQueryParams)
 {
-	if (!IsValid(Actor)) return FCollisionQueryParams();
+	if (!IsValid(Actor))
+	{
+		ULCReporter::ShowError(LOCTEXT("InvalidCollindingActor", "Invalid colliding actor"));
+		return false;
+	}
 
 	UWorld *World = Actor->GetWorld();
 	TArray<AActor*> Actors;
 	UGameplayStatics::GetAllActorsOfClass(World, AActor::StaticClass(), Actors);
-	FCollisionQueryParams CollisionQueryParams;
+	CollisionQueryParams = FCollisionQueryParams();
 
 	if (Actor->IsA<ALandscape>())
 	{
@@ -152,16 +156,16 @@ FCollisionQueryParams LandscapeUtils::CustomCollisionQueryParams(AActor *Actor)
 		}
 	}
 
-	return CollisionQueryParams;
+	return true;
 }
 
 // Parameters to collide with these actors only, ignoring all other actors
-FCollisionQueryParams LandscapeUtils::CustomCollisionQueryParams(TArray<AActor*> CollidingActors)
+bool LandscapeUtils::CustomCollisionQueryParams(TArray<AActor*> CollidingActors, FCollisionQueryParams &CollisionQueryParams)
 {
 	if (CollidingActors.IsEmpty() || !IsValid(CollidingActors[0]))
 	{
 		ULCReporter::ShowError(LOCTEXT("InvalidCollidingActors", "Invalid colliding actors for custom collision query"));
-		return FCollisionQueryParams();
+		return false;
 	}
 
 	TSet<AActor*> CollidingActorsSet = TSet<AActor*>(CollidingActors);
@@ -184,12 +188,12 @@ FCollisionQueryParams LandscapeUtils::CustomCollisionQueryParams(TArray<AActor*>
 	if (!IsValid(World))
 	{
 		ULCReporter::ShowError(LOCTEXT("InvalidWorld", "Invalid world for custom collision query"));
-		return FCollisionQueryParams();
+		return false;
 	}
 	
 	TArray<AActor*> Actors;
 	UGameplayStatics::GetAllActorsOfClass(World, AActor::StaticClass(), Actors);
-	FCollisionQueryParams CollisionQueryParams;
+	CollisionQueryParams = FCollisionQueryParams();
 
 	for (auto &SomeActor : Actors)
 	{
@@ -199,7 +203,7 @@ FCollisionQueryParams LandscapeUtils::CustomCollisionQueryParams(TArray<AActor*>
 		}
 	}
 
-	return CollisionQueryParams;
+	return true;
 }
 
 bool LandscapeUtils::GetZ(UWorld* World, FCollisionQueryParams CollisionQueryParams, double x, double y, double &OutZ, bool bDrawDebugLine)

@@ -17,8 +17,8 @@ public:
 	static bool GetLandscapeBounds(ALandscape *Landscape, FVector2D &MinMaxX, FVector2D &MinMaxY, FVector2D &MinMaxZ);
 	static bool GetLandscapeMinMaxZ(ALandscape *Landscape, FVector2D &MinMaxZ);
 	static TArray<ALandscapeStreamingProxy*> GetLandscapeStreamingProxies(ALandscape *Landscape);
-	static FCollisionQueryParams CustomCollisionQueryParams(AActor* Actor);
-	static FCollisionQueryParams CustomCollisionQueryParams(TArray<AActor*> CollidingActors);
+	static bool CustomCollisionQueryParams(AActor* Actor, FCollisionQueryParams &CollisionQueryParams);
+	static bool CustomCollisionQueryParams(TArray<AActor*> CollidingActors, FCollisionQueryParams &CollisionQueryParams);
 
 	static bool GetZ(UWorld* World, FCollisionQueryParams CollisionQueryParams, double x, double y, double &OutZ, bool bDrawDebugLine = false);
 	static bool GetZ(AActor* Actor, double x, double y, double &OutZ, bool bDrawDebugLine = false);

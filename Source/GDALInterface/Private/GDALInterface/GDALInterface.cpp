@@ -26,7 +26,7 @@ bool GDALInterface::SetWellKnownGeogCRS(OGRSpatialReference& InRs, FString CRS)
 	if (Err != OGRERR_NONE)
 	{
 		ULCReporter::ShowError(FText::Format(
-			LOCTEXT("SetWellKnownGeogCRS", "Unable to get spatial reference from string: {0}.\nError: {1}"),
+			LOCTEXT("SetWellKnownGeogCRS", "Unable to set spatial reference from string: {0}.\nError: {1}"),
 			FText::FromString(CRS),
 			FText::AsNumber(Err, &FNumberFormattingOptions::DefaultNoGrouping())
 		));
@@ -45,9 +45,9 @@ bool GDALInterface::HasCRS(FString File)
 
 	const char* ProjectionRef = Dataset->GetProjectionRef();
 	OGRSpatialReference UnusedRs;
-	bool bResult = UnusedRs.importFromWkt(ProjectionRef) != OGRERR_NONE;
+	bool bHasCRS = UnusedRs.importFromWkt(ProjectionRef) == OGRERR_NONE;
 	GDALClose(Dataset);
-	return bResult;
+	return bHasCRS;
 }
 
 bool GDALInterface::SetCRSFromFile(OGRSpatialReference &InRs, FString File, bool bDialog)

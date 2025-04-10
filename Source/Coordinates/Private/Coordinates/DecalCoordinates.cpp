@@ -20,13 +20,13 @@
 
 #define LOCTEXT_NAMESPACE "FCoordinatesModule"
 
-void UDecalCoordinates::PlaceDecal()
+bool UDecalCoordinates::PlaceDecal()
 {
 	FVector4d Unused;
-	PlaceDecal(Unused);
+	return PlaceDecal(Unused);
 }
 
-void UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
+bool UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 {
 	ADecalActor *DecalActor = Cast<ADecalActor>(GetOwner());
 	if (!DecalActor)
@@ -34,7 +34,7 @@ void UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 		ULCReporter::ShowError(
 			LOCTEXT("UDecalCoordinates::PlaceDecal", "UDecalCoordinates must be placed on a Decal Actor.")
 		);
-		return;
+		return false;
 	}
 	
 	if (!FPaths::FileExists(PathToGeoreferencedImage))
@@ -43,20 +43,22 @@ void UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 			LOCTEXT("UDecalCoordinates::PlaceDecal::NoFile", "File {0} does not exist."),
 			FText::FromString(PathToGeoreferencedImage)
 		));
-		return;
+		return false;
 	}
 	
 	UWorld* World = this->GetWorld();
 
 	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World, true);
-	if (!GlobalCoordinates) return;
+	if (!GlobalCoordinates) return false;
 
 	FString ReprojectedImage = FPaths::Combine(FPaths::ProjectSavedDir(), "temp.tif");
 	
-	if (!GDALInterface::Warp(PathToGeoreferencedImage, ReprojectedImage, "", GlobalCoordinates->CRS, true, 0)) return;
+	if (!GDALInterface::Warp(PathToGeoreferencedImage, ReprojectedImage, "", GlobalCoordinates->CRS, true, 0)) 
+		return false;
 
 	FVector4d Coordinates;
-	if (!GDALInterface::GetCoordinates(Coordinates, { ReprojectedImage })) return;
+	if (!GDALInterface::GetCoordinates(Coordinates, { ReprojectedImage }))
+		return false;
 
 	// In the image coordinates
 	double West = Coordinates[0];
@@ -65,8 +67,8 @@ void UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 	double North = Coordinates[3];
 
 	FVector2D TopLeft, BottomRight;
-	if (!GlobalCoordinates->GetUnrealCoordinatesFromCRS(West, North, GlobalCoordinates->CRS, TopLeft)) return;
-	if (!GlobalCoordinates->GetUnrealCoordinatesFromCRS(East, South, GlobalCoordinates->CRS, BottomRight)) return;
+	if (!GlobalCoordinates->GetUnrealCoordinatesFromCRS(West, North, GlobalCoordinates->CRS, TopLeft)) return false;
+	if (!GlobalCoordinates->GetUnrealCoordinatesFromCRS(East, South, GlobalCoordinates->CRS, BottomRight)) return false;
 
 	// Unreal Coordinates
 	double Left = TopLeft[0];
@@ -110,9 +112,8 @@ void UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 		ULCReporter::ShowError(
 			LOCTEXT("UDecalCoordinates::PlaceDecal::M_GeoDecal", "Coordinates Internal Error: Could not find material M_GeoDecal.")
 		);
-		return;
+		return false;
 	}
-
 
 	int Width, Height;
 	TArray<FColor> Colors;
@@ -125,7 +126,7 @@ void UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 			LOCTEXT("UDecalCoordinates::PlaceDecal::ReadColorsFromFile", "Coordinates Internal Error: Could not read colors from file {0}."),
 			FText::FromString(ReprojectedImage)
 		));
-		return;
+		return false;
 	}
 
 	Concurrency::RunOnGameThreadAndWait([&Width, &Height, &Colors, this, MI_GeoDecal, DecalActor]() {
@@ -139,6 +140,8 @@ void UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 		MI_GeoDecal->SetTextureParameterValue(FName("Texture"), Texture);
 		DecalActor->SetDecalMaterial(MI_GeoDecal);
 	});
+
+	return true;
 }
 
 TArray<ADecalActor*> UDecalCoordinates::CreateDecals(UWorld *World, TArray<FString> Paths)
@@ -189,7 +192,7 @@ ADecalActor* UDecalCoordinates::CreateDecal(UWorld *World, FString Path, FVector
 		FString BaseName = FPaths::GetBaseFilename(Path);
 
 #if WITH_EDITOR
-	DecalActor->SetActorLabel(FString("Decal_") + BaseName);
+		DecalActor->SetActorLabel(FString("Decal_") + BaseName);
 #endif
 
 		DecalCoordinates = NewObject<UDecalCoordinates>(DecalActor->GetRootComponent());
@@ -208,9 +211,17 @@ ADecalActor* UDecalCoordinates::CreateDecal(UWorld *World, FString Path, FVector
 		return nullptr;
 	}
 
-	DecalCoordinates->PlaceDecal(OutCoordinates);
-
-	return DecalActor;
+	if (DecalCoordinates->PlaceDecal(OutCoordinates))
+	{
+		return DecalActor;
+	}
+	else
+	{
+		Concurrency::RunOnGameThreadAndWait([&DecalActor]{
+			DecalActor->Destroy();
+		});
+		return nullptr;
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

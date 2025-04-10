@@ -44,7 +44,8 @@ void HMWMS::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 		// Single tile download
 		double Width = FMath::Min(WMS_MaxTileWidth, (WMS_MaxLong - WMS_MinLong) * WMS_ResolutionPixelsPerUnit);
 		double Height = FMath::Min(WMS_MaxTileHeight, (WMS_MaxLat - WMS_MinLat) * WMS_ResolutionPixelsPerUnit);
-		if (WMS_Provider.CreateURL(WMS_MaxTileWidth, WMS_MaxTileHeight, WMS_Name, WMS_CRS, WMS_X_IsLong,
+
+		if (WMS_Provider.CreateURL(Width, Height, WMS_Name, WMS_CRS, WMS_X_IsLong,
 								WMS_MinAllowedLong, WMS_MaxAllowedLong, WMS_MinAllowedLat, WMS_MaxAllowedLat,
 								WMS_MinLong, WMS_MaxLong, WMS_MinLat, WMS_MaxLat, URL, bGeoTiff, FileExt))
 		{
@@ -117,6 +118,8 @@ void HMWMS::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 		}
 	}
 
+	OutputCRS = WMS_CRS;
+
 	FString DownloadDir = Directories::DownloadDir();
 	Concurrency::RunMany(
 		DownloadURLs.Num(),
@@ -129,21 +132,25 @@ void HMWMS::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 				{
 					if (bSuccess)
 					{
-						if (!bGeoTiff || GDALInterface::HasCRS(FileName))
+						if (!bGeoTiff || !GDALInterface::HasCRS(FileName))
 						{
 							const FString FileNameTiff = FPaths::GetBaseFilename(FileName) + TEXT(".tif");
-							GDALInterface::AddGeoreference(FileName, FileNameTiff, WMS_CRS, Bounds[i].X, Bounds[i].Y, Bounds[i].Z, Bounds[i].W);
+							if (!GDALInterface::AddGeoreference(FileName, FileNameTiff, WMS_CRS, Bounds[i].X, Bounds[i].Y, Bounds[i].Z, Bounds[i].W))
+							{
+								if (OnCompleteElement) OnCompleteElement(false);
+								return;
+							}
 							OutputFiles.Add(FileNameTiff);
 						}
 						else
 						{
 							OutputFiles.Add(FileName);
 						}
-						OnCompleteElement(true);
+						if (OnCompleteElement) OnCompleteElement(true);
 					}
 					else
 					{
-						OnCompleteElement(false);
+						if (OnCompleteElement) OnCompleteElement(false);
 					}
 				}
 			);
