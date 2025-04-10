@@ -6,6 +6,7 @@
 #include "UObject/Interface.h"
 #include "Delegates/Delegate.h"
 #include "Kismet/BlueprintAsyncActionBase.h"
+#include "LCCommon/LogLCCommon.h"
 
 #if WITH_EDITOR
 #include "Subsystems/EditorActorSubsystem.h"
@@ -58,5 +59,25 @@ public:
 		return GEditor->GetEditorSubsystem<UEditorActorSubsystem>()->DuplicateActor(Cast<AActor>(this));
 	}
 #endif
+
+protected:
+	void GenerationFinished(bool bSuccess)
+	{
+		if (AActor *Self = Cast<AActor>(this))
+		{
+			if (bSuccess)
+			{
+				UE_LOG(LogLCCommon, Log, TEXT("Generation for %s finished successfully"), *Cast<AActor>(this)->GetActorNameOrLabel())
+			}
+			else
+			{
+				UE_LOG(LogLCCommon, Error, TEXT("Generation for %s failed"), *Cast<AActor>(this)->GetActorNameOrLabel())
+			}
+		}
+		else
+		{
+			UE_LOG(LogLCCommon, Error, TEXT("ILCGenerator::GenerationFinished called on an non-actor class (success: %d)"), bSuccess);
+		}
+	}
 
 };

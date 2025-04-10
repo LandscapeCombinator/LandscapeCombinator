@@ -22,6 +22,11 @@ void ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated,  TFu
 		return;
 	}
 
+	TFunction<void(bool)> OnCompleteReport = [OnComplete, this](bool bSuccess) {
+		GenerationFinished(bSuccess);
+		if (OnComplete) OnComplete(bSuccess);
+	};
+
 	ULCPositionBasedGeneration* PositionBasedGeneration = Cast<ULCPositionBasedGeneration>(Self->GetComponentByClass(ULCPositionBasedGeneration::StaticClass()));
 	if (IsValid(PositionBasedGeneration) && PositionBasedGeneration->bEnablePositionBasedGeneration)
 	{
@@ -94,10 +99,10 @@ void ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated,  TFu
 			);
 
 			Execute_OnGenerateBP(Cast<UObject>(this), SpawnedActorsPath, bIsUserInitiated);
-			auto OnCompleteSaveTiles = [PositionBasedGeneration, MissingTiles, OnComplete](bool bSuccess)
+			auto OnCompleteSaveTiles = [PositionBasedGeneration, MissingTiles, OnCompleteReport](bool bSuccess)
 			{
 				if (bSuccess) { PositionBasedGeneration->GeneratedTiles.Append(MissingTiles); }
-				if (OnComplete) OnComplete(bSuccess);
+				if (OnCompleteReport) OnCompleteReport(bSuccess);
 			};
 			OnGenerate(SpawnedActorsPath, bIsUserInitiated, OnCompleteSaveTiles);
 			return;
@@ -130,7 +135,7 @@ void ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated,  TFu
 					OnGenerate(SpawnedActorsPath, bIsUserInitiated, OnCompleteOneSaveTile);
 					return;
 				},
-				OnComplete
+				OnCompleteReport
 			);
 		}
 		else
@@ -141,13 +146,13 @@ void ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated,  TFu
 				Zoom, MaxX, MaxY
 			);
 
-			if (OnComplete) OnComplete(true);
+			if (OnCompleteReport) OnCompleteReport(true);
 		}
 	}
 	else
 	{
 		Execute_OnGenerateBP(Cast<UObject>(this), SpawnedActorsPath, bIsUserInitiated);
-		OnGenerate(SpawnedActorsPath, bIsUserInitiated, OnComplete);
+		OnGenerate(SpawnedActorsPath, bIsUserInitiated, OnCompleteReport);
 	}
 }
 

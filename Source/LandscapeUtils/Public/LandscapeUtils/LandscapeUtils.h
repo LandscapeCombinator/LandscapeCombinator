@@ -35,7 +35,7 @@ public:
 		TArray<FString> Heightmaps, FString LandscapeLabel, bool bCreateLandscapeStreamingProxies,
 		bool bAutoComponents, bool bDropData,
 		int QuadsPerSubsection, int SectionsPerComponent, FIntPoint ComponentCount,
-		ALandscape* &OutSpawnedLandscape, TArray<ALandscapeStreamingProxy*> &OutSpawnedLandscapeStreamingProxies
+		ALandscape* &OutSpawnedLandscape, TArray<TObjectPtr<ALandscapeStreamingProxy>> &OutSpawnedLandscapeStreamingProxies
 	);
 #endif
 };
