@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameFramework/Actor.h"
 #include "UObject/Interface.h"
 #include "Delegates/Delegate.h"
 #include "Kismet/BlueprintAsyncActionBase.h"
