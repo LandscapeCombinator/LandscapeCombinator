@@ -156,7 +156,7 @@ protected:
 		EditAnywhere, BlueprintReadWrite, DuplicateTransient, Category = "LandscapeTexturer",
 		meta = (EditCondition = "false", EditConditionHides)
 	)
-	TArray<ADecalActor*> DecalActors;
+	TArray<TObjectPtr<ADecalActor>> DecalActors;
 };
 
 #undef LOCTEXT_NAMESPACE

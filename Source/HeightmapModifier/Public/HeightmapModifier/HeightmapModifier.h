@@ -28,7 +28,7 @@ public:
 		meta = (DisplayPriority = "1")
 	)
 	/* Use a cube or another rectangular actor to bound the area on your landscape on which you want to apply the External Tool */
-	AActor* BoundingActor;
+	TObjectPtr<AActor> BoundingActor;
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "HeightmapModifier|ExternalTool",

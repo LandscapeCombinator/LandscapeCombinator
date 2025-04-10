@@ -43,7 +43,7 @@ public:
 	void Clear();
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LandscapeMesh")
-	UDynamicMeshComponent* MeshComponent;
+	TObjectPtr<UDynamicMeshComponent> MeshComponent;
 
 	UPROPERTY(BlueprintReadWrite, Transient, Category = "LandscapeMesh")
 	TMap<int, FHeightmaps> PriorityToHeightmaps;

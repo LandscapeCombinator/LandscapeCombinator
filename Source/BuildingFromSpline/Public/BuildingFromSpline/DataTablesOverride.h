@@ -12,8 +12,8 @@ class BUILDINGFROMSPLINE_API ADataTablesOverride : public AActor
 
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DataTables")
-	UDataTable* LevelsTable;
+	TObjectPtr<UDataTable> LevelsTable;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DataTables")
-	UDataTable* WallSegmentsTable;
+	TObjectPtr<UDataTable> WallSegmentsTable;
 };

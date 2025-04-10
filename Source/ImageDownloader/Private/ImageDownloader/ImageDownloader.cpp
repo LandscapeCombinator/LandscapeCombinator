@@ -674,13 +674,10 @@ void UImageDownloader::AutoSetResolution()
 	if (ImageSourceKind == EImageSourceKind::IGN_Heightmaps)
 	{
 		WMS_ResolutionPixelsPerUnit = 1;
-		// WMS_MinLat = FMath::RoundToZero(WMS_MinLat);
-		// WMS_MaxLat = FMath::RoundToZero(WMS_MaxLat);
-		// WMS_MinLong = FMath::RoundToZero(WMS_MinLong);
-		// WMS_MaxLong = FMath::RoundToZero(WMS_MaxLong);
-		
-		// WMS_Width = WMS_MaxLong - WMS_MinLong;
-		// WMS_Height = WMS_MaxLat - WMS_MinLat;
+		WMS_MinLat = FMath::RoundToZero(WMS_MinLat);
+		WMS_MaxLat = FMath::RoundToZero(WMS_MaxLat);
+		WMS_MinLong = FMath::RoundToZero(WMS_MinLong);
+		WMS_MaxLong = FMath::RoundToZero(WMS_MaxLong);
 	}
 }
 

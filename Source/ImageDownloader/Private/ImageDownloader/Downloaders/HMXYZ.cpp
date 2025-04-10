@@ -64,7 +64,7 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 
 	int NumTiles = (MaxX - MinX + 1) * (MaxY - MinY + 1);
 
-	if (NumTiles >= 100)
+	if (bIsUserInitiated && NumTiles >= 100)
 	{
 		if (!ULCReporter::ShowMessage(
 			FText::Format(

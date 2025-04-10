@@ -63,7 +63,11 @@ void ASplineImporter::SetOverpassShortQuery()
 
 void ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete)
 {
-	TArray<AActor*> ActorsOrLandscapesToPlaceSplines = ActorsOrLandscapesToPlaceSplinesSelection.GetAllActors(this->GetWorld());
+	TArray<AActor*> ActorsOrLandscapesToPlaceSplines;
+	
+	Concurrency::RunOnGameThreadAndWait([&ActorsOrLandscapesToPlaceSplines, this]() {
+		ActorsOrLandscapesToPlaceSplines = ActorsOrLandscapesToPlaceSplinesSelection.GetAllActors(this->GetWorld());
+	});
 
 	if (ActorsOrLandscapesToPlaceSplines.IsEmpty())
 	{
@@ -168,7 +172,15 @@ void ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 				return;
 			}
 
-			FCollisionQueryParams CollisionQueryParams = LandscapeUtils::CustomCollisionQueryParams(ActorsOrLandscapesToPlaceSplines);
+			FCollisionQueryParams CollisionQueryParams;
+			bool bThreadSuccess = false;
+			Concurrency::RunOnGameThreadAndWait([&]() {
+				bThreadSuccess = LandscapeUtils::CustomCollisionQueryParams(ActorsOrLandscapesToPlaceSplines, CollisionQueryParams);
+			});
+			if (!bThreadSuccess)
+			{
+				if (OnComplete) OnComplete(false);
+			}
 			UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), true);
 
 			if (!GlobalCoordinates)

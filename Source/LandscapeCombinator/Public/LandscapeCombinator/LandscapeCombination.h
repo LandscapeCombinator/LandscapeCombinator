@@ -4,6 +4,7 @@
 
 #include "LandscapeCombinator/LandscapeSpawner.h"
 #include "LandscapeCombinator/LandscapePCGVolume.h"
+#include "LandscapeCombinator/LogLandscapeCombinator.h"
 #include "BuildingFromSpline/BuildingsFromSplines.h"
 #include "SplineImporter/GDALImporter.h"
 #include "LCCommon/LCGenerator.h"
@@ -32,7 +33,14 @@ public:
 	FName SpawnedActorsPath = FName("GeneratedActors");
 
 	UFUNCTION(CallInEditor, Category = "LandscapeCombination", meta = (DisplayPriority = "0"))
-	virtual void GenerateActors() { Generate(SpawnedActorsPath, true); };
+	virtual void GenerateActors() {
+		Generate(SpawnedActorsPath, true, [this](bool bSuccess) { GenerationFinished(bSuccess); });
+	}
+
+	UFUNCTION(CallInEditor, Category = "LandscapeCombination", meta = (DisplayPriority = "0"))
+	virtual void GenerateActorsNoPrompt() {
+		Generate(SpawnedActorsPath, false, [this](bool bSuccess) { GenerationFinished(bSuccess); });
+	}
 
 	UFUNCTION(CallInEditor, Category = "LandscapeCombination", meta = (DisplayPriority = "1"))
 	virtual void DeleteActors() { Execute_Cleanup(this, false); };
@@ -42,7 +50,7 @@ public:
 	virtual TArray<UObject*> GetGeneratedObjects() const override { return TArray<UObject*>(); }
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeCombination", meta = (DisplayPriority = "5", MustImplement = "/Script/LCCommon.LCGenerator"))
-	TArray<AActor*> Generators;
+	TArray<TObjectPtr<AActor>> Generators;
 	
 	virtual void OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete) override;
 	virtual bool Cleanup_Implementation(bool bSkipPrompt) override;
@@ -67,5 +75,16 @@ public:
 		meta = (DisplayPriority = "11", ShowOnlyInnerProperties)
 	)
 	TObjectPtr<ULCContinuousGeneration> ContinuousGeneration = nullptr;
+
+protected:
+	void GenerationFinished(bool bSuccess)
+	{
+		UE_LOG(
+			LogLandscapeCombinator, Log,
+			TEXT("Generation for %s finished: %s"),
+			*GetActorNameOrLabel(),
+			bSuccess ? TEXT("Success") : TEXT("Error")
+		);
+	}
 
 };

@@ -22,17 +22,9 @@ void ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated,  TFu
 		return;
 	}
 
-	UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(Self->GetWorld(), true);
-	if (!IsValid(GlobalCoordinates))
-	{
-		if (OnComplete) OnComplete(false);
-		return;
-	}
-
 	ULCPositionBasedGeneration* PositionBasedGeneration = Cast<ULCPositionBasedGeneration>(Self->GetComponentByClass(ULCPositionBasedGeneration::StaticClass()));
 	if (IsValid(PositionBasedGeneration) && PositionBasedGeneration->bEnablePositionBasedGeneration)
 	{
-		
 		bool bFoundPosition = false;
 		FVector Position(0, 0, 0);
 		if (!ULCBlueprintLibrary::GetFirstPlayerPosition(Position) &&
@@ -47,6 +39,14 @@ void ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated,  TFu
 		FVector2D Location2D, Coordinates;
 		Location2D.X = Position.X;
 		Location2D.Y = Position.Y;
+
+		UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(Self->GetWorld(), true);
+		if (!IsValid(GlobalCoordinates))
+		{
+			ULCReporter::ShowError(LOCTEXT("NoGlobalCoordinates", "You must add a Level Coordinates actor before using Position Based Generation"));
+			if (OnComplete) OnComplete(false);
+			return;
+		}
 
 		if (!GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(Location2D, "EPSG:4326", Coordinates))
 		{

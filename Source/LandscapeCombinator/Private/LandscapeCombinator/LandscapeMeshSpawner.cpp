@@ -107,7 +107,7 @@ void ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 		}
 	}
 
-	HMFetcher* Fetcher = HeightmapDownloader->CreateFetcher(LandscapeMeshLabel, true, false, false, nullptr, nullptr);
+	HMFetcher* Fetcher = HeightmapDownloader->CreateFetcher(LandscapeMeshLabel, true, false, false, nullptr, GlobalCoordinates);
 
 	if (!Fetcher)
 	{
