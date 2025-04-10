@@ -231,11 +231,10 @@ void ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 			else
 			{
 				ALandscapeMesh *LandscapeMesh = nullptr;
-				bool bThreadSuccess = false;
-				Concurrency::RunOnGameThreadAndWait([this, &bThreadSuccess, &LandscapeMesh, ThisFileCoordinates, GlobalCoordinates, OutputFile, SpawnedActorsPathOverride]()
+				bool bThreadSuccess = Concurrency::RunOnGameThreadAndReturn([this, &LandscapeMesh, ThisFileCoordinates, GlobalCoordinates, OutputFile, SpawnedActorsPathOverride]()
 				{
 					LandscapeMesh = GetWorld()->SpawnActor<ALandscapeMesh>();
-					if (!IsValid(LandscapeMesh)) return;
+					if (!IsValid(LandscapeMesh)) return false;
 
 					SpawnedLandscapeMeshes.Add(LandscapeMesh);
 
@@ -245,10 +244,9 @@ void ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 #endif
 
 					if (!SpawnedLandscapeMeshesTag.IsNone()) LandscapeMesh->Tags.Add(SpawnedLandscapeMeshesTag);
-					bThreadSuccess = LandscapeMesh->AddHeightmap(0, ThisFileCoordinates, GlobalCoordinates, OutputFile);
-					if (!bThreadSuccess) return;
+					if (!LandscapeMesh->AddHeightmap(0, ThisFileCoordinates, GlobalCoordinates, OutputFile)) return false;
 					LandscapeMesh->MeshComponent->SetMaterial(0, LandscapeMaterial);
-					bThreadSuccess = LandscapeMesh->RegenerateMesh(SplitNormalsAngle);
+					return LandscapeMesh->RegenerateMesh(SplitNormalsAngle);
 				});
 
 

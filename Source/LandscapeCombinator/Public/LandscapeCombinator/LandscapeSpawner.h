@@ -145,9 +145,15 @@ public:
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Decals",
-		meta = (DisplayPriority = "-1")
+		meta = (DisplayPriority = "-10")
 	)
 	EDecalCreation DecalCreation = EDecalCreation::None;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Decals",
+		meta = (EditCondition = "DecalCreation != EDecalCreation::None", EditConditionHides, DisplayPriority = "-5")
+	)
+	bool bDecalMergeImages = false;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Decals",

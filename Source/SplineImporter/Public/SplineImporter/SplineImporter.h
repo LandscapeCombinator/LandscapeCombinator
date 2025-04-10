@@ -27,6 +27,14 @@ enum class ESplineOwnerKind : uint8
 	CustomActor
 };
 
+UENUM(BlueprintType)
+enum class ESplineDirection : uint8
+{
+	Any,
+	Clockwise,
+	CounterClockwise
+};
+
 UCLASS()
 class SPLINEIMPORTER_API ASplineImporter : public AGDALImporter
 {
@@ -84,17 +92,16 @@ public:
 		meta = (EditCondition = "!bUseLandscapeSplines && SplineOwnerKind == ESplineOwnerKind::CustomActor", EditConditionHides, DisplayPriority = "10")
 	)
 	TSubclassOf<AActor> ActorToSpawn;
-	
-	/* The name of the property in `ActorToSpawn` where to copy the spline points. */
+
+	/* Splines that are closed loops can be forced to be Clockwise or CounterClockwise (when seen from top). */
 	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
-		meta = (EditCondition = "!bUseLandscapeSplines && SplineOwnerKind == ESplineOwnerKind::CustomActor", EditConditionHides, DisplayPriority = "11")
+		meta = (EditCondition = "!bUseLandscapeSplines", EditConditionHides, DisplayPriority = "100")
 	)
-	FName SplineComponentName;
-	
-	
+	ESplineDirection SplineDirection = ESplineDirection::Any;
+
 	/* An offset which is added to all spline points that are generated. */
 	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
-		meta = (DisplayPriority = "100")
+		meta = (DisplayPriority = "1000")
 	)
 	FVector SplinePointsOffset;
 

@@ -28,8 +28,12 @@
 #include "ObjectEditorUtils.h"
 #include "Engine/World.h"
 #include "Misc/MessageDialog.h"
+#include "Polygon2.h"
+#include "Algo/Reverse.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
+
+using namespace UE::Geometry;
 
 void ASplineImporter::SetOverpassShortQuery()
 {
@@ -154,7 +158,14 @@ void ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 		return;
 	}
 
-	if (bDeleteOldSplinesWhenCreatingSplines) Execute_Cleanup(this, false);
+	if (bDeleteOldSplinesWhenCreatingSplines)
+	{
+		if (!Concurrency::RunOnGameThreadAndReturn([this]() { return Execute_Cleanup(this, false); }))
+		{
+			if (OnComplete) OnComplete(false);
+			return;
+		}
+	}
 
 	LoadGDALDataset(bIsUserInitiated, [this, OnComplete, Landscape, ActorsOrLandscapesToPlaceSplines, SpawnedActorsPathOverride, bIsUserInitiated](GDALDataset* Dataset) {
 		if (Dataset)
@@ -173,11 +184,10 @@ void ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 			}
 
 			FCollisionQueryParams CollisionQueryParams;
-			bool bThreadSuccess = false;
-			Concurrency::RunOnGameThreadAndWait([&]() {
-				bThreadSuccess = LandscapeUtils::CustomCollisionQueryParams(ActorsOrLandscapesToPlaceSplines, CollisionQueryParams);
-			});
-			if (!bThreadSuccess)
+			
+			if (!Concurrency::RunOnGameThreadAndReturn([&]() {
+				return LandscapeUtils::CustomCollisionQueryParams(ActorsOrLandscapesToPlaceSplines, CollisionQueryParams);
+			}))
 			{
 				if (OnComplete) OnComplete(false);
 			}
@@ -406,6 +416,8 @@ void ASplineImporter::AddRegularSpline(
 
 	SplineComponent->ClearSplinePoints();
 
+	TArray<FVector> SplinePoints;
+	TArray<FVector2D> SplinePoints2D;
 	for (int i = 0; i < NumPoints; i++)
 	{
 		if (Last != First || i < NumPoints - 1) // don't add last point in case the spline is a closed loop
@@ -429,7 +441,8 @@ void ASplineImporter::AddRegularSpline(
 			if (LandscapeUtils::GetZ(World, CollisionQueryParams, x, y, z))
 			{
 				FVector Location = FVector(x, y, z) + SplinePointsOffset;
-				SplineComponent->AddSplinePoint(Location, ESplineCoordinateSpace::World, false);
+				SplinePoints.Add(Location);
+				SplinePoints2D.Add( { Location.X, Location.Y });
 			}
 			else
 			{
@@ -437,6 +450,25 @@ void ASplineImporter::AddRegularSpline(
 			}
 		}
 	}
+	
+	TPolygon2<double> SplinePolygon(SplinePoints2D);
+
+	// clockwise for TPolygon2 is counter-clockwise in game when see from top (inverted Y axis)
+	// so we swap the array when the current (inverted) orientation matches
+	// the spline direction given by the user
+	if (First == Last)
+	{
+		if (SplinePolygon.IsClockwise())
+		{
+			if (SplineDirection == ESplineDirection::Clockwise) Algo::Reverse(SplinePoints);
+		}
+		else
+		{
+			if (SplineDirection == ESplineDirection::CounterClockwise) Algo::Reverse(SplinePoints);
+		}
+	}
+
+	for (auto &SplinePoint : SplinePoints) SplineComponent->AddSplinePoint(SplinePoint, ESplineCoordinateSpace::World, false);
 
 	if (First == Last) SplineComponent->SetClosedLoop(true);
 		

@@ -194,10 +194,12 @@ bool ILCGenerator::DeleteGeneratedObjects(bool bSkipPrompt)
 	{
 		if (AActor *Actor = Cast<AActor>(Object))
 		{
+			UWorld *World = Actor->GetWorld();
+			FFolder Folder = Actor->GetFolder();
 			Actor->Destroy();
 
 #if WITH_EDITOR
-			ULCBlueprintLibrary::DeleteFolder(*Actor->GetWorld(), Actor->GetFolder());
+			if (World) ULCBlueprintLibrary::DeleteFolder(*World, Folder);
 #endif
 		}
 		else if (UActorComponent *Component = Cast<UActorComponent>(Object))

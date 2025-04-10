@@ -27,7 +27,7 @@ void ALandscapeTexturer::CreateDecals(TObjectPtr<UGlobalCoordinates> GlobalCoord
 {
 	if (bDeleteOldDecalsWhenCreatingDecals)
 	{
-		if (!Execute_Cleanup(this, false))
+		if (!Concurrency::RunOnGameThreadAndReturn([this]() { return Execute_Cleanup(this, false); }))
 		{
 			if (OnComplete) OnComplete(false);
 			return;
