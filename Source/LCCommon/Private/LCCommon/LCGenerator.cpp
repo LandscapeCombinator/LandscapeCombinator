@@ -194,8 +194,11 @@ bool ILCGenerator::DeleteGeneratedObjects(bool bSkipPrompt)
 	{
 		if (AActor *Actor = Cast<AActor>(Object))
 		{
+#if WITH_EDITOR
 			UWorld *World = Actor->GetWorld();
 			FFolder Folder = Actor->GetFolder();
+#endif
+
 			Actor->Destroy();
 
 #if WITH_EDITOR
