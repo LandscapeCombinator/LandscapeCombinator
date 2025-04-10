@@ -101,7 +101,7 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 
 	bool *bShowedDialog = new bool(false);
 
-	FScopedSlowTask *Task;
+	FScopedSlowTask *Task = nullptr;
 	
 	if (bIsUserInitiated)
 	{
