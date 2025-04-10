@@ -66,7 +66,9 @@ void AGDALImporter::LoadGDALDatasetFromShortQuery(FString ShortQuery, bool bIsUs
 	if (BoundingMethod == EBoundingMethod::BoundingActor)
 	{
 		AActor *BoundingActor = nullptr;
-		Concurrency::RunOnGameThreadAndWait([&BoundingActor, this]() { BoundingActorSelection.GetActor(this->GetWorld()); });
+		Concurrency::RunOnGameThreadAndWait([&BoundingActor, this]() { 
+			BoundingActor = BoundingActorSelection.GetActor(this->GetWorld());
+		});
 
 		if (!IsValid(BoundingActor))
 		{

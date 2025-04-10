@@ -44,6 +44,7 @@ void AOGRGeometry::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIniti
 	{
 		if (!Dataset)
 		{
+			ULCReporter::ShowError(LOCTEXT("AOGRGeometry::OnGenerate::NoDataset", "No dataset for OGR Geometry."));
 			if (OnComplete) OnComplete(false);
 			return;
 		}
@@ -53,7 +54,7 @@ void AOGRGeometry::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIniti
 		Geometry = OGRGeometryFactory::createGeometry(OGRwkbGeometryType::wkbMultiPolygon);
 		if (!Geometry)
 		{
-			UE_LOG(LogSplineImporter, Error, TEXT("Internal error while creating OGR Geometry. Please try again."));
+			ULCReporter::ShowError(LOCTEXT("AOGRGeometry::OnGenerate::NoGeometry", "Internal error while creating geometry, please try again."));
 			if (OnComplete) OnComplete(false);
 			return;
 		}
