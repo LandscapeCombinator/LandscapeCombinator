@@ -7,6 +7,7 @@
 #include "OSMUserData/OSMUserData.h"
 #include "LCReporter/LCReporter.h"
 #include "LCCommon/LCBlueprintLibrary.h"
+#include "ConcurrencyHelpers/Concurrency.h"
 
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
@@ -1278,7 +1279,10 @@ bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)
 		bIsGenerating = false;
 	};
 	
-	Execute_Cleanup(this, false);
+	if (!Concurrency::RunOnGameThreadAndReturn([this]() { return Execute_Cleanup(this, false); }))
+	{
+		return false;
+	}
 
 	if (!IsValid(BuildingConfiguration))
 	{

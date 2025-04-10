@@ -112,7 +112,7 @@ AActor *ALandscapeSpawner::Duplicate(FName FromName, FName ToName)
 
 void ALandscapeSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete)
 {
-	if (!Execute_Cleanup(this, false))
+	if (!Concurrency::RunOnGameThreadAndReturn([this]() { return Execute_Cleanup(this, false); }))
 	{
 		if (OnComplete) OnComplete(false);
 		return;
@@ -364,7 +364,7 @@ void ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, TFunctio
 								check(false);
 							}
 
-
+							DecalDownloader->bMergeImages = bDecalMergeImages;
 							DecalDownloader->DownloadImages(false, GlobalCoordinates, [this, SpawnedActorsPathOverride, OnComplete](TArray<FString> DownloadedImages, FString ImageCRS)
 							{
 								DecalActors = UDecalCoordinates::CreateDecals(this->GetWorld(), DownloadedImages);

@@ -115,7 +115,7 @@ void ABuildingsFromSplines::GenerateBuildings(FName SpawnedActorsPathOverride, b
 {
 	if (bDeleteOldBuildingsWhenCreatingBuildings)
 	{
-		if (!Execute_Cleanup(this, false)) return;
+		if (!Concurrency::RunOnGameThreadAndReturn([this]() { return Execute_Cleanup(this, false); })) return;
 	}
 
 	TArray<USplineComponent*> SplineComponents = FindSplineComponents(bIsUserInitiated);

@@ -719,8 +719,10 @@ bool UImageDownloader::SetSourceParametersBool(bool bDialog)
 
 bool UImageDownloader::SetSourceParametersFromEPSG4326Coordinates(bool bDialog)
 {
+	double LatitudeRadians = FMath::DegreesToRadians(Latitude);
+	double ScaleFactor = FMath::Max(FMath::Cos(LatitudeRadians), 0.1);
 	double LongDiff = RealWorldWidth / 40000000 * 360 / 2;
-	double LatDiff  = RealWorldHeight / 40000000 * 360 / 2;
+	double LatDiff  = RealWorldHeight * ScaleFactor / 40000000 * 360 / 2;
 	MinLong = Longitude - LongDiff;
 	MaxLong = Longitude + LongDiff;
 	MinLat = Latitude - LatDiff;

@@ -45,7 +45,7 @@ public:
 	void Generate(FName SpawnedActorsPath, bool bIsUserInitiated,TFunction<void(bool)> OnComplete);
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, CallInEditor, Category = "LCGenerator")
-	// return false is the user doesn't want to cleanup
+	// return false if the user doesn't want to cleanup
 	bool Cleanup(bool bSkipPrompt);
 
 	bool DeleteGeneratedObjects(bool bSkipPrompt);

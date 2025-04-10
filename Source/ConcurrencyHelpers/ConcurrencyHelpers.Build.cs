@@ -25,7 +25,9 @@ public class ConcurrencyHelpers : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
-				"HTTP"
+				"HTTP",
+
+				"LCReporter"
 			}
 		);
 	}

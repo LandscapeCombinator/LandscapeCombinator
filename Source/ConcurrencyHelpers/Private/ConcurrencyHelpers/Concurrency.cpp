@@ -2,6 +2,7 @@
 
 #include "ConcurrencyHelpers/Concurrency.h"
 #include "ConcurrencyHelpers/LogConcurrencyHelpers.h"
+#include "LCReporter/LCReporter.h"
 
 #include "Async/Async.h"
 #include "Misc/MessageDialog.h"
@@ -61,6 +62,34 @@ void Concurrency::RunOnGameThreadAndWait(TFunction<void()> Action)
 
 	SyncEvent->Wait();
 	FPlatformProcess::ReturnSynchEventToPool(SyncEvent);
+}
+
+bool Concurrency::RunOnGameThreadAndReturn(TFunction<bool()> Action)
+{
+	if (IsInGameThread())
+	{
+		return Action();
+	}
+
+	FEvent* SyncEvent = FPlatformProcess::GetSynchEventFromPool(false);
+	if (!SyncEvent)
+	{
+		ULCReporter::ShowError(
+			LOCTEXT("RunOnGameThreadAndReturn", "Failed to create sync event for RunOnGameThreadAndWait.")
+		);
+		return false;
+	}
+
+	bool bSuccess = false;
+	AsyncTask(ENamedThreads::GameThread, [Action = MoveTemp(Action), &bSuccess, SyncEvent]()
+	{
+		bSuccess = Action();
+		SyncEvent->Trigger();
+	});
+
+	SyncEvent->Wait();
+	FPlatformProcess::ReturnSynchEventToPool(SyncEvent);
+	return bSuccess;
 }
 
 TFunction<void(TFunction<void(bool)>)> ConcurrencyOperators::operator >> (TFunction<void(TFunction<void(bool)>)> Action1, TFunction<void(TFunction<void(bool)>)> Action2)
