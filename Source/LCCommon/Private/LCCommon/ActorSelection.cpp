@@ -25,14 +25,14 @@ AActor* FActorSelection::GetActor(const UWorld* World)
 	{
 		case EActorSelectionMode::Actor:
 		{
-			if (!IsValid(Actor))
+			if (!Actor.IsValid())
 			{
 				ULCReporter::ShowError(
 					LOCTEXT("ActorSelection::GetActor", "Landscape Combinator Actor Selection: Please select a valid actor")
 				);
 				return nullptr;
 			};
-			return Actor;
+			return Actor.Get();
 		}
 
 		case EActorSelectionMode::ActorTag:
@@ -73,14 +73,14 @@ TArray<AActor*> FActorSelection::GetAllActors(const UWorld* World)
 	{
 		case EActorSelectionMode::Actor:
 		{
-			if (!IsValid(Actor))
+			if (!Actor.IsValid())
 			{
 				ULCReporter::ShowError(
 					LOCTEXT("ActorSelection::GetAllActors", "Landscape Combinator Actor Selection: Please select a valid actor")
 				);
 				return {};
 			};
-			return { Actor };
+			return { Actor.Get() };
 		}
 
 		case EActorSelectionMode::ActorTag:

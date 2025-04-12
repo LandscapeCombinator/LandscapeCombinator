@@ -14,6 +14,10 @@
 #include "CoreMinimal.h"
 #include "Landscape.h"
 #include "Engine/DecalActor.h"
+#include "WorldPartition/WorldPartition.h"
+#include "Kismet/GameplayStatics.h"
+#include "Landscape.h"
+#include "LandscapeStreamingProxy.h"
 
 #include "LandscapeSpawner.generated.h"
 
@@ -112,8 +116,12 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "General",
 		meta = (DisplayPriority = "3")
 	)
-	/* If you are using World Partition, check this option if you want to create landscape streaming proxies. */
-	/* This is useful if you have a large landscape, but it might slow things down for small landscapes. */
+	/**
+	 * If you are using World Partition, check this option if you want to create landscape streaming proxies.
+	 * This is useful if you have a large landscape, but it might slow things down for small landscapes.
+	 * Make sure to adjust the cell size based on the expected size of your landscapes, or you'll get too many
+	 * Landscape Streaming Proxies for the engine to handle.
+	 */
 	bool bCreateLandscapeStreamingProxies = false;
 
 	UPROPERTY(
@@ -260,7 +268,22 @@ public:
 	void SpawnLandscape(FName SpawnedActorsPathOverride, TFunction<void(ALandscape*)> OnComplete);
 	virtual void OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete) override;
 
-	virtual bool Cleanup_Implementation(bool bSkipPrompt) override { return DeleteGeneratedObjects(bSkipPrompt); }
+	virtual bool Cleanup_Implementation(bool bSkipPrompt) override
+	{
+		Modify();
+
+		if (DeleteGeneratedObjects(bSkipPrompt))
+		{
+			SpawnedLandscape = nullptr;
+			DecalActors.Empty();
+			SpawnedLandscapeStreamingProxies.Empty();
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
 	virtual AActor* Duplicate(FName FromName, FName ToName) override;
 
 #endif
@@ -324,37 +347,34 @@ public:
 	void PostEditChangeProperty(struct FPropertyChangedEvent&);
 
  #endif
-	
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, DuplicateTransient, Category = "LandscapeSpawner",
-		meta = (EditCondition = "false", EditConditionHides)
-	)
-	TWeakObjectPtr<ALandscape> SpawnedLandscape = nullptr;
 
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, DuplicateTransient, Category = "LandscapeSpawner",
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, DuplicateTransient, Category = "LandscapeSpawner",
 		meta = (EditCondition = "false", EditConditionHides)
 	)
-	TArray<TObjectPtr<ALandscapeStreamingProxy>> SpawnedLandscapeStreamingProxies;
+	TSoftObjectPtr<ALandscape> SpawnedLandscape = nullptr;
+
+	UPROPERTY(EditAnywhere, DuplicateTransient, Category = "LandscapeSpawner",
+		meta = (EditCondition = "false", EditConditionHides)
+	)
+	TArray<TSoftObjectPtr<ALandscapeStreamingProxy>> SpawnedLandscapeStreamingProxies;
 	
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, DuplicateTransient, Category = "LandscapeSpawner",
+	UPROPERTY(EditAnywhere, DuplicateTransient, Category = "LandscapeSpawner",
 		meta = (EditCondition = "false", EditConditionHides)
 	)
-	TArray<TObjectPtr<ADecalActor>> DecalActors;
+	TArray<TSoftObjectPtr<ADecalActor>> DecalActors;
 
 protected:
 
 	UFUNCTION()
 	bool IsWMS()
 	{
-		return HeightmapDownloader && HeightmapDownloader->IsWMS();
+		return IsValid(HeightmapDownloader) && HeightmapDownloader->IsWMS();
 	}
 
 	UFUNCTION()
 	bool IsMapbox()
 	{
-		return HeightmapDownloader && HeightmapDownloader->IsMapbox();
+		return IsValid(HeightmapDownloader) && HeightmapDownloader->IsMapbox();
 	}
 
 	UFUNCTION()

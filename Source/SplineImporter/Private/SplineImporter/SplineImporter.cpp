@@ -67,6 +67,8 @@ void ASplineImporter::SetOverpassShortQuery()
 
 void ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete)
 {
+	Modify();
+
 	TArray<AActor*> ActorsOrLandscapesToPlaceSplines;
 	
 	Concurrency::RunOnGameThreadAndWait([&ActorsOrLandscapesToPlaceSplines, this]() {
@@ -144,7 +146,7 @@ void ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 		);
 	}
 	
-	if (!ULCReporter::ShowMessage(
+	if (bIsUserInitiated && !ULCReporter::ShowMessage(
 		IntroMessage,
 		"SuppressSplineIntroduction",
 		LOCTEXT("SplineIntroductionTitle", "Information on Splines"),
@@ -160,7 +162,7 @@ void ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 
 	if (bDeleteOldSplinesWhenCreatingSplines)
 	{
-		if (!Concurrency::RunOnGameThreadAndReturn([this]() { return Execute_Cleanup(this, false); }))
+		if (!Concurrency::RunOnGameThreadAndReturn([this, bIsUserInitiated]() { return Execute_Cleanup(this, !bIsUserInitiated); }))
 		{
 			if (OnComplete) OnComplete(false);
 			return;
@@ -190,6 +192,7 @@ void ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 			}))
 			{
 				if (OnComplete) OnComplete(false);
+				return;
 			}
 			UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), true);
 
@@ -213,15 +216,17 @@ void ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 #if WITH_EDITOR
 			if (bUseLandscapeSplines)
 			{
-				Concurrency::RunOnGameThreadAndWait([&]() {
-					GenerateLandscapeSplines(Landscape, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
+				bool bSuccess = Concurrency::RunOnGameThreadAndReturn([&]() {
+					return GenerateLandscapeSplines(bIsUserInitiated, Landscape, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
 				});
+				if (OnComplete) OnComplete(bSuccess);
 			}
 			else
 			{
-				Concurrency::RunOnGameThreadAndWait([&]() {
-					GenerateRegularSplines(bIsUserInitiated, SpawnedActorsPathOverride, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
+				bool bSuccess = Concurrency::RunOnGameThreadAndReturn([&]() {
+					return GenerateRegularSplines(bIsUserInitiated, SpawnedActorsPathOverride, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
 				});
+				if (OnComplete) OnComplete(bSuccess);
 			}
 #else
 
@@ -231,11 +236,11 @@ void ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 				if (OnComplete) OnComplete(false);
 				return;
 			}
-			GenerateRegularSplines(bIsUserInitiated, SpawnedActorsPathOverride, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
-
+			bool bSuccess = Concurrency::RunOnGameThreadAndReturn([&]() {
+				return GenerateRegularSplines(bIsUserInitiated, SpawnedActorsPathOverride, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
+			});
+			if (OnComplete) OnComplete(bSuccess);
 #endif
-
-			if (OnComplete) OnComplete(true);
 		}
 		else
 		{
@@ -244,7 +249,7 @@ void ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 	});
 }
 
-void ASplineImporter::GenerateRegularSplines(
+bool ASplineImporter::GenerateRegularSplines(
 	bool bIsUserInitiated,
 	FName SpawnedActorsPathOverride,
 	FCollisionQueryParams CollisionQueryParams,
@@ -260,7 +265,7 @@ void ASplineImporter::GenerateRegularSplines(
 		ULCReporter::ShowError(
 			LOCTEXT("NoWorld", "Internal error while creating splines: NULL World pointer.")
 		);
-		return;
+		return false;
 	}
 
 	AActor *SplineOwner = nullptr;
@@ -284,7 +289,7 @@ void ASplineImporter::GenerateRegularSplines(
 			ULCReporter::ShowError(
 				LOCTEXT("SpawnActorFailed", "Internal error while creating splines. Could not spawn a SplineCollection.")
 			);
-			return;
+			return false;
 		}
 		SplineOwners.Add(SplineOwner);
 	}
@@ -299,6 +304,7 @@ void ASplineImporter::GenerateRegularSplines(
 	if (bIsUserInitiated) SplinesTask.MakeDialog(true);
 
 	int i = 0;
+	bool bAtLeastOneSuccess = false;
 	for (auto &PointList : PointLists)
 	{
 		if (bIsUserInitiated && SplinesTask.ShouldCancel())
@@ -326,7 +332,7 @@ void ASplineImporter::GenerateRegularSplines(
 				ULCReporter::ShowError(
 					LOCTEXT("SpawnActorFailed", "Internal error while creating splines. Could not spawn a SplineCollection.")
 				);
-				return;
+				return false;
 			}
 			SplineOwners.Add(SplineOwner);
 		}
@@ -350,18 +356,31 @@ void ASplineImporter::GenerateRegularSplines(
 					LOCTEXT("SpawnActorFailed2", "Internal error while creating splines. Could not spawn {0}."),
 					FText::FromString(ActorToSpawn->GetName())
 				));
-				return;
+				return false;
 			}
 
 			SplineOwners.Add(SplineOwner);
 		}
 
 		if (bIsUserInitiated) SplinesTask.EnterProgressFrame();
-		AddRegularSpline(SplineOwner, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointList);
+		if (AddRegularSpline(SplineOwner, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointList))
+			bAtLeastOneSuccess = true;
+	}
+
+	if (bIsUserInitiated && !bAtLeastOneSuccess)
+	{
+		ULCReporter::ShowError(
+			LOCTEXT("NoSplinePoints", "No Splines were generated, make sure to save your map and check collision settings on the target actor")
+		);
+		return false;
+	}
+	else
+	{
+		return true;
 	}
 }
 
-void ASplineImporter::AddRegularSpline(
+bool ASplineImporter::AddRegularSpline(
 	AActor* SplineOwner,
 	FCollisionQueryParams CollisionQueryParams,
 	OGRCoordinateTransformation *OGRTransform,
@@ -372,7 +391,7 @@ void ASplineImporter::AddRegularSpline(
 	UWorld *World = SplineOwner->GetWorld();
 	
 	int NumPoints = PointList.Points.Num();
-	if (NumPoints == 0) return;
+	if (NumPoints == 0) return false;
 
 	OGRPoint First = PointList.Points[0];
 	OGRPoint Last = PointList.Points.Last();
@@ -386,7 +405,7 @@ void ASplineImporter::AddRegularSpline(
 			ULCReporter::ShowError(
 				LOCTEXT("SplineComponentFailed", "Could not create SplineComponent.")
 			);
-			return;
+			return false;
 		}
 		SplineCollection->SplineComponents.Add(SplineComponent);
 		SplineComponent->RegisterComponent();
@@ -404,7 +423,7 @@ void ASplineImporter::AddRegularSpline(
 				LOCTEXT("SplineComponentFailed", "Could not get valid SplineComponent in {0}."),
 				FText::FromString(ActorToSpawn->GetName())
 			));
-			return;
+			return false;
 		}
 	}
 
@@ -430,7 +449,7 @@ void ASplineImporter::AddRegularSpline(
 			double ConvertedLongitude = Longitude;
 			double ConvertedLatitude = Latitude;
 
-			if (!GDALInterface::Transform(OGRTransform, &ConvertedLongitude, &ConvertedLatitude)) return;
+			if (!GDALInterface::Transform(OGRTransform, &ConvertedLongitude, &ConvertedLatitude)) return false;
 			
 			FVector2D XY;
 			GlobalCoordinates->GetUnrealCoordinatesFromCRS(ConvertedLongitude, ConvertedLatitude, XY);
@@ -450,6 +469,12 @@ void ASplineImporter::AddRegularSpline(
 			}
 		}
 	}
+
+	if (SplinePoints.Num() < NumPoints)
+	{
+		UE_LOG(LogSplineImporter, Warning, TEXT("Got only %d/%d Spline Points"), SplinePoints.Num(), NumPoints);
+	}
+	if (SplinePoints.IsEmpty()) return false;
 	
 	TPolygon2<double> SplinePolygon(SplinePoints2D);
 
@@ -471,7 +496,6 @@ void ASplineImporter::AddRegularSpline(
 	for (auto &SplinePoint : SplinePoints) SplineComponent->AddSplinePoint(SplinePoint, ESplineCoordinateSpace::World, false);
 
 	if (First == Last) SplineComponent->SetClosedLoop(true);
-		
 
 	if (Source == EVectorSource::OSM_Buildings)
 	{
@@ -484,10 +508,14 @@ void ASplineImporter::AddRegularSpline(
 
 	SplineComponent->UpdateSpline();
 	SplineComponent->bSplineHasBeenEdited = true;
+
+	return true;
 }
 
 bool ASplineImporter::Cleanup_Implementation(bool bSkipPrompt) 
 {
+	Modify();
+
 	if (DeleteGeneratedObjects(bSkipPrompt))
 	{
 		SplineOwners.Empty();
@@ -501,7 +529,8 @@ bool ASplineImporter::Cleanup_Implementation(bool bSkipPrompt)
 
 #if WITH_EDITOR
 
-void ASplineImporter::GenerateLandscapeSplines(
+bool ASplineImporter::GenerateLandscapeSplines(
+	bool bIsUserInitiated,
 	ALandscape* Landscape,
 	FCollisionQueryParams CollisionQueryParams,
 	OGRCoordinateTransformation* OGRTransform,
@@ -509,7 +538,6 @@ void ASplineImporter::GenerateLandscapeSplines(
 	TArray<FPointList>& PointLists
 )
 {
-
 	FString LandscapeLabel = Landscape->GetActorNameOrLabel();
 
 	// SplineOwner should be a Landscape Spline Actor when there are Landscape Streaming Proxies
@@ -533,7 +561,7 @@ void ASplineImporter::GenerateLandscapeSplines(
 				FText::FromString(LandscapeLabel)
 			)
 		);
-		return;
+		return false;
 	}
 
 
@@ -557,7 +585,7 @@ void ASplineImporter::GenerateLandscapeSplines(
 				FText::FromString(LandscapeLabel)
 			)
 		);
-		return;
+		return false;
 	}
 
 	LandscapeSplinesComponent->Modify();
@@ -577,10 +605,24 @@ void ASplineImporter::GenerateLandscapeSplines(
 	for (auto& PointList : PointLists)
 	{
 		PointsTask.EnterProgressFrame();
-		AddLandscapeSplinesPoints(Landscape, CollisionQueryParams, OGRTransform, GlobalCoordinates, LandscapeSplinesComponent, PointList, Points);
+		AddLandscapeSplinesPoints(CollisionQueryParams, OGRTransform, GlobalCoordinates, LandscapeSplinesComponent, PointList, Points);
 	}
 
 	UE_LOG(LogSplineImporter, Log, TEXT("Found %d control points"), Points.Num());
+	if (bIsUserInitiated && Points.Num() == 0)
+	{
+		ULCReporter::ShowError(
+			FText::Format(
+				LOCTEXT(
+					"NoLandscapeSplinesPoints",
+					"Could not generate spline points on landscape, please make sure your level is saved and check your landscape collision settings. "
+					"You may also investigate warnings/errors in the Output Log, especially about missed collisions."
+				),
+				FText::FromString(LandscapeLabel)
+			)
+		);
+		return false;
+	}
 
 	FScopedSlowTask LandscapeSplinesTask = FScopedSlowTask(NumLists,
 		FText::Format(
@@ -594,19 +636,33 @@ void ASplineImporter::GenerateLandscapeSplines(
 	for (auto& PointList : PointLists)
 	{
 		LandscapeSplinesTask.EnterProgressFrame();
-		AddLandscapeSplines(Landscape, CollisionQueryParams, OGRTransform, GlobalCoordinates, LandscapeSplinesComponent, PointList, Points);
+		AddLandscapeSplines(LandscapeSplinesComponent, PointList, Points);
 	}
 
 	UE_LOG(LogSplineImporter, Log, TEXT("Added %d segments"), LandscapeSplinesComponent->GetSegments().Num());
+	if (bIsUserInitiated && LandscapeSplinesComponent->GetSegments().Num() == 0)
+	{
+		ULCReporter::ShowError(
+			FText::Format(
+				LOCTEXT(
+					"NoLandscapeSplinesSegments",
+					"Something went wrong when generating spline segments on landscape."
+				),
+				FText::FromString(LandscapeLabel)
+			)
+		);
+		return false;
+	}
+
 	LandscapeSplinesComponent->RebuildAllSplines();
 	LandscapeSplinesComponent->MarkRenderStateDirty();
 	Landscape->RequestSplineLayerUpdate();
 
 	LandscapeSplinesComponent->PostEditChange();
+	return true;
 }
 
 void ASplineImporter::AddLandscapeSplinesPoints(
-	ALandscape* Landscape,
 	FCollisionQueryParams CollisionQueryParams,
 	OGRCoordinateTransformation* OGRTransform,
 	UGlobalCoordinates* GlobalCoordinates,
@@ -615,7 +671,9 @@ void ASplineImporter::AddLandscapeSplinesPoints(
 	TMap<FVector2D, ULandscapeSplineControlPoint*>& ControlPoints
 )
 {
-	UWorld* World = Landscape->GetWorld();
+	if (!IsValid(LandscapeSplinesComponent)) return;
+	UWorld* World = LandscapeSplinesComponent->GetWorld();
+	if (!IsValid(World)) return;
 	FTransform WorldToComponent = LandscapeSplinesComponent->GetComponentToWorld().Inverse();
 
 	for (OGRPoint& Point : PointList.Points)
@@ -634,7 +692,7 @@ void ASplineImporter::AddLandscapeSplinesPoints(
 
 		double x = XY[0];
 		double y = XY[1];
-		double z;
+		double z = 0;
 		if (LandscapeUtils::GetZ(World, CollisionQueryParams, x, y, z))
 		{
 			FVector Location = FVector(x, y, z) + SplinePointsOffset;
@@ -655,10 +713,6 @@ void ASplineImporter::AddLandscapeSplinesPoints(
 }
 
 void ASplineImporter::AddLandscapeSplines(
-	ALandscape* Landscape,
-	FCollisionQueryParams CollisionQueryParams,
-	OGRCoordinateTransformation* OGRTransform,
-	UGlobalCoordinates* GlobalCoordinates,
 	ULandscapeSplinesComponent* LandscapeSplinesComponent,
 	FPointList& PointList,
 	TMap<FVector2D, ULandscapeSplineControlPoint*>& Points

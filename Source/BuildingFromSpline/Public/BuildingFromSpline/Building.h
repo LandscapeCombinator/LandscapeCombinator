@@ -121,13 +121,13 @@ protected:
 		EditAnywhere, DuplicateTransient, Category = "Building",
 		meta = (EditCondition = "false", EditConditionHides)
 	)
-	TWeakObjectPtr<AVolume> Volume = nullptr;
+	TSoftObjectPtr<AVolume> Volume = nullptr;
 	
 	UPROPERTY(VisibleAnywhere, DuplicateTransient, Category = "Building")
-	TArray<TWeakObjectPtr<USplineMeshComponent>> SplineMeshComponents;
+	TArray<TSoftObjectPtr<USplineMeshComponent>> SplineMeshComponents;
 	
 	UPROPERTY(VisibleAnywhere, DuplicateTransient, Category = "Building")
-	TArray<TWeakObjectPtr<UInstancedStaticMeshComponent>> InstancedStaticMeshComponents;
+	TArray<TSoftObjectPtr<UInstancedStaticMeshComponent>> InstancedStaticMeshComponents;
 
 	UPROPERTY(DuplicateTransient)
 	FString StaticMeshPath;

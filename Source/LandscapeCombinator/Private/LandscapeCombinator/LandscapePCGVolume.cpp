@@ -25,6 +25,8 @@ void ALandscapePCGVolume::SetPositionAndBounds()
 
 void ALandscapePCGVolume::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete)
 {
+	Modify();
+
 	if (IsValid(PCGComponent))
 	{
 		PCGComponent->Generate(true);
@@ -38,6 +40,8 @@ void ALandscapePCGVolume::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUs
 
 bool ALandscapePCGVolume::Cleanup_Implementation(bool bSkipPrompt)
 {
+	Modify();
+	
 	if (IsValid(PCGComponent))
 	{
 		PCGComponent->Cleanup();

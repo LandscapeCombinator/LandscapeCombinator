@@ -26,7 +26,7 @@ struct LCCOMMON_API FActorSelection
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ActorSelection",
 		meta = (EditCondition = "ActorSelectionMode == EActorSelectionMode::Actor", EditConditionHides, DisplayPriority = "2")
 	)
-	TObjectPtr<AActor> Actor = nullptr;
+	TSoftObjectPtr<AActor> Actor = nullptr;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ActorSelection",
 		meta = (EditCondition = "ActorSelectionMode == EActorSelectionMode::ActorTag", EditConditionHides, DisplayPriority = "2")

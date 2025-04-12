@@ -46,7 +46,7 @@ public:
 	virtual TArray<UObject*> GetGeneratedObjects() const override { return TArray<UObject*>(); }
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeCombination", meta = (DisplayPriority = "5", MustImplement = "/Script/LCCommon.LCGenerator"))
-	TArray<TObjectPtr<AActor>> Generators;
+	TArray<TSoftObjectPtr<AActor>> Generators;
 	
 	virtual void OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete) override;
 	virtual bool Cleanup_Implementation(bool bSkipPrompt) override;
@@ -59,6 +59,10 @@ public:
 #endif
 
 #if WITH_EDITORONLY_DATA
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeCombination",meta = (DisplayPriority = "0"))
+	/* Save level when one generator finishes successfully */
+	bool bSaveAfterEachGenerator = false;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Duplication", meta = (DisplayPriority = "1"))
 	FName RenameLabelsAndTagsContaining = "OldCombination";
 

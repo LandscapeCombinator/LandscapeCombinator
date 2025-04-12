@@ -4,14 +4,13 @@
 #include "LandscapeUtils/LogLandscapeUtils.h"
 #include "LCReporter/LCReporter.h"
 
+#include "Kismet/KismetMathLibrary.h"
 #include "Internationalization/Regex.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/MessageDialog.h"
 #include "Engine/World.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeUtilsModule"
-
-
 
 void LandscapeUtils::MakeDataRelativeTo(int SizeX, int SizeY, uint16* Data, uint16* Base)
 {
@@ -197,7 +196,7 @@ bool LandscapeUtils::CustomCollisionQueryParams(TArray<AActor*> CollidingActors,
 
 	for (auto &SomeActor : Actors)
 	{
-		if (!CollidingActors.Contains(SomeActor))
+		if (!CollidingActorsSet.Contains(SomeActor))
 		{
 			CollisionQueryParams.AddIgnoredActor(SomeActor);
 		}
@@ -211,30 +210,36 @@ bool LandscapeUtils::GetZ(UWorld* World, FCollisionQueryParams CollisionQueryPar
 	FVector StartLocation = FVector(x, y, HALF_WORLD_MAX);
 	FVector EndLocation = FVector(x, y, -HALF_WORLD_MAX);
 
-	if (bDrawDebugLine)
-	{
-		DrawDebugLine(
-			World,
-			StartLocation,
-			EndLocation,
-			FColor::Red,
-			false,
-			10,
-			0,
-			10
-		);
-	}
-
 	FHitResult HitResult;
-	bool bHit = World->LineTraceSingleByChannel(
+	bool bLineTrace = World->LineTraceSingleByChannel(
 		OUT HitResult,
 		StartLocation,
 		EndLocation,
 		ECollisionChannel::ECC_Visibility,
 		CollisionQueryParams
 	);
+	bool bValidActor = IsValid(HitResult.GetActor());
+	if (bLineTrace && !bValidActor)
+	{
+		UE_LOG(LogLandscapeUtils, Error, TEXT("Strange! Got a line trace hit on an invalid actor"));
+	}
+	bool bHit = bLineTrace && bValidActor;
 
-	if (bHit && HitResult.GetActor())
+	if (bDrawDebugLine)
+	{
+		DrawDebugLine(
+			World,
+			StartLocation,
+			EndLocation,
+			bHit ? FColor::Green : FColor::Red,
+			false,
+			10,
+			0,
+			50
+		);
+	}
+
+	if (bHit)
 	{
 		OutZ = HitResult.ImpactPoint.Z;
 		return true;
@@ -365,7 +370,7 @@ bool LandscapeUtils::SpawnLandscape(
 	TArray<FString> Heightmaps, FString LandscapeLabel, bool bCreateLandscapeStreamingProxies,
 	bool bAutoComponents, bool bDropData,
 	int QuadsPerSubsection0, int SectionsPerComponent0, FIntPoint ComponentCount0,
-	ALandscape* &OutSpawnedLandscape, TArray<TObjectPtr<ALandscapeStreamingProxy>> &OutSpawnedLandscapeStreamingProxies
+	ALandscape* &OutSpawnedLandscape, TArray<TSoftObjectPtr<ALandscapeStreamingProxy>> &OutSpawnedLandscapeStreamingProxies
 )
 {
 	if (Heightmaps.IsEmpty())
@@ -515,9 +520,12 @@ bool LandscapeUtils::SpawnLandscape(
 	if (bCreateLandscapeStreamingProxies)
 	{
 		ULandscapeInfo* LandscapeInfo = NewLandscape->GetLandscapeInfo();
+
+		UE_LOG(LogLandscapeUtils, Log, TEXT("Creating LandscapeStreamingProxies with World Partition Grid Size: %d"), UISettings->WorldPartitionGridSize);
 		LandscapeSubsystem->ChangeGridSize(LandscapeInfo, UISettings->WorldPartitionGridSize);
-		
-		OutSpawnedLandscapeStreamingProxies.Append(LandscapeUtils::GetLandscapeStreamingProxies(NewLandscape));
+		TArray<ALandscapeStreamingProxy*> LandscapeStreamingProxies = LandscapeUtils::GetLandscapeStreamingProxies(NewLandscape);
+		UE_LOG(LogLandscapeUtils, Log, TEXT("Obtained %d Landscape Streaming Proxies"), LandscapeStreamingProxies.Num());
+		OutSpawnedLandscapeStreamingProxies.Append(LandscapeStreamingProxies);
 	}
 
 	return true;

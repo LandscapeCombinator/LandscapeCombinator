@@ -158,8 +158,16 @@ void ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated,  TFu
 
 bool ILCGenerator::DeleteGeneratedObjects(bool bSkipPrompt)
 {
+	return Concurrency::RunOnGameThreadAndReturn([this, bSkipPrompt]() {
+		return DeleteGeneratedObjects_GameThread(bSkipPrompt);
+	});
+}
+
+bool ILCGenerator::DeleteGeneratedObjects_GameThread(bool bSkipPrompt)
+{
 	AActor* Self = Cast<AActor>(this);
 	if (!IsValid(Self)) return false;
+	Self->Modify();
 
 	ULCPositionBasedGeneration *PositionBasedGeneration = Self->FindComponentByClass<ULCPositionBasedGeneration>();
 	if (IsValid(PositionBasedGeneration))
@@ -168,13 +176,21 @@ bool ILCGenerator::DeleteGeneratedObjects(bool bSkipPrompt)
 	}
 
 	TArray<UObject*> GeneratedObjects = GetGeneratedObjects();
+
+	UE_LOG(LogLCCommon, Log, TEXT("There are %d object(s) to delete"), GeneratedObjects.Num());
 	if (GeneratedObjects.Num() == 0) return true;
 
 	if (!bSkipPrompt)
 	{
 		FString ObjectsString;
 		for (UObject* Object : GeneratedObjects)
+		{
 			if (IsValid(Object)) ObjectsString += Object->GetName() + "\n";
+			else
+			{
+				UE_LOG(LogLCCommon, Warning, TEXT("Skipping delete invalid object"));
+			}
+		}
 
 		if (!ULCReporter::ShowMessage(
 			FText::Format(
@@ -209,7 +225,10 @@ bool ILCGenerator::DeleteGeneratedObjects(bool bSkipPrompt)
 		{
 			Component->DestroyComponent();
 		}
-		else if (IsValid(Object)) Object->MarkAsGarbage();
+		else if (IsValid(Object))
+		{
+			Object->MarkAsGarbage();
+		}
 	}
 	GeneratedObjects.Empty();
 	return true;

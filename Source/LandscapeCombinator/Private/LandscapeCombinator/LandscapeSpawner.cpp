@@ -36,7 +36,7 @@
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
-ALandscapeSpawner::ALandscapeSpawner()
+ALandscapeSpawner::ALandscapeSpawner() : AActor()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
@@ -51,14 +51,22 @@ TArray<UObject*> ALandscapeSpawner::GetGeneratedObjects() const
 
 	for (auto &DecalActor : DecalActors)
 	{
-		if (IsValid(DecalActor)) Result.Add(DecalActor);
+		ADecalActor *LoadedDecalActor = DecalActor.LoadSynchronous();
+		if (LoadedDecalActor)
+		{
+			Result.Add(DecalActor.LoadSynchronous());
+		}
+		else
+		{
+			UE_LOG(LogLandscapeCombinator, Log, TEXT("Skipping invalid decal pointer in landscape spawner %s"), *GetActorNameOrLabel())
+		}
 	}
 
 	for (auto &LandscapeStreamingProxy: SpawnedLandscapeStreamingProxies)
 	{
-		if (IsValid(LandscapeStreamingProxy)) Result.Add(LandscapeStreamingProxy);
+		Result.Add(LandscapeStreamingProxy.LoadSynchronous());
 	}
-	if (SpawnedLandscape.IsValid()) Result.Add(SpawnedLandscape.Get());
+	Result.Add(SpawnedLandscape.LoadSynchronous());
 
 	return Result;
 }
@@ -112,7 +120,7 @@ AActor *ALandscapeSpawner::Duplicate(FName FromName, FName ToName)
 
 void ALandscapeSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete)
 {
-	if (!Concurrency::RunOnGameThreadAndReturn([this]() { return Execute_Cleanup(this, false); }))
+	if (!Concurrency::RunOnGameThreadAndReturn([this, bIsUserInitiated]() { return Execute_Cleanup(this, !bIsUserInitiated); }))
 	{
 		if (OnComplete) OnComplete(false);
 		return;
@@ -126,6 +134,8 @@ void ALandscapeSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUser
 
 void ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, TFunction<void(ALandscape*)> OnComplete)
 {
+	Modify();
+
 	if (!IsValid(HeightmapDownloader))
 	{
 		ULCReporter::ShowError(
@@ -367,19 +377,23 @@ void ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, TFunctio
 							DecalDownloader->bMergeImages = bDecalMergeImages;
 							DecalDownloader->DownloadImages(false, GlobalCoordinates, [this, SpawnedActorsPathOverride, OnComplete](TArray<FString> DownloadedImages, FString ImageCRS)
 							{
-								DecalActors = UDecalCoordinates::CreateDecals(this->GetWorld(), DownloadedImages);
+								TArray<ADecalActor*> NewDecals = UDecalCoordinates::CreateDecals(this->GetWorld(), DownloadedImages);
+								DecalActors.Append(NewDecals);
 
 #if WITH_EDITOR
-								Concurrency::RunOnGameThreadAndWait([this, SpawnedActorsPathOverride]() {
-									for (auto &DecalActor : DecalActors)
+								Concurrency::RunOnGameThreadAndWait([this, &NewDecals, SpawnedActorsPathOverride]() {
+									for (auto &DecalActor : NewDecals)
 									{
-										ULCBlueprintLibrary::SetFolderPath2(DecalActor, SpawnedActorsPathOverride, SpawnedActorsPath);
-										DecalActor->GetDecal()->SortOrder = DecalsSortOrder;
+										if (IsValid(DecalActor))
+										{
+											ULCBlueprintLibrary::SetFolderPath2(DecalActor, SpawnedActorsPathOverride, SpawnedActorsPath);
+											DecalActor->GetDecal()->SortOrder = DecalsSortOrder;
+										}
 									}
 								});
 #endif
 
-								if (DecalActors.Num() > 0)
+								if (NewDecals.Num() > 0)
 								{
 									ULCReporter::ShowInfo(
 										FText::Format(

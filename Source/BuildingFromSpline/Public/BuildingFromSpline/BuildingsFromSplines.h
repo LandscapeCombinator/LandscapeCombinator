@@ -79,7 +79,7 @@ public:
 		EditAnywhere, DuplicateTransient, Category = "Buildings",
 		meta = (EditCondition = "false", EditConditionHides)
 	)
-	TArray<TWeakObjectPtr<ABuilding>> Buildings;
+	TArray<TSoftObjectPtr<ABuilding>> Buildings;
 
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Buildings",
 		meta = (DisplayPriority = "3")
@@ -95,7 +95,7 @@ public:
 
 	virtual TArray<UObject*> GetGeneratedObjects() const {
 		TArray<UObject*> GeneratedObjects;
-		for (const TWeakObjectPtr<ABuilding>& Building : Buildings)
+		for (const TSoftObjectPtr<ABuilding>& Building : Buildings)
 		{
 			if (Building.IsValid())
 			{
