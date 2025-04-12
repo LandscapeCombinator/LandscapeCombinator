@@ -122,7 +122,10 @@ public:
 
 	virtual void OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete) override;
 
-	virtual bool Cleanup_Implementation(bool bSkipPrompt) override {
+	virtual bool Cleanup_Implementation(bool bSkipPrompt) override
+	{
+		Modify();
+
 		if (DeleteGeneratedObjects(bSkipPrompt))
 		{
 			SpawnedLandscapeMeshes.Empty();
@@ -147,10 +150,10 @@ public:
 protected:
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, DuplicateTransient, Category = "LandscapeMeshSpawner",
+		EditAnywhere, DuplicateTransient, Category = "LandscapeMeshSpawner",
 		meta = (EditCondition = "false", EditConditionHides)
 	)
-	TArray<TObjectPtr<ALandscapeMesh>> SpawnedLandscapeMeshes;
+	TArray<TSoftObjectPtr<ALandscapeMesh>> SpawnedLandscapeMeshes;
 };
 
 #undef LOCTEXT_NAMESPACE

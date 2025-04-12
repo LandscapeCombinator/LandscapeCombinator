@@ -5,8 +5,12 @@
 #include "SplineImporter/SplineImporter.h"
 #include "ConcurrencyHelpers/Concurrency.h"
 #include "HeightmapModifier/BlendLandscape.h"
-
 #include "Kismet/GameplayStatics.h"
+
+#if WITH_EDITOR
+#include "FileHelpers.h"
+#endif
+
 
 using namespace ConcurrencyOperators;
 
@@ -16,24 +20,43 @@ void ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 {
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("Starting Combination with %d Generators"), Generators.Num());
 
-	Concurrency::RunSuccessively<AActor*>(
+	Concurrency::RunSuccessively<TSoftObjectPtr<AActor>>(
 		Generators,
 		
-		[this, SpawnedActorsPathOverride, bIsUserInitiated](AActor* Generator, TFunction<void(bool)> OnCompleteOne) -> void
+		[this, SpawnedActorsPathOverride, bIsUserInitiated](TSoftObjectPtr<AActor> Generator, TFunction<void(bool)> OnCompleteOne) -> void
 		{
-			if (IsValid(Generator))
+			if (Generator.IsValid())
 			{
 				if (Generator->Implements<ULCGenerator>())
 				{
 					UE_LOG(LogLandscapeCombinator, Log, TEXT("Starting generator: %s"), *Generator->GetActorNameOrLabel());
 
+					auto OnCompleteOneSave = [OnCompleteOne, bIsUserInitiated, this](bool bSuccess) {
+#if WITH_EDITOR
+						if (bSuccess && bSaveAfterEachGenerator)
+						{
+							UE_LOG(LogLandscapeCombinator, Log, TEXT("Saving Level"));
+							Concurrency::RunOnGameThreadAndWait([bIsUserInitiated](){
+								const bool bPromptUserToSave = bIsUserInitiated;
+								const bool bSaveMapPackages = true;
+								const bool bSaveContentPackages = true;
+								const bool bFastSave = false;
+								const bool bNotifyNoPackagesSaved = false;
+								const bool bCanBeDeclined = false;
+								FEditorFileUtils::SaveDirtyPackages( bPromptUserToSave, bSaveMapPackages, bSaveContentPackages, bFastSave, bNotifyNoPackagesSaved, bCanBeDeclined );
+							});
+						}
+#endif
+						if (OnCompleteOne) OnCompleteOne(bSuccess);
+					};
+
 					if (SpawnedActorsPathOverride.IsNone())
-						Cast<ILCGenerator>(Generator)->Generate(FName(), bIsUserInitiated, OnCompleteOne);
+						Cast<ILCGenerator>(Generator.Get())->Generate(FName(), bIsUserInitiated, OnCompleteOneSave);
 					else
-						Cast<ILCGenerator>(Generator)->Generate(
+						Cast<ILCGenerator>(Generator.Get())->Generate(
 							FName(SpawnedActorsPathOverride.ToString() / Generator->GetActorNameOrLabel()),
 							bIsUserInitiated,
-							OnCompleteOne
+							OnCompleteOneSave
 						);
 				}
 				else
@@ -58,14 +81,16 @@ void ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 
 bool ALandscapeCombination::Cleanup_Implementation(bool bSkipPrompt)
 {
+	Modify();
+
 	if (!bSkipPrompt)
 	{
 		TArray<UObject*> ObjectsToDelete;
 		for (auto &Generator : Generators)
 		{
-			if (IsValid(Generator) && Generator->Implements<ULCGenerator>())
+			if (Generator.IsValid() && Generator->Implements<ULCGenerator>())
 			{
-				ObjectsToDelete.Append(Cast<ILCGenerator>(Generator)->GetGeneratedObjects());
+				ObjectsToDelete.Append(Cast<ILCGenerator>(Generator.Get())->GetGeneratedObjects());
 			}
 		}
 
@@ -93,9 +118,9 @@ bool ALandscapeCombination::Cleanup_Implementation(bool bSkipPrompt)
 
 	for (auto &Generator : Generators)
 	{
-		if (IsValid(Generator) && Generator->Implements<ULCGenerator>())
+		if (Generator.IsValid() && Generator->Implements<ULCGenerator>())
 		{
-			if (!Cast<ILCGenerator>(Generator)->Execute_Cleanup(Generator, true)) return false;
+			if (!Cast<ILCGenerator>(Generator.Get())->Execute_Cleanup(Generator.Get(), true)) return false;
 		}
 	}
 	return true;
@@ -112,7 +137,7 @@ AActor* ALandscapeCombination::Duplicate(FName FromName, FName ToName)
 		NewCombination->Generators.Empty();
 		for (auto &Generator : Generators)
 		{
-			if (!IsValid(Generator))
+			if (!Generator.IsValid())
 			{
 				ULCReporter::ShowError(LOCTEXT("FailedDuplicateError1", "Invalid generator found during duplication."));
 				continue;
@@ -124,7 +149,7 @@ AActor* ALandscapeCombination::Duplicate(FName FromName, FName ToName)
 				continue;
 			}
 
-			if (AActor *DuplicatedGenerator = Cast<ILCGenerator>(Generator)->Duplicate(FromName, ToName))
+			if (AActor *DuplicatedGenerator = Cast<ILCGenerator>(Generator.Get())->Duplicate(FromName, ToName))
 			{
 				DuplicatedGenerator->SetFolderPath(ToName);
 				NewCombination->Generators.Add(DuplicatedGenerator);

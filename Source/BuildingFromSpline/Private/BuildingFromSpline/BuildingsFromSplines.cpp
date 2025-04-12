@@ -99,6 +99,8 @@ void ABuildingsFromSplines::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 
 bool ABuildingsFromSplines::Cleanup_Implementation(bool bSkipPrompt)
 {
+	Modify();
+	
 	if (DeleteGeneratedObjects(bSkipPrompt))
 	{
 		Buildings.Empty();
@@ -113,6 +115,8 @@ bool ABuildingsFromSplines::Cleanup_Implementation(bool bSkipPrompt)
 
 void ABuildingsFromSplines::GenerateBuildings(FName SpawnedActorsPathOverride, bool bIsUserInitiated)
 {
+	Modify();
+
 	if (bDeleteOldBuildingsWhenCreatingBuildings)
 	{
 		if (!Concurrency::RunOnGameThreadAndReturn([this]() { return Execute_Cleanup(this, false); })) return;

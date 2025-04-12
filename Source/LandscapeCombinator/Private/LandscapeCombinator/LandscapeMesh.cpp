@@ -78,11 +78,6 @@ bool ALandscapeMesh::AddHeightmap(int Priority, FVector4d Coordinates, UGlobalCo
 	int Width, Height;
 	TArray<float> Data;
 
-	UE_LOG(LogTemp, Error, TEXT("LeftCoord: %f"), LeftCoord);
-	UE_LOG(LogTemp, Error, TEXT("RightCoord: %f"), RightCoord);
-	UE_LOG(LogTemp, Error, TEXT("BottomCoord: %f"), BottomCoord);
-	UE_LOG(LogTemp, Error, TEXT("TopCoord: %f"), TopCoord);
-
 	if (!GDALInterface::ReadHeightmapFromFile(File, Width, Height, Data))
 	{
 		ULCReporter::ShowError(LOCTEXT("HeightmapError", "Could not read heightmap from file: {0}"), FText::FromString(File));

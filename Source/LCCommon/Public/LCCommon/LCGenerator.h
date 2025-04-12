@@ -50,6 +50,7 @@ public:
 	bool Cleanup(bool bSkipPrompt);
 
 	bool DeleteGeneratedObjects(bool bSkipPrompt);
+	bool DeleteGeneratedObjects_GameThread(bool bSkipPrompt);
 
 #if WITH_EDITOR
 

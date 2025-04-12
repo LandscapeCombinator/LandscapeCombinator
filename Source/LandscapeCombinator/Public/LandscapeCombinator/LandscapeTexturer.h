@@ -61,7 +61,7 @@ public:
 		TArray<UObject*> Result;
 		for (auto &DecalActor : DecalActors)
 		{
-			if (IsValid(DecalActor)) Result.Add(DecalActor);
+			if (DecalActor.IsValid()) Result.Add(DecalActor.Get());
 		}
 		return Result;
 	}
@@ -71,7 +71,10 @@ public:
 		CreateDecals(ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false), SpawnedActorsPathOverride, bIsUserInitiated, OnComplete);
 	}
 
-	virtual bool Cleanup_Implementation(bool bSkipPrompt) override {
+	virtual bool Cleanup_Implementation(bool bSkipPrompt) override
+	{
+		Modify();
+
 		if (DeleteGeneratedObjects(bSkipPrompt))
 		{
 			DecalActors.Empty();
@@ -153,10 +156,10 @@ protected:
 	HMFetcher* Fetcher = nullptr;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, DuplicateTransient, Category = "LandscapeTexturer",
-		meta = (EditCondition = "false", EditConditionHides)
+		EditAnywhere, DuplicateTransient, Category = "LandscapeTexturer",
+		meta = (EditCondition = "false", EditConditionHides, DisplayPriority = "1000")
 	)
-	TArray<TObjectPtr<ADecalActor>> DecalActors;
+	TArray<TSoftObjectPtr<ADecalActor>> DecalActors;
 };
 
 #undef LOCTEXT_NAMESPACE

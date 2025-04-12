@@ -35,9 +35,9 @@ ALandscapeMeshSpawner::ALandscapeMeshSpawner()
 TArray<UObject*> ALandscapeMeshSpawner::GetGeneratedObjects() const
 {
 	TArray<UObject*> Result;
-	for (UObject* SpawnedLandscapeMesh : SpawnedLandscapeMeshes)
+	for (auto &SpawnedLandscapeMesh : SpawnedLandscapeMeshes)
 	{
-		Result.Add(SpawnedLandscapeMesh);
+		if (SpawnedLandscapeMesh.IsValid()) Result.Add(SpawnedLandscapeMesh.Get());
 	}
 	return Result;
 }
@@ -69,9 +69,11 @@ AActor *ALandscapeMeshSpawner::Duplicate(FName FromName, FName ToName)
 
 void ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete)
 {
+	Modify();
+
 	if (bDeleteExistingMeshesBeforeSpawningMeshes)
 	{
-		if (!Execute_Cleanup(this, false))
+		if (!Execute_Cleanup(this, !bIsUserInitiated))
 		{
 			if (OnComplete) OnComplete(false);
 			return;
@@ -91,7 +93,7 @@ void ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false);
 	if (IsValid(GlobalCoordinates))
 	{
-		if (!ULCReporter::ShowMessage(
+		if (bIsUserInitiated && !ULCReporter::ShowMessage(
 			LOCTEXT(
 				"ALandscapeMeshSpawner::OnGenerate::ExistingGlobal",
 				"There already exists a LevelCoordinates actor. Continue?\n"

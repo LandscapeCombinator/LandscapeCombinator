@@ -40,6 +40,8 @@ void AOGRGeometry::SetOverpassShortQuery()
 
 void AOGRGeometry::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete)
 {
+	Modify();
+	
 	LoadGDALDataset(bIsUserInitiated, [OnComplete, this](GDALDataset* Dataset)
 	{
 		if (!Dataset)

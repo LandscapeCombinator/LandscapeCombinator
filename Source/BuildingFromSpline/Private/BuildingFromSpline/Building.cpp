@@ -92,6 +92,8 @@ ABuilding::ABuilding() : AActor()
 
 bool ABuilding::Cleanup_Implementation(bool bSkipPrompt)
 {
+	Modify();
+
 	if (!DeleteGeneratedObjects(bSkipPrompt)) return false;
 
 	TArray<AActor*> AttachedActors;
@@ -1263,6 +1265,7 @@ bool ABuilding::InitializeWallSegments()
 
 void ABuilding::GenerateBuilding()
 {
+	Modify();
 	GenerateBuilding_Internal(SpawnedActorsPath);
 }
 

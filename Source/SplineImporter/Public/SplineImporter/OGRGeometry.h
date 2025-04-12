@@ -26,7 +26,11 @@ public:
 
 	void OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete) override;
 
-	virtual bool Cleanup_Implementation(bool bSkipPrompt) override { Geometry = nullptr; return true; }
+	virtual bool Cleanup_Implementation(bool bSkipPrompt) override {
+		Modify();
+		Geometry = nullptr;
+		return true;
+	}
 
 #if WITH_EDITOR
 	virtual AActor* Duplicate(FName FromName, FName ToName) override;

@@ -44,7 +44,7 @@ public:
 	ASplineImporter() : AGDALImporter() {};
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer",
+		EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
 		meta = (DisplayPriority = "0")
 	)
 	bool bDeleteOldSplinesWhenCreatingSplines = false;
@@ -111,11 +111,11 @@ public:
 		EditAnywhere, DuplicateTransient, Category = "GDALImporter",
 		meta = (EditCondition = "false", EditConditionHides)
 	)
-	TArray<TWeakObjectPtr<AActor>> SplineOwners;
+	TArray<TSoftObjectPtr<AActor>> SplineOwners;
 
 	virtual TArray<UObject*> GetGeneratedObjects() const {
 		TArray<UObject*> GeneratedObjects;
-		for (const TWeakObjectPtr<AActor>& SplineOwner : SplineOwners)
+		for (const TSoftObjectPtr<AActor>& SplineOwner : SplineOwners)
 		{
 			if (SplineOwner.IsValid())
 			{
@@ -130,7 +130,7 @@ public:
 protected:
 	virtual void SetOverpassShortQuery() override;
 
-	void GenerateRegularSplines(
+	bool GenerateRegularSplines(
 		bool bIsUserInitiated,
 		FName SpawnedActorsPathOverride,
 		FCollisionQueryParams CollisionQueryParams,
@@ -139,7 +139,7 @@ protected:
 		TArray<FPointList> &PointLists
 	);
 
-	void AddRegularSpline(
+	bool AddRegularSpline(
 		AActor* SplineOwner,
 		FCollisionQueryParams CollisionQueryParams,
 		OGRCoordinateTransformation *OGRTransform,
@@ -148,7 +148,8 @@ protected:
 	);
 
 #if WITH_EDITOR
-	void GenerateLandscapeSplines(
+	bool GenerateLandscapeSplines(
+		bool bIsUserInitiated,
 		ALandscape* Landscape,
 		FCollisionQueryParams CollisionQueryParams,
 		OGRCoordinateTransformation* OGRTransform,
@@ -157,7 +158,6 @@ protected:
 	);
 
 	void AddLandscapeSplinesPoints(
-		ALandscape* Landscape,
 		FCollisionQueryParams CollisionQueryParams,
 		OGRCoordinateTransformation* OGRTransform,
 		UGlobalCoordinates* GlobalCoordinates,
@@ -167,10 +167,6 @@ protected:
 	);
 
 	void AddLandscapeSplines(
-		ALandscape* Landscape,
-		FCollisionQueryParams CollisionQueryParams,
-		OGRCoordinateTransformation* OGRTransform,
-		UGlobalCoordinates* GlobalCoordinates,
 		ULandscapeSplinesComponent* LandscapeSplinesComponent,
 		FPointList& PointList,
 		TMap<FVector2D, ULandscapeSplineControlPoint*>& Points

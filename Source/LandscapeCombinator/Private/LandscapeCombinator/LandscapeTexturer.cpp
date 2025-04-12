@@ -25,9 +25,11 @@ ALandscapeTexturer::ALandscapeTexturer()
 
 void ALandscapeTexturer::CreateDecals(TObjectPtr<UGlobalCoordinates> GlobalCoordinates, FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete)
 {
+	Modify();
+
 	if (bDeleteOldDecalsWhenCreatingDecals)
 	{
-		if (!Concurrency::RunOnGameThreadAndReturn([this]() { return Execute_Cleanup(this, false); }))
+		if (!Concurrency::RunOnGameThreadAndReturn([this, bIsUserInitiated]() { return Execute_Cleanup(this, !bIsUserInitiated); }))
 		{
 			if (OnComplete) OnComplete(false);
 			return;

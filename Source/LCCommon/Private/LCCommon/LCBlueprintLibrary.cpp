@@ -111,19 +111,29 @@ void ULCBlueprintLibrary::SetFolderPath2(AActor* Actor, FName FolderPathOverride
 	}
 }
 
+bool ULCBlueprintLibrary::HasActor(UWorld &World, FFolder InFolder)
+{
+	FFolder RootObject = InFolder.GetRootObject();
+	for (FActorIterator ActorIt(&World); ActorIt; ++ActorIt)
+	{
+		AActor* CurrentActor = *ActorIt;
+		if (!IsValid(CurrentActor)) continue;
+		FFolder Folder = CurrentActor->GetFolder();
+
+		while (Folder != RootObject)
+		{
+			if (Folder == InFolder) return true;
+			Folder = Folder.GetParent();
+		}
+	}
+
+	return false;
+}
+
 void ULCBlueprintLibrary::DeleteFolder(UWorld &World, FFolder Folder)
 {
-	FName FolderPath = Folder.GetPath();
-	TSet<FName> InPaths = { FolderPath };
-	TArray<AActor*> ActorsInFolder;
-
-	FActorFolders::GetActorsFromFolders(World, InPaths, ActorsInFolder, Folder.GetRootObject());
-
-	UE_LOG(LogLCCommon, Log, TEXT("Folder %s has %d actors"), *FolderPath.ToString(), ActorsInFolder.Num());
-
-	if (ActorsInFolder.Num() == 0)
+	if (Folder != Folder.GetRootObject() && !HasActor(World, Folder))
 	{
-		UE_LOG(LogLCCommon, Log, TEXT("Deleting Folder %s"), *FolderPath.ToString());
 		FActorFolders::Get().DeleteFolder(World, Folder);
 		FFolder Parent = Folder.GetParent();
 		if (Parent != Folder.GetRootObject()) DeleteFolder(World, Parent);

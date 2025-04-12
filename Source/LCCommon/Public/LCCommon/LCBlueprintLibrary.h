@@ -46,6 +46,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category="LandscapeCombinator")
 	static void SetFolderPath2(AActor *Actor, FName FolderPathOverride, FName FolderPath);
 
+	static bool HasActor(UWorld &World, FFolder Folder);
+
 	static void DeleteFolder(UWorld &World, FFolder Folder);
 
 #endif
