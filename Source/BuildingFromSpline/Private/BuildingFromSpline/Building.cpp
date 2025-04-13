@@ -1372,8 +1372,29 @@ bool ABuilding::AddAttachments(const FLevelDescription &LevelDescription, double
 		double CurrentDistance = BaseClockwiseSplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineIndexToBaseSplineIndex[i]);
 		for (auto &WallSegment : WallSegmentsAtSplinePoint[LevelDescription][i])
 		{
+			double FinalSegmentLength = WallSegment.bAutoExpand ? FillersSizeAtSplinePoint[LevelDescription][i] : WallSegment.SegmentLength;
+			
 			for (auto &Attachment: WallSegment.Attachments)
 			{
+				double TargetWidth = Attachment.bFitToWallSegmentWidth ? FinalSegmentLength : Attachment.OverrideWidth;
+				double TargetHeight = Attachment.bFitToWallSegmentHeight ? LevelDescription.LevelHeight : Attachment.OverrideHeight;
+				double TargetThickness = 0;
+				if (Attachment.bFitToWallSegmentThickness)
+				{
+					if (WallSegment.bOverrideWallThickness)
+					{
+						TargetThickness = WallSegment.InternalWallThickness + WallSegment.ExternalWallThickness;
+					}
+					else
+					{
+						TargetThickness = BuildingConfiguration->InternalWallThickness + BuildingConfiguration->ExternalWallThickness;
+					}
+				}
+				else
+				{
+					TargetThickness = Attachment.OverrideThickness;
+				}
+
 				FVector AttachmentLocation = BaseClockwiseSplineComponent->GetLocationAtDistanceAlongSpline(CurrentDistance, ESplineCoordinateSpace::World);
 				FVector AttachmentTangent = BaseClockwiseSplineComponent->GetTangentAtDistanceAlongSpline(CurrentDistance, ESplineCoordinateSpace::World);
 				FQuat AttachmentRotation = FQuat::FindBetweenVectors(FVector(1, 0, 0), AttachmentTangent);
@@ -1411,9 +1432,9 @@ bool ABuilding::AddAttachments(const FLevelDescription &LevelDescription, double
 						
 						FBox BoundingBox = Attachment.Mesh->GetBoundingBox();
 						FVector Scale(
-							Attachment.OverrideWidth > 0 ? Attachment.OverrideWidth / BoundingBox.GetExtent()[0] / 2 : 1,
-							Attachment.OverrideThickness > 0 ? Attachment.OverrideThickness / BoundingBox.GetExtent()[1] / 2 : 1,
-							Attachment.OverrideHeight > 0 ? Attachment.OverrideHeight / BoundingBox.GetExtent()[2] / 2 : 1
+							TargetWidth > 0 ? TargetWidth / BoundingBox.GetExtent()[0] / 2 : 1,
+							TargetThickness > 0 ? TargetThickness / BoundingBox.GetExtent()[1] / 2 : 1,
+							TargetHeight > 0 ? TargetHeight / BoundingBox.GetExtent()[2] / 2 : 1
 						);
 
 						FTransform Transform;
@@ -1427,9 +1448,9 @@ bool ABuilding::AddAttachments(const FLevelDescription &LevelDescription, double
 					{
 						if (!Attachment.Mesh) break;
 
-						double Width = Attachment.OverrideWidth > 0 ? Attachment.OverrideWidth : WallSegment.SegmentLength;
+						double Width = TargetWidth > 0 ? TargetWidth : FinalSegmentLength;
 						AddSplineMesh(
-							Attachment.Mesh, CurrentDistance, Width, Attachment.OverrideThickness, Attachment.OverrideHeight,
+							Attachment.Mesh, CurrentDistance, Width, TargetThickness, TargetHeight,
 							RotatedOffset + FVector(0, 0, MinHeightLocal + ZOffset), Attachment.SplineMeshAxis
 						);
 						break;
@@ -1444,9 +1465,9 @@ bool ABuilding::AddAttachments(const FLevelDescription &LevelDescription, double
 						NewActor->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
 
 						FVector Scale(
-							Attachment.OverrideWidth > 0 ? Attachment.OverrideWidth / ActorExtent[0] / 2 : 1,
-							Attachment.OverrideThickness > 0 ? Attachment.OverrideThickness / ActorExtent[1] / 2 : 1,
-							Attachment.OverrideHeight > 0 ? Attachment.OverrideHeight / ActorExtent[2] / 2 : 1
+							TargetWidth > 0 ? TargetWidth / ActorExtent[0] / 2 : 1,
+							TargetThickness > 0 ? TargetThickness / ActorExtent[1] / 2 : 1,
+							TargetHeight > 0 ? TargetHeight / ActorExtent[2] / 2 : 1
 						);
 						NewActor->SetActorScale3D(Scale);
 						NewActor->SetActorLocation(AttachmentLocation + RotatedOffset + FVector(0, 0, ZOffset));
