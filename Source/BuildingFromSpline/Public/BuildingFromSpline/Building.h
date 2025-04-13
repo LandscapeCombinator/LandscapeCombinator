@@ -103,10 +103,11 @@ protected:
 	double LevelsHeightsSum = 0;
 	UDataTable *LevelsTable;
 	UDataTable *WallSegmentsTable;
-	TArray<FLevelDescription> LevelDescriptions;
+	TArray<int> LevelDescriptionsIndices;
+	TArray<FLevelDescription> ExpandedLevels;
 
-	TMap<FLevelDescription, TArray<TArray<FWallSegment>>> WallSegmentsAtSplinePoint;
-	TMap<FLevelDescription, TArray<double>> FillersSizeAtSplinePoint;
+	TArray<TArray<TArray<FWallSegment>>> WallSegmentsAtSplinePoint;
+	TArray<TArray<double>> FillersSizeAtSplinePoint;
 	bool InitializeWallSegments();
 
 #if WITH_EDITOR
@@ -158,7 +159,7 @@ protected:
 	TArray<FVector2D> MakePolygon(bool bInternalWall, double BeginDistance, double Length, double Thickness);
 	FVector2D GetShiftedPoint(TArray<FTransform> Frames, int Index, double Shift, bool bIsLoop);
 
-	bool AppendWallsWithHoles(UDynamicMesh* TargetMesh, bool bInternalWall, double ZOffset, const FLevelDescription &LevelDescription);
+	bool AppendWallsWithHoles(UDynamicMesh* TargetMesh, bool bInternalWall, double ZOffset, int LevelDescriptionIndex);
 	bool AppendWallsWithHoles(UDynamicMesh* TargetMesh);
 	void AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, double Length, double Thickness, double Height, FVector Offset, ESplineMeshAxis::Type SplineMeshAxis);
 	void AppendAlongSpline(UDynamicMesh* TargetMesh, bool bInternalWall, double BeginDistance, double Length, double Height, double ZOffset, double Thickness, int MaterialID);
@@ -168,7 +169,7 @@ protected:
 	bool AppendBuildingWithoutInside(UDynamicMesh *TargetMesh);
 	
 	bool AddAttachments();
-	bool AddAttachments(const FLevelDescription &LevelDescription, double ZOffset);
+	bool AddAttachments(int LevelDescriptionIndex, double ZOffset);
 
 };
 

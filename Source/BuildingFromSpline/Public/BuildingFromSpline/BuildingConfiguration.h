@@ -39,25 +39,35 @@ enum class EAttachmentKind : uint8
 	Actor,
 };
 
+UENUM(BlueprintType)
+enum class EAxisKind : uint8
+{
+	Width, Thickness, Height
+};
+
 USTRUCT(BlueprintType)
 struct FAttachment
 {
 	GENERATED_BODY()
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "1"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "0"))
 	EAttachmentKind AttachmentKind = EAttachmentKind::InstancedStaticMeshComponent;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment",
-		meta=(EditConditionHides, EditCondition="AttachmentKind == EAttachmentKind::Actor", DisplayPriority = "2"))
+		meta=(EditConditionHides, EditCondition="AttachmentKind == EAttachmentKind::Actor", DisplayPriority = "1"))
 	TSubclassOf<AActor> ActorClass;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment",
-		meta=(EditConditionHides, EditCondition="AttachmentKind != EAttachmentKind::Actor", DisplayPriority = "3"))
+		meta=(EditConditionHides, EditCondition="AttachmentKind != EAttachmentKind::Actor", DisplayPriority = "2"))
 	TObjectPtr<UStaticMesh> Mesh;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "4"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "3"))
 	/* offset from the bottom/start of the wall segment:
 	 * X is the tangent direction, Y is the inside direction, Z is the up direction */
 	FVector Offset = FVector(0, 0, 0);
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment",
+		meta=(EditConditionHides, EditCondition="AttachmentKind != EAttachmentKind::SplineMeshComponent", DisplayPriority = "4"))
+	FVector AxisOffsetMultiplier = FVector(0, 0, 0);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment",
 		meta=(EditConditionHides, EditCondition="AttachmentKind != EAttachmentKind::SplineMeshComponent", DisplayPriority = "5"))
@@ -88,15 +98,25 @@ struct FAttachment
 	)
 	double OverrideHeight = 0;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "12"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment",
+		meta=(EditConditionHides, EditCondition="!bFitToWallSegmentThickness", DisplayPriority = "12")
+	)
 	double OverrideThickness = 0;
 
-	bool operator==(const FAttachment& Other) const = default;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment",
+		meta=(EditConditionHides, EditCondition="AttachmentKind != EAttachmentKind::SplineMeshComponent", DisplayPriority = "20")
+	)
+	EAxisKind XAxis = EAxisKind::Width;
 
-	friend uint32 GetTypeHash(const FAttachment& Attachment)
-	{
-		return FCrc::MemCrc32(&Attachment, sizeof(FAttachment));
-	}
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment",
+		meta=(EditConditionHides, EditCondition="AttachmentKind != EAttachmentKind::SplineMeshComponent", DisplayPriority = "21")
+	)
+	EAxisKind YAxis = EAxisKind::Thickness;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment",
+		meta=(EditConditionHides, EditCondition="AttachmentKind != EAttachmentKind::SplineMeshComponent", DisplayPriority = "22")
+	)
+	EAxisKind ZAxis = EAxisKind::Height;
 };
 
 UENUM(BlueprintType)
@@ -176,32 +196,6 @@ struct FWallSegment
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WallSegment", meta = (DisplayPriority = "100"))
 	TArray<FAttachment> Attachments;
 
-	bool operator==(const FWallSegment& Other) const = default;
-
-	friend uint32 GetTypeHash(const FWallSegment& WallSegment)
-	{
-		uint32 Result = 0;
-		Result = FCrc::MemCrc32(&WallSegment.WallSegmentKind, sizeof(EWallSegmentKind), Result);
-		Result = FCrc::MemCrc32(&WallSegment.bAutoExpand, sizeof(bool), Result);
-		Result = FCrc::MemCrc32(&WallSegment.SegmentLength, sizeof(double), Result);
-		Result = FCrc::MemCrc32(&WallSegment.HoleDistanceToFloor, sizeof(double), Result);
-		Result = FCrc::MemCrc32(&WallSegment.HoleHeight, sizeof(double), Result);
-		Result = FCrc::MemCrc32(&WallSegment.UnderHoleInteriorMaterialIndex, sizeof(int), Result);
-		Result = FCrc::MemCrc32(&WallSegment.OverHoleInteriorMaterialIndex, sizeof(int), Result);
-		Result = FCrc::MemCrc32(&WallSegment.UnderHoleExteriorMaterialIndex, sizeof(int), Result);
-		Result = FCrc::MemCrc32(&WallSegment.OverHoleExteriorMaterialIndex, sizeof(int), Result);
-		Result = FCrc::MemCrc32(&WallSegment.InteriorWallMaterialIndex, sizeof(int), Result);
-		Result = FCrc::MemCrc32(&WallSegment.ExteriorWallMaterialIndex, sizeof(int), Result);
-		Result = FCrc::MemCrc32(&WallSegment.bOverrideWallThickness, sizeof(bool), Result);
-		Result = FCrc::MemCrc32(&WallSegment.InternalWallThickness, sizeof(double), Result);
-		Result = FCrc::MemCrc32(&WallSegment.ExternalWallThickness, sizeof(double), Result);
-		for (auto &Attachment : WallSegment.Attachments)
-		{
-			Result = FCrc::MemCrc32(&Attachment, sizeof(FAttachment), Result);
-		}
-		return Result;
-	}
-
 	FString ToString() const
 	{
 		FString Result;
@@ -229,13 +223,6 @@ struct FLoop
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Loop")
 	int EndIndex = 0;
-
-	bool operator==(const FLoop& Other) const = default;
-
-	friend uint32 GetTypeHash(const FLoop& Loop)
-	{
-		return FCrc::MemCrc32(&Loop, sizeof(FLoop));
-	}
 };
 
 USTRUCT(BlueprintType)
@@ -281,25 +268,6 @@ struct FLevelDescription
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WindowsSpecification", meta = (DisplayPriority = "101"))
     TArray<FLoop> WallSegmentLoops;
-
-	bool operator==(const FLevelDescription& Other) const = default;
-
-	friend uint32 GetTypeHash(const FLevelDescription& LevelDescription)
-	{
-		uint32 Result = 0;
-		Result = FCrc::MemCrc32(&LevelDescription.LevelHeight, sizeof(double), Result);
-		Result = FCrc::MemCrc32(&LevelDescription.FloorThickness, sizeof(double), Result);
-		for (auto &WallSegment : LevelDescription.WallSegments)
-		{
-			uint32 WallSegmentHash = GetTypeHash(WallSegment);
-			Result = FCrc::MemCrc32(&WallSegmentHash, sizeof(uint32), Result);
-		}
-		for (auto &Loop : LevelDescription.WallSegmentLoops)
-		{
-			Result = FCrc::MemCrc32(&Loop, sizeof(FLoop), Result);
-		}
-		return Result;
-	}
 
 	FString ToString() const
 	{
