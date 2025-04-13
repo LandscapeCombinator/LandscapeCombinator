@@ -548,7 +548,7 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "Building|General",
 		meta = (DisplayPriority = "-4")
 	)
-	bool bConvertToStaticMesh = true;
+	bool bConvertToStaticMesh = false;
 
 	/* Convert to volume after the building is generated (better used with Simple building). */
 	UPROPERTY(
