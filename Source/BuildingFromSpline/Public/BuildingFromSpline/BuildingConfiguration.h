@@ -70,12 +70,25 @@ struct FAttachment
 	TEnumAsByte<ESplineMeshAxis::Type> SplineMeshAxis = ESplineMeshAxis::X;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "6"))
-	double OverrideWidth = 0;
+	bool bFitToWallSegmentWidth = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "7"))
+	bool bFitToWallSegmentHeight = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "7"))
+	bool bFitToWallSegmentThickness = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment",
+		meta=(EditConditionHides, EditCondition="!bFitToWallSegmentWidth", DisplayPriority = "10")
+	)
+	double OverrideWidth = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment",
+		meta=(EditConditionHides, EditCondition="!bFitToWallSegmentHeight", DisplayPriority = "11")
+	)
 	double OverrideHeight = 0;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "8"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "12"))
 	double OverrideThickness = 0;
 
 	bool operator==(const FAttachment& Other) const = default;
