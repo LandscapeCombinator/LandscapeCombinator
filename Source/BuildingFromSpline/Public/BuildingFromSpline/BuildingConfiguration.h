@@ -563,6 +563,13 @@ public:
 	)
 	bool bConvertToStaticMesh = false;
 
+	/* Enable Nanite when converting building to static mesh. */
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|General",
+		meta = (EditCondition = "bConvertToStaticMesh", EditConditionHides, DisplayPriority = "-3")
+	)
+	bool bEnableNanite = true;
+
 	/* Convert to volume after the building is generated (better used with Simple building). */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|General",

@@ -1621,13 +1621,22 @@ void ABuilding::GenerateStaticMesh()
 
 	FGeometryScriptCreateNewStaticMeshAssetOptions Options;
 	FMeshNaniteSettings NaniteSettings;
-	NaniteSettings.bEnabled = true;
+	NaniteSettings.bEnabled = BuildingConfiguration->bEnableNanite;
 	NaniteSettings.bPreserveArea = true;
 
 	FString Unused;
+	FGeometryScriptUniqueAssetNameOptions GeometryScriptUniqueAssetNameOptions;
+	GeometryScriptUniqueAssetNameOptions.UniqueIDDigits = 18;
 	if (StaticMeshPath.IsEmpty())
 	{
-		UGeometryScriptLibrary_CreateNewAssetFunctions::CreateUniqueNewAssetPathName(FString("/Game/Buildings"), FString("SM_Building"), StaticMeshPath, Unused, FGeometryScriptUniqueAssetNameOptions(), Outcome);
+		UGeometryScriptLibrary_CreateNewAssetFunctions::CreateUniqueNewAssetPathName(
+			FString("/Game/Buildings"),
+			FString("SM_Building"),
+			StaticMeshPath,
+			Unused,
+			GeometryScriptUniqueAssetNameOptions,
+			Outcome
+		);
 
 		if (Outcome != EGeometryScriptOutcomePins::Success)
 		{
