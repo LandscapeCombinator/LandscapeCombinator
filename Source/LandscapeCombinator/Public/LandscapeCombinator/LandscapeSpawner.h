@@ -119,8 +119,8 @@ public:
 	/**
 	 * If you are using World Partition, check this option if you want to create landscape streaming proxies.
 	 * This is useful if you have a large landscape, but it might slow things down for small landscapes.
-	 * Make sure to adjust the cell size based on the expected size of your landscapes, or you'll get too many
-	 * Landscape Streaming Proxies for the engine to handle.
+	 * When using this option, it's important to use a preset for the component counts, or the generation
+	 * will freeze or be very slow.
 	 */
 	bool bCreateLandscapeStreamingProxies = false;
 
