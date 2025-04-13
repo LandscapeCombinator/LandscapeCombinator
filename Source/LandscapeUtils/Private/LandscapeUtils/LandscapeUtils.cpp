@@ -9,6 +9,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Misc/MessageDialog.h"
 #include "Engine/World.h"
+    
 
 #define LOCTEXT_NAMESPACE "FLandscapeUtilsModule"
 
@@ -222,6 +223,7 @@ bool LandscapeUtils::GetZ(UWorld* World, FCollisionQueryParams CollisionQueryPar
 	if (bLineTrace && !bValidActor)
 	{
 		UE_LOG(LogLandscapeUtils, Error, TEXT("Strange! Got a line trace hit on an invalid actor"));
+		return false;
 	}
 	bool bHit = bLineTrace && bValidActor;
 
@@ -521,12 +523,17 @@ bool LandscapeUtils::SpawnLandscape(
 	{
 		ULandscapeInfo* LandscapeInfo = NewLandscape->GetLandscapeInfo();
 
+		OutSpawnedLandscape->Modify();
 		UE_LOG(LogLandscapeUtils, Log, TEXT("Creating LandscapeStreamingProxies with World Partition Grid Size: %d"), UISettings->WorldPartitionGridSize);
 		LandscapeSubsystem->ChangeGridSize(LandscapeInfo, UISettings->WorldPartitionGridSize);
 		TArray<ALandscapeStreamingProxy*> LandscapeStreamingProxies = LandscapeUtils::GetLandscapeStreamingProxies(NewLandscape);
 		UE_LOG(LogLandscapeUtils, Log, TEXT("Obtained %d Landscape Streaming Proxies"), LandscapeStreamingProxies.Num());
 		OutSpawnedLandscapeStreamingProxies.Append(LandscapeStreamingProxies);
 	}
+
+	// this enables Edit Layers, and makes line traces from Spline Importers work without having
+	// to restart the level
+	OutSpawnedLandscape->ToggleCanHaveLayersContent();
 
 	return true;
 }
