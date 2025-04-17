@@ -13,7 +13,17 @@ public:
 	{
 		OutputCRS = CRSReprojection;
 	};
-	void Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+
+
+	FString GetOutputDir() override
+	{
+		return FPaths::Combine(
+			ImageDownloaderDir,
+			Name + "-" + OutputCRS.Replace(TEXT(":"), TEXT("_"))
+		);
+	}
+
+	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
 
 private:
 	FString Name;

@@ -10,9 +10,15 @@ class HMResolution : public HMFetcher
 {
 public:
 	HMResolution(FString Name0, int PrecisionPercent0) : Name(Name0), PrecisionPercent(PrecisionPercent0) {};
-	void Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+	
+	FString GetOutputDir() override
+	{
+		return FPaths::Combine(ImageDownloaderDir, Name + "-Resolution" + FString::FromInt(PrecisionPercent));
+	}
 
-private:
+	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+
+protected:
 	FString Name;
 	int PrecisionPercent;
 };

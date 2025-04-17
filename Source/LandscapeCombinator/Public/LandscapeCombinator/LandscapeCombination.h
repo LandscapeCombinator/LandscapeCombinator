@@ -14,6 +14,19 @@
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
+USTRUCT(BlueprintType)
+struct FGeneratorWrapper
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneratorWrapper", meta = (DisplayPriority = "0"))
+	bool bIsEnabled = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneratorWrapper", meta = (DisplayPriority = "1", MustImplement = "/Script/LCCommon.LCGenerator"))
+	TSoftObjectPtr<AActor> Generator;
+};
+
+
 UCLASS(BlueprintType)
 class LANDSCAPECOMBINATOR_API ALandscapeCombination : public AActor, public ILCGenerator
 {
@@ -45,8 +58,8 @@ public:
 	// no need to keep them separately
 	virtual TArray<UObject*> GetGeneratedObjects() const override { return TArray<UObject*>(); }
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeCombination", meta = (DisplayPriority = "5", MustImplement = "/Script/LCCommon.LCGenerator"))
-	TArray<TSoftObjectPtr<AActor>> Generators;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeCombination", meta = (DisplayPriority = "5"))
+	TArray<FGeneratorWrapper> Generators;
 	
 	virtual void OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete) override;
 	virtual bool Cleanup_Implementation(bool bSkipPrompt) override;

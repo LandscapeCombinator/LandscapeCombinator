@@ -13,7 +13,7 @@
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-void HMCrop::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+void HMCrop::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
 {
 	OutputCRS = InputCRS;
 
@@ -22,15 +22,6 @@ void HMCrop::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(
 		ULCReporter::ShowError(
 			LOCTEXT("HMCrop::Fetch", "Image Downloader Error: The AdaptResolution and CropCoordinates options are not available for sources that are made of multiple images.")
 		);
-		if (OnComplete) OnComplete(false);
-		return;
-	}
-
-	FString CropFolder = FPaths::Combine(Directories::ImageDownloaderDir(), Name + "-Crop");
-
-	if (!IPlatformFile::GetPlatformPhysical().DeleteDirectoryRecursively(*CropFolder) || !IPlatformFile::GetPlatformPhysical().CreateDirectory(*CropFolder))
-	{
-		Directories::CouldNotInitializeDirectory(CropFolder);
 		if (OnComplete) OnComplete(false);
 		return;
 	}
@@ -53,7 +44,7 @@ void HMCrop::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(
 		CropTask.EnterProgressFrame(1);
 
 		FString InputFile = InputFiles[i];
-		FString CroppedFile = FPaths::Combine(CropFolder, FPaths::GetBaseFilename(InputFile) + ".tif");
+		FString CroppedFile = FPaths::Combine(OutputDir, FPaths::GetBaseFilename(InputFile) + ".tif");
 		OutputFiles.Add(CroppedFile);
 
 		TArray<FString> Args;

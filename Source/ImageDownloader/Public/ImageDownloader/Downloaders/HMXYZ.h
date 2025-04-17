@@ -34,9 +34,14 @@ public:
 		bUseTerrariumFormula = bUseTerrariumFormula0;
 		bAllowInvalidTiles = bAllowInvalidTiles0;
 	};
-	void Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
 
-private:
+	FString GetOutputDir() override
+	{
+		return FPaths::Combine(ImageDownloaderDir, Name + "-XYZ");
+	}
+	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+
+protected:
 	bool bAllowInvalidTiles;
 	FString Name;
 	FString Layer;

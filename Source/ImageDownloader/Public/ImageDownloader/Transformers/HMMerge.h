@@ -10,7 +10,12 @@ class IMAGEDOWNLOADER_API HMMerge : public HMFetcher
 {
 public:
 	HMMerge(FString Name0) : Name(Name0) {}
-	void Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+
+	FString GetOutputDir() override
+	{
+		return FPaths::Combine(ImageDownloaderDir, Name + "-Merge");
+	}
+	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
 
 private:
 	FString Name;

@@ -14,8 +14,7 @@
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-
-void HMLitto3DGuadeloupe::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+void HMLitto3DGuadeloupe::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
 {
 	if (!Console::ExecProcess(TEXT("7z"), TEXT(""), false))
 	{
@@ -53,7 +52,7 @@ void HMLitto3DGuadeloupe::Fetch(FString InputCRS, TArray<FString> InputFiles, TF
 		ExecProcessTask.EnterProgressFrame(1);
 
 		FString ArchiveFile = FPaths::Combine(Folder, FileName);
-		FString ExtractionDir = FPaths::Combine(Directories::ImageDownloaderDir(), FPaths::GetBaseFilename(FileName));
+		FString ExtractionDir = FPaths::Combine(ImageDownloaderDir, FPaths::GetBaseFilename(FileName));
 		FString ExtractParams = FString::Format(TEXT("x -aos \"{0}\" -o\"{1}\""), { ArchiveFile, ExtractionDir });
 		
 		if (!bSkipExtraction && !Console::ExecProcess(TEXT("7z"), *ExtractParams))

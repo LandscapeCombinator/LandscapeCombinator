@@ -12,12 +12,16 @@ class HMTilesRenamer : public HMFetcher, public TilesCounter
 {
 public:
 	HMTilesRenamer(FString Name0) : Name(Name0) {};
-	void Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete);
+	
+	FString GetOutputDir() override
+	{
+		return FPaths::Combine(ImageDownloaderDir, Name + "-Renamer");
+	}
+
+	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
 
 protected:
 	FString Name;
-
-private:
 	FString Rename(FString Tile) const;
 };
 

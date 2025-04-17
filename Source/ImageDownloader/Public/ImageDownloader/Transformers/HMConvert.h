@@ -11,9 +11,14 @@ class HMConvert : public HMFetcher
 public:
 	HMConvert(FString Name0, FString NewExtension0) :
 		Name(Name0), NewExtension(NewExtension0) {};
-	void Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
 
-private:
+	FString GetOutputDir() override
+	{
+		return FPaths::Combine(ImageDownloaderDir, Name + "-Convert");
+	}
+	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+
+protected:
 	FString Name;
 	FString NewExtension;
 };

@@ -17,23 +17,21 @@
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-
-void HMNapoli::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+void HMNapoli::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
 {
-
 	FString CSVURL = FString::Format(
 		TEXT("https://sit.cittametropolitana.na.it/geoserver/ows?service=wfs&version=2.0.0&request=GetFeature&typeName=sit:quadro_unione_lidar_dtm&outputFormat=csv&CRS=EPSG:32633&STYLES=&BBOX={0},{1},{2},{3}"),
 		{ MinLong, MinLat, MaxLong, MaxLat }
 	);
 	
 	uint32 Hash = FTextLocalizationResource::HashString(CSVURL);
-	FString CSVFile = FPaths::Combine(Directories::DownloadDir(), FString::Format(TEXT("napoli_{0}.csv"), { Hash }));
-	FString VRTFile = FPaths::Combine(Directories::ImageDownloaderDir(), FString::Format(TEXT("napoli_{0}.vrt"), { Hash }));
+	FString CSVFile = FPaths::Combine(DownloadDir, FString::Format(TEXT("napoli_{0}.csv"), { Hash }));
+	FString VRTFile = FPaths::Combine(ImageDownloaderDir, FString::Format(TEXT("napoli_{0}.vrt"), { Hash }));
 
 	OutputFiles.Add(VRTFile);
 	OutputCRS = "EPSG:32633";
 
-	Download::FromURL(CSVURL, CSVFile, true, [OnComplete, CSVFile, VRTFile](bool bSuccess)
+	Download::FromURL(CSVURL, CSVFile, bIsUserInitiated, [this, OnComplete, CSVFile, VRTFile](bool bSuccess)
 	{
 		if (bSuccess)
 		{
@@ -75,7 +73,7 @@ void HMNapoli::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<voi
 				return;
 			}
 
-			Download::DownloadMany(URLs, Directories::DownloadDir(), [OnComplete, VRTFile](TArray<FString> Files)
+			Download::DownloadMany(URLs, DownloadDir, [OnComplete, VRTFile](TArray<FString> Files)
 			{
 				if (Files.IsEmpty())
 				{

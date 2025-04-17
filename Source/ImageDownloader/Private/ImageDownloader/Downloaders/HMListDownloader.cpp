@@ -16,7 +16,7 @@
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-void HMListDownloader::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+void HMListDownloader::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
 {
 	FString AbsoluteListOfLinks = FGDALInterfaceModule::PluginDir / ListOfLinks;
 	FString FileContent = "";
@@ -34,7 +34,6 @@ void HMListDownloader::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunc
 
 	TArray<FString> Lines0, Lines;
 	FileContent.ParseIntoArray(Lines0, TEXT("\n"), true);
-
 	if (Lines0.Num() == 0)
 	{
 		ULCReporter::ShowError(
@@ -72,7 +71,7 @@ void HMListDownloader::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunc
 		FString FileName = Elements[NumElements - 1];
 		FString CleanFileName = FPaths::GetCleanFilename(FileName);
 		
-		FString OutputFile = FPaths::Combine(Directories::ImageDownloaderDir(), FPaths::GetCleanFilename(FileName));
+		FString OutputFile = FPaths::Combine(DownloadDir, FPaths::GetCleanFilename(FileName));
 		OutputFiles.Add(OutputFile);
 	}
 
@@ -80,7 +79,7 @@ void HMListDownloader::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunc
 		Lines.Num(),
 		[this, Lines](int i, TFunction<void (bool)> OnCompleteElement)
 		{
-			Download::FromURL(Lines[i], OutputFiles[i], true, OnCompleteElement);
+			Download::FromURL(Lines[i], OutputFiles[i], bIsUserInitiated, OnCompleteElement);
 		},
 		OnComplete
 	);

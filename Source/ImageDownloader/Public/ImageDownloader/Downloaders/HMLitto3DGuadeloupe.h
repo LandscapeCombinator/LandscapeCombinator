@@ -15,7 +15,8 @@ public:
 	{
 		OutputCRS = "EPSG:4559";
 	};
-	void Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+
+	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
 
 private:
 	FString Folder;

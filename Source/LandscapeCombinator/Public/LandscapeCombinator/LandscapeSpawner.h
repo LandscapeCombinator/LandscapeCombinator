@@ -263,9 +263,9 @@ public:
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeSpawner",
 		meta = (DisplayPriority = "-1")
 	)
-	void SpawnLandscape() { SpawnLandscape(SpawnedActorsPath, nullptr); };
+	void SpawnLandscape() { SpawnLandscape(SpawnedActorsPath, true, nullptr); };
 
-	void SpawnLandscape(FName SpawnedActorsPathOverride, TFunction<void(ALandscape*)> OnComplete);
+	void SpawnLandscape(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(ALandscape*)> OnComplete);
 	virtual void OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete) override;
 
 	virtual bool Cleanup_Implementation(bool bSkipPrompt) override
@@ -293,24 +293,6 @@ public:
 		meta = (DisplayPriority = "0")
 	)
 	void DeleteLandscape();
-
-	/* This deletes all the images, included downloaded files. */
-	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeSpawner",
-		meta = (DisplayPriority = "2")
-	)
-	void DeleteAllImages()
-	{
-		if (HeightmapDownloader) HeightmapDownloader->DeleteAllImages();
-	}
-
-	/* This preserves downloaded files but deleted all transformed images. */
-	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeSpawner",
-		meta = (DisplayPriority = "3")
-	)
-	void DeleteAllProcessedImages()
-	{
-		if (HeightmapDownloader) HeightmapDownloader->DeleteAllProcessedImages();
-	}
 
 	/* Click this to force reloading the WMS Provider from the URL */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeSpawner",

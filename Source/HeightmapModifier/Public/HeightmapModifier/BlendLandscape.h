@@ -69,8 +69,12 @@ public:
 	double OtherLandscapeNoData = 0;
 	
 #if WITH_EDITOR
+
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "BlendLandscape")
-	void BlendWithLandscape();
+	void BlendWithLandscape() { BlendWithLandscape(true); };
+
+	void BlendWithLandscape(bool bIsUserInitiated);
+
 #endif
 
 };

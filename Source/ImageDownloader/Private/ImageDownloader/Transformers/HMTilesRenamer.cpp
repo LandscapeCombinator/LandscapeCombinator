@@ -7,7 +7,7 @@
 #include "HAL/FileManagerGeneric.h"
 #include "Misc/ScopedSlowTask.h"
 
-void HMTilesRenamer::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+void HMTilesRenamer::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
 {
 	OutputCRS = InputCRS;
 
@@ -20,19 +20,10 @@ void HMTilesRenamer::Fetch(FString InputCRS, TArray<FString> InputFiles, TFuncti
 
 	Tiles = InputFiles;
 	ComputeMinMaxTiles();
-
-	FString RenamerFolder = FPaths::Combine(Directories::ImageDownloaderDir(), Name + "-Renamer");
-
-	if (!IPlatformFile::GetPlatformPhysical().DeleteDirectoryRecursively(*RenamerFolder) || !IPlatformFile::GetPlatformPhysical().CreateDirectory(*RenamerFolder))
-	{
-		Directories::CouldNotInitializeDirectory(RenamerFolder);
-		if (OnComplete) OnComplete(false);
-		return;
-	}
 	
 	for (auto& InputFile : InputFiles)
 	{
-		FString OutputFile = FPaths::Combine(RenamerFolder, Rename(InputFile));
+		FString OutputFile = FPaths::Combine(OutputDir, Rename(InputFile));
 		UE_LOG(LogImageDownloader, Log, TEXT("Copying %s to %s"), *InputFile, *OutputFile);
 		FFileManagerGeneric::Get().Copy(*OutputFile, *InputFile);
 

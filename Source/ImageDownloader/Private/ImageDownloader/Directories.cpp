@@ -3,6 +3,7 @@
 #include "ImageDownloader/Directories.h"
 #include "ImageDownloader/LogImageDownloader.h"
 #include "LCReporter/LCReporter.h"
+#include "LCCommon/LCSettings.h"
 
 #include "HAL/PlatformFile.h"
 #include "Misc/MessageDialog.h"
@@ -23,8 +24,15 @@ void Directories::CouldNotInitializeDirectory(FString Dir)
 
 FString Directories::ImageDownloaderDir()
 {
-	FString Intermediate = FPaths::ConvertRelativePathToFull(FPaths::EngineIntermediateDir());
-	FString ImageDownloaderDir = FPaths::Combine(Intermediate, "ImageDownloader");
+	FString Base = GetDefault<ULCSettings>()->TemporaryFolder;
+	if (Base.IsEmpty()) Base = FPaths::ConvertRelativePathToFull(FPaths::EngineIntermediateDir());
+	else if (!IPlatformFile::GetPlatformPhysical().CreateDirectory(*Base))
+	{
+		CouldNotInitializeDirectory(Base);
+		return "";
+	}
+
+	FString ImageDownloaderDir = FPaths::Combine(Base, "ImageDownloader");
 	if (!IPlatformFile::GetPlatformPhysical().CreateDirectory(*ImageDownloaderDir))
 	{
 		CouldNotInitializeDirectory(ImageDownloaderDir);

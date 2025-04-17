@@ -20,17 +20,8 @@
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+void HMXYZ::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
 {
-	FString XYZFolder = FPaths::Combine(Directories::ImageDownloaderDir(), Name + "-XYZ");
-
-	if (!IPlatformFile::GetPlatformPhysical().DeleteDirectoryRecursively(*XYZFolder) || !IPlatformFile::GetPlatformPhysical().CreateDirectory(*XYZFolder))
-	{
-		Directories::CouldNotInitializeDirectory(XYZFolder);
-		if (OnComplete) OnComplete(false);
-		return;
-	}
-
 	if (!bGeoreferenceSlippyTiles && CRS.IsEmpty())
 	{
 		ULCReporter::ShowError(
@@ -119,7 +110,7 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 	Concurrency::RunMany(
 		NumTiles,
 
-		[this, Task, XYZFolder, bShowedDialog](int i, TFunction<void(bool)> OnCompleteElement)
+		[this, Task, bShowedDialog, NumTiles](int i, TFunction<void(bool)> OnCompleteElement)
 		{
 			int X = i % (MaxX - MinX + 1) + MinX;
 			int Y = i / (MaxX - MinX + 1) + MinY;
@@ -128,14 +119,14 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 				URL.Replace(TEXT("{z}"), *FString::FromInt(Zoom))
 				   .Replace(TEXT("{x}"), *FString::FromInt(X))
 				   .Replace(TEXT("{y}"), *FString::FromInt(Y));
-			FString DownloadFile = FPaths::Combine(Directories::DownloadDir(), FString::Format(TEXT("{0}-{1}-{2}-{3}.{4}"), { Layer, Zoom, X, Y, Format }));
+			FString DownloadFile = FPaths::Combine(DownloadDir, FString::Format(TEXT("{0}-{1}-{2}-{3}.{4}"), { Layer, Zoom, X, Y, Format }));
 			int XOffset = X - MinX;
 			int YOffset = bMaxY_IsNorth ? MaxY - Y : Y - MinY;
 
 			FString FileName = FString::Format(TEXT("{0}_x{1}_y{2}"), { Name, XOffset, YOffset });
 
-			Download::FromURL(ReplacedURL, DownloadFile, false,
-				[this, Task, bShowedDialog, OnCompleteElement, ReplacedURL, DownloadFile, FileName, XYZFolder, X, Y](bool bOneSuccess)
+			Download::FromURL(ReplacedURL, DownloadFile, bIsUserInitiated && NumTiles < 20,
+				[this, Task, bShowedDialog, OnCompleteElement, ReplacedURL, DownloadFile, FileName, X, Y](bool bOneSuccess)
 				{
 					if (bOneSuccess)
 					{
@@ -143,7 +134,7 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 
 						if (bDecodeMapbox)
 						{
-							DecodedFile = FPaths::Combine(Directories::DownloadDir(), FString::Format(TEXT("{0}-{1}-{2}-{3}-decoded.{4}"), { Layer, Zoom, X, Y, Format }));
+							DecodedFile = FPaths::Combine(DownloadDir, FString::Format(TEXT("{0}-{1}-{2}-{3}-decoded.{4}"), { Layer, Zoom, X, Y, Format }));
 							if (!MapboxHelpers::DecodeMapboxThreeBands(DownloadFile, DecodedFile, bUseTerrariumFormula, bShowedDialog))
 							{
 								ULCReporter::ShowOneError(
@@ -160,7 +151,7 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 
 						if (Format.Contains("."))
 						{
-							FString ExtractionDir = FPaths::Combine(Directories::DownloadDir(), FString::Format(TEXT("{0}-{1}-{2}-{3}"), { Layer, Zoom, X, Y }));
+							FString ExtractionDir = FPaths::Combine(DownloadDir, FString::Format(TEXT("{0}-{1}-{2}-{3}"), { Layer, Zoom, X, Y }));
 							FString ExtractParams = FString::Format(TEXT("x -aos \"{0}\" -o\"{1}\""), { DownloadFile, ExtractionDir });
 
 							if (!Console::ExecProcess(TEXT("7z"), *ExtractParams))
@@ -198,7 +189,7 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 							GDALInterface::XYZTileToEPSG3857(X, Y, Zoom, MinLong, MaxLat);
 							GDALInterface::XYZTileToEPSG3857(X+1, Y+1, Zoom, MaxLong, MinLat);
 
-							FString OutputFile = FPaths::Combine(XYZFolder, FileName + ".tif");
+							FString OutputFile = FPaths::Combine(OutputDir, FileName + ".tif");
 							if (!GDALInterface::AddGeoreference(DecodedFile, OutputFile, "EPSG:3857", MinLong, MaxLong, MinLat, MaxLat))
 							{
 								if (OnCompleteElement) OnCompleteElement(false);
@@ -209,7 +200,7 @@ void HMXYZ::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 						}
 						else
 						{
-							FString OutputFile = FPaths::Combine(XYZFolder, FileName + FPaths::GetExtension(DecodedFile, true));
+							FString OutputFile = FPaths::Combine(OutputDir, FileName + FPaths::GetExtension(DecodedFile, true));
 							if (IFileManager::Get().Copy(*OutputFile, *DecodedFile) != COPY_OK)
 							{
 								if (OnCompleteElement) OnCompleteElement(false);

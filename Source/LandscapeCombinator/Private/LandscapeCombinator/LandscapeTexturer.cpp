@@ -53,7 +53,7 @@ void ALandscapeTexturer::CreateDecals(TObjectPtr<UGlobalCoordinates> GlobalCoord
 		if (OnComplete) OnComplete(false);
 		return;
 	}
-	ImageDownloader->DownloadImages(false, GlobalCoordinates, [this, bIsUserInitiated, SpawnedActorsPathOverride, OnComplete](TArray<FString> DownloadedImages, FString ImageCRS)
+	ImageDownloader->DownloadImages(bIsUserInitiated, false, GlobalCoordinates, [this, bIsUserInitiated, SpawnedActorsPathOverride, OnComplete](TArray<FString> DownloadedImages, FString ImageCRS)
 	{
 		TArray<ADecalActor*> NewDecals = UDecalCoordinates::CreateDecals(this->GetWorld(), DownloadedImages);
 		DecalActors.Append(NewDecals);

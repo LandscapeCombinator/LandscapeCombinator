@@ -30,15 +30,6 @@ public:
 	)
 	void DownloadImages();
 
-	/* This preserves downloaded files but deleted all transformed images. */
-	UFUNCTION(BlueprintCallable, CallInEditor, Category = "BasicImageDownloader",
-		meta = (DisplayPriority = "12")
-	)
-	void DeleteAllProcessedImages()
-	{
-		if (ImageDownloader) ImageDownloader->DeleteAllProcessedImages();
-	}
-
 	/* Click this to force reloading the WMS Provider from the URL */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "BasicImageDownloader",
 		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "13")

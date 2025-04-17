@@ -9,10 +9,16 @@
 class HMToPNG : public HMFetcher
 {
 public:
-	HMToPNG(FString Name0, bool bScaleAltitude0) : Name(Name0), bScaleAltitude(bScaleAltitude0) {};
-	void Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+	HMToPNG(FString Name0, bool bScaleAltitude0) : Name(Name0), bScaleAltitude(bScaleAltitude0) {};	
+	
+	FString GetOutputDir() override
+	{
+		return FPaths::Combine(ImageDownloaderDir, Name + "-PNG");
+	}
 
-private:
+	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+
+protected:
 	FString Name;
 	bool bScaleAltitude;
 };

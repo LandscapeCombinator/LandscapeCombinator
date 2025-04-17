@@ -17,7 +17,7 @@ public:
 		MaxLat(MaxLat0)
 	{};
 
-	void Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
 
 private:
 	int MinLong;
