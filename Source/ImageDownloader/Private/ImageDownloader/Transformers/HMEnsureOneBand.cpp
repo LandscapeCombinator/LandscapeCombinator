@@ -10,7 +10,7 @@
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-void HMEnsureOneBand::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+void HMEnsureOneBand::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
 {
 	OutputCRS = InputCRS;
 	OutputFiles.Append(InputFiles);

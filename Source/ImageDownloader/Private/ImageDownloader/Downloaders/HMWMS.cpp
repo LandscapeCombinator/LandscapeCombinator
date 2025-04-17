@@ -18,7 +18,7 @@
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-void HMWMS::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+void HMWMS::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
 {
 	FString URL;
 	bool bGeoTiff;
@@ -120,15 +120,14 @@ void HMWMS::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(b
 
 	OutputCRS = WMS_CRS;
 
-	FString DownloadDir = Directories::DownloadDir();
 	Concurrency::RunMany(
 		DownloadURLs.Num(),
-		[this, DownloadURLs, Bounds, FileNames, DownloadDir, bGeoTiff](int i, TFunction<void(bool)> OnCompleteElement)
+		[this, DownloadURLs, Bounds, FileNames, bGeoTiff](int i, TFunction<void(bool)> OnCompleteElement)
 		{
 			const FString FileName = FPaths::Combine(DownloadDir, FileNames[i]);
 			Download::FromURL(
-				DownloadURLs[i], FileName, true,
-				[this, DownloadDir, Bounds, FileNames, i, FileName, bGeoTiff, OnCompleteElement](bool bSuccess)
+				DownloadURLs[i], FileName, bIsUserInitiated,
+				[this, Bounds, FileNames, i, FileName, bGeoTiff, OnCompleteElement](bool bSuccess)
 				{
 					if (bSuccess)
 					{

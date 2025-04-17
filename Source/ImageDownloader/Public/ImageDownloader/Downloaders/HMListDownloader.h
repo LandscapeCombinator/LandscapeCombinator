@@ -7,8 +7,9 @@
 class HMListDownloader : public HMFetcher
 {
 public:
-	HMListDownloader(FString ListOfLinks0) : ListOfLinks(ListOfLinks0) {};	
-	void Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+	HMListDownloader(FString ListOfLinks0) : ListOfLinks(ListOfLinks0) {};
+
+	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
 
 private:
 	FString ListOfLinks;

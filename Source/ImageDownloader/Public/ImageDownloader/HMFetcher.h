@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "ImageDownloader/Directories.h"
 
 // Often used in the subclasses
 #include "HAL/PlatformFile.h"
@@ -21,11 +22,41 @@ public:
 	TArray<FString> OutputFiles;
 	FString OutputCRS = "";
 	bool bIsUserInitiated = false;
-	
-	virtual void Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) = 0;
 
 	HMFetcher* AndThen(HMFetcher* OtherFetcher);
 	HMFetcher* AndRun(TFunction<bool(HMFetcher*)> Lambda);
+
+	void Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+	{
+		if (SetDirectories()) OnFetch(InputCRS, InputFiles, OnComplete);
+		else if (OnComplete) OnComplete(false);
+	}
+
+protected:
+	FString ImageDownloaderDir = "";
+	FString DownloadDir = "";
+	FString OutputDir = "";
+
+	virtual FString GetOutputDir() { return ""; }
+
+	bool SetDirectories()
+	{
+		ImageDownloaderDir = Directories::ImageDownloaderDir();
+		if (ImageDownloaderDir.IsEmpty()) return false;
+
+		DownloadDir = Directories::DownloadDir();
+		if (DownloadDir.IsEmpty()) return false;
+
+		OutputDir = GetOutputDir();
+		if (OutputDir.IsEmpty()) return true; // This means this fetcher doesn't use an output directory
+
+		// in case an output dir is set, we attempt clear it (if it exists) or create it
+		return
+			IPlatformFile::GetPlatformPhysical().DeleteDirectoryRecursively(*OutputDir) &&
+			IPlatformFile::GetPlatformPhysical().CreateDirectory(*OutputDir);
+	}
+
+	virtual void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) = 0;
 };
 
 class IMAGEDOWNLOADER_API HMAndThenFetcher : public HMFetcher
@@ -41,7 +72,7 @@ public:
 	HMFetcher* Fetcher1;
 	HMFetcher* Fetcher2;
 	
-	void Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
 };
 
 class IMAGEDOWNLOADER_API HMAndRunFetcher : public HMFetcher
@@ -57,7 +88,7 @@ public:
 	HMFetcher* Fetcher;
 	TFunction<bool(HMFetcher*)> Lambda;
 	
-	void Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
 };
 
 #undef LOCTEXT_NAMESPACE

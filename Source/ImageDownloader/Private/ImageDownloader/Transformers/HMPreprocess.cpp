@@ -13,7 +13,7 @@
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-void HMPreprocess::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+void HMPreprocess::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
 {
 	if (!ExternalTool || ExternalTool->Command.IsEmpty())
 	{
@@ -25,15 +25,6 @@ void HMPreprocess::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction
 	}
 	OutputCRS = InputCRS;
 
-	FString Preprocess = FPaths::Combine(Directories::ImageDownloaderDir(), Name + "-Preprocess");
-
-	if (!IPlatformFile::GetPlatformPhysical().DeleteDirectoryRecursively(*Preprocess) || !IPlatformFile::GetPlatformPhysical().CreateDirectory(*Preprocess))
-	{
-		Directories::CouldNotInitializeDirectory(Preprocess);
-		if (OnComplete) OnComplete(false);
-		return;
-	}
-
 	FScopedSlowTask PreprocessTask(InputFiles.Num(), FText::Format(LOCTEXT("PreprocessTask", "Preprocessing Files using Command {0}"), FText::FromString(ExternalTool->Command)));
 	PreprocessTask.MakeDialog();
 
@@ -43,7 +34,7 @@ void HMPreprocess::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction
 
 		FString InputFile = InputFiles[i];
 		FString Extension = ExternalTool->bChangeExtension ? ExternalTool->NewExtension : FPaths::GetExtension(InputFile);
-		FString PreprocessedFile = FPaths::Combine(Preprocess, FPaths::GetBaseFilename(InputFile) + "." + Extension);
+		FString PreprocessedFile = FPaths::Combine(OutputDir, FPaths::GetBaseFilename(InputFile) + "." + Extension);
 		OutputFiles.Add(PreprocessedFile);
 
 		if (!ExternalTool->Run(InputFile, PreprocessedFile))

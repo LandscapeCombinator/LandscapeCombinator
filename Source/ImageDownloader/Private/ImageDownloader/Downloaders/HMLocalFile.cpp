@@ -9,7 +9,7 @@
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-void HMLocalFile::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+void HMLocalFile::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
 {
 	if (FPaths::FileExists(File))
 	{

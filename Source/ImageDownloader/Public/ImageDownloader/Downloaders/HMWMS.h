@@ -48,7 +48,7 @@ public:
     {
     }
 
-    void Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+    void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
 
 protected:
     FWMSProvider WMS_Provider;

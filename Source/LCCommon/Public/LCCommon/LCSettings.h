@@ -16,6 +16,10 @@ public:
 		CategoryName = "Plugins";
 	}
 
+	UPROPERTY(config, EditAnywhere, Category = "LandscapeCombinator", meta=(DisplayPriority = "0"))
+	/* Folder to hold the downloaded and processed files */
+	FString TemporaryFolder = "";
+
 	UPROPERTY(config, EditAnywhere, Category = "LandscapeCombinator", meta=(DisplayPriority = "100", DisplayName="MapTiler Token"))
 	FString MapTiler_Token = "";
 

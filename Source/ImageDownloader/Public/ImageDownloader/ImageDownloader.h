@@ -875,19 +875,7 @@ public:
 	 * Actions *
 	 ***********/
 
-	void DownloadImages(bool bEnsureOneBand, TObjectPtr<UGlobalCoordinates> GlobalCoordinates, TFunction<void(TArray<FString>, FString)> OnComplete);
-
-	/* This deletes all the images, included downloaded files. */
-	UFUNCTION(BlueprintCallable, CallInEditor, Category = "ImageDownloader",
-		meta = (DisplayPriority = "11")
-	)
-	void DeleteAllImages();
-
-	/* This preserves downloaded files but deleted all transformed images. */
-	UFUNCTION(BlueprintCallable, CallInEditor, Category = "ImageDownloader",
-		meta = (DisplayPriority = "12")
-	)
-	void DeleteAllProcessedImages();
+	void DownloadImages(bool bIsUserInitiated, bool bEnsureOneBand, TObjectPtr<UGlobalCoordinates> GlobalCoordinates, TFunction<void(TArray<FString>, FString)> OnComplete);
 
 	/* Click this to force reloading the WMS Provider from the URL */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "ImageDownloader",
@@ -924,7 +912,7 @@ public:
 #endif
 	
 	HMFetcher* CreateFetcher(
-		FString Name, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG,
+		bool bIsUserInitiated, FString Name, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG,
 		TFunction<bool(HMFetcher*)> RunBeforePNG, TObjectPtr<UGlobalCoordinates> GlobalCoordinates
 	);
 
@@ -966,7 +954,7 @@ protected:
 	void OnImageSourceChanged(TFunction<void(bool)> OnComplete);
 	void ResetWMSProvider(TArray<FString> ExcludeCRS, TFunction<bool(FString)> LayerFilter, TFunction<void(bool)> OnComplete);
 	
-	HMFetcher* CreateInitialFetcher(FString Name);
+	HMFetcher* CreateInitialFetcher(bool bIsUserInitiated, FString Name);
 
 	UFUNCTION()
 	bool HasMultipleLayers();

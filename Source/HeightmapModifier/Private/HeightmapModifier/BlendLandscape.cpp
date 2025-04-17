@@ -75,7 +75,7 @@ UBlendLandscape::UBlendLandscape()
 
 #if WITH_EDITOR
 
-void UBlendLandscape::BlendWithLandscape()
+void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 {
 	ALandscape *Landscape = Cast<ALandscape>(GetOwner());
 	if (!Landscape) return;
@@ -312,20 +312,23 @@ void UBlendLandscape::BlendWithLandscape()
 			*LandscapeToBlendWith->GetActorNameOrLabel(), OtherX1, OtherX2, OtherY1, OtherY2
 		);
 
-		ULCReporter::ShowMessage(
-			FText::Format(
-				LOCTEXT(
-					"UBlendLandscape::BlendWithLandscape::Finished",
-					"Finished blending with Landscape {0}."
+		if (bIsUserInitiated)
+		{
+			ULCReporter::ShowMessage(
+				FText::Format(
+					LOCTEXT(
+						"UBlendLandscape::BlendWithLandscape::Finished",
+						"Finished blending with Landscape {0}."
+					),
+					FText::FromString(LandscapeToBlendWith->GetActorNameOrLabel()),
+					false
 				),
-				FText::FromString(LandscapeToBlendWith->GetActorNameOrLabel()),
-				false
-			),
-			"SuppressBlendInfoMessages",
-			LOCTEXT("BlendLandscapeFinishedTitle", "Landscape Blending"),
-			false,
-			FAppStyle::GetBrush("Icons.InfoWithColor.Large")
-		);
+				"SuppressBlendInfoMessages",
+				LOCTEXT("BlendLandscapeFinishedTitle", "Landscape Blending"),
+				false,
+				FAppStyle::GetBrush("Icons.InfoWithColor.Large")
+			);
+		}
 		return;
 	}
 	else

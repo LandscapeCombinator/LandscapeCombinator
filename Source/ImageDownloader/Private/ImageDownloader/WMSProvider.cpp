@@ -29,7 +29,13 @@ void FWMSProvider::SetFromURL(FString URL, TArray<FString> ExcludeCRS, TFunction
 	MaxYs.Empty();
 
 	uint32 Hash = FTextLocalizationResource::HashString(URL);
-	CapabilitiesFile = FPaths::Combine(Directories::DownloadDir(), FString::Format(TEXT("capabilities_{0}.xsd"), { Hash }));
+	FString DownloadDir = Directories::DownloadDir();
+	if (DownloadDir.IsEmpty())
+	{
+		if (OnComplete) OnComplete(false);
+		return;
+	}
+	CapabilitiesFile = FPaths::Combine(DownloadDir, FString::Format(TEXT("capabilities_{0}.xsd"), { Hash }));
 
 	Download::FromURL(URL, CapabilitiesFile, true,
 		[this, ExcludeCRS, LayerFilter, OnComplete, URL](bool bSuccess)

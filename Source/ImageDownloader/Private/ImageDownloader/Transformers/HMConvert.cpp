@@ -12,10 +12,9 @@
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-void HMConvert::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+void HMConvert::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
 {
 	OutputCRS = InputCRS;
-
 
 	if (InputFiles[0].EndsWith(NewExtension))
 	{
@@ -23,15 +22,6 @@ void HMConvert::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<vo
 
 		OutputFiles.Append(InputFiles);
 		if (OnComplete) OnComplete(true);
-		return;
-	}
-
-	FString ConvertFolder = FPaths::Combine(Directories::ImageDownloaderDir(), Name + "-Convert");
-
-	if (!IPlatformFile::GetPlatformPhysical().DeleteDirectoryRecursively(*ConvertFolder) || !IPlatformFile::GetPlatformPhysical().CreateDirectory(*ConvertFolder))
-	{
-		Directories::CouldNotInitializeDirectory(ConvertFolder);
-		if (OnComplete) OnComplete(false);
 		return;
 	}
 
@@ -65,7 +55,7 @@ void HMConvert::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<vo
 		ConvertTask.EnterProgressFrame(1);
 
 		FString InputFile = InputFiles[i];
-		FString ConvertedFile = FPaths::Combine(ConvertFolder, FPaths::GetBaseFilename(InputFile) + "." + NewExtension);
+		FString ConvertedFile = FPaths::Combine(OutputDir, FPaths::GetBaseFilename(InputFile) + "." + NewExtension);
 		OutputFiles.Add(ConvertedFile);
 
 		if (!GDALInterface::Translate(InputFile, ConvertedFile, TArray<FString>()))

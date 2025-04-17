@@ -109,7 +109,8 @@ void ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 		}
 	}
 
-	HMFetcher* Fetcher = HeightmapDownloader->CreateFetcher(LandscapeMeshLabel, true, false, false, nullptr, GlobalCoordinates);
+	FString Name = GetWorld()->GetName() + "-" + LandscapeMeshLabel;
+	HMFetcher* Fetcher = HeightmapDownloader->CreateFetcher(bIsUserInitiated, Name, true, false, false, nullptr, GlobalCoordinates);
 
 	if (!Fetcher)
 	{

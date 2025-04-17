@@ -22,7 +22,7 @@ HMFetcher* HMFetcher::AndRun(TFunction<bool(HMFetcher*)> Lambda)
 	return new HMAndRunFetcher(this, Lambda);
 }
 
-void HMAndThenFetcher::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+void HMAndThenFetcher::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
 {
 	if (!Fetcher1 || !Fetcher2)
 	{
@@ -63,7 +63,7 @@ void HMAndThenFetcher::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunc
 	});
 }
 
-void HMAndRunFetcher::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+void HMAndRunFetcher::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
 {
 	Fetcher->Fetch(InputCRS, InputFiles, [this, OnComplete](bool bSuccess)
 	{

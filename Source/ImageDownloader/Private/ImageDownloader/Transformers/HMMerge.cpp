@@ -12,7 +12,7 @@
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-void HMMerge::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+void HMMerge::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
 {
 	OutputCRS = InputCRS;
 
@@ -22,20 +22,15 @@ void HMMerge::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void
 		if (OnComplete) OnComplete(true);
 		return;
 	}
-
-	FString MergeFolder = FPaths::Combine(
-		Directories::ImageDownloaderDir(),
-		Name + "-Merge"
-	);
 	
-	if (!IPlatformFile::GetPlatformPhysical().CreateDirectory(*MergeFolder))
+	if (!IPlatformFile::GetPlatformPhysical().CreateDirectory(*OutputDir))
 	{
-		Directories::CouldNotInitializeDirectory(MergeFolder);
+		Directories::CouldNotInitializeDirectory(OutputDir);
 		if (OnComplete) OnComplete(false);
 		return;
 	}
 
-	FString MergedFile = FPaths::Combine(MergeFolder, Name + ".tif");
+	FString MergedFile = FPaths::Combine(OutputDir, Name + ".tif");
 
 	FScopedSlowTask *MergeTask = new FScopedSlowTask(1, LOCTEXT("MergeTask", "GDAL Interface: Merging Files"));
 	MergeTask->MakeDialog();

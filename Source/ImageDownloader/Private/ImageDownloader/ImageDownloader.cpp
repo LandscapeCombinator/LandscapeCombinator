@@ -40,6 +40,7 @@
 #include "Coordinates/LevelCoordinates.h"
 #include "LandscapeUtils/LandscapeUtils.h"
 
+#include "Engine/World.h"
 #include "HAL/FileManagerGeneric.h"
 #include "Misc/MessageDialog.h"
 #include "Logging/StructuredLog.h"
@@ -93,7 +94,7 @@ TArray<FString> UImageDownloader::GetTitles()
 	return WMS_Provider.Titles;
 }
 
-HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
+HMFetcher* UImageDownloader::CreateInitialFetcher(bool bIsUserInitiated, FString Name)
 {
 	switch (ImageSourceKind)
 	{
@@ -215,7 +216,7 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 
 				if (IsMapbox())
 				{
-					if (!ULCReporter::ShowMapboxFreeTierWarning()) return nullptr;
+					if (bIsUserInitiated && !ULCReporter::ShowMapboxFreeTierWarning()) return nullptr;
 
 					FString MapboxToken2 = GetMapboxToken();
 					if (MapboxToken2.IsEmpty())
@@ -265,7 +266,7 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 				}
 				else if (IsMapTiler())
 				{
-					if (!ULCReporter::ShowMapTilerFreeTierWarning()) return nullptr;
+					if (bIsUserInitiated && !ULCReporter::ShowMapTilerFreeTierWarning()) return nullptr;
 
 					FString MapTilerToken2 = GetMapTilerToken();
 					if (MapTilerToken2.IsEmpty())
@@ -365,13 +366,13 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(FString Name)
 }
 
 HMFetcher* UImageDownloader::CreateFetcher(
-	FString Name, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG,
+	bool bIsUserInitiated, FString Name, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG,
 	TFunction<bool(HMFetcher*)> RunBeforePNG, TObjectPtr<UGlobalCoordinates> GlobalCoordinates
 )
 {
-	HMFetcher *Result = CreateInitialFetcher(Name);
+	HMFetcher *Result = CreateInitialFetcher(bIsUserInitiated, Name);
 	if (!Result) return nullptr;
-	
+	Result->bIsUserInitiated = bIsUserInitiated;
 	if (bRemap)
 	{
 		Result = Result->AndThen(new HMDebugFetcher("Convert", new HMConvert(Name, "tif")));
@@ -520,86 +521,6 @@ FString UImageDownloader::GetNextZenToken()
 	{
 		return NextZen_Token;
 	}
-}
-
-void UImageDownloader::DeleteAllImages()
-{
-	FString ImageDownloaderDir = Directories::ImageDownloaderDir();
-	if (!ImageDownloaderDir.IsEmpty())
-	{
-		if (!IPlatformFile::GetPlatformPhysical().DeleteDirectoryRecursively(*ImageDownloaderDir))
-		{
-			ULCReporter::ShowError(
-				FText::Format(
-					LOCTEXT("UImageDownloader::DeleteAllImages", "Could not delete all the files in {0}"),
-					FText::FromString(ImageDownloaderDir)
-				)
-			);
-			return;
-		}
-	}
-
-	ULCReporter::ShowInfo(
-		LOCTEXT("FinishedDeletingFiles", "Finished Deleting files."),
-		"SuppressFinishedDeletingFiles"
-	);
-}
-
-void UImageDownloader::DeleteAllProcessedImages()
-{
-	TArray<FString> Files;
-	TArray<FString> Folders;
-	IPlatformFile &PlatformFile = IPlatformFile::GetPlatformPhysical();
-
-	FString ImageDownloaderDir = Directories::ImageDownloaderDir();
-
-	UE_LOG(LogImageDownloader, Log, TEXT("DeleteAllProcessedImages"));
-
-	if (!ImageDownloaderDir.IsEmpty())
-	{
-		FFileManagerGeneric::Get().FindFiles(Files, *FPaths::Combine(ImageDownloaderDir, FString("*")), true, false);
-		UE_LOG(LogImageDownloader, Log, TEXT("Deleting %d files"), Files.Num());
-		for (auto& File0 : Files)
-		{
-			FString File = FPaths::Combine(ImageDownloaderDir, File0);
-			if (!IPlatformFile::GetPlatformPhysical().DeleteFile(*File))
-			{
-				ULCReporter::ShowError(
-					FText::Format(
-						LOCTEXT("UImageDownloader::DeleteAllProcessedImages::Files", "Could not delete file {0}"),
-						FText::FromString(File)
-					)
-				);
-				return;
-			}
-		}
-		
-		FFileManagerGeneric::Get().FindFiles(Folders, *FPaths::Combine(ImageDownloaderDir, FString("*")), false, true);
-		UE_LOG(LogImageDownloader, Log, TEXT("Deleting %d folders"), Folders.Num());
-		for (auto& Folder0 : Folders)
-		{
-			if (!Folder0.Equals("Download"))
-			{
-				FString Folder = FPaths::Combine(ImageDownloaderDir, Folder0);
-				UE_LOG(LogImageDownloader, Log, TEXT("Deleting folder %s."), *Folder);
-				if (!IPlatformFile::GetPlatformPhysical().DeleteDirectoryRecursively(*Folder))
-				{
-					ULCReporter::ShowError(
-						FText::Format(
-							LOCTEXT("UImageDownloader::DeleteAllProcessedImages::Folders", "Could not delete folder {0}"),
-							FText::FromString(Folder)
-						)
-					);
-					return;
-				}
-			}
-		}
-	}
-
-	ULCReporter::ShowInfo(
-		LOCTEXT("UImageDownloader::DeleteAllProcessedImages::OK", "Finished Deleting files."),
-		"SuppressFinishedDeletingFiles"
-	);
 }
 
 bool UImageDownloader::IsWMS()
@@ -1076,7 +997,7 @@ void UImageDownloader::ResetWMSProvider(TArray<FString> ExcludeCRS, TFunction<bo
 	}
 }
 
-void UImageDownloader::DownloadImages(bool bEnsureOneBand, TObjectPtr<UGlobalCoordinates> GlobalCoordinates, TFunction<void(TArray<FString>, FString)> OnComplete)
+void UImageDownloader::DownloadImages(bool bIsUserInitiated, bool bEnsureOneBand, TObjectPtr<UGlobalCoordinates> GlobalCoordinates, TFunction<void(TArray<FString>, FString)> OnComplete)
 {
 	AActor *Owner = GetOwner();
 	if (!IsValid(Owner))
@@ -1088,7 +1009,8 @@ void UImageDownloader::DownloadImages(bool bEnsureOneBand, TObjectPtr<UGlobalCoo
 		return;
 	}
 	
-	HMFetcher *Fetcher = CreateFetcher(Owner->GetActorNameOrLabel(), bEnsureOneBand, false, false, nullptr, GlobalCoordinates);
+	FString Name = Owner->GetWorld()->GetName() + "-" + Owner->GetActorNameOrLabel();
+	HMFetcher *Fetcher = CreateFetcher(bIsUserInitiated, Name, bEnsureOneBand, false, false, nullptr, GlobalCoordinates);
 
 	if (!Fetcher)
 	{

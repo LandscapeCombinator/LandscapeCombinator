@@ -20,12 +20,19 @@ void ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 {
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("Starting Combination with %d Generators"), Generators.Num());
 
-	Concurrency::RunSuccessively<TSoftObjectPtr<AActor>>(
+	Concurrency::RunSuccessively<FGeneratorWrapper>(
 		Generators,
 		
-		[this, SpawnedActorsPathOverride, bIsUserInitiated](TSoftObjectPtr<AActor> Generator, TFunction<void(bool)> OnCompleteOne) -> void
+		[this, SpawnedActorsPathOverride, bIsUserInitiated](FGeneratorWrapper GeneratorWrapper, TFunction<void(bool)> OnCompleteOne) -> void
 		{
-			if (Generator.IsValid())
+			TSoftObjectPtr<AActor> Generator = GeneratorWrapper.Generator;
+
+			if (!GeneratorWrapper.bIsEnabled)
+			{
+				if (OnCompleteOne) OnCompleteOne(true);
+				return;
+			}
+			else if (Generator.IsValid())
 			{
 				if (Generator->Implements<ULCGenerator>())
 				{
@@ -50,6 +57,7 @@ void ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 						if (OnCompleteOne) OnCompleteOne(bSuccess);
 					};
 
+					UE_LOG(LogLandscapeCombinator, Log, TEXT("Starting Generation with %s"), *Generator->GetActorNameOrLabel());
 					if (SpawnedActorsPathOverride.IsNone())
 						Cast<ILCGenerator>(Generator.Get())->Generate(FName(), bIsUserInitiated, OnCompleteOneSave);
 					else
@@ -86,11 +94,11 @@ bool ALandscapeCombination::Cleanup_Implementation(bool bSkipPrompt)
 	if (!bSkipPrompt)
 	{
 		TArray<UObject*> ObjectsToDelete;
-		for (auto &Generator : Generators)
+		for (auto &GeneratorWrapper : Generators)
 		{
-			if (Generator.IsValid() && Generator->Implements<ULCGenerator>())
+			if (GeneratorWrapper.bIsEnabled && GeneratorWrapper.Generator.IsValid() && GeneratorWrapper.Generator->Implements<ULCGenerator>())
 			{
-				ObjectsToDelete.Append(Cast<ILCGenerator>(Generator.Get())->GetGeneratedObjects());
+				ObjectsToDelete.Append(Cast<ILCGenerator>(GeneratorWrapper.Generator.Get())->GetGeneratedObjects());
 			}
 		}
 
@@ -116,11 +124,11 @@ bool ALandscapeCombination::Cleanup_Implementation(bool bSkipPrompt)
 		}
 	}
 
-	for (auto &Generator : Generators)
+	for (auto &GeneratorWrapper : Generators)
 	{
-		if (Generator.IsValid() && Generator->Implements<ULCGenerator>())
+		if (GeneratorWrapper.bIsEnabled && GeneratorWrapper.Generator.IsValid() && GeneratorWrapper.Generator->Implements<ULCGenerator>())
 		{
-			if (!Cast<ILCGenerator>(Generator.Get())->Execute_Cleanup(Generator.Get(), true)) return false;
+			if (!Cast<ILCGenerator>(GeneratorWrapper.Generator.Get())->Execute_Cleanup(GeneratorWrapper.Generator.Get(), true)) return false;
 		}
 	}
 	return true;
@@ -135,24 +143,27 @@ AActor* ALandscapeCombination::Duplicate(FName FromName, FName ToName)
 	)
 	{
 		NewCombination->Generators.Empty();
-		for (auto &Generator : Generators)
+		for (auto &GeneratorWrapper : Generators)
 		{
-			if (!Generator.IsValid())
+			if (!GeneratorWrapper.Generator.IsValid())
 			{
 				ULCReporter::ShowError(LOCTEXT("FailedDuplicateError1", "Invalid generator found during duplication."));
 				continue;
 			}
 
-			if (!Generator->Implements<ULCGenerator>())
+			if (!GeneratorWrapper.Generator->Implements<ULCGenerator>())
 			{
 				ULCReporter::ShowError(LOCTEXT("FailedDuplicateError2", "Generator does not implement the LCGenerator interface."));
 				continue;
 			}
 
-			if (AActor *DuplicatedGenerator = Cast<ILCGenerator>(Generator.Get())->Duplicate(FromName, ToName))
+			if (AActor *DuplicatedGenerator = Cast<ILCGenerator>(GeneratorWrapper.Generator.Get())->Duplicate(FromName, ToName))
 			{
+				FGeneratorWrapper NewGeneratorWrapper;
 				DuplicatedGenerator->SetFolderPath(ToName);
-				NewCombination->Generators.Add(DuplicatedGenerator);
+				NewGeneratorWrapper.bIsEnabled = GeneratorWrapper.bIsEnabled;
+				NewGeneratorWrapper.Generator = DuplicatedGenerator;
+				NewCombination->Generators.Add(NewGeneratorWrapper);
 			}
 			else
 			{

@@ -28,7 +28,7 @@ HMViewfinderDownloader::HMViewfinderDownloader(FString MegaTilesString, FString 
 	bIs15 = bIs15_0;
 }
 
-void HMViewfinderDownloader::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+void HMViewfinderDownloader::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
 {
 	if (!Console::ExecProcess(TEXT("7z"), TEXT(""), false))
 	{
@@ -47,26 +47,16 @@ void HMViewfinderDownloader::Fetch(FString InputCRS, TArray<FString> InputFiles,
 		if (OnComplete) OnComplete(false);
 		return;
 	}
-	
-	FString DownloadDir = Directories::DownloadDir();
-	FString ImageDownloaderDir = Directories::ImageDownloaderDir();
 
-	if (DownloadDir.IsEmpty() || ImageDownloaderDir.IsEmpty())
-	{
-		if (OnComplete) OnComplete(false);
-		return;
-	}
-
-	FString Dir = Directories::DownloadDir();
 	Concurrency::RunMany<FString>(
 		MegaTiles,
-		[this, DownloadDir, ImageDownloaderDir](FString MegaTile, TFunction<void(bool)> OnCompleteElement)
+		[this](FString MegaTile, TFunction<void(bool)> OnCompleteElement)
 		{
 			FString ZipFile = FPaths::Combine(DownloadDir, FString::Format(TEXT("{0}.zip"), { MegaTile }));
 			FString ExtractionDir = FPaths::Combine(ImageDownloaderDir, MegaTile);
 			FString URL = FString::Format(TEXT("{0}{1}.zip"), { BaseURL, MegaTile });
 
-			Download::FromURL(URL, ZipFile, true, [this, ExtractionDir, ZipFile, MegaTile, OnCompleteElement](bool bWasSuccessful)
+			Download::FromURL(URL, ZipFile, bIsUserInitiated, [this, ExtractionDir, ZipFile, MegaTile, OnCompleteElement](bool bWasSuccessful)
 			{
 				if (bWasSuccessful)
 				{

@@ -9,17 +9,9 @@
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-void HMToPNG::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+void HMToPNG::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
 {
 	OutputCRS = InputCRS;
-	FString PNGFolder = FPaths::Combine(Directories::ImageDownloaderDir(), Name + "-PNG");
-
-	if (!IPlatformFile::GetPlatformPhysical().DeleteDirectoryRecursively(*PNGFolder) || !IPlatformFile::GetPlatformPhysical().CreateDirectory(*PNGFolder))
-	{
-		Directories::CouldNotInitializeDirectory(PNGFolder);
-		if (OnComplete) OnComplete(false);
-		return;
-	}
 
 	FVector2D Altitudes;
 	if (bScaleAltitude && !GDALInterface::GetMinMax(Altitudes, InputFiles))
@@ -48,7 +40,7 @@ void HMToPNG::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void
 		ToPNGTask.EnterProgressFrame(1);
 
 		FString InputFile = InputFiles[i];
-		FString PNGFile = FPaths::Combine(PNGFolder, FPaths::GetBaseFilename(InputFile) + ".png");
+		FString PNGFile = FPaths::Combine(OutputDir, FPaths::GetBaseFilename(InputFile) + ".png");
 		OutputFiles.Add(PNGFile);
 
 		if (bScaleAltitude)

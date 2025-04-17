@@ -12,7 +12,7 @@
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-void HMReproject::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+void HMReproject::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
 {
 	if (OutputCRS == InputCRS)
 	{
@@ -22,22 +22,7 @@ void HMReproject::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<
 		return;
 	}
 
-	FString ReprojectedFolder = FPaths::Combine(
-		Directories::ImageDownloaderDir(),
-		Name + "-" + OutputCRS.Replace(TEXT(":"), TEXT("_"))
-	);
-	
-	if (!IPlatformFile::GetPlatformPhysical().CreateDirectory(*ReprojectedFolder))
-	{
-		Directories::CouldNotInitializeDirectory(ReprojectedFolder);
-		if (OnComplete) OnComplete(false);
-		return;
-	}
-
-	FString ReprojectedFile = FPaths::Combine(
-		ReprojectedFolder,
-		Name + ".tif"
-	);
+	FString ReprojectedFile = FPaths::Combine(OutputDir, Name + ".tif");
 
 	FScopedSlowTask *ReprojectTask = new FScopedSlowTask(1, LOCTEXT("WarpTask", "GDAL Interface: Reprojecting File"));
 	ReprojectTask->MakeDialog();

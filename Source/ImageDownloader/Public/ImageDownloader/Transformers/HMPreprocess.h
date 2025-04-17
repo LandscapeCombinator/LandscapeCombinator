@@ -13,9 +13,13 @@ public:
 	HMPreprocess(FString Name0, TObjectPtr<UExternalTool> ExternalTool0) :
 		Name(Name0), ExternalTool(ExternalTool0) {};
 
-	void Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+	FString GetOutputDir() override
+	{
+		return FPaths::Combine(ImageDownloaderDir, Name + "-Preprocess");
+	}
+	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
 
-private:
+protected:
 	FString Name;
 	TObjectPtr<UExternalTool> ExternalTool;
 };

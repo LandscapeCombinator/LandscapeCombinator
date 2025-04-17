@@ -1230,38 +1230,68 @@ bool ABuilding::InitializeWallSegments()
 				Length
 			)) return false;
 
-			double SegmentsSize = 0;
 			int NumFillers = 0;
-
 			for (auto WallSegment : WallSegmentsAtSplinePoint[LevelDescriptionIndex][i])
 			{
-				if (WallSegment.bAutoExpand)
-				{
-					NumFillers++;
-				}
-				else
-				{
-					SegmentsSize += WallSegment.SegmentLength;
-				}
+				if (WallSegment.bAutoExpand) NumFillers++;
 			}
 
-			if (SegmentsSize > Length)
+			// if there are no fillers in the expanded wall segments, we take as many fillers as
+			// possible, ignoring their lengths, and we take as many fixed sized segments as possible
+			if (NumFillers == 0)
 			{
-				UE_LOG(LogBuildingFromSpline, Error, TEXT("SegmentsSize (%f) > Length (%f)"), SegmentsSize, Length);
+				double NonFillersSegmentsSize = 0;
+				int WallSegmentIndex = 0;
+				int NumSegments = LevelDescription.WallSegments.Num();
+				WallSegmentsAtSplinePoint[LevelDescriptionIndex][i].Empty();
+				while (NonFillersSegmentsSize < Length && WallSegmentIndex < NumSegments)
+				{
+					const auto& CurrentWallSegment = LevelDescription.WallSegments[WallSegmentIndex];
+					if (CurrentWallSegment.bAutoExpand)
+					{
+						WallSegmentsAtSplinePoint[LevelDescriptionIndex][i].Add(CurrentWallSegment);
+					}
+					else if (NonFillersSegmentsSize + CurrentWallSegment.SegmentLength <= Length)
+					{
+						NonFillersSegmentsSize += CurrentWallSegment.SegmentLength;
+						WallSegmentsAtSplinePoint[LevelDescriptionIndex][i].Add(CurrentWallSegment);
+					}
+					WallSegmentIndex++;
+				}
+			}
+			
+			// we then recount the number of fillers, as well as the non-fillers segments size
+			NumFillers = 0;
+			double NonFillersSegmentsSize = 0;
+			for (auto WallSegment : WallSegmentsAtSplinePoint[LevelDescriptionIndex][i])
+			{
+				if (WallSegment.bAutoExpand) NumFillers++;
+				else NonFillersSegmentsSize += WallSegment.SegmentLength;
+			}
+
+			if (NonFillersSegmentsSize > Length)
+			{
+				ULCReporter::ShowError(
+					FText::Format(
+						LOCTEXT("SegmentsSizeGreaterThanLengthFmt", "Internal error during Building Generation: NonFillersSegmentsSize ({0}) > Length ({1})"),
+						FText::AsNumber(NonFillersSegmentsSize),
+						FText::AsNumber(Length)
+					)
+				);
 				return false;
 			}
 
-			// if there are no fillers, we add two, one at the beginning and one at the end
+			// if there are still no fillers, we add two, one at the beginning and one at the end
 			double FillersSize;
 			if (NumFillers == 0)
 			{
 				WallSegmentsAtSplinePoint[LevelDescriptionIndex][i].EmplaceAt(0, DummyFiller);
 				WallSegmentsAtSplinePoint[LevelDescriptionIndex][i].Add(DummyFiller);
-				FillersSize = (Length - SegmentsSize) / 2;
+				FillersSize = (Length - NonFillersSegmentsSize) / 2;
 			}
 			else
 			{
-				FillersSize = (Length - SegmentsSize) / NumFillers;
+				FillersSize = (Length - NonFillersSegmentsSize) / NumFillers;
 			}
 
 			FillersSizeAtSplinePoint[LevelDescriptionIndex][i] = FillersSize;

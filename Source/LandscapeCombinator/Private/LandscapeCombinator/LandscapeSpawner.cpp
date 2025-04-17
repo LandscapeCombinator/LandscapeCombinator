@@ -126,13 +126,13 @@ void ALandscapeSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUser
 		return;
 	}
 
-	SpawnLandscape(SpawnedActorsPathOverride, [this, OnComplete](ALandscape* Landscape)
+	SpawnLandscape(SpawnedActorsPathOverride, bIsUserInitiated, [this, OnComplete](ALandscape* Landscape)
 	{
 		OnComplete(IsValid(Landscape));
 	});
 }
 
-void ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, TFunction<void(ALandscape*)> OnComplete)
+void ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(ALandscape*)> OnComplete)
 {
 	Modify();
 
@@ -149,7 +149,7 @@ void ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, TFunctio
 	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false);
 	if (IsValid(GlobalCoordinates))
 	{
-		if (!ULCReporter::ShowMessage(
+		if (bIsUserInitiated && !ULCReporter::ShowMessage(
 			LOCTEXT(
 				"ALandscapeSpawner::OnGenerate::ExistingGlobal",
 				"There already exists a LevelCoordinates actor. Continue?\n"
@@ -172,10 +172,12 @@ void ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, TFunctio
 	ULandscapeSubsystem* LandscapeSubsystem = GetWorld()->GetSubsystem<ULandscapeSubsystem>();
 
 	bool bIsGridBased = LandscapeSubsystem && LandscapeSubsystem->IsGridBased();
-
 	HeightmapDownloader->bMergeImages = !bIsGridBased;
+
+	FString Name = GetWorld()->GetName() + "-" + LandscapeLabel;
 	HMFetcher* Fetcher = HeightmapDownloader->CreateFetcher(
-		LandscapeLabel,
+		bIsUserInitiated,
+		Name,
 		true,
 		true,
 		true,
@@ -201,12 +203,12 @@ void ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, TFunctio
 		return;
 	}
 
-	Fetcher->Fetch("", TArray<FString>(), [Fetcher, Altitudes, CRS, Coordinates, OnComplete, SpawnedActorsPathOverride, this](bool bSuccess)
+	Fetcher->Fetch("", TArray<FString>(), [bIsUserInitiated, Fetcher, Altitudes, CRS, Coordinates, OnComplete, SpawnedActorsPathOverride, this](bool bSuccess)
 	{
 		if (bSuccess)
 		{
 			// GameThread to spawn a landscape
-			AsyncTask(ENamedThreads::GameThread, [bSuccess, Fetcher, Altitudes, CRS, Coordinates, OnComplete, SpawnedActorsPathOverride, this]()
+			AsyncTask(ENamedThreads::GameThread, [bIsUserInitiated, bSuccess, Fetcher, Altitudes, CRS, Coordinates, OnComplete, SpawnedActorsPathOverride, this]()
 			{
 				int CmPerPixel = 0;
 				TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false);
@@ -296,7 +298,7 @@ void ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, TFunctio
 						if (ALandscape *OtherLandscape = Cast<ALandscape>(LandscapeToBlendWith.GetActor(GetWorld())))
 						{
 							BlendLandscape->LandscapeToBlendWith = OtherLandscape;
-							BlendLandscape->BlendWithLandscape();
+							BlendLandscape->BlendWithLandscape(bIsUserInitiated);
 						}
 						else
 						{
@@ -320,16 +322,19 @@ void ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, TFunctio
 					{
 						case EDecalCreation::None:
 						{
-							ULCReporter::ShowMessage(
-								FText::Format(
-									LOCTEXT("LandscapeCreated", "Landscape {0} was created successfully"),
-									FText::FromString(LandscapeLabel)
-								),
-								"SuppressSpawnedLandscapeInfo",
-								LOCTEXT("SpawnedLandscapeTitle", "Spawned Landscape"),
-								false,
-								FAppStyle::GetBrush("Icons.InfoWithColor.Large")
-							);
+							if (bIsUserInitiated)
+							{
+								ULCReporter::ShowMessage(
+									FText::Format(
+										LOCTEXT("LandscapeCreated", "Landscape {0} was created successfully"),
+										FText::FromString(LandscapeLabel)
+									),
+									"SuppressSpawnedLandscapeInfo",
+									LOCTEXT("SpawnedLandscapeTitle", "Spawned Landscape"),
+									false,
+									FAppStyle::GetBrush("Icons.InfoWithColor.Large")
+								);
+							}
 						
 							if (OnComplete) OnComplete(SpawnedLandscape.Get());
 							return;
@@ -375,7 +380,7 @@ void ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, TFunctio
 							}
 
 							DecalDownloader->bMergeImages = bDecalMergeImages;
-							DecalDownloader->DownloadImages(false, GlobalCoordinates, [this, SpawnedActorsPathOverride, OnComplete](TArray<FString> DownloadedImages, FString ImageCRS)
+							DecalDownloader->DownloadImages(bIsUserInitiated, false, GlobalCoordinates, [this, bIsUserInitiated, SpawnedActorsPathOverride, OnComplete](TArray<FString> DownloadedImages, FString ImageCRS)
 							{
 								TArray<ADecalActor*> NewDecals = UDecalCoordinates::CreateDecals(this->GetWorld(), DownloadedImages);
 								DecalActors.Append(NewDecals);
@@ -393,7 +398,16 @@ void ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, TFunctio
 								});
 #endif
 
-								if (NewDecals.Num() > 0)
+								if (NewDecals.IsEmpty())
+								{
+									ULCReporter::ShowError(
+										FText::Format(
+											LOCTEXT("LandscapeDecalsCreatedError", "There was an error while creating decals for Landscape {0}"),
+											FText::FromString(LandscapeLabel)
+										)
+									);
+								}
+								else if (bIsUserInitiated)
 								{
 									ULCReporter::ShowInfo(
 										FText::Format(
@@ -403,15 +417,6 @@ void ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, TFunctio
 										),
 										"SuppressSpawnedLandscapeInfo",
 										LOCTEXT("SpawnedLandscapeTitle", "Spawned Landscape with Decals")
-									);
-								}
-								else
-								{
-									ULCReporter::ShowError(
-										FText::Format(
-											LOCTEXT("LandscapeCreatedError", "There was an error while creating Landscape {0}"),
-											FText::FromString(LandscapeLabel)
-										)
 									);
 								}
 

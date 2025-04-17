@@ -11,7 +11,7 @@
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-void HMReadCRS::Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+void HMReadCRS::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
 {
 	OGRSpatialReference InRs;
 	if (!GDALInterface::SetCRSFromFile(InRs, InputFiles[0]))
