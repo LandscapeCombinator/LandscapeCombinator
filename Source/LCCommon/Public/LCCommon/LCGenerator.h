@@ -43,7 +43,7 @@ public:
 	void OnGenerateBP(FName SpawnedActorsPath, bool bIsUserInitiated);
 	virtual void OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete) { OnComplete(true); }
 
-	void Generate(FName SpawnedActorsPath, bool bIsUserInitiated,TFunction<void(bool)> OnComplete);
+	void Generate(FName SpawnedActorsPath, bool bIsUserInitiated, TFunction<void(bool)> OnComplete);
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, CallInEditor, Category = "LCGenerator")
 	// return false if the user doesn't want to cleanup
