@@ -526,6 +526,7 @@ bool LandscapeUtils::SpawnLandscape(
 		OutSpawnedLandscape->Modify();
 		UE_LOG(LogLandscapeUtils, Log, TEXT("Creating LandscapeStreamingProxies with World Partition Grid Size: %d"), UISettings->WorldPartitionGridSize);
 		LandscapeSubsystem->ChangeGridSize(LandscapeInfo, UISettings->WorldPartitionGridSize);
+		UE_LOG(LogLandscapeUtils, Log, TEXT("Finished changing grid size"));
 		TArray<ALandscapeStreamingProxy*> LandscapeStreamingProxies = LandscapeUtils::GetLandscapeStreamingProxies(NewLandscape);
 		UE_LOG(LogLandscapeUtils, Log, TEXT("Obtained %d Landscape Streaming Proxies"), LandscapeStreamingProxies.Num());
 		OutSpawnedLandscapeStreamingProxies.Append(LandscapeStreamingProxies);
