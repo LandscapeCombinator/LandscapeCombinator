@@ -196,6 +196,7 @@ void HMXYZ::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void
 								return;
 							}
 
+							UE_LOG(LogImageDownloader, Log, TEXT("Adding file: %s"), *OutputFile);
 							OutputFiles.Add(OutputFile);
 						}
 						else
@@ -207,6 +208,7 @@ void HMXYZ::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void
 								return;
 							}
 
+							UE_LOG(LogImageDownloader, Log, TEXT("Adding file: %s"), *OutputFile);
 							OutputFiles.Add(OutputFile);
 						}
 					}
