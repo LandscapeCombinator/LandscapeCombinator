@@ -31,8 +31,20 @@ void HMDebugFetcher::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunc
 	{
 		if (bSuccess)
 		{
+			if (!this)
+			{
+				ULCReporter::ShowError(LOCTEXT("BadThisPointer", "Internal Error: Bad `this` pointer"));
+				if (OnComplete) OnComplete(false);
+			}
+			if (!Fetcher)
+			{
+				ULCReporter::ShowError(LOCTEXT("BadFetcherPointer", "Internal Error: Bad `Fetcher` pointer"));
+				if (OnComplete) OnComplete(false);
+			}
+
 			OutputFiles = Fetcher->OutputFiles;
-			OutputCRS = Fetcher->OutputCRS;
+			OutputCRS = Fetcher->OutputCRS;	
+
 			UE_LOG(LogImageDownloader, Log, TEXT("Finished running Phase %s, and got files:\n%s"), *Name, *FString::Join(OutputFiles, TEXT("\n")));
 			UE_LOG(LogImageDownloader, Log, TEXT("OutputCRS: %s"), *OutputCRS);
 			if (OnComplete) OnComplete(true);
