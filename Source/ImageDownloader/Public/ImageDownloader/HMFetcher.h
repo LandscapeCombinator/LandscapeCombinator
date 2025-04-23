@@ -23,6 +23,8 @@ public:
 	FString OutputCRS = "";
 	bool bIsUserInitiated = false;
 
+	virtual void SetIsUserInitiated(bool bIsUserInitiatedIn) { bIsUserInitiated = bIsUserInitiatedIn; }
+
 	HMFetcher* AndThen(HMFetcher* OtherFetcher);
 	HMFetcher* AndRun(TFunction<bool(HMFetcher*)> Lambda);
 
@@ -71,6 +73,12 @@ public:
 	
 	HMFetcher* Fetcher1;
 	HMFetcher* Fetcher2;
+
+	void SetIsUserInitiated(bool bIsUserInitiatedIn) override {
+		HMFetcher::SetIsUserInitiated(bIsUserInitiatedIn);
+		Fetcher1->SetIsUserInitiated(bIsUserInitiatedIn);
+		Fetcher2->SetIsUserInitiated(bIsUserInitiatedIn);
+	}
 	
 	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
 };
@@ -87,6 +95,11 @@ public:
 	
 	HMFetcher* Fetcher;
 	TFunction<bool(HMFetcher*)> Lambda;
+
+	void SetIsUserInitiated(bool bIsUserInitiatedIn) override {
+		HMFetcher::SetIsUserInitiated(bIsUserInitiatedIn);
+		Fetcher->SetIsUserInitiated(bIsUserInitiatedIn);
+	}
 	
 	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
 };

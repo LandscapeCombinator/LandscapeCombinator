@@ -21,6 +21,11 @@ public:
 	FString Name;
 	HMFetcher *Fetcher;
 	bool bAllowEmpty;
+
+	void SetIsUserInitiated(bool bIsUserInitiatedIn) override {
+		HMFetcher::SetIsUserInitiated(bIsUserInitiatedIn);
+		Fetcher->SetIsUserInitiated(bIsUserInitiatedIn);
+	}
 	
 	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
 };
