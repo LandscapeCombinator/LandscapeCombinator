@@ -211,7 +211,7 @@ void HMXYZ::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void
 						}
 					}
 
-					if (bIsUserInitiated && Task) Task->EnterProgressFrame(1);
+					if (bIsUserInitiated && Task) Concurrency::RunOnGameThreadAndWait([Task]() { Task->EnterProgressFrame(1); });
 					
 					if (OnCompleteElement) OnCompleteElement(bOneSuccess || bAllowInvalidTiles);
 				}
