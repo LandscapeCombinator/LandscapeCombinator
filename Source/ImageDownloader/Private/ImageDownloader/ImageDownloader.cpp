@@ -372,7 +372,7 @@ HMFetcher* UImageDownloader::CreateFetcher(
 {
 	HMFetcher *Result = CreateInitialFetcher(bIsUserInitiated, Name);
 	if (!Result) return nullptr;
-	Result->bIsUserInitiated = bIsUserInitiated;
+	Result->SetIsUserInitiated(bIsUserInitiated);
 	if (bRemap)
 	{
 		Result = Result->AndThen(new HMDebugFetcher("Convert", new HMConvert(Name, "tif")));

@@ -488,7 +488,7 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS()",
-			EditConditionHides, DisplayPriority = "33"
+			EditConditionHides, DisplayPriority = "33", DisplayName = "WMS Single Tile"
 		)
 	)
 	/**

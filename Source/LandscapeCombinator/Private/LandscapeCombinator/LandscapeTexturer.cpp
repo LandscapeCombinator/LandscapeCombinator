@@ -71,12 +71,12 @@ void ALandscapeTexturer::CreateDecals(TObjectPtr<UGlobalCoordinates> GlobalCoord
 		if (bIsUserInitiated)
 		{
 			Concurrency::RunOnGameThreadAndWait([this, &NewDecals](){
-				if (DecalActors.Num() > 0)
+				if (NewDecals.Num() > 0)
 				{
 					ULCReporter::ShowInfo(
 						FText::Format(
 							LOCTEXT("LandscapeCreated2", "Successfully created {0} Decals"),
-							FText::AsNumber(DecalActors.Num())
+							FText::AsNumber(NewDecals.Num())
 						),
 						"SuppressSpawnedDecalsInfo",
 						LOCTEXT("SpawnedDecalsTitle", "Spawned Decals")

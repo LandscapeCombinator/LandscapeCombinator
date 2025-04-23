@@ -45,6 +45,28 @@ void HMWMS::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void
 		double Width = FMath::Min(WMS_MaxTileWidth, (WMS_MaxLong - WMS_MinLong) * WMS_ResolutionPixelsPerUnit);
 		double Height = FMath::Min(WMS_MaxTileHeight, (WMS_MaxLat - WMS_MinLat) * WMS_ResolutionPixelsPerUnit);
 
+		double ActualResolution = FMath::Min(Width / (WMS_MaxLong - WMS_MinLong), Height / (WMS_MaxLat - WMS_MinLat));
+		if (bIsUserInitiated && ActualResolution < WMS_ResolutionPixelsPerUnit && !ULCReporter::ShowMessage(
+				FText::Format(
+					LOCTEXT(
+						"LowResolutionMessage",
+						"Cannot download a single tile with a resolution of {0} pixels per unit because maximum tile size is {1}x{2} pixels.\n"
+						"Continue with a lower resolution ({3} pixels per unit)?"
+					),
+					FText::AsNumber(WMS_ResolutionPixelsPerUnit),
+					FText::AsNumber(WMS_MaxTileWidth),
+					FText::AsNumber(WMS_MaxTileHeight),
+					FText::AsNumber(ActualResolution)
+				),
+				"SuppressedLowResolution",
+				LOCTEXT("LowResolutionTitle", "Cannot download tiles at given resolution")
+			)
+		)
+		{
+			if (OnComplete) OnComplete(false);
+			return;
+		}
+
 		if (WMS_Provider.CreateURL(Width, Height, WMS_Name, WMS_CRS, WMS_X_IsLong,
 								WMS_MinAllowedLong, WMS_MaxAllowedLong, WMS_MinAllowedLat, WMS_MaxAllowedLat,
 								WMS_MinLong, WMS_MaxLong, WMS_MinLat, WMS_MaxLat, URL, bGeoTiff, FileExt))
@@ -62,8 +84,11 @@ void HMWMS::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void
 	else
 	{
 		// Multiple tiles download
-		double TileWidth = (WMS_MaxLong - WMS_MinLong) / NumTilesX;
-		double TileHeight = (WMS_MaxLat - WMS_MinLat) / NumTilesY;
+		double LongTileDiff = (WMS_MaxLong - WMS_MinLong) / NumTilesX;
+		double LatTileDiff = (WMS_MaxLat - WMS_MinLat) / NumTilesY;
+
+		double TileWidth = FMath::Min(WMS_MaxTileWidth, LongTileDiff * WMS_ResolutionPixelsPerUnit);
+		double TileHeight = FMath::Min(WMS_MaxTileHeight, LatTileDiff * WMS_ResolutionPixelsPerUnit);
 
 		int TotalTiles = NumTilesX * NumTilesY;
 		if (TotalTiles <= 0)
@@ -96,10 +121,10 @@ void HMWMS::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void
 		{
 			for (int y = 0; y < NumTilesY; ++y)
 			{
-				double MinLong = WMS_MinLong + x * TileWidth;
-				double MaxLong = FMath::Min(MinLong + TileWidth, WMS_MaxLong);
-				double MaxLat = WMS_MaxLat - y * TileHeight;
-				double MinLat = FMath::Max(MaxLat - TileHeight, WMS_MinLat);
+				double MinLong = WMS_MinLong + x * LongTileDiff;
+				double MaxLong = FMath::Min(MinLong + LongTileDiff, WMS_MaxLong);
+				double MaxLat = WMS_MaxLat - y * LatTileDiff;
+				double MinLat = FMath::Max(MaxLat - LatTileDiff, WMS_MinLat);
 
 				if (WMS_Provider.CreateURL(TileWidth, TileHeight, WMS_Name, WMS_CRS, WMS_X_IsLong,
 										WMS_MinAllowedLong, WMS_MaxAllowedLong, WMS_MinAllowedLat, WMS_MaxAllowedLat,
