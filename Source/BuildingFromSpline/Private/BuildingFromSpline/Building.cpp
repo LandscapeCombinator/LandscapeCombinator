@@ -1711,11 +1711,6 @@ void ABuilding::GenerateStaticMesh()
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("GenerateStaticMesh");
 	EGeometryScriptOutcomePins Outcome;
 
-	FGeometryScriptCreateNewStaticMeshAssetOptions Options;
-	FMeshNaniteSettings NaniteSettings;
-	NaniteSettings.bEnabled = BuildingConfiguration->bEnableNanite;
-	NaniteSettings.bPreserveArea = true;
-
 	FString Unused;
 	FGeometryScriptUniqueAssetNameOptions GeometryScriptUniqueAssetNameOptions;
 	GeometryScriptUniqueAssetNameOptions.UniqueIDDigits = 18;
@@ -1739,6 +1734,10 @@ void ABuilding::GenerateStaticMesh()
 		}
 	}
 
+
+	FGeometryScriptCreateNewStaticMeshAssetOptions Options;
+	Options.bEnableCollision = true;
+	Options.CollisionMode = DynamicMeshComponent->CollisionType;
 	UStaticMesh *StaticMesh = UGeometryScriptLibrary_CreateNewAssetFunctions::CreateNewStaticMeshAssetFromMesh(
 		DynamicMeshComponent->GetDynamicMesh(), StaticMeshPath,
 		Options, Outcome
@@ -1752,6 +1751,9 @@ void ABuilding::GenerateStaticMesh()
 		return;
 	}
 
+	FMeshNaniteSettings NaniteSettings;
+	NaniteSettings.bEnabled = BuildingConfiguration->bEnableNanite;
+	NaniteSettings.bPreserveArea = true;
 	StaticMesh->NaniteSettings = NaniteSettings;
 
 	int NumMaterials = DynamicMeshComponent->GetNumMaterials();
