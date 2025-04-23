@@ -35,11 +35,13 @@ void HMDebugFetcher::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunc
 			{
 				ULCReporter::ShowError(LOCTEXT("BadThisPointer", "Internal Error: Bad `this` pointer"));
 				if (OnComplete) OnComplete(false);
+				return;
 			}
 			if (!Fetcher)
 			{
 				ULCReporter::ShowError(LOCTEXT("BadFetcherPointer", "Internal Error: Bad `Fetcher` pointer"));
 				if (OnComplete) OnComplete(false);
+				return;
 			}
 
 			OutputFiles = Fetcher->OutputFiles;
