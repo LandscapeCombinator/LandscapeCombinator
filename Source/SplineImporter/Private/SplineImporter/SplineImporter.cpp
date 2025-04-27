@@ -194,6 +194,7 @@ void ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 				if (OnComplete) OnComplete(false);
 				return;
 			}
+
 			UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), true);
 
 			if (!GlobalCoordinates)
@@ -457,7 +458,7 @@ bool ASplineImporter::AddRegularSpline(
 			double x = XY[0];
 			double y = XY[1];
 			double z;
-			if (LandscapeUtils::GetZ(World, CollisionQueryParams, x, y, z))
+			if (LandscapeUtils::GetZ(World, CollisionQueryParams, x, y, z, bDebugLineTraces))
 			{
 				FVector Location = FVector(x, y, z) + SplinePointsOffset;
 				SplinePoints.Add(Location);
@@ -693,7 +694,7 @@ void ASplineImporter::AddLandscapeSplinesPoints(
 		double x = XY[0];
 		double y = XY[1];
 		double z = 0;
-		if (LandscapeUtils::GetZ(World, CollisionQueryParams, x, y, z))
+		if (LandscapeUtils::GetZ(World, CollisionQueryParams, x, y, z, bDebugLineTraces))
 		{
 			FVector Location = FVector(x, y, z) + SplinePointsOffset;
 			FVector LocalLocation = LandscapeSplinesComponent->GetComponentToWorld().InverseTransformPosition(Location);
