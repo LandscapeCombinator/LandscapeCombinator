@@ -22,7 +22,7 @@ void ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 
 	Concurrency::RunSuccessively<FGeneratorWrapper>(
 		Generators,
-		
+
 		[this, SpawnedActorsPathOverride, bIsUserInitiated](FGeneratorWrapper GeneratorWrapper, TFunction<void(bool)> OnCompleteOne) -> void
 		{
 			TSoftObjectPtr<AActor> Generator = GeneratorWrapper.Generator;
@@ -38,7 +38,8 @@ void ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 				{
 					UE_LOG(LogLandscapeCombinator, Log, TEXT("Starting generator: %s"), *Generator->GetActorNameOrLabel());
 
-					auto OnCompleteOneSave = [OnCompleteOne, bIsUserInitiated, this](bool bSuccess) {
+					double StartTime = FPlatformTime::Seconds();
+					auto OnCompleteOneSave = [OnCompleteOne, bIsUserInitiated, this, StartTime, Generator](bool bSuccess) {
 #if WITH_EDITOR
 						if (bSuccess && bSaveAfterEachGenerator)
 						{
@@ -54,6 +55,11 @@ void ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 							});
 						}
 #endif
+						double Time = FPlatformTime::Seconds() - StartTime;
+
+						if (!TimeSpent.Contains(Generator.Get())) TimeSpent.Add(Generator.Get(), Time);
+						else TimeSpent[Generator.Get()] += Time;
+
 						if (OnCompleteOne) OnCompleteOne(bSuccess);
 					};
 
@@ -82,8 +88,20 @@ void ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 				return;
 			}
 		},
-		
-		OnComplete
+
+		[this, OnComplete](bool bSuccess) {
+			TArray<TPair<AActor*, double>> Times;
+			for (auto &Time : TimeSpent)
+			{
+				Times.Add(TPair<AActor*, double>(Time.Key, Time.Value));
+			}
+			Times.Sort([](const TPair<AActor*, double> &A, const TPair<AActor*, double> &B) { return A.Value < B.Value; });
+			for (auto &Time : Times)
+			{
+				UE_LOG(LogLandscapeCombinator, Log, TEXT("Total generation time for %s: %f seconds"), *Time.Key->GetActorNameOrLabel(), Time.Value);
+			}
+			if (OnComplete) OnComplete(bSuccess);
+		}
 	);
 }
 

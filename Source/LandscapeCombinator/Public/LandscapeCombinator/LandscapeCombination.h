@@ -88,4 +88,7 @@ public:
 		meta = (DisplayPriority = "11", ShowOnlyInnerProperties)
 	)
 	TObjectPtr<ULCContinuousGeneration> ContinuousGeneration = nullptr;
+
+protected:
+	TMap<AActor*, double> TimeSpent;
 };
