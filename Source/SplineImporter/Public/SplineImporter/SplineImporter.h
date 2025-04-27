@@ -45,6 +45,12 @@ public:
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+		meta = (DisplayPriority = "-1")
+	)
+	bool bDebugLineTraces = false;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
 		meta = (DisplayPriority = "0")
 	)
 	bool bDeleteOldSplinesWhenCreatingSplines = false;

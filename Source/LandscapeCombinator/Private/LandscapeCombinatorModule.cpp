@@ -11,6 +11,7 @@
 #include "LandscapeCombinator/LandscapeTexturerCustomization.h"
 #include "LandscapeCombinator/LandscapeMesh.h"
 #include "LandscapeCombinator/LandscapeMeshCustomization.h"
+#include "LandscapeCombinator/LogLandscapeCombinator.h"
 
 #include "LCReporter/LCReporter.h"
 
@@ -29,6 +30,13 @@ IMPLEMENT_MODULE(FLandscapeCombinatorModule, LandscapeCombinator)
 
 void FLandscapeCombinatorModule::StartupModule()
 {
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("LandscapeCombinator StartupModule"));
+	UE_LOG(LogLandscapeCombinator, Warning,
+		TEXT("Setting geometry.DynamicMesh.MaxComplexCollisionTriCount to 2147483647 to make sure "
+			 "that collisions for dynamic meshes are correctly generated."));
+	IConsoleVariable* CVar_MaxComplexCollisionTriCount = IConsoleManager::Get().FindConsoleVariable(TEXT("geometry.DynamicMesh.MaxComplexCollisionTriCount"));
+	if (CVar_MaxComplexCollisionTriCount) CVar_MaxComplexCollisionTriCount->Set(2147483647);
+
 	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 	PropertyModule.RegisterCustomClassLayout(ALandscapeMesh::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FLandscapeMeshCustomization::MakeInstance));
 	PropertyModule.RegisterCustomClassLayout(ALandscapeSpawner::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FLandscapeSpawnerCustomization::MakeInstance));
