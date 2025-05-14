@@ -1,15 +1,14 @@
 // Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "ConcurrencyHelpers/Concurrency.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 #include "ConcurrencyHelpers/LogConcurrencyHelpers.h"
-#include "LCReporter/LCReporter.h"
 
 #include "Async/Async.h"
 #include "Misc/MessageDialog.h"
+#include "Misc/EngineVersionComparison.h"
 
 #define LOCTEXT_NAMESPACE "FConcurrencyHelpersModule"
-
-using namespace ConcurrencyOperators;
 
 void Concurrency::RunAsync(TFunction<void()> Action)
 {
@@ -28,6 +27,17 @@ void Concurrency::RunMany(int n, TFunction<void( int i, TFunction<void(bool)> )>
 	RunMany(Elements, Action, OnComplete);
 }
 
+bool Concurrency::RunManyAndWait(int n, TFunction<bool( int i )> Action)
+{
+	TArray<int> Elements;
+	Elements.Reserve(n);
+	for (int i = 0; i < n; i++)
+	{
+		Elements.Add(i);
+	}
+	return RunManyAndWait(Elements, Action);
+}
+
 void Concurrency::RunOnGameThread(TFunction<void()> Action)
 {
 	if (IsInGameThread())
@@ -39,69 +49,71 @@ void Concurrency::RunOnGameThread(TFunction<void()> Action)
 	AsyncTask(ENamedThreads::GameThread, [Action]() { Action(); });
 }
 
-void Concurrency::RunOnGameThreadAndWait(TFunction<void()> Action)
+bool Concurrency::RunOnThreadAndWait(bool bRunOnGameThread, TFunction<bool()> Action)
 {
 	if (IsInGameThread())
 	{
-		Action();
-		return;
+		if (bRunOnGameThread) return Action();
+		else
+		{
+			LCReporter::ShowError(
+				LOCTEXT("RunOnThreadAndWaitGameThread", "Internal error: Concurrency::RunOnThreadAndWait(false, _) cannot not be called from the game thread.")
+			);
+			return false;
+		}
 	}
 
 	FEvent* SyncEvent = FPlatformProcess::GetSynchEventFromPool(false);
 	if (!SyncEvent)
 	{
-		UE_LOG(LogConcurrencyHelpers, Error, TEXT("Failed to create sync event for RunOnGameThreadAndWait."));
-		return;
-	}
-
-	AsyncTask(ENamedThreads::GameThread, [Action = MoveTemp(Action), SyncEvent]()
-	{
-		Action();
-		SyncEvent->Trigger();
-	});
-
-	SyncEvent->Wait();
-	FPlatformProcess::ReturnSynchEventToPool(SyncEvent);
-}
-
-bool Concurrency::RunOnGameThreadAndReturn(TFunction<bool()> Action)
-{
-	if (IsInGameThread())
-	{
-		return Action();
-	}
-
-	FEvent* SyncEvent = FPlatformProcess::GetSynchEventFromPool(false);
-	if (!SyncEvent)
-	{
-		ULCReporter::ShowError(
-			LOCTEXT("RunOnGameThreadAndReturn", "Failed to create sync event for RunOnGameThreadAndWait.")
+		LCReporter::ShowError(
+			LOCTEXT("RunOnThreadAndWaitEvent", "Failed to create sync event for RunOnGameThreadAndWait.")
 		);
 		return false;
 	}
 
 	bool bSuccess = false;
-	AsyncTask(ENamedThreads::GameThread, [Action = MoveTemp(Action), &bSuccess, SyncEvent]()
+	
+	if (bRunOnGameThread)
 	{
-		bSuccess = Action();
-		SyncEvent->Trigger();
-	});
+
+#if UE_VERSION_OLDER_THAN(5, 6, 0)
+		Async(EAsyncExecution::TaskGraphMainThread, [Action = MoveTemp(Action), &bSuccess, SyncEvent]()
+#else
+		Async(EAsyncExecution::TaskGraphMainTick, [Action = MoveTemp(Action), &bSuccess, SyncEvent]()
+#endif
+		{
+			bSuccess = Action();
+			SyncEvent->Trigger();
+		});
+	}
+	else
+	{
+		Async(EAsyncExecution::Thread, [Action = MoveTemp(Action), &bSuccess, SyncEvent]()
+		{
+			bSuccess = Action();
+			SyncEvent->Trigger();
+		});
+	}
 
 	SyncEvent->Wait();
 	FPlatformProcess::ReturnSynchEventToPool(SyncEvent);
 	return bSuccess;
 }
 
-TFunction<void(TFunction<void(bool)>)> ConcurrencyOperators::operator >> (TFunction<void(TFunction<void(bool)>)> Action1, TFunction<void(TFunction<void(bool)>)> Action2)
+bool Concurrency::RunOnGameThreadAndWait(TFunction<bool()> Action)
 {
-	return [Action1, Action2](TFunction<void(bool)> OnComplete)
+	if (IsInGameThread())
 	{
-		Action1([OnComplete, Action2](bool bSuccess)
-		{
-			if (bSuccess) Action2(OnComplete);
-			else UE_LOG(LogConcurrencyHelpers, Error, TEXT("Something went wrong in the concurrency callbacks, pleqse check for previous errors0"));
-		});
-	};
+		return Action();
+	}
+
+	return RunOnThreadAndWait(true, MoveTemp(Action));
+}
+
+bool Concurrency::RunAsyncAndWait(TFunction<bool()> Action)
+{
+	return RunOnThreadAndWait(false, MoveTemp(Action));
 }
 
 TFunction<void(TFunction<void(bool)>)> Concurrency::Return(TFunction<void()> Action)

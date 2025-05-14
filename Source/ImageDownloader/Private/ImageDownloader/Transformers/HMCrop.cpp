@@ -4,26 +4,24 @@
 #include "ImageDownloader/Directories.h"
 #include "ImageDownloader/LogImageDownloader.h"
 #include "GDALInterface/GDALInterface.h"
-#include "LCReporter/LCReporter.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "HAL/PlatformFile.h"
-#include "Misc/ScopedSlowTask.h"
 #include "Misc/Paths.h"
 #include "Misc/MessageDialog.h"
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-void HMCrop::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+bool HMCrop::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 {
 	OutputCRS = InputCRS;
 
 	if (InputFiles.Num() != 1)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("HMCrop::Fetch", "Image Downloader Error: The AdaptResolution and CropCoordinates options are not available for sources that are made of multiple images.")
 		);
-		if (OnComplete) OnComplete(false);
-		return;
+		return false;
 	}
 
 	double South = Coordinates[2];
@@ -31,18 +29,8 @@ void HMCrop::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<voi
 	double North = Coordinates[3];
 	double East = Coordinates[1];
 
-	FScopedSlowTask CropTask(InputFiles.Num(), LOCTEXT("CropTask", "GDAL Interface: Cropping files"));
-	CropTask.MakeDialog(true);
-
 	for (int32 i = 0; i < InputFiles.Num(); i++)
 	{
-		if (CropTask.ShouldCancel())
-		{
-			if (OnComplete) OnComplete(false);
-			return;
-		}
-		CropTask.EnterProgressFrame(1);
-
 		FString InputFile = InputFiles[i];
 		FString CroppedFile = FPaths::Combine(OutputDir, FPaths::GetBaseFilename(InputFile) + ".tif");
 		OutputFiles.Add(CroppedFile);
@@ -69,15 +57,10 @@ void HMCrop::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<voi
 			Args.Add(FString::FromInt(Pixels[1]));
 		}
 
-		if (!GDALInterface::Warp(InputFile, CroppedFile, Args))
-		{
-			if (OnComplete) OnComplete(false);
-			return;
-		}
+		if (!GDALInterface::Warp(InputFile, CroppedFile, Args)) return false;
 	}
 
-	if (OnComplete) OnComplete(true);
-	return;
+	return true;
 }
 
 #undef LOCTEXT_NAMESPACE

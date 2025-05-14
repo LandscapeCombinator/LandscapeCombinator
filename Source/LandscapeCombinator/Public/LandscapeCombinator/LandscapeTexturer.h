@@ -5,7 +5,7 @@
 #include "Coordinates/LevelCoordinates.h"
 #include "ImageDownloader/ImageDownloader.h"
 #include "LCCommon/LCGenerator.h"
-#include "LCReporter/LCReporter.h"
+#include "ConcurrencyHelpers/Concurrency.h"
 
 #include "CoreMinimal.h"
 #include "Landscape.h"
@@ -32,7 +32,7 @@ public:
 		if (IsValid(ImageDownloader)) return ImageDownloader->ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY);
 		else
 		{
-			ULCReporter::ShowError(LOCTEXT("Error", "ImageDownloader is not set"));
+			LCReporter::ShowError(LOCTEXT("Error", "ImageDownloader is not set"));
 			return false;
 		}
 	}
@@ -66,9 +66,9 @@ public:
 		return Result;
 	}
 
-	virtual void OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete) override
+	virtual bool OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated) override
 	{
-		CreateDecals(ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false), SpawnedActorsPathOverride, bIsUserInitiated, OnComplete);
+		return CreateDecals(ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false), SpawnedActorsPathOverride, bIsUserInitiated);
 	}
 
 	virtual bool Cleanup_Implementation(bool bSkipPrompt) override
@@ -89,7 +89,9 @@ public:
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeTexturer",
 		meta = (DisplayPriority = "10")
 	)
-	void CreateDecals() { Generate(SpawnedActorsPath, true, nullptr); };
+	void CreateDecals() { 
+		Concurrency::RunAsync([this]() { Generate(SpawnedActorsPath, true); });
+	}
 	
 	/* Delete all decal actors asoociated with this Landscape Texturer */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeTexturer",
@@ -97,7 +99,7 @@ public:
 	)
 	void ClearDecals() { Execute_Cleanup(this, false); }
 	
-	void CreateDecals(TObjectPtr<UGlobalCoordinates> GlobalCoordinates, FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete);
+	bool CreateDecals(TObjectPtr<UGlobalCoordinates> GlobalCoordinates, FName SpawnedActorsPathOverride, bool bIsUserInitiated);
 
 	/* Click this to force reloading the WMS Provider from the URL */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeTexturer",

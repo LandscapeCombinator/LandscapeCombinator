@@ -2,8 +2,8 @@
 
 #include "ImageDownloader/Directories.h"
 #include "ImageDownloader/LogImageDownloader.h"
-#include "LCReporter/LCReporter.h"
 #include "LCCommon/LCSettings.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "HAL/PlatformFile.h"
 #include "Misc/MessageDialog.h"
@@ -14,7 +14,7 @@
 
 void Directories::CouldNotInitializeDirectory(FString Dir)
 {
-	ULCReporter::ShowError(
+	LCReporter::ShowError(
 		FText::Format(
 			LOCTEXT("DirectoryError", "Could not create or clear directory '{0}'."),
 			FText::FromString(Dir)

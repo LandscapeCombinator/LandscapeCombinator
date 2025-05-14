@@ -1,8 +1,8 @@
 // Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "LandscapeCombinator/LandscapePCGVolume.h"
-#include "LCReporter/LCReporter.h"
 #include "LCCommon/LCBlueprintLibrary.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "PCGGraph.h"
 #include "Helpers/PCGGraphParametersHelpers.h"
@@ -23,29 +23,23 @@ void ALandscapePCGVolume::SetPositionAndBounds()
 	SetActorScale3D(Bounds / 100);
 }
 
-void ALandscapePCGVolume::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete)
+bool ALandscapePCGVolume::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated)
 {
 	Modify();
 
-	if (IsValid(PCGComponent))
-	{
-		PCGComponent->Generate(true);
-		OnComplete(true);
-	}
-	else
-	{
-		OnComplete(false);
-	}
+	if (!IsValid(PCGComponent)) return false;
+
+	PCGComponent->Generate(true);
+	return true;
 }
 
 bool ALandscapePCGVolume::Cleanup_Implementation(bool bSkipPrompt)
 {
 	Modify();
 	
-	if (IsValid(PCGComponent))
-	{
-		PCGComponent->Cleanup();
-	}
+	if (!IsValid(PCGComponent)) return false;
+
+	PCGComponent->Cleanup();
 	return true;
 }
 
@@ -72,7 +66,7 @@ AActor *ALandscapePCGVolume::Duplicate(FName FromName, FName ToName)
 	}
 	else
 	{
-		ULCReporter::ShowError(LOCTEXT("ALandscapePCGVolume::DuplicateActor", "Failed to duplicate actor."));
+		LCReporter::ShowError(LOCTEXT("ALandscapePCGVolume::DuplicateActor", "Failed to duplicate actor."));
 		return nullptr;
 	}
 }

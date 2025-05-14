@@ -32,8 +32,7 @@ public class Coordinates : ModuleRules
 				"GDALInterface",
 				"LandscapeUtils",
 				"FileDownloader",
-				"ConcurrencyHelpers",
-				"LCReporter"
+				"ConcurrencyHelpers"
 			}
 		);
 	}

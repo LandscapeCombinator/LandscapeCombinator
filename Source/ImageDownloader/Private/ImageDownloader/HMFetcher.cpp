@@ -3,7 +3,7 @@
 #include "ImageDownloader/HMFetcher.h"
 #include "ImageDownloader/LogImageDownloader.h"
 #include "ConcurrencyHelpers/Concurrency.h"
-#include "LCReporter/LCReporter.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "Interfaces/IPluginManager.h"
 #include "Kismet/GameplayStatics.h"
@@ -22,72 +22,53 @@ HMFetcher* HMFetcher::AndRun(TFunction<bool(HMFetcher*)> Lambda)
 	return new HMAndRunFetcher(this, Lambda);
 }
 
-void HMAndThenFetcher::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+bool HMAndThenFetcher::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 {
 	if (!Fetcher1 || !Fetcher2)
 	{
-		if (OnComplete) OnComplete(false);
-		return;
+		return false;
 	}
 
-	Fetcher1->Fetch(InputCRS, InputFiles, [this, OnComplete](bool bSuccess1)
+	if (Fetcher1->Fetch(InputCRS, InputFiles) &&
+		Fetcher2->Fetch(Fetcher1->OutputCRS, Fetcher1->OutputFiles))
 	{
-		if (bSuccess1)
+		OutputFiles = Fetcher2->OutputFiles;
+		if (!Fetcher2->OutputCRS.IsEmpty())
 		{
-			Fetcher2->Fetch(Fetcher1->OutputCRS, Fetcher1->OutputFiles, [this, OnComplete](bool bSuccess2)
-			{
-				if (bSuccess2)
-				{
-					OutputFiles = Fetcher2->OutputFiles;
-					if (!Fetcher2->OutputCRS.IsEmpty())
-					{
-						OutputCRS = Fetcher2->OutputCRS;
-					}
-					else
-					{
-						OutputCRS = Fetcher1->OutputCRS;
-					}
-					if (OnComplete) OnComplete(true);
-				}
-				else
-				{
-					if (OnComplete) OnComplete(false);
-				}
-
-			});
+			OutputCRS = Fetcher2->OutputCRS;
 		}
 		else
 		{
-			if (OnComplete) OnComplete(false);
+			OutputCRS = Fetcher1->OutputCRS;
 		}
-	});
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
-void HMAndRunFetcher::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+bool HMAndRunFetcher::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 {
-	Fetcher->Fetch(InputCRS, InputFiles, [this, OnComplete](bool bSuccess)
+	if (Fetcher->Fetch(InputCRS, InputFiles))
 	{
-		if (bSuccess)
-		{
-			OutputFiles = Fetcher->OutputFiles;
-			OutputCRS = Fetcher->OutputCRS;
+		OutputFiles = Fetcher->OutputFiles;
+		OutputCRS = Fetcher->OutputCRS;
 
-			bool bSuccessLambda = Lambda(this);
-
-			if (!bSuccessLambda)
-			{
-				ULCReporter::ShowError(
-					LOCTEXT("LambdaFail", "Image Downloader Error: There was an error while running lambda in AndRunFetcher.")
-				); 
-			}
-
-			if (OnComplete) OnComplete(bSuccessLambda);
-		}
+		if (Lambda(this)) return true;
 		else
 		{
-			if (OnComplete) OnComplete(false);
+			LCReporter::ShowError(
+				LOCTEXT("LambdaFail", "Image Downloader Error: There was an error while running lambda in AndRunFetcher.")
+			);
+			return false;
 		}
-	});
+	}
+	else
+	{
+		return false;
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

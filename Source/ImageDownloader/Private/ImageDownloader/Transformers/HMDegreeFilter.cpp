@@ -1,12 +1,12 @@
 // Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "ImageDownloader/Transformers/HMDegreeFilter.h"
-#include "LCReporter/LCReporter.h"
 #include "Misc/MessageDialog.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-void HMDegreeFilter::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+bool HMDegreeFilter::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 {
 	OutputCRS = InputCRS;
 	for (auto& InputFile : InputFiles)
@@ -21,15 +21,12 @@ void HMDegreeFilter::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunc
 
 	if (OutputFiles.IsEmpty())
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("HMDegreeFilter", "No files left after Viewfinder Panoramas filtering. Check your MinLong, MaxLong, MinLat, MaxLat values.")
-		); 
-		if (OnComplete) OnComplete(false);
+		);
+		return false;
 	}
-	else
-	{
-		if (OnComplete) OnComplete(true);
-	}
+	else return true;
 }
 
 #undef LOCTEXT_NAMESPACE

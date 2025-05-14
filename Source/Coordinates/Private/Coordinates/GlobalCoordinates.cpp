@@ -2,7 +2,7 @@
 
 #include "Coordinates/GlobalCoordinates.h"
 #include "LandscapeUtils/LandscapeUtils.h"
-#include "LCReporter/LCReporter.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "Landscape.h"
 #include "Misc/MessageDialog.h"
@@ -130,7 +130,7 @@ bool UGlobalCoordinates::GetLandscapeCRSBounds(ALandscape *Landscape, FString To
 	FVector2D MinMaxX, MinMaxY, UnusedMinMaxZ;
 	if (!LandscapeUtils::GetLandscapeBounds(Landscape, MinMaxX, MinMaxY, UnusedMinMaxZ))
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("UGlobalCoordinates::GetLandscapeCRSBounds::1", "Could not compute bounds of Landscape {0}"),
 			FText::FromString(Landscape->GetActorNameOrLabel())
 		));
@@ -144,7 +144,7 @@ bool UGlobalCoordinates::GetLandscapeCRSBounds(ALandscape *Landscape, FString To
 	Locations[3] = MinMaxY[0];
 	if (!GetCRSCoordinatesFromUnrealLocations(Locations, ToCRS, OutCoordinates))
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("UGlobalCoordinates::GetLandscapeCRSBounds::2", "Could not compute coordinates of Landscape {0}"),
 			FText::FromString(Landscape->GetActorNameOrLabel())
 		));
@@ -171,7 +171,7 @@ bool UGlobalCoordinates::GetActorCRSBounds(AActor* Actor, FString ToCRS, FVector
 		Actor->GetActorBounds(true, Origin, BoxExtent);
 		if (!GetCRSCoordinatesFromOriginExtent(Origin, BoxExtent, ToCRS, OutCoordinates))
 		{
-			ULCReporter::ShowError(FText::Format(
+			LCReporter::ShowError(FText::Format(
 				LOCTEXT("UGlobalCoordinates::GetActorCRSBounds", "Internal error while reading {0}'s coordinates."),
 				FText::FromString(Actor->GetActorNameOrLabel())
 			));

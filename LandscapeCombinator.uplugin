@@ -18,7 +18,7 @@
 			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		},
 		{
-			"Name": "BuildingFromSpline",
+			"Name": "BuildingsFromSplines",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
 			"WhitelistPlatforms": [ "Win64", "Linux" ]
@@ -91,12 +91,6 @@
 		},
 		{
 			"Name": "LCCommon",
-			"Type": "Runtime",
-			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64", "Linux" ]
-		},
-		{
-			"Name": "LCReporter",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
 			"WhitelistPlatforms": [ "Win64", "Linux" ]

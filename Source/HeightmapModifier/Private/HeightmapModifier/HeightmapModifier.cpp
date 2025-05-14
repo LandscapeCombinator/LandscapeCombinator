@@ -2,10 +2,10 @@
 
 #include "HeightmapModifier/HeightmapModifier.h"
 #include "HeightmapModifier/LogHeightmapModifier.h"
-#include "LCReporter/LCReporter.h"
 
 #include "LandscapeUtils/LandscapeUtils.h"
 #include "GDALInterface/GDALInterface.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "Kismet/GameplayStatics.h"
 #include "Landscape.h"
@@ -15,6 +15,9 @@
 #include "Runtime/Launch/Resources/Version.h"
 #include "Misc/MessageDialog.h"
 
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 5)
+#include "LandscapeEditLayer.h"
+#endif
 
 #define LOCTEXT_NAMESPACE "FHeightmapModifierModule"
 
@@ -30,7 +33,7 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 	ALandscape *Landscape = Cast<ALandscape>(GetOwner());
 	if (!Landscape)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("UHeightmapModifier::ModifyHeightmap::1", "The owner of HeightmapModifier must be a landscape.")
 		); 
 		return;
@@ -40,7 +43,7 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 
 	if (Landscape->IsMaxLayersReached())
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("UHeightmapModifier::ModifyHeightmap::Layers", "Landscape {0} has too many edit layers, please delete one.")
 		); 
 		return;
@@ -48,7 +51,7 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 
 	if (!BoundingActor)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("UHeightmapModifier::ModifyHeightmap::2", "Please select a bounding actor.")
 		); 
 		return;
@@ -85,7 +88,7 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 
 	if (SizeX > INT32_MAX / SizeY)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("UHeightmapModifier::ModifyHeightmap::28", "The size of the area to edit is too large.")
 		);
 		return;
@@ -94,7 +97,7 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 	uint16* HeightmapData = (uint16*) malloc(SizeX * SizeY * (sizeof (uint16)));
 	if (!HeightmapData)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("UHeightmapModifier::ModifyHeightmap::29", "Not enough memory to allocate for new heightmap data.")
 		);
 		return;
@@ -103,7 +106,7 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 	ULandscapeInfo *LandscapeInfo = Landscape->GetLandscapeInfo();
 	if (!LandscapeInfo)
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("UHeightmapModifier::ModifyHeightmap::3", "Could not get LandscapeInfo for Landscape {0}."),
 			FText::FromString(LandscapeLabel)
 		)); 
@@ -122,7 +125,7 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 	FString TempDir = FPaths::Combine(Intermediate, "Temp");
 	if (!IPlatformFile::GetPlatformPhysical().CreateDirectory(*TempDir))
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("UHeightmapModifier::ModifyHeightmap::4", "Could not initialize directory {0}."),
 			FText::FromString(TempDir)
 		));
@@ -158,7 +161,7 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 
 	if (!NewDataset)
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("UHeightmapModifier::ModifyHeightmap::6", "Could not read file {0} using GDAL."),
 			FText::FromString(OutputFile)
 		));
@@ -170,7 +173,7 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 
 	if (!NewHeightmapData)
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("UHeightmapModifier::ModifyHeightmap::7", "Not enough memory to allocate for new heightmap data."),
 			FText::FromString(OutputFile)
 		));
@@ -184,7 +187,7 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 
 	if (ReadErr != CE_None)
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("UHeightmapModifier::ModifyHeightmap::7", "There was an error while reading heightmap data from file {0}."),
 			FText::FromString(OutputFile)
 		));
@@ -206,7 +209,7 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 	int LayerIndex = Landscape->CreateLayer();
 	if (LayerIndex == INDEX_NONE)
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("UHeightmapModifier::ModifyHeightmap::9", "Could not create landscape layer. Make sure that edit layers are enabled on Landscape {0}."),
 			FText::FromString(LandscapeLabel)
 		));
@@ -214,13 +217,20 @@ void UHeightmapModifier::ApplyToolToHeightmap()
 		return;
 	}
 
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 6)
+	HeightmapAccessor.SetEditLayer(Landscape->GetEditLayer(LayerIndex)->GetGuid());
+#elif ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 5)
+	HeightmapAccessor.SetEditLayer(Landscape->GetLayerConst(LayerIndex)->Guid);
+#else
 	HeightmapAccessor.SetEditLayer(Landscape->GetLayer(LayerIndex)->Guid);
+#endif
+
 #endif
 
 	HeightmapAccessor.SetData(X1, Y1, X2, Y2, NewHeightmapData);
 	free(NewHeightmapData);
 	
-	ULCReporter::ShowError(FText::Format(
+	LCReporter::ShowError(FText::Format(
 		LOCTEXT("UHeightmapModifier::ModifyHeightmap::10", "Finished applying command {0} on the Landscape {1}."),
 		FText::FromString(ExternalTool->Command),
 		FText::FromString(LandscapeLabel)

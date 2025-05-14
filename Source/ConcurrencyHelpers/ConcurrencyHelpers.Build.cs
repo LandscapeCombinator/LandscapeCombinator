@@ -26,9 +26,12 @@ public class ConcurrencyHelpers : ModuleRules
 				"Slate",
 				"SlateCore",
 				"HTTP",
-
-				"LCReporter"
 			}
 		);
+		
+		if (Target.bBuildEditor)
+		{
+			PublicDependencyModuleNames.Add("UnrealEd");
+		}
 	}
 }

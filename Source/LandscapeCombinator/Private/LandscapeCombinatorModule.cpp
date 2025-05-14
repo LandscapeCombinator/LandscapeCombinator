@@ -1,6 +1,7 @@
 // Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "LandscapeCombinatorModule.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #if WITH_EDITOR
 
@@ -13,7 +14,6 @@
 #include "LandscapeCombinator/LandscapeMeshCustomization.h"
 #include "LandscapeCombinator/LogLandscapeCombinator.h"
 
-#include "LCReporter/LCReporter.h"
 
 #include "PropertyEditorDelegates.h"
 #include "PropertyEditorModule.h"
@@ -73,7 +73,7 @@ void FLandscapeCombinatorModule::ShutdownModule()
 
 void FLandscapeCombinatorModule::PluginButtonClicked()
 {
-	ULCReporter::ShowError(
+	LCReporter::ShowError(
 		LOCTEXT(
 			"WidgetDisabled",
 			"This widget has been disabled for now. Please use Landscape Combination actors directly as in the L_LandscapeCombinatorExamples map."

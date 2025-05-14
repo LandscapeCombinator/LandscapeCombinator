@@ -29,8 +29,7 @@ public class FileDownloader : ModuleRules
 				"HTTP",
 
 				// Landscape Combinator Dependencies
-				"ConcurrencyHelpers",
-				"LCReporter"
+				"ConcurrencyHelpers"
 			}
 		);
 	}

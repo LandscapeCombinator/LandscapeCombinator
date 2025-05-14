@@ -1,8 +1,8 @@
 // Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "SplineImporter/OGRGeometry.h"
-#include "LCReporter/LCReporter.h"
 #include "LCCommon/LCBlueprintLibrary.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(OGRGeometry)
 
@@ -38,73 +38,66 @@ void AOGRGeometry::SetOverpassShortQuery()
 	Super::SetOverpassShortQuery();
 }
 
-void AOGRGeometry::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete)
+bool AOGRGeometry::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated)
 {
 	Modify();
 	
-	LoadGDALDataset(bIsUserInitiated, [OnComplete, this](GDALDataset* Dataset)
+	GDALDataset* Dataset = LoadGDALDataset(bIsUserInitiated);
+	if (!Dataset)
 	{
-		if (!Dataset)
+		LCReporter::ShowError(LOCTEXT("AOGRGeometry::OnGenerate::NoDataset", "Could not load dataset for OGR Geometry."));
+		return false;
+	}
+
+	UE_LOG(LogSplineImporter, Log, TEXT("Got a valid dataset to extract geometries, continuing..."));
+
+	Geometry = OGRGeometryFactory::createGeometry(OGRwkbGeometryType::wkbMultiPolygon);
+	if (!Geometry)
+	{
+		LCReporter::ShowError(LOCTEXT("AOGRGeometry::OnGenerate::NoGeometry", "Internal error while creating geometry, please try again."));
+		return false;
+	}
+	
+	
+	UWorld *World = this->GetWorld();
+	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World);
+	OGRCoordinateTransformation *CoordinateTransformation = GDALInterface::MakeTransform("EPSG:4326", GlobalCoordinates->CRS);
+	
+	int n = Dataset->GetLayerCount();
+	for (int i = 0; i < n; i++)
+	{
+		OGRLayer* Layer = Dataset->GetLayer(i);
+
+		if (!Layer) continue;
+
+		for (auto& Feature : Layer)
 		{
-			ULCReporter::ShowError(LOCTEXT("AOGRGeometry::OnGenerate::NoDataset", "No dataset for OGR Geometry."));
-			if (OnComplete) OnComplete(false);
-			return;
-		}
+			if (!Feature) continue;
+			OGRGeometry* NewGeometry = Feature->GetGeometryRef();
+			if (!NewGeometry) continue;
 
-		UE_LOG(LogSplineImporter, Log, TEXT("Got a valid dataset to extract geometries, continuing..."));
-
-		Geometry = OGRGeometryFactory::createGeometry(OGRwkbGeometryType::wkbMultiPolygon);
-		if (!Geometry)
-		{
-			ULCReporter::ShowError(LOCTEXT("AOGRGeometry::OnGenerate::NoGeometry", "Internal error while creating geometry, please try again."));
-			if (OnComplete) OnComplete(false);
-			return;
-		}
-		
-		
-		UWorld *World = this->GetWorld();
-		TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World);
-		OGRCoordinateTransformation *CoordinateTransformation = GDALInterface::MakeTransform("EPSG:4326", GlobalCoordinates->CRS);
-		
-		int n = Dataset->GetLayerCount();
-		for (int i = 0; i < n; i++)
-		{
-			OGRLayer* Layer = Dataset->GetLayer(i);
-
-			if (!Layer) continue;
-
-			for (auto& Feature : Layer)
+			if (!NewGeometry->IsValid())
 			{
-				if (!Feature) continue;
-				OGRGeometry* NewGeometry = Feature->GetGeometryRef();
-				if (!NewGeometry) continue;
+				UE_LOG(LogSplineImporter, Warning, TEXT("%s"), *FString(CPLGetLastErrorMsg()));
+				UE_LOG(LogSplineImporter, Warning, TEXT("Obtained invalid geometry from feature, we'll make it valid and continue anyway"));
+				NewGeometry = NewGeometry->MakeValid();
+			}
 
-				if (!NewGeometry->IsValid())
-				{
-					UE_LOG(LogSplineImporter, Warning, TEXT("%s"), *FString(CPLGetLastErrorMsg()));
-					UE_LOG(LogSplineImporter, Warning, TEXT("Obtained invalid geometry from feature, we'll make it valid and continue anyway"));
-					NewGeometry = NewGeometry->MakeValid();
-				}
-
-				OGRGeometry* NewUnion = Geometry->Union(NewGeometry);
-				if (NewUnion)
-				{
-					Geometry = NewUnion;
-				}
-				else
-				{
-					UE_LOG(LogSplineImporter, Warning, TEXT("Error: %s"), *FString(CPLGetLastErrorMsg()));
-					UE_LOG(LogSplineImporter, Warning, TEXT("There was an error while taking union of geometries in OGR, we'll still try to filter"))
-				}
+			OGRGeometry* NewUnion = Geometry->Union(NewGeometry);
+			if (NewUnion)
+			{
+				Geometry = NewUnion;
+			}
+			else
+			{
+				UE_LOG(LogSplineImporter, Warning, TEXT("Error: %s"), *FString(CPLGetLastErrorMsg()));
+				UE_LOG(LogSplineImporter, Warning, TEXT("There was an error while taking union of geometries in OGR, we'll still try to filter"))
 			}
 		}
+	}
 
-		this->Tags.AddUnique(AreaTag);
-		
-		if (OnComplete) OnComplete(true);
-		return;
-	});
-
+	this->Tags.AddUnique(AreaTag);
+	return true;
 }
 
 #if WITH_EDITOR
@@ -126,7 +119,7 @@ AActor *AOGRGeometry::Duplicate(FName FromName, FName ToName)
 	}
 	else
 	{
-		ULCReporter::ShowError(LOCTEXT("AOGRGeometry::DuplicateActor", "Failed to duplicate actor."));
+		LCReporter::ShowError(LOCTEXT("AOGRGeometry::DuplicateActor", "Failed to duplicate actor."));
 		return nullptr;
 	}
 }

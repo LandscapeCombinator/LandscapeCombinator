@@ -2,9 +2,9 @@
 
 #include "HeightmapModifier/BlendLandscape.h"
 #include "HeightmapModifier/LogHeightmapModifier.h"
-#include "LCReporter/LCReporter.h"
 #include "LCCommon/LCSettings.h"
 #include "LandscapeUtils/LandscapeUtils.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "Kismet/GameplayStatics.h"
 #include "Landscape.h"
@@ -14,9 +14,11 @@
 #include "Misc/MessageDialog.h"
 
 #if WITH_EDITOR
-
 #include "ScopedTransaction.h"
+#endif
 
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 5)
+#include "LandscapeEditLayer.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "FHeightmapModifierModule"
@@ -101,9 +103,9 @@ void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 
 	const FScopedTransaction Transaction(LOCTEXT("BlendWithLandscapeToBlendWiths", "Blending With Other Landscapes"));
 
-	if (!LandscapeToBlendWith)
+	if (!IsValid(LandscapeToBlendWith))
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("UBlendLandscape::BlendWithLandscape", "Please select a LandscapeToBlendWith")
 		);
 		return;
@@ -111,7 +113,7 @@ void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 
 	if (LandscapeToBlendWith == Landscape)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("UBlendLandscape::BlendWithLandscape", "Please select a LandscapeToBlendWith different than this one")
 		);
 		return;
@@ -120,7 +122,7 @@ void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 	FVector2D OtherMinMaxX, OtherMinMaxY, UnusedOtherMinMaxZ;
 	if (!LandscapeUtils::GetLandscapeBounds(LandscapeToBlendWith, OtherMinMaxX, OtherMinMaxY, UnusedOtherMinMaxZ))
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("UBlendLandscape::BlendWithLandscape::2", "Could not compute landscape bounds of Landscape {0}."),
 			FText::FromString(LandscapeToBlendWith->GetActorNameOrLabel())
 		));
@@ -159,7 +161,7 @@ void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 
 		if (OtherSizeX <= 0 || OtherSizeY <= 0)
 		{
-			ULCReporter::ShowError(FText::Format(
+			LCReporter::ShowError(FText::Format(
 				LOCTEXT("UBlendLandscape::BlendWithLandscape::2", "Could not blend with Landscape{0}. Its resolution might be too small."),
 				FText::FromString(LandscapeToBlendWith->GetActorNameOrLabel())
 			));
@@ -208,7 +210,7 @@ void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 
 #if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 3)
 		
-		if (bUseEditLayers)
+		if (LandscapeToBlendWith->CanHaveLayersContent())
 		{
 			/* Make the new data to be a difference, so that it can be used on a different edit layer (>= 5.3 only) */
 	
@@ -219,7 +221,7 @@ void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 			int OtherLayerIndex = LandscapeToBlendWith->CreateLayer();
 			if (OtherLayerIndex == INDEX_NONE)
 			{
-				ULCReporter::ShowError(FText::Format(
+				LCReporter::ShowError(FText::Format(
 					LOCTEXT("UHeightmapModifier::ModifyHeightmap::10", "Could not create landscape layer. Make sure that edit layers are enabled on Landscape {0}."),
 					FText::FromString(LandscapeToBlendWith->GetActorNameOrLabel())
 				));
@@ -229,7 +231,13 @@ void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 				return;
 			}
 
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 6)
+			OtherHeightmapAccessor.SetEditLayer(LandscapeToBlendWith->GetEditLayer(OtherLayerIndex)->GetGuid());
+#elif ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 5)
+			OtherHeightmapAccessor.SetEditLayer(LandscapeToBlendWith->GetLayerConst(OtherLayerIndex)->Guid);
+#else
 			OtherHeightmapAccessor.SetEditLayer(LandscapeToBlendWith->GetLayer(OtherLayerIndex)->Guid);
+#endif
 		}
 
 #endif
@@ -280,14 +288,14 @@ void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 
 		/* Make the new data to be a difference, so that it can be used on a different edit layer (>= 5.3 only) */
 	
-		if (bUseEditLayers)
+		if (Landscape->CanHaveLayersContent())
 		{
 			LandscapeUtils::MakeDataRelativeTo(SizeX, SizeY, NewHeightmapData, OldHeightmapData);
 	
 			int LayerIndex = Landscape->CreateLayer();
 			if (LayerIndex == INDEX_NONE)
 			{
-				ULCReporter::ShowError(FText::Format(
+				LCReporter::ShowError(FText::Format(
 					LOCTEXT("UHeightmapModifier::ModifyHeightmap::10", "Could not create landscape layer. Make sure that edit layers are enabled on Landscape {0}."),
 					FText::FromString(Landscape->GetActorNameOrLabel())
 				));
@@ -297,8 +305,15 @@ void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 				return;
 			}
 
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 6)
+			OtherHeightmapAccessor.SetEditLayer(Landscape->GetEditLayer(LayerIndex)->GetGuid());
+#elif ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 5)
+			OtherHeightmapAccessor.SetEditLayer(Landscape->GetLayerConst(LayerIndex)->Guid);
+#else
 			OtherHeightmapAccessor.SetEditLayer(Landscape->GetLayer(LayerIndex)->Guid);
-		}
+#endif
+
+	}
 #endif
 
 		free(OldHeightmapData);
@@ -314,7 +329,7 @@ void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 
 		if (bIsUserInitiated)
 		{
-			ULCReporter::ShowMessage(
+			LCReporter::ShowMessage(
 				FText::Format(
 					LOCTEXT(
 						"UBlendLandscape::BlendWithLandscape::Finished",
@@ -337,7 +352,7 @@ void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 			*LandscapeToBlendWith->GetActorNameOrLabel(),
 			*Landscape->GetActorNameOrLabel()
 		);
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("UBlendLandscape::BlendWithLandscape::Skip", "Skipping blending with Landscape {0}, which does not overlap with Landscape {1}."),
 			FText::FromString(LandscapeToBlendWith->GetActorNameOrLabel()),
 			FText::FromString(Landscape->GetActorNameOrLabel())

@@ -1,7 +1,7 @@
 // Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "ImageDownloader/BasicImageDownloader.h"
-#include "LCReporter/LCReporter.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "Misc/MessageDialog.h"
 
@@ -18,13 +18,16 @@ void ABasicImageDownloader::DownloadImages()
 {
 	if (!ImageDownloader)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("ABasicImageDownloader::DownloadImagesForLandscape", "ImageDownloader is not set, you may want to create one, or spawn a new BasicImageDownloader")
 		);
 		return;
 	}
 
-	ImageDownloader->DownloadImages(true, false, ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false), nullptr);
+	TArray<FString> UnusedImages;
+	FString UnusedCRS;
+	ImageDownloader->DownloadImages(true, false, ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false), UnusedImages, UnusedCRS);
+
 }
 
 

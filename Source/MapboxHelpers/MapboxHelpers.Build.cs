@@ -26,8 +26,7 @@ public class MapboxHelpers : ModuleRules
 				
 				// Landscape Combinator Dependencies
 				"GDALInterface",
-				"ConcurrencyHelpers",
-				"LCReporter"
+				"ConcurrencyHelpers"
 			}
 		);
 	}

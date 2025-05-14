@@ -6,37 +6,29 @@
 #include "GDALInterface/GDALInterface.h"
 
 #include "HAL/PlatformFile.h"
-#include "Misc/ScopedSlowTask.h"
 #include "Misc/MessageDialog.h"
 #include "Misc/Paths.h"
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-void HMReproject::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+bool HMReproject::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 {
 	if (OutputCRS == InputCRS)
 	{
 		UE_LOG(LogImageDownloader, Log, TEXT("Skipping Reprojection phase as the input files are already in the correct CRS: %s"), *InputCRS);
 		OutputFiles.Append(InputFiles);
-		if (OnComplete) OnComplete(true);
-		return;
+		return true;
 	}
 
 	FString ReprojectedFile = FPaths::Combine(OutputDir, Name + ".tif");
-
-	FScopedSlowTask *ReprojectTask = new FScopedSlowTask(1, LOCTEXT("WarpTask", "GDAL Interface: Reprojecting File"));
-	ReprojectTask->MakeDialog();
-
-	bool bWarpSuccess = GDALInterface::Warp(InputFiles, ReprojectedFile, InputCRS, OutputCRS, true, 0);
-	ReprojectTask->Destroy();
-	if (bWarpSuccess)
+	if (GDALInterface::Warp(InputFiles, ReprojectedFile, InputCRS, OutputCRS, true, 0))
 	{	
 		OutputFiles.Add(ReprojectedFile);
-		if (OnComplete) OnComplete(true);
+		return true;
 	}
 	else
 	{
-		if (OnComplete) OnComplete(false);
+		return false;
 	}
 }
 

@@ -6,8 +6,6 @@
 #include "ImageDownloader/HMFetcher.h"
 #include "ImageDownloader/WMSProvider.h"
 
-#define LOCTEXT_NAMESPACE "FImageDownloaderModule"
-
 class HMWMS : public HMFetcher
 {
 public:
@@ -48,7 +46,7 @@ public:
     {
     }
 
-    void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+    bool OnFetch(FString InputCRS, TArray<FString> InputFiles) override;
 
 protected:
     FWMSProvider WMS_Provider;

@@ -29,8 +29,7 @@ public class LCCommon : ModuleRules
 				// Landscape Combinator Dependencies
 				"GDALInterface",
 				"ConcurrencyHelpers",
-				"Coordinates",
-				"LCReporter"
+				"Coordinates"
 			}
 		);
 

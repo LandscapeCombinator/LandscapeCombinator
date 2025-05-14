@@ -31,7 +31,7 @@ public class LandscapeUtils : ModuleRules
 				"GeometryScriptingCore",
 
 				// Landscape Combinator Dependencies
-				"LCReporter"
+				"ConcurrencyHelpers"
 			}
 		);
 

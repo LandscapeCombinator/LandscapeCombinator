@@ -24,7 +24,7 @@ public:
 
 	OGRGeometry *Geometry = nullptr;
 
-	void OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete) override;
+	bool OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated) override;
 
 	virtual bool Cleanup_Implementation(bool bSkipPrompt) override {
 		Modify();

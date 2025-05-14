@@ -22,13 +22,6 @@ public:
 		meta = (DisplayPriority = "19")
 	)
 	TObjectPtr<ALandscape> LandscapeToBlendWith;
-
-	UPROPERTY(
-		AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "BlendLandscape",
-		meta = (DisplayPriority = "20")
-	)
-	/* Enable this if you want the modifications to go on new edit layers. */
-	bool bUseEditLayers = false;
 	
 	UPROPERTY(
 		AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "BlendLandscape",

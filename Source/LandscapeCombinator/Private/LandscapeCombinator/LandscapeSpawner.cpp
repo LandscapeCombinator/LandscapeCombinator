@@ -15,6 +15,7 @@
 #include "LCCommon/LCSettings.h"
 #include "LCCommon/LCBlueprintLibrary.h"
 #include "ConcurrencyHelpers/Concurrency.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "Async/Async.h"
 #include "Components/DecalComponent.h"
@@ -22,6 +23,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "LandscapeSubsystem.h"
 #include "Misc/MessageDialog.h"
+#include "HAL/ThreadManager.h"
 
 #if WITH_EDITOR
 
@@ -75,7 +77,7 @@ bool GetPixels(FIntPoint& InsidePixels, TArray<FString> Files)
 {
 	if (Files.IsEmpty())
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("UImageDownloader::GetPixels", "Image Downloader Error: Empty list of files when trying to read the size")
 		); 
 		return false;
@@ -113,43 +115,37 @@ AActor *ALandscapeSpawner::Duplicate(FName FromName, FName ToName)
 	}
 	else
 	{
-		ULCReporter::ShowError(LOCTEXT("ALandscapeSpawner::DuplicateActor", "Failed to duplicate actor."));
+		LCReporter::ShowError(LOCTEXT("ALandscapeSpawner::DuplicateActor", "Failed to duplicate actor."));
 		return nullptr;
 	}
 }
 
-void ALandscapeSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete)
+bool ALandscapeSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated)
 {
-	if (!Concurrency::RunOnGameThreadAndReturn([this, bIsUserInitiated]() { return Execute_Cleanup(this, !bIsUserInitiated); }))
-	{
-		if (OnComplete) OnComplete(false);
-		return;
-	}
+	if (!Concurrency::RunOnGameThreadAndWait([this, bIsUserInitiated]() { return Execute_Cleanup(this, !bIsUserInitiated); })) return false;
 
-	SpawnLandscape(SpawnedActorsPathOverride, bIsUserInitiated, [this, OnComplete](ALandscape* Landscape)
-	{
-		OnComplete(IsValid(Landscape));
-	});
+	TObjectPtr<ALandscape> Landscape;
+	TArray<ADecalActor*> Decals;
+	return SpawnLandscape(SpawnedActorsPathOverride, bIsUserInitiated, Landscape, Decals);
 }
 
-void ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(ALandscape*)> OnComplete)
+bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TObjectPtr<ALandscape>& OutLandscape, TArray<ADecalActor*>& OutDecals)
 {
 	Modify();
 
 	if (!IsValid(HeightmapDownloader))
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("ALandscapeSpawner::OnGenerate", "HeightmapDownloader is not set, you may want to create one, or create a new LandscapeSpawner")
 		);
 
-		if (OnComplete) OnComplete(nullptr);
-		return;
+		return false;
 	}
 
 	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false);
 	if (IsValid(GlobalCoordinates))
 	{
-		if (bIsUserInitiated && !ULCReporter::ShowMessage(
+		if (bIsUserInitiated && !Concurrency::RunOnGameThreadAndWait([&]() { return LCReporter::ShowMessage(
 			LOCTEXT(
 				"ALandscapeSpawner::OnGenerate::ExistingGlobal",
 				"There already exists a LevelCoordinates actor. Continue?\n"
@@ -158,10 +154,9 @@ void ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 			),
 			"SuppressExistingLevelCoordinates",
 			LOCTEXT("ExistingGlobalTitle", "Already Existing Level Coordinates")
-		))
+		); }))
 		{
-			if (OnComplete) OnComplete(nullptr);
-			return;
+			return false;
 		}
 	}
 	
@@ -192,280 +187,275 @@ void ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 
 	if (!Fetcher)
 	{			
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("NoFetcher", "There was an error while creating the fetcher for Landscape {0}."),
 				FText::FromString(LandscapeLabel)
 			)
 		);
 		
-		if (OnComplete) OnComplete(nullptr);
-		return;
+		return false;
 	}
 
-	Fetcher->Fetch("", TArray<FString>(), [bIsUserInitiated, Fetcher, Altitudes, CRS, Coordinates, OnComplete, SpawnedActorsPathOverride, this](bool bSuccess)
+	if (!Fetcher->Fetch("", TArray<FString>()))
 	{
-		if (bSuccess)
+		LCReporter::ShowError(
+			FText::Format(
+				LOCTEXT("LandscapeCreated", "Could not create heightmaps files for Landscape {0}."),
+				FText::FromString(LandscapeLabel)
+			)
+		);
+		
+		delete Fetcher;
+		return false;
+	}
+
+	TArray<FString> Files = Fetcher->OutputFiles;
+	FString FilesCRS = Fetcher->OutputCRS;
+
+	delete Fetcher;
+
+	int CmPerPixel = 0;
+
+	if (!IsValid(GlobalCoordinates) && !ULCBlueprintLibrary::GetCmPerPixelForCRS(FilesCRS, CmPerPixel))
+	{
+		LCReporter::ShowError(
+			FText::Format(
+				LOCTEXT("ErrorBound",
+					"Please create a LevelCoordinates actor with CRS: '{0}', and set the scale that you wish here.\n"
+					"Then, try again to spawn your landscape."
+				),
+				FText::FromString(FilesCRS)
+			)
+		);
+		
+		return false;
+	}
+
+	bool bSpawnLandscapeSuccess = Concurrency::RunOnGameThreadAndWait([&]() {
+		return LandscapeUtils::SpawnLandscape(
+			Files, LandscapeLabel, bCreateLandscapeStreamingProxies,
+			ComponentsMethod == EComponentsMethod::Auto || ComponentsMethod == EComponentsMethod::AutoWithoutBorder,
+			ComponentsMethod == EComponentsMethod::AutoWithoutBorder,
+			QuadsPerSubsection, SectionsPerComponent, ComponentCount,
+			OutLandscape, SpawnedLandscapeStreamingProxies
+		);
+	});
+
+	if (!bSpawnLandscapeSuccess || !IsValid(OutLandscape))
+	{
+		LCReporter::ShowError(
+			FText::Format(
+				LOCTEXT("LandscapeNotCreated", "Landscape {0} could not be created."),
+				FText::FromString(LandscapeLabel)
+			)
+		);
+		return false;
+	}
+
+	Concurrency::RunOnGameThreadAndWait([&]() {
+		SpawnedLandscape = OutLandscape;
+		SpawnedLandscape->Modify();
+		SpawnedLandscape->SetActorLabel(LandscapeLabel);
+		ULCBlueprintLibrary::SetFolderPath2(SpawnedLandscape.Get(), SpawnedActorsPathOverride, SpawnedActorsPath);
+
+		if (!LandscapeTag.IsNone()) SpawnedLandscape->Tags.Add(LandscapeTag);
+
+		if (IsValid(LandscapeMaterial))
 		{
-			// GameThread to spawn a landscape
-			AsyncTask(ENamedThreads::GameThread, [bIsUserInitiated, bSuccess, Fetcher, Altitudes, CRS, Coordinates, OnComplete, SpawnedActorsPathOverride, this]()
+			SpawnedLandscape->LandscapeMaterial = LandscapeMaterial;
+			SpawnedLandscape->PostEditChange();
+		}
+
+		if (!GlobalCoordinates)
+		{
+			ALevelCoordinates *LevelCoordinates = this->GetWorld()->SpawnActor<ALevelCoordinates>();
+			TObjectPtr<UGlobalCoordinates> NewGlobalCoordinates = LevelCoordinates->GlobalCoordinates;
+
+			NewGlobalCoordinates->CRS = FilesCRS;
+			NewGlobalCoordinates->CmPerLongUnit = CmPerPixel;
+			NewGlobalCoordinates->CmPerLatUnit = -CmPerPixel;
+
+			double MinCoordWidth = (*Coordinates)[0];
+			double MaxCoordWidth = (*Coordinates)[1];
+			double MinCoordHeight = (*Coordinates)[2];
+			double MaxCoordHeight = (*Coordinates)[3];
+			NewGlobalCoordinates->WorldOriginLong = (MinCoordWidth + MaxCoordWidth) / 2;
+			NewGlobalCoordinates->WorldOriginLat = (MinCoordHeight + MaxCoordHeight) / 2;
+		}
+
+		ULandscapeController *LandscapeController = NewObject<ULandscapeController>(SpawnedLandscape->GetRootComponent());
+		LandscapeController->RegisterComponent();
+		SpawnedLandscape->AddInstanceComponent(LandscapeController);
+
+		UHeightmapModifier *HeightmapModifier = NewObject<UHeightmapModifier>(SpawnedLandscape->GetRootComponent());
+		HeightmapModifier->RegisterComponent();
+		SpawnedLandscape->AddInstanceComponent(HeightmapModifier);
+
+		LandscapeController->Coordinates = *Coordinates;
+		LandscapeController->CRS = *CRS;
+		LandscapeController->Altitudes = *Altitudes;
+		GetPixels(LandscapeController->InsidePixels, Files);
+		LandscapeController->ZScale = ZScale;
+
+		LandscapeController->AdjustLandscape();
+
+		UBlendLandscape *BlendLandscape = NewObject<UBlendLandscape>(SpawnedLandscape->GetRootComponent());
+		BlendLandscape->RegisterComponent();
+		SpawnedLandscape->AddInstanceComponent(BlendLandscape);
+
+		if (bBlendLandscapeWithAnotherLandscape)
+		{
+			if (ALandscape *OtherLandscape = Cast<ALandscape>(LandscapeToBlendWith.GetActor(GetWorld())))
 			{
-				int CmPerPixel = 0;
-				TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false);
+				BlendLandscape->LandscapeToBlendWith = OtherLandscape;
+				BlendLandscape->BlendWithLandscape(bIsUserInitiated);
+			}
+			else
+			{
+				FMessageDialog::Open(
+					EAppMsgCategory::Error,
+					EAppMsgType::Ok,
+					FText::Format(
+						LOCTEXT("BlendingError",
+							"There was an error while getting the landscape to blend with,\n"
+							"please double-check the settings."
+						),
+						FText::FromString(LandscapeLabel)
+					)
+				);
+			}
+		}
 
-				if (!GlobalCoordinates && !ULCBlueprintLibrary::GetCmPerPixelForCRS(Fetcher->OutputCRS, CmPerPixel))
-				{
-					ULCReporter::ShowError(
-						FText::Format(
-							LOCTEXT("ErrorBound",
-								"Please create a LevelCoordinates actor with CRS: '{0}', and set the scale that you wish here.\n"
-								"Then, try again to spawn your landscape."
-							),
-							FText::FromString(Fetcher->OutputCRS)
-						)
-					);
-					
-					delete Fetcher;
-					if (OnComplete) OnComplete(nullptr);
-					return;
-				}
+		UE_LOG(LogLandscapeCombinator, Log, TEXT("Created Landscape %s successfully."), *LandscapeLabel);
+		
+		return true;
+	});
 
-				ALandscape *OutSpawnedLandscape = nullptr;
-				bool bSpawnLandscapeSuccess = LandscapeUtils::SpawnLandscape(
-					Fetcher->OutputFiles, LandscapeLabel, bCreateLandscapeStreamingProxies,
-					ComponentsMethod == EComponentsMethod::Auto || ComponentsMethod == EComponentsMethod::AutoWithoutBorder,
-					ComponentsMethod == EComponentsMethod::AutoWithoutBorder,
-					QuadsPerSubsection, SectionsPerComponent, ComponentCount,
-					OutSpawnedLandscape, SpawnedLandscapeStreamingProxies
+	switch (DecalCreation)
+	{
+		case EDecalCreation::None:
+		{
+			if (bIsUserInitiated)
+			{
+				LCReporter::ShowMessage(
+					FText::Format(
+						LOCTEXT("LandscapeCreated", "Landscape {0} was created successfully"),
+						FText::FromString(LandscapeLabel)
+					),
+					"SuppressSpawnedLandscapeInfo",
+					LOCTEXT("SpawnedLandscapeTitle", "Spawned Landscape"),
+					false,
+					FAppStyle::GetBrush("Icons.InfoWithColor.Large")
+				);
+			}
+		
+			return true;
+		}
+
+		case EDecalCreation::Mapbox:
+		case EDecalCreation::MapTiler:
+		{
+			if (!IsValid(DecalDownloader))
+			{
+				FMessageDialog::Open(
+					EAppMsgCategory::Error,
+					EAppMsgType::Ok,
+					FText::Format(
+						LOCTEXT("NoDecalDownloader", "Internal Error: The Decal Downloader is not set. Please try again with a new Landscape Spawner."),
+						FText::FromString(LandscapeLabel)
+					)
 				);
 
-				if (bSpawnLandscapeSuccess && IsValid(OutSpawnedLandscape))	
+				return false;
+			}
+
+			if (!Concurrency::RunOnGameThreadAndWait([&]() {
+				DecalDownloader->Modify();
+				DecalDownloader->ParametersSelection = EParametersSelection::FromBoundingActor;
+				DecalDownloader->ParametersBoundingActor = SpawnedLandscape.Get();
+
+				if (DecalCreation == EDecalCreation::Mapbox)
 				{
-					SpawnedLandscape = OutSpawnedLandscape;
-					SpawnedLandscape->Modify();
-					SpawnedLandscape->SetActorLabel(LandscapeLabel);
-					ULCBlueprintLibrary::SetFolderPath2(SpawnedLandscape.Get(), SpawnedActorsPathOverride, SpawnedActorsPath);
-
-					if (!LandscapeTag.IsNone()) SpawnedLandscape->Tags.Add(LandscapeTag);
-
-					if (IsValid(LandscapeMaterial))
-					{
-						SpawnedLandscape->LandscapeMaterial = LandscapeMaterial;
-						SpawnedLandscape->PostEditChange();
-					}
-
-					if (!GlobalCoordinates)
-					{
-						ALevelCoordinates *LevelCoordinates = this->GetWorld()->SpawnActor<ALevelCoordinates>();
-						TObjectPtr<UGlobalCoordinates> NewGlobalCoordinates = LevelCoordinates->GlobalCoordinates;
-
-						NewGlobalCoordinates->CRS = Fetcher->OutputCRS;
-						NewGlobalCoordinates->CmPerLongUnit = CmPerPixel;
-						NewGlobalCoordinates->CmPerLatUnit = -CmPerPixel;
-
-						double MinCoordWidth = (*Coordinates)[0];
-						double MaxCoordWidth = (*Coordinates)[1];
-						double MinCoordHeight = (*Coordinates)[2];
-						double MaxCoordHeight = (*Coordinates)[3];
-						NewGlobalCoordinates->WorldOriginLong = (MinCoordWidth + MaxCoordWidth) / 2;
-						NewGlobalCoordinates->WorldOriginLat = (MinCoordHeight + MaxCoordHeight) / 2;
-					}
-
-					ULandscapeController *LandscapeController = NewObject<ULandscapeController>(SpawnedLandscape->GetRootComponent());
-					LandscapeController->RegisterComponent();
-					SpawnedLandscape->AddInstanceComponent(LandscapeController);
-
-					UHeightmapModifier *HeightmapModifier = NewObject<UHeightmapModifier>(SpawnedLandscape->GetRootComponent());
-					HeightmapModifier->RegisterComponent();
-					SpawnedLandscape->AddInstanceComponent(HeightmapModifier);
-
-					LandscapeController->Coordinates = *Coordinates;
-					LandscapeController->CRS = *CRS;
-					LandscapeController->Altitudes = *Altitudes;
-					GetPixels(LandscapeController->InsidePixels, Fetcher->OutputFiles);
-					LandscapeController->ZScale = ZScale;
-
-					delete Fetcher;
-
-					LandscapeController->AdjustLandscape();
-
-					UBlendLandscape *BlendLandscape = NewObject<UBlendLandscape>(SpawnedLandscape->GetRootComponent());
-					BlendLandscape->RegisterComponent();
-					SpawnedLandscape->AddInstanceComponent(BlendLandscape);
-
-					if (bBlendLandscapeWithAnotherLandscape)
-					{
-						if (ALandscape *OtherLandscape = Cast<ALandscape>(LandscapeToBlendWith.GetActor(GetWorld())))
-						{
-							BlendLandscape->LandscapeToBlendWith = OtherLandscape;
-							BlendLandscape->BlendWithLandscape(bIsUserInitiated);
-						}
-						else
-						{
-							FMessageDialog::Open(
-								EAppMsgCategory::Error,
-								EAppMsgType::Ok,
-								FText::Format(
-									LOCTEXT("BlendingError",
-										"There was an error while getting the landscape to blend with,\n"
-										"please double-check the settings."
-									),
-									FText::FromString(LandscapeLabel)
-								)
-							);
-						}
-					}
-
-					UE_LOG(LogLandscapeCombinator, Log, TEXT("Created Landscape %s successfully."), *LandscapeLabel);
-
-					switch (DecalCreation)
-					{
-						case EDecalCreation::None:
-						{
-							if (bIsUserInitiated)
-							{
-								ULCReporter::ShowMessage(
-									FText::Format(
-										LOCTEXT("LandscapeCreated", "Landscape {0} was created successfully"),
-										FText::FromString(LandscapeLabel)
-									),
-									"SuppressSpawnedLandscapeInfo",
-									LOCTEXT("SpawnedLandscapeTitle", "Spawned Landscape"),
-									false,
-									FAppStyle::GetBrush("Icons.InfoWithColor.Large")
-								);
-							}
-						
-							if (OnComplete) OnComplete(SpawnedLandscape.Get());
-							return;
-						}
-
-						case EDecalCreation::Mapbox:
-						case EDecalCreation::MapTiler:
-						{
-							if (!IsValid(DecalDownloader))
-							{
-								FMessageDialog::Open(
-									EAppMsgCategory::Error,
-									EAppMsgType::Ok,
-									FText::Format(
-										LOCTEXT("NoDecalDownloader", "Internal Error: The Mapbox Satellite Downloader is not set. Please try again with a new Landscape Spawner."),
-										FText::FromString(LandscapeLabel)
-									)
-								);
-
-								if (OnComplete) OnComplete(SpawnedLandscape.Get());
-								return;
-							}
-
-							DecalDownloader->ParametersSelection = EParametersSelection::FromBoundingActor;
-							DecalDownloader->ParametersBoundingActor = SpawnedLandscape.Get();
-
-							if (DecalCreation == EDecalCreation::Mapbox)
-							{
-								DecalDownloader->ImageSourceKind = EImageSourceKind::Mapbox_Satellite;
-								DecalDownloader->Mapbox_Token = Decals_Mapbox_Token;
-								DecalDownloader->Mapbox_2x = Decals_Mapbox_2x;
-								DecalDownloader->XYZ_Zoom = Decals_Mapbox_Zoom;
-							}
-							else if (DecalCreation == EDecalCreation::MapTiler)
-							{
-								DecalDownloader->ImageSourceKind = EImageSourceKind::MapTiler_Satellite;
-								DecalDownloader->MapTiler_Token = Decals_MapTiler_Token;
-								DecalDownloader->XYZ_Zoom = Decals_MapTiler_Zoom;
-							}
-							else
-							{
-								check(false);
-							}
-
-							DecalDownloader->bMergeImages = bDecalMergeImages;
-							DecalDownloader->DownloadImages(bIsUserInitiated, false, GlobalCoordinates, [this, bIsUserInitiated, SpawnedActorsPathOverride, OnComplete](TArray<FString> DownloadedImages, FString ImageCRS)
-							{
-								TArray<ADecalActor*> NewDecals = UDecalCoordinates::CreateDecals(this->GetWorld(), DownloadedImages);
-								DecalActors.Append(NewDecals);
-
-#if WITH_EDITOR
-								Concurrency::RunOnGameThreadAndWait([this, &NewDecals, SpawnedActorsPathOverride]() {
-									for (auto &DecalActor : NewDecals)
-									{
-										if (IsValid(DecalActor))
-										{
-											ULCBlueprintLibrary::SetFolderPath2(DecalActor, SpawnedActorsPathOverride, SpawnedActorsPath);
-											DecalActor->GetDecal()->SortOrder = DecalsSortOrder;
-										}
-									}
-								});
-#endif
-
-								if (NewDecals.IsEmpty())
-								{
-									ULCReporter::ShowError(
-										FText::Format(
-											LOCTEXT("LandscapeDecalsCreatedError", "There was an error while creating decals for Landscape {0}"),
-											FText::FromString(LandscapeLabel)
-										)
-									);
-								}
-								else if (bIsUserInitiated)
-								{
-									ULCReporter::ShowInfo(
-										FText::Format(
-											LOCTEXT("LandscapeCreated2", "Landscape {0} was created successfully with {1} Decals"),
-											FText::FromString(LandscapeLabel),
-											FText::AsNumber(DecalActors.Num())
-										),
-										"SuppressSpawnedLandscapeInfo",
-										LOCTEXT("SpawnedLandscapeTitle", "Spawned Landscape with Decals")
-									);
-								}
-
-								if (OnComplete) OnComplete(SpawnedLandscape.Get());
-							});
-							return;
-						}
-
-						default:
-						{
-							check(false)
-							return;
-						}
-					}
+					DecalDownloader->ImageSourceKind = EImageSourceKind::Mapbox_Satellite;
+					DecalDownloader->Mapbox_Token = Decals_Mapbox_Token;
+					DecalDownloader->Mapbox_2x = Decals_Mapbox_2x;
+					DecalDownloader->XYZ_Zoom = Decals_Mapbox_Zoom;
+				}
+				else if (DecalCreation == EDecalCreation::MapTiler)
+				{
+					DecalDownloader->ImageSourceKind = EImageSourceKind::MapTiler_Satellite;
+					DecalDownloader->MapTiler_Token = Decals_MapTiler_Token;
+					DecalDownloader->XYZ_Zoom = Decals_MapTiler_Zoom;
 				}
 				else
 				{
-					delete Fetcher;
-					UE_LOG(LogLandscapeCombinator, Error, TEXT("Could not create Landscape %s."), *LandscapeLabel);
-					ULCReporter::ShowError(
-						FText::Format(
-							LOCTEXT("LandscapeNotCreated", "Landscape {0} could not be created."),
-							FText::FromString(LandscapeLabel)
-						)
-					);
-					
-					if (OnComplete) OnComplete(nullptr);
+					check(false);
+					return false;
 				}
+
+				DecalDownloader->bMergeImages = bDecalMergeImages;
+				return true;
+			}))
+			{
+				return false;
+			}
+
+
+			TArray<FString> DownloadedImages;
+			FString ImagesCRS;
+			if (!DecalDownloader->DownloadImages(bIsUserInitiated, false, GlobalCoordinates, DownloadedImages, ImagesCRS)) return false;
+			TArray<ADecalActor*> NewDecals = UDecalCoordinates::CreateDecals(this->GetWorld(), DownloadedImages);
+			DecalActors.Append(NewDecals);
+
+#if WITH_EDITOR
+			Concurrency::RunOnGameThreadAndWait([this, &NewDecals, SpawnedActorsPathOverride]() {
+				for (auto &DecalActor : NewDecals)
+				{
+					if (IsValid(DecalActor))
+					{
+						ULCBlueprintLibrary::SetFolderPath2(DecalActor, SpawnedActorsPathOverride, SpawnedActorsPath);
+						DecalActor->GetDecal()->SortOrder = DecalsSortOrder;
+					}
+				}
+				return true;
 			});
+#endif
 
-			return;
+			if (NewDecals.IsEmpty())
+			{
+				LCReporter::ShowError(
+					FText::Format(
+						LOCTEXT("LandscapeDecalsCreatedError", "There was an error while creating decals for Landscape {0}"),
+						FText::FromString(LandscapeLabel)
+					)
+				);
+				return false;
+			}
+			else if (bIsUserInitiated)
+			{
+				LCReporter::ShowInfo(
+					FText::Format(
+						LOCTEXT("LandscapeCreated2", "Landscape {0} was created successfully with {1} Decals"),
+						FText::FromString(LandscapeLabel),
+						FText::AsNumber(DecalActors.Num())
+					),
+					"SuppressSpawnedLandscapeInfo",
+					LOCTEXT("SpawnedLandscapeTitle", "Spawned Landscape with Decals")
+				);
+			}
+			return true;
 		}
-		else
+
+		default:
 		{
-			UE_LOG(LogLandscapeCombinator, Error, TEXT("Could not create heightmaps files for Landscape %s."), *LandscapeLabel);
-			ULCReporter::ShowError(
-				FText::Format(
-					LOCTEXT("LandscapeCreated", "Could not create heightmaps files for Landscape {0}."),
-					FText::FromString(LandscapeLabel)
-				)
-			);
-			
-			if (OnComplete) OnComplete(nullptr);
-			delete Fetcher;
-			return;
+			check(false)
+			return false;
 		}
-	});
 
-	return;
+	}
+
+	return true;
 }
 
 #endif

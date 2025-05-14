@@ -7,6 +7,7 @@
 #include "SplineImporter/SplineCollection.h"
 #include "Coordinates/LevelCoordinates.h"
 #include "LCCommon/LCGenerator.h"
+#include "ConcurrencyHelpers/Concurrency.h"
 
 #include "Landscape.h"
 #include "Components/SplineComponent.h" 
@@ -131,7 +132,9 @@ public:
 	FName SpawnedActorsPath;
 
 	UFUNCTION(CallInEditor, Category = "GDALImporter")
-	void Import() { Generate(SpawnedActorsPath, true); }
+	void Import() {
+		Concurrency::RunAsync([this]() { Generate(SpawnedActorsPath, true); });
+	}
 
 	UFUNCTION(CallInEditor, Category = "GDALImporter")
 	void Delete() { Execute_Cleanup(this, true); }
@@ -149,8 +152,8 @@ protected:
 	void PostEditChangeProperty(struct FPropertyChangedEvent&);
 #endif
 
-	void LoadGDALDataset(bool bIsUserInitiated, TFunction<void(GDALDataset*)> OnComplete);
-	void LoadGDALDatasetFromShortQuery(FString ShortQuery, bool bIsUserInitiated, TFunction<void(GDALDataset*)> OnComplete);
+	GDALDataset* LoadGDALDataset(bool bIsUserInitiated);
+	GDALDataset* LoadGDALDatasetFromShortQuery(FString ShortQuery, bool bIsUserInitiated);
 
 	virtual void SetOverpassShortQuery();
 };

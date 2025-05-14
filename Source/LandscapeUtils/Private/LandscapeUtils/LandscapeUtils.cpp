@@ -2,7 +2,8 @@
 
 #include "LandscapeUtils/LandscapeUtils.h"
 #include "LandscapeUtils/LogLandscapeUtils.h"
-#include "LCReporter/LCReporter.h"
+#include "ConcurrencyHelpers/Concurrency.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "Kismet/KismetMathLibrary.h"
 #include "Internationalization/Regex.h"
@@ -82,7 +83,7 @@ bool LandscapeUtils::GetLandscapeBounds(ALandscape *Landscape, TArray<ALandscape
 		}
 		else
 		{
-			ULCReporter::ShowError(FText::Format(
+			LCReporter::ShowError(FText::Format(
 				LOCTEXT("GetLandscapeBounds", "Could not compute Min and Max values for Landscape {0}."),
 				FText::FromString(LandscapeLabel)
 			));
@@ -105,7 +106,10 @@ bool LandscapeUtils::GetLandscapeMinMaxZ(ALandscape* Landscape, FVector2D& MinMa
 TArray<ALandscapeStreamingProxy*> LandscapeUtils::GetLandscapeStreamingProxies(ALandscape* Landscape)
 {
 	TArray<AActor*> LandscapeStreamingProxiesTemp;
-	UGameplayStatics::GetAllActorsOfClass(Landscape->GetWorld(), ALandscapeStreamingProxy::StaticClass(), LandscapeStreamingProxiesTemp);
+	Concurrency::RunOnGameThreadAndWait([&]() {
+		UGameplayStatics::GetAllActorsOfClass(Landscape->GetWorld(), ALandscapeStreamingProxy::StaticClass(), LandscapeStreamingProxiesTemp);
+		return true;
+	});
 
 	TArray<ALandscapeStreamingProxy*> LandscapeStreamingProxies;
 
@@ -124,7 +128,7 @@ bool LandscapeUtils::CustomCollisionQueryParams(AActor *Actor, FCollisionQueryPa
 {
 	if (!IsValid(Actor))
 	{
-		ULCReporter::ShowError(LOCTEXT("InvalidCollindingActor", "Invalid colliding actor"));
+		LCReporter::ShowError(LOCTEXT("InvalidCollindingActor", "Invalid colliding actor"));
 		return false;
 	}
 
@@ -164,7 +168,7 @@ bool LandscapeUtils::CustomCollisionQueryParams(TArray<AActor*> CollidingActors,
 {
 	if (CollidingActors.IsEmpty() || !IsValid(CollidingActors[0]))
 	{
-		ULCReporter::ShowError(LOCTEXT("InvalidCollidingActors", "Invalid colliding actors for custom collision query"));
+		LCReporter::ShowError(LOCTEXT("InvalidCollidingActors", "Invalid colliding actors for custom collision query"));
 		return false;
 	}
 
@@ -187,7 +191,7 @@ bool LandscapeUtils::CustomCollisionQueryParams(TArray<AActor*> CollidingActors,
 
 	if (!IsValid(World))
 	{
-		ULCReporter::ShowError(LOCTEXT("InvalidWorld", "Invalid world for custom collision query"));
+		LCReporter::ShowError(LOCTEXT("InvalidWorld", "Invalid world for custom collision query"));
 		return false;
 	}
 	
@@ -372,12 +376,12 @@ bool LandscapeUtils::SpawnLandscape(
 	TArray<FString> Heightmaps, FString LandscapeLabel, bool bCreateLandscapeStreamingProxies,
 	bool bAutoComponents, bool bDropData,
 	int QuadsPerSubsection0, int SectionsPerComponent0, FIntPoint ComponentCount0,
-	ALandscape* &OutSpawnedLandscape, TArray<TSoftObjectPtr<ALandscapeStreamingProxy>> &OutSpawnedLandscapeStreamingProxies
+	TObjectPtr<ALandscape> &OutSpawnedLandscape, TArray<TSoftObjectPtr<ALandscapeStreamingProxy>> &OutSpawnedLandscapeStreamingProxies
 )
 {
 	if (Heightmaps.IsEmpty())
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("SpawnLandscapeError", "Landscape Combinator Error: Cannot spawn landscape {0} without heightmaps."),
 			FText::FromString(LandscapeLabel)
 		));
@@ -401,7 +405,7 @@ bool LandscapeUtils::SpawnLandscape(
 	if (Heightmaps.Num() > 1 && !bIsGridBased)
 	{
 		GLevelEditorModeTools().ActivateMode(FBuiltinEditorModes::EM_Default);
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("GetHeightmapImportDescriptorError", "You must enable World Partition to be able to import multiple heightmap files.")
 		);
 		return false;
@@ -416,7 +420,7 @@ bool LandscapeUtils::SpawnLandscape(
 		if (!XYMatcher.FindNext())
 		{
 			GLevelEditorModeTools().ActivateMode(FBuiltinEditorModes::EM_Default);
-			ULCReporter::ShowError(FText::Format(
+			LCReporter::ShowError(FText::Format(
 				LOCTEXT("MultipleFileImportError", "Heightmap file name %s doesn't match the format: Filename_x0_y0.png."),
 				FText::FromString(HeightmapFile)
 			));
@@ -443,7 +447,7 @@ bool LandscapeUtils::SpawnLandscape(
 	if (DescriptorResult == ELandscapeImportResult::Error)
 	{
 		GLevelEditorModeTools().ActivateMode(FBuiltinEditorModes::EM_Default);
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("GetHeightmapImportDescriptorError", "Internal Unreal Engine while getting import descriptor for file {0}:\n{1}\nPlease try to rename your Landscape/files to a simple name without numbers or punctuation."),
 			FText::FromString(HeightmapFile),
 			LandscapeImportErrorMessage
@@ -462,7 +466,7 @@ bool LandscapeUtils::SpawnLandscape(
 	if (ImportResult == ELandscapeImportResult::Error)
 	{
 		GLevelEditorModeTools().ActivateMode(FBuiltinEditorModes::EM_Default);
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("GetHeightmapImportDataError", "Internal Unreal Engine while importing {0}: {1}"),
 			FText::FromString(HeightmapFile),
 			LandscapeImportErrorMessage

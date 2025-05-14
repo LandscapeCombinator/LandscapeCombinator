@@ -6,10 +6,10 @@
 #include "LandscapeUtils/LandscapeUtils.h"
 #include "GDALInterface/GDALInterface.h"
 #include "OSMUserData/OSMUserData.h"
-#include "LCReporter/LCReporter.h"
 #include "LCCommon/LCSettings.h"
 #include "LCCommon/LCBlueprintLibrary.h"
 #include "ConcurrencyHelpers/Concurrency.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "LandscapeSplineActor.h"
 #include "ILandscapeSplineInterface.h"
@@ -22,7 +22,6 @@
 #include "Misc/CString.h"
 #include "Logging/StructuredLog.h"
 #include "Async/Async.h"
-#include "Misc/ScopedSlowTask.h"
 #include "Stats/Stats.h"
 #include "Stats/StatsMisc.h"
 #include "ObjectEditorUtils.h"
@@ -65,7 +64,7 @@ void ASplineImporter::SetOverpassShortQuery()
 	Super::SetOverpassShortQuery();
 }
 
-void ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete)
+bool ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated)
 {
 	Modify();
 
@@ -73,16 +72,16 @@ void ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 	
 	Concurrency::RunOnGameThreadAndWait([&ActorsOrLandscapesToPlaceSplines, this]() {
 		ActorsOrLandscapesToPlaceSplines = ActorsOrLandscapesToPlaceSplinesSelection.GetAllActors(this->GetWorld());
+		return true;
 	});
 
 	if (ActorsOrLandscapesToPlaceSplines.IsEmpty())
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("ASplineImporter::GenerateSplines::1", "Please select an actor on which to place your splines.")
 		);
 
-		if (OnComplete) OnComplete(false);
-		return;
+		return false;
 	}
 
 	for (auto &ActorOrLandscapeToPlaceSplines: ActorsOrLandscapesToPlaceSplines)
@@ -92,13 +91,12 @@ void ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 			ActorOrLandscapeToPlaceSplines->GetRootComponent()->Mobility != EComponentMobility::Static
 		)
 		{
-			ULCReporter::ShowError(FText::Format(
+			LCReporter::ShowError(FText::Format(
 				LOCTEXT("ASplineImporter::GenerateSplines::NoStatic", "Please make sure that {0}'s mobility is set to static."),
 				FText::FromString(ActorOrLandscapeToPlaceSplines->GetActorNameOrLabel())
 			));
 			
-			if (OnComplete) OnComplete(false);
-			return;
+			return false;
 		}
 	}
 
@@ -118,8 +116,7 @@ void ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 					FText::FromString(ActorOrLandscapeToPlaceSplinesLabel)
 				)
 			);
-			if (OnComplete) OnComplete(false);
-			return;
+			return false;
 		}
 		Landscape = Cast<ALandscape>(ActorsOrLandscapesToPlaceSplines[0]);
 
@@ -146,7 +143,7 @@ void ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 		);
 	}
 	
-	if (bIsUserInitiated && !ULCReporter::ShowMessage(
+	if (bIsUserInitiated && !LCReporter::ShowMessage(
 		IntroMessage,
 		"SuppressSplineIntroduction",
 		LOCTEXT("SplineIntroductionTitle", "Information on Splines"),
@@ -155,99 +152,79 @@ void ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 	))
 	{
 		UE_LOG(LogSplineImporter, Log, TEXT("User cancelled adding splines."));
-
-		if (OnComplete) OnComplete(false);
-		return;
+		return false;
 	}
 
 	if (bDeleteOldSplinesWhenCreatingSplines)
 	{
-		if (!Concurrency::RunOnGameThreadAndReturn([this, bIsUserInitiated]() { return Execute_Cleanup(this, !bIsUserInitiated); }))
+		if (!Concurrency::RunOnGameThreadAndWait([this, bIsUserInitiated]() { return Execute_Cleanup(this, !bIsUserInitiated); }))
 		{
-			if (OnComplete) OnComplete(false);
-			return;
+			return false;
 		}
 	}
 
-	LoadGDALDataset(bIsUserInitiated, [this, OnComplete, Landscape, ActorsOrLandscapesToPlaceSplines, SpawnedActorsPathOverride, bIsUserInitiated](GDALDataset* Dataset) {
-		if (Dataset)
-		{
-			TArray<FPointList> PointLists = GDALInterface::GetPointLists(Dataset);
-			GDALClose(Dataset);
+	GDALDataset* Dataset = LoadGDALDataset(bIsUserInitiated);
+	if (!Dataset) return false;
 
-			if (bIsUserInitiated && PointLists.IsEmpty())
-			{
-				ULCReporter::ShowError(
-					LOCTEXT("No splines", "Warning: The dataset did not contain any spline, please double check your query.")
-				);
+	TArray<FPointList> PointLists = GDALInterface::GetPointLists(Dataset);
+	GDALClose(Dataset);
 
-				if (OnComplete) OnComplete(false);
-				return;
-			}
+	if (bIsUserInitiated && PointLists.IsEmpty())
+	{
+		LCReporter::ShowError(
+			LOCTEXT("No splines", "Warning: The dataset did not contain any spline, please double check your query.")
+		);
+		return false;
+	}
 
-			FCollisionQueryParams CollisionQueryParams;
-			
-			if (!Concurrency::RunOnGameThreadAndReturn([&]() {
-				return LandscapeUtils::CustomCollisionQueryParams(ActorsOrLandscapesToPlaceSplines, CollisionQueryParams);
-			}))
-			{
-				if (OnComplete) OnComplete(false);
-				return;
-			}
+	FCollisionQueryParams CollisionQueryParams;
+	
+	if (!Concurrency::RunOnGameThreadAndWait([&]() {
+		return LandscapeUtils::CustomCollisionQueryParams(ActorsOrLandscapesToPlaceSplines, CollisionQueryParams);
+	}))
+	{
+		return false;
+	}
 
-			UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), true);
+	UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), true);
+	if (!GlobalCoordinates) return false;
 
-			if (!GlobalCoordinates)
-			{
-				if (OnComplete) OnComplete(false);
-				return;
-			}
+	OGRCoordinateTransformation *OGRTransform = GlobalCoordinates->GetCRSTransformer("EPSG:4326");
 
-			OGRCoordinateTransformation *OGRTransform = GlobalCoordinates->GetCRSTransformer("EPSG:4326");
-
-			if (!OGRTransform)
-			{
-				ULCReporter::ShowError(
-					LOCTEXT("LandscapeNotFound", "Landscape Combinator Error: Could not create OGR Coordinate Transformation.")
-				);
-				if (OnComplete) OnComplete(false);
-				return;
-			}
+	if (!OGRTransform)
+	{
+		LCReporter::ShowError(
+			LOCTEXT("LandscapeNotFound", "Landscape Combinator Error: Could not create OGR Coordinate Transformation.")
+		);
+		return false;
+	}
 
 #if WITH_EDITOR
-			if (bUseLandscapeSplines)
-			{
-				bool bSuccess = Concurrency::RunOnGameThreadAndReturn([&]() {
-					return GenerateLandscapeSplines(bIsUserInitiated, Landscape, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
-				});
-				if (OnComplete) OnComplete(bSuccess);
-			}
-			else
-			{
-				bool bSuccess = Concurrency::RunOnGameThreadAndReturn([&]() {
-					return GenerateRegularSplines(bIsUserInitiated, SpawnedActorsPathOverride, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
-				});
-				if (OnComplete) OnComplete(bSuccess);
-			}
+	if (bUseLandscapeSplines)
+	{
+		return Concurrency::RunOnGameThreadAndWait([&]() {
+			return GenerateLandscapeSplines(bIsUserInitiated, Landscape, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
+		});
+	}
+	else
+	{
+		return Concurrency::RunOnGameThreadAndWait([&]() {
+			return GenerateRegularSplines(bIsUserInitiated, SpawnedActorsPathOverride, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
+		});
+	}
 #else
 
-			if (bUseLandscapeSplines)
-			{
-				UE_LOG(LogSplineImporter, Error, TEXT("Cannot create landscape splines at runtime"));
-				if (OnComplete) OnComplete(false);
-				return;
-			}
-			bool bSuccess = Concurrency::RunOnGameThreadAndReturn([&]() {
-				return GenerateRegularSplines(bIsUserInitiated, SpawnedActorsPathOverride, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
-			});
-			if (OnComplete) OnComplete(bSuccess);
-#endif
-		}
-		else
-		{
-			if (OnComplete) OnComplete(false);
-		}
+	if (bUseLandscapeSplines)
+	{
+		UE_LOG(LogSplineImporter, Error, TEXT("Cannot create landscape splines at runtime"));
+		return false;
+	}
+	return Concurrency::RunOnGameThreadAndWait([&]() {
+		return GenerateRegularSplines(bIsUserInitiated, SpawnedActorsPathOverride, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
 	});
+
+
+#endif
 }
 
 bool ASplineImporter::GenerateRegularSplines(
@@ -263,7 +240,7 @@ bool ASplineImporter::GenerateRegularSplines(
 
 	if (!IsValid(World))
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("NoWorld", "Internal error while creating splines: NULL World pointer.")
 		);
 		return false;
@@ -275,7 +252,7 @@ bool ASplineImporter::GenerateRegularSplines(
 		Concurrency::RunOnGameThreadAndWait([&SplineOwner, &SpawnedActorsPathOverride, World, this]()
 		{
 			SplineOwner = World->SpawnActor<ASplineCollection>();
-			if (!SplineOwner) return;
+			if (!SplineOwner) return false;
 
 	#if WITH_EDITOR
 			SplineOwner->SetActorLabel("SC_" + this->GetActorNameOrLabel());
@@ -283,11 +260,12 @@ bool ASplineImporter::GenerateRegularSplines(
 	#endif
 			
 			SplineOwner->Tags.Add(SplinesTag);
+			return true;
 		});
 
 		if (!SplineOwner)
 		{
-			ULCReporter::ShowError(
+			LCReporter::ShowError(
 				LOCTEXT("SpawnActorFailed", "Internal error while creating splines. Could not spawn a SplineCollection.")
 			);
 			return false;
@@ -296,29 +274,18 @@ bool ASplineImporter::GenerateRegularSplines(
 	}
 
 	const int NumLists = PointLists.Num();
-	FScopedSlowTask SplinesTask = FScopedSlowTask(NumLists,
-		FText::Format(
-			LOCTEXT("PointsTask", "Adding splines from {0} lines"),
-			FText::AsNumber(NumLists)
-		)
-	);
-	if (bIsUserInitiated) SplinesTask.MakeDialog(true);
 
 	int i = 0;
 	bool bAtLeastOneSuccess = false;
 	for (auto &PointList : PointLists)
 	{
-		if (bIsUserInitiated && SplinesTask.ShouldCancel())
-		{
-			break;
-		}
 		i++;
 		if (SplineOwnerKind == ESplineOwnerKind::ManySplineCollections)
 		{
 			Concurrency::RunOnGameThreadAndWait([&SplineOwner, &SpawnedActorsPathOverride, World, i, this]()
 			{
 				SplineOwner = World->SpawnActor<ASplineCollection>();
-				if (!IsValid(SplineOwner)) return;
+				if (!IsValid(SplineOwner)) return false;
 
 #if WITH_EDITOR
 				SplineOwner->SetActorLabel("SC_" + this->GetActorNameOrLabel() + FString::FromInt(i));
@@ -326,11 +293,12 @@ bool ASplineImporter::GenerateRegularSplines(
 #endif
 
 				SplineOwner->Tags.Add(SplinesTag);
+				return true;
 			});
 			
 			if (!SplineOwner)
 			{
-				ULCReporter::ShowError(
+				LCReporter::ShowError(
 					LOCTEXT("SpawnActorFailed", "Internal error while creating splines. Could not spawn a SplineCollection.")
 				);
 				return false;
@@ -342,18 +310,19 @@ bool ASplineImporter::GenerateRegularSplines(
 			Concurrency::RunOnGameThreadAndWait([&SplineOwner, &SpawnedActorsPathOverride, World, i, this]()
 			{
 				SplineOwner = World->SpawnActor(ActorToSpawn);
-				if (!IsValid(SplineOwner)) return;
+				if (!IsValid(SplineOwner)) return false;
 
 #if WITH_EDITOR
 				SplineOwner->SetActorLabel(SplineOwner->GetActorNameOrLabel() + "_" + FString::FromInt(i));
 				ULCBlueprintLibrary::SetFolderPath2(SplineOwner, SpawnedActorsPathOverride, SpawnedActorsPath);
 #endif
 				SplineOwner->Tags.Add(SplinesTag);
+				return true;
 			});
 			
 			if (!SplineOwner)
 			{
-				ULCReporter::ShowError(FText::Format(
+				LCReporter::ShowError(FText::Format(
 					LOCTEXT("SpawnActorFailed2", "Internal error while creating splines. Could not spawn {0}."),
 					FText::FromString(ActorToSpawn->GetName())
 				));
@@ -363,14 +332,13 @@ bool ASplineImporter::GenerateRegularSplines(
 			SplineOwners.Add(SplineOwner);
 		}
 
-		if (bIsUserInitiated) SplinesTask.EnterProgressFrame();
 		if (AddRegularSpline(SplineOwner, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointList))
 			bAtLeastOneSuccess = true;
 	}
 
 	if (bIsUserInitiated && !bAtLeastOneSuccess)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("NoSplinePoints", "No Splines were generated, make sure to save your map and check collision settings on the target actor")
 		);
 		return false;
@@ -403,7 +371,7 @@ bool ASplineImporter::AddRegularSpline(
 		SplineComponent = NewObject<USplineComponent>(SplineOwner);
 		if (!IsValid(SplineComponent))
 		{
-			ULCReporter::ShowError(
+			LCReporter::ShowError(
 				LOCTEXT("SplineComponentFailed", "Could not create SplineComponent.")
 			);
 			return false;
@@ -420,7 +388,7 @@ bool ASplineImporter::AddRegularSpline(
 		SplineComponent = SplineOwner->GetComponentByClass<USplineComponent>();
 		if (!IsValid(SplineComponent))
 		{
-			ULCReporter::ShowError(FText::Format(
+			LCReporter::ShowError(FText::Format(
 				LOCTEXT("SplineComponentFailed", "Could not get valid SplineComponent in {0}."),
 				FText::FromString(ActorToSpawn->GetName())
 			));
@@ -556,7 +524,7 @@ bool ASplineImporter::GenerateLandscapeSplines(
 	}
 	else
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("NoLandscapeSplineActor", "Could not create a landscape spline actor for Landscape {0}."),
 				FText::FromString(LandscapeLabel)
@@ -580,7 +548,7 @@ bool ASplineImporter::GenerateLandscapeSplines(
 
 	if (!LandscapeSplinesComponent)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("NoLandscapeSplinesComponent", "Could not create a landscape splines component for Landscape {0}."),
 				FText::FromString(LandscapeLabel)
@@ -595,24 +563,16 @@ bool ASplineImporter::GenerateLandscapeSplines(
 	TMap<FVector2D, ULandscapeSplineControlPoint*> Points;
 
 	const int NumLists = PointLists.Num();
-	FScopedSlowTask PointsTask = FScopedSlowTask(NumLists,
-		FText::Format(
-			LOCTEXT("PointsTask", "Adding points from {0} lines"),
-			FText::AsNumber(NumLists)
-		)
-	);
-	PointsTask.MakeDialog();
 
 	for (auto& PointList : PointLists)
 	{
-		PointsTask.EnterProgressFrame();
 		AddLandscapeSplinesPoints(CollisionQueryParams, OGRTransform, GlobalCoordinates, LandscapeSplinesComponent, PointList, Points);
 	}
 
 	UE_LOG(LogSplineImporter, Log, TEXT("Found %d control points"), Points.Num());
 	if (bIsUserInitiated && Points.Num() == 0)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			FText::Format(
 				LOCTEXT(
 					"NoLandscapeSplinesPoints",
@@ -625,25 +585,15 @@ bool ASplineImporter::GenerateLandscapeSplines(
 		return false;
 	}
 
-	FScopedSlowTask LandscapeSplinesTask = FScopedSlowTask(NumLists,
-		FText::Format(
-			LOCTEXT("PointsTask", "Adding landscape splines from {0} lines and {1} points"),
-			FText::AsNumber(NumLists),
-			FText::AsNumber(Points.Num())
-		)
-	);
-	LandscapeSplinesTask.MakeDialog();
-
 	for (auto& PointList : PointLists)
 	{
-		LandscapeSplinesTask.EnterProgressFrame();
 		AddLandscapeSplines(LandscapeSplinesComponent, PointList, Points);
 	}
 
 	UE_LOG(LogSplineImporter, Log, TEXT("Added %d segments"), LandscapeSplinesComponent->GetSegments().Num());
 	if (bIsUserInitiated && LandscapeSplinesComponent->GetSegments().Num() == 0)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			FText::Format(
 				LOCTEXT(
 					"NoLandscapeSplinesSegments",
@@ -794,7 +744,7 @@ AActor *ASplineImporter::Duplicate(FName FromName, FName ToName)
 	}
 	else
 	{
-		ULCReporter::ShowError(LOCTEXT("ASplineImporter::DuplicateActor", "Failed to duplicate actor."));
+		LCReporter::ShowError(LOCTEXT("ASplineImporter::DuplicateActor", "Failed to duplicate actor."));
 		return nullptr;
 	}
 }

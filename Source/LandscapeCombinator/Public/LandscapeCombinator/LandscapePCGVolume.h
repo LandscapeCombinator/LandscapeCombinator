@@ -50,7 +50,7 @@ public:
 	UFUNCTION(CallInEditor, BlueprintCallable, Category = "LandscapePCGVolume")
 	void SetPositionAndBounds();
 
-	virtual void OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete) override;
+	virtual bool OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated) override;
 
 	virtual bool Cleanup_Implementation(bool bSkipPrompt) override;
 

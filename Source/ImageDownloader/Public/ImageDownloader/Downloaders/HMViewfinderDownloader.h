@@ -13,7 +13,7 @@ public:
 	HMViewfinderDownloader(FString MegaTilesString, FString BaseURL, bool bIs15);
 
 	virtual bool ValidateTiles() const { return true; };
-	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+	bool OnFetch(FString InputCRS, TArray<FString> InputFiles) override;
 
 protected:
 	TArray<FString> MegaTiles;

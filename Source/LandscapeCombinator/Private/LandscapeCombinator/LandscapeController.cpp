@@ -5,7 +5,7 @@
 #include "LandscapeUtils/LandscapeUtils.h"
 #include "Coordinates/LevelCoordinates.h"
 #include "GDALInterface/GDALInterface.h"
-#include "LCReporter/LCReporter.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "Misc/MessageDialog.h"
 #include "Kismet/GameplayStatics.h"
@@ -22,7 +22,7 @@ void ULandscapeController::AdjustLandscape()
 	ALandscape *Landscape = Cast<ALandscape>(GetOwner());
 	if (!Landscape)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("ULandscapeController::AdjustLandscape::1", "Internal error while adjusting landscape scale and position")
 		);
 		return;
@@ -34,7 +34,7 @@ void ULandscapeController::AdjustLandscape()
 
 	if (CRS != GlobalCoordinates->CRS)
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("ULandscapeController::AdjustLandscape::3", "Adjust landscape requires the CRS of the landscape to be the same as the LevelCoordinates CRS"),
 			FText::FromString(LandscapeLabel)
 		));
@@ -62,11 +62,11 @@ void ULandscapeController::AdjustLandscape()
 	FVector OldLocation = Landscape->GetActorLocation();
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("I found the landscape %s. Adjusting scale and position."), *LandscapeLabel);
 	
-	UE_LOG(LogLandscapeCombinator, Log, TEXT("\nMinCoordWidth (Global EPSG): %f"), MinCoordWidth);
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("MinCoordWidth (Global EPSG): %f"), MinCoordWidth);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("MaxCoordWidth (Global EPSG): %f"), MaxCoordWidth);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("MinCoordHeight (Global EPSG): %f"), MinCoordHeight);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("MaxCoordHeight (Global EPSG): %f"), MaxCoordHeight);
-	UE_LOG(LogLandscapeCombinator, Log, TEXT("\nCoordWidth: %f"), CoordWidth);
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("CoordWidth: %f"), CoordWidth);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("CoordHeight: %f"), CoordHeight);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("InsidePixelsWidth: %d"), InsidePixelWidth);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("InsidePixelsHeight: %d"), InsidePixelHeight);
@@ -84,7 +84,7 @@ void ULandscapeController::AdjustLandscape()
 	double MinZBeforeScaling = MinMaxZBeforeScaling.X;
 	double MaxZBeforeScaling = MinMaxZBeforeScaling.Y;
 
-	UE_LOG(LogLandscapeCombinator, Log, TEXT("\nMinZBeforeScaling: %f"), MinZBeforeScaling);
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("MinZBeforeScaling: %f"), MinZBeforeScaling);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("MaxZBeforeScaling: %f"), MaxZBeforeScaling);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("MaxAltitude: %f"), MaxAltitude);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("MinAltitude: %f"), MinAltitude);
@@ -120,7 +120,7 @@ void ULandscapeController::AdjustLandscape()
 	double NewLocationY = AdjustedTopLeftY - TopPadding;
 	double NewLocationZ = OldLocation.Z - MaxZAfterScaling + 100 * MaxAltitude * ZScale;
 	FVector NewLocation = FVector(NewLocationX, NewLocationY, NewLocationZ);
-	UE_LOG(LogLandscapeCombinator, Log, TEXT("\nMinZAfterScaling: %f"), MinZAfterScaling);
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("MinZAfterScaling: %f"), MinZAfterScaling);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("MaxZAfterScaling: %f"), MaxZAfterScaling);
 
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("TopLeftX: %f"), TopLeftX);

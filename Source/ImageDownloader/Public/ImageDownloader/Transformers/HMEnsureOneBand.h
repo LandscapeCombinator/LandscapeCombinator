@@ -11,7 +11,7 @@ class HMEnsureOneBand : public HMFetcher
 public:
 	HMEnsureOneBand() {};
 
-	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+	bool OnFetch(FString InputCRS, TArray<FString> InputFiles) override;
 };
 
 #undef LOCTEXT_NAMESPACE

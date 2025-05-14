@@ -1,11 +1,11 @@
 // Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "LCCommon/LCGenerator.h"
-#include "LCReporter/LCReporter.h"
 #include "LCCommon/LCBlueprintLibrary.h"
 #include "LCCommon/LogLCCommon.h"
 #include "Coordinates/LevelCoordinates.h"
 #include "ConcurrencyHelpers/Concurrency.h"
+#include "HAL/ThreadManager.h"
 
 #if WITH_EDITOR
 #include "EditorActorFolders.h"
@@ -13,19 +13,16 @@
 
 #define LOCTEXT_NAMESPACE "FActorGeneratorModule"
 
-void ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated,  TFunction<void(bool)> OnComplete)
+bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 {
-	AActor *Self = Cast<AActor>(this);
-	if (!Self)
+	if (IsInGameThread())
 	{
-		if (OnComplete) OnComplete(false);
-		return;
+		LCReporter::ShowError(LOCTEXT("GenerateGameThread", "ILCGenerator::Generate cannot be called from the game thread. Use ILCGenerator::GenerateFromGameThread instead."));
+		return false;
 	}
 
-	TFunction<void(bool)> OnCompleteReport = [OnComplete, this](bool bSuccess) {
-		GenerationFinished(bSuccess);
-		if (OnComplete) OnComplete(bSuccess);
-	};
+	AActor *Self = Cast<AActor>(this);
+	if (!Self) return false;
 
 	ULCPositionBasedGeneration* PositionBasedGeneration = Cast<ULCPositionBasedGeneration>(Self->GetComponentByClass(ULCPositionBasedGeneration::StaticClass()));
 	if (IsValid(PositionBasedGeneration) && PositionBasedGeneration->bEnablePositionBasedGeneration)
@@ -35,9 +32,8 @@ void ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated,  TFu
 		if (!ULCBlueprintLibrary::GetFirstPlayerPosition(Position) &&
 			!ULCBlueprintLibrary::GetEditorViewClientPosition(Position))
 		{
-			ULCReporter::ShowError(LOCTEXT("NoPosition", "Could not get the first player position"));
-			if (OnComplete) OnComplete(false);
-			return;
+			LCReporter::ShowError(LOCTEXT("NoPosition", "Could not get the first player position"));
+			return false;
 		}
 
 		int Zoom = PositionBasedGeneration->ZoomLevel;		
@@ -48,16 +44,11 @@ void ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated,  TFu
 		UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(Self->GetWorld(), true);
 		if (!IsValid(GlobalCoordinates))
 		{
-			ULCReporter::ShowError(LOCTEXT("NoGlobalCoordinates", "You must add a Level Coordinates actor before using Position Based Generation"));
-			if (OnComplete) OnComplete(false);
-			return;
+			LCReporter::ShowError(LOCTEXT("NoGlobalCoordinates", "You must add a Level Coordinates actor before using Position Based Generation"));
+			return false;
 		}
 
-		if (!GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(Location2D, "EPSG:4326", Coordinates))
-		{
-			if (OnComplete) OnComplete(false);
-			return;
-		}
+		if (!GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(Location2D, "EPSG:4326", Coordinates)) return false;
 
 		double n = 1 << Zoom;
 		double LatRad = FMath::DegreesToRadians(Coordinates.Y);
@@ -87,25 +78,25 @@ void ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated,  TFu
 		// if all tiles are missing, we regenerate the whole rectangle
 		if (MissingTiles.Num() == (MaxX - MinX + 1) * (MaxY - MinY + 1))
 		{
-			if (!ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY))
-			{
-				if (OnComplete) OnComplete(false);
-				return;
-			}
+			if (!ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY)) return false;
 			UE_LOG(LogLCCommon, Log,
 				TEXT("All tiles from (%d, %d, %d) to (%d, %d, %d) are missing, generating them now"),
 				Zoom, MinX, MinY,
 				Zoom, MaxX, MaxY
 			);
 
-			Execute_OnGenerateBP(Cast<UObject>(this), SpawnedActorsPath, bIsUserInitiated);
-			auto OnCompleteSaveTiles = [PositionBasedGeneration, MissingTiles, OnCompleteReport](bool bSuccess)
+			Execute_OnGenerateBP(Self, SpawnedActorsPath, bIsUserInitiated);
+			if (OnGenerate(SpawnedActorsPath, bIsUserInitiated))
 			{
-				if (bSuccess) { PositionBasedGeneration->GeneratedTiles.Append(MissingTiles); }
-				if (OnCompleteReport) OnCompleteReport(bSuccess);
-			};
-			OnGenerate(SpawnedActorsPath, bIsUserInitiated, OnCompleteSaveTiles);
-			return;
+				PositionBasedGeneration->GeneratedTiles.Append(MissingTiles);
+				GenerationFinished(true);
+				return true;
+			}
+			else
+			{
+				GenerationFinished(false);
+				return false;
+			}
 		}
 		else if (MissingTiles.Num() > 0)
 		// we generate tile by tile
@@ -116,27 +107,25 @@ void ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated,  TFu
 				UE_LOG(LogLCCommon, Log, TEXT("Missing tile (%d, %d, %d)"), Tile.Zoom, Tile.X, Tile.Y);
 			}
 
-			Concurrency::RunSuccessively<FTile>(
-				MissingTiles,
-				[this, bIsUserInitiated, SpawnedActorsPath, PositionBasedGeneration](FTile Tile, TFunction<void(bool)> OnCompleteOne)
+			for (FTile& Tile : MissingTiles)
+			{
+				UE_LOG(LogLCCommon, Log, TEXT("Generating tile (%d, %d, %d)"), Tile.Zoom, Tile.X, Tile.Y);
+				if (!ConfigureForTiles(Tile.Zoom, Tile.X, Tile.X, Tile.Y, Tile.Y)) return false;
+
+				Execute_OnGenerateBP(Self, SpawnedActorsPath, bIsUserInitiated);
+				if (OnGenerate(SpawnedActorsPath, bIsUserInitiated))
 				{
-					if (!ConfigureForTiles(Tile.Zoom, Tile.X, Tile.X, Tile.Y, Tile.Y))
-					{
-						if (OnCompleteOne) OnCompleteOne(false);
-						return;
-					}
-					UE_LOG(LogLCCommon, Log, TEXT("Generating tile (%d, %d, %d)"), Tile.Zoom, Tile.X, Tile.Y);
-					Execute_OnGenerateBP(Cast<UObject>(this), SpawnedActorsPath, bIsUserInitiated);
-					auto OnCompleteOneSaveTile = [PositionBasedGeneration, OnCompleteOne, Tile](bool bSuccess)
-					{
-						if (bSuccess) { PositionBasedGeneration->GeneratedTiles.Add(Tile); }
-						if (OnCompleteOne) OnCompleteOne(bSuccess);
-					};
-					OnGenerate(SpawnedActorsPath, bIsUserInitiated, OnCompleteOneSaveTile);
-					return;
-				},
-				OnCompleteReport
-			);
+					PositionBasedGeneration->GeneratedTiles.Add(Tile);
+				}
+				else
+				{
+					GenerationFinished(false);
+					return false;
+				}
+			}
+
+			GenerationFinished(true);
+			return true;
 		}
 		else
 		{
@@ -146,19 +135,22 @@ void ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated,  TFu
 				Zoom, MaxX, MaxY
 			);
 
-			if (OnCompleteReport) OnCompleteReport(true);
+			GenerationFinished(true);
+			return true;
 		}
 	}
 	else
 	{
-		Execute_OnGenerateBP(Cast<UObject>(this), SpawnedActorsPath, bIsUserInitiated);
-		OnGenerate(SpawnedActorsPath, bIsUserInitiated, OnCompleteReport);
+		Execute_OnGenerateBP(Self, SpawnedActorsPath, bIsUserInitiated);
+		bool bSuccess = OnGenerate(SpawnedActorsPath, bIsUserInitiated);
+		GenerationFinished(bSuccess);
+		return bSuccess;
 	}
 }
 
 bool ILCGenerator::DeleteGeneratedObjects(bool bSkipPrompt)
 {
-	return Concurrency::RunOnGameThreadAndReturn([this, bSkipPrompt]() {
+	return Concurrency::RunOnGameThreadAndWait([this, bSkipPrompt]() {
 		return DeleteGeneratedObjects_GameThread(bSkipPrompt);
 	});
 }
@@ -177,9 +169,9 @@ bool ILCGenerator::DeleteGeneratedObjects_GameThread(bool bSkipPrompt)
 
 	TArray<UObject*> GeneratedObjects = GetGeneratedObjects();
 
-	UE_LOG(LogLCCommon, Log, TEXT("There are %d object(s) to delete"), GeneratedObjects.Num());
 	if (GeneratedObjects.Num() == 0) return true;
 
+	UE_LOG(LogLCCommon, Log, TEXT("There are %d object(s) to delete"), GeneratedObjects.Num());
 	if (!bSkipPrompt)
 	{
 		FString ObjectsString;
@@ -192,7 +184,7 @@ bool ILCGenerator::DeleteGeneratedObjects_GameThread(bool bSkipPrompt)
 			}
 		}
 
-		if (!ULCReporter::ShowMessage(
+		if (!LCReporter::ShowMessage(
 			FText::Format(
 				LOCTEXT("ILCGenerator::DeleteGeneratedObjects",
 					"The following objects will be deleted:\n{0}\nContinue?"),

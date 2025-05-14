@@ -2,9 +2,9 @@
 
 #include "LandscapeCombinator/LandscapeMesh.h"
 #include "LandscapeCombinator/LandscapeMeshSpawner.h"
-#include "LCReporter/LCReporter.h"
 #include "GDALInterface/GDALInterface.h"
 #include "ConcurrencyHelpers/Concurrency.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "Engine/World.h"
 #include "CompGeom/Delaunay2.h"
@@ -80,7 +80,7 @@ bool ALandscapeMesh::AddHeightmap(int Priority, FVector4d Coordinates, UGlobalCo
 
 	if (!GDALInterface::ReadHeightmapFromFile(File, Width, Height, Data))
 	{
-		ULCReporter::ShowError(LOCTEXT("HeightmapError", "Could not read heightmap from file: {0}"), FText::FromString(File));
+		LCReporter::ShowError(LOCTEXT("HeightmapError", "Could not read heightmap from file: {0}"), FText::FromString(File));
 		return false;
 	}
 	for (int32 j = 0; j < Height; ++j)
@@ -109,7 +109,7 @@ bool ALandscapeMesh::RegenerateMesh(double SplitNormalsAngle)
 	PriorityToHeightmaps.GetKeys(Priorities);
 	if (PriorityToHeightmaps.IsEmpty())
 	{
-		ULCReporter::ShowError(LOCTEXT("NoHeightmaps", "There are no heightmaps in the Landscape Mesh, cannot generate"));
+		LCReporter::ShowError(LOCTEXT("NoHeightmaps", "There are no heightmaps in the Landscape Mesh, cannot generate"));
 		return false;
 	}
 
@@ -132,7 +132,7 @@ bool ALandscapeMesh::RegenerateMesh(double SplitNormalsAngle)
 
 	if (Points.IsEmpty())
 	{
-		ULCReporter::ShowError(LOCTEXT("NoPoint", "Trying to generate empty mesh, something went wrong in the Landscape Mesh Spawner"));
+		LCReporter::ShowError(LOCTEXT("NoPoint", "Trying to generate empty mesh, something went wrong in the Landscape Mesh Spawner"));
 		return false;
 	}
 	
@@ -150,13 +150,13 @@ bool ALandscapeMesh::RegenerateMesh(double SplitNormalsAngle)
 
 	if (!Delaunay.Triangulate(Points2D, Edges))
 	{
-		ULCReporter::ShowError(LOCTEXT("DelaunayError", "Delaunay triangulation failed"));
+		LCReporter::ShowError(LOCTEXT("DelaunayError", "Delaunay triangulation failed"));
 		return false;
 	}
 
 	if (!IsValid(MeshComponent) || !IsValid(MeshComponent->GetDynamicMesh()))
 	{
-		ULCReporter::ShowError(LOCTEXT("MeshComponentError", "Dynamic mesh is not valid"));
+		LCReporter::ShowError(LOCTEXT("MeshComponentError", "Dynamic mesh is not valid"));
 		return false;
 	}
 
@@ -167,7 +167,7 @@ bool ALandscapeMesh::RegenerateMesh(double SplitNormalsAngle)
 			Triangle.A < 0 || Triangle.B < 0 || Triangle.C < 0 ||
 			Triangle.A >= PointsArray.Num() || Triangle.B >= PointsArray.Num() || Triangle.C >= PointsArray.Num())
 		{
-			ULCReporter::ShowError(
+			LCReporter::ShowError(
 				FText::Format(
 					LOCTEXT("InvalidTriangleError", "Delaunay returned an invalid triangle {0} {1} {2} ({3} vertices)"),
 					FText::AsNumber(Triangle.A),
@@ -191,6 +191,7 @@ bool ALandscapeMesh::RegenerateMesh(double SplitNormalsAngle)
 		FDynamicMesh3 &TargetMesh = MeshComponent->GetDynamicMesh()->GetMeshRef();
 		TargetMesh = MoveTemp(NewMesh);
 		UGeometryScriptLibrary_MeshNormalsFunctions::SetPerVertexNormals(MeshComponent->GetDynamicMesh());
+		return true;
 	});
 
 	return true;

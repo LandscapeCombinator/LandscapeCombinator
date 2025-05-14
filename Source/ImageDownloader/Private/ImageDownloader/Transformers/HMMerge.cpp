@@ -6,44 +6,37 @@
 #include "GDALInterface/GDALInterface.h"
 
 #include "HAL/PlatformFile.h"
-#include "Misc/ScopedSlowTask.h"
 #include "Misc/MessageDialog.h"
 #include "Misc/Paths.h"
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-void HMMerge::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+bool HMMerge::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 {
 	OutputCRS = InputCRS;
 
 	if (InputFiles.Num() == 1)
 	{
 		OutputFiles.Add(InputFiles[0]);
-		if (OnComplete) OnComplete(true);
-		return;
+		return true;
 	}
 	
 	if (!IPlatformFile::GetPlatformPhysical().CreateDirectory(*OutputDir))
 	{
 		Directories::CouldNotInitializeDirectory(OutputDir);
-		if (OnComplete) OnComplete(false);
-		return;
+		return false;
 	}
 
 	FString MergedFile = FPaths::Combine(OutputDir, Name + ".tif");
 
-	FScopedSlowTask *MergeTask = new FScopedSlowTask(1, LOCTEXT("MergeTask", "GDAL Interface: Merging Files"));
-	MergeTask->MakeDialog();
-	bool bMerged = GDALInterface::Merge(InputFiles, MergedFile);
-	MergeTask->Destroy();
-	if (bMerged)
+	if (GDALInterface::Merge(InputFiles, MergedFile))
 	{
 		OutputFiles.Add(MergedFile);
-		if (OnComplete) OnComplete(true);
+		return true;
 	}
 	else
 	{
-		if (OnComplete) OnComplete(false);
+		return false;
 	}
 }
 

@@ -2,7 +2,7 @@
 
 #include "ImageDownloader/Downloaders/HMLocalFolder.h"
 #include "ImageDownloader/LogImageDownloader.h"
-#include "LCReporter/LCReporter.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "HAL/FileManagerGeneric.h"
 #include "Misc/MessageDialog.h"
@@ -10,7 +10,7 @@
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-void HMLocalFolder::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+bool HMLocalFolder::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 {
 	FString AllExt = FString("*");
 	FString All = FPaths::Combine(Folder, AllExt);
@@ -19,12 +19,11 @@ void HMLocalFolder::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunct
 
 	if (FileNames.Num() == 0)
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("EmptyFolder", "Folder {0} is empty."),
 			FText::FromString(Folder)
 		));
-		if (OnComplete) OnComplete(false);
-		return;
+		return false;
 	}
 
 	for (auto& FileName : FileNames)
@@ -32,8 +31,7 @@ void HMLocalFolder::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunct
 		OutputFiles.Add(FPaths::Combine(Folder, FileName));
 	}
 	
-	if (OnComplete) OnComplete(true);
-	return;
+	return true;
 }
 
 #undef LOCTEXT_NAMESPACE

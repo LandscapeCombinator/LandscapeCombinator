@@ -70,7 +70,7 @@ public class GDALInterface : ModuleRules
 
 				// Landscape Combinator Dependencies
 				"FileDownloader",
-				"LCReporter"
+				"ConcurrencyHelpers"
 			}
 		);
 	}

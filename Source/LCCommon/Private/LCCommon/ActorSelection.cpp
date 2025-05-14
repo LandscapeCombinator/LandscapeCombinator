@@ -1,12 +1,12 @@
 // Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "LCCommon/ActorSelection.h"
-#include "LCReporter/LCReporter.h"
 
 #include "CoreMinimal.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/MessageDialog.h"
 #include "Engine/World.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
@@ -15,7 +15,7 @@ AActor* FActorSelection::GetActor(const UWorld* World)
 {
 	if (!IsValid(World))
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("ActorSelection::GetActor::InvalidWorld", "InvalidWorld")
 		);
 		return nullptr;
@@ -27,7 +27,7 @@ AActor* FActorSelection::GetActor(const UWorld* World)
 		{
 			if (!Actor.IsValid())
 			{
-				ULCReporter::ShowError(
+				LCReporter::ShowError(
 					LOCTEXT("ActorSelection::GetActor", "Landscape Combinator Actor Selection: Please select a valid actor")
 				);
 				return nullptr;
@@ -42,7 +42,7 @@ AActor* FActorSelection::GetActor(const UWorld* World)
 
 			if (Actors.IsEmpty())
 			{
-				ULCReporter::ShowError(FText::Format(
+				LCReporter::ShowError(FText::Format(
 					LOCTEXT("ActorSelection::GetActor", "Landscape Combinator Actor Selection: Could not find actor with tag {0}"),
 					FText::FromName(ActorTag)
 				));
@@ -63,7 +63,7 @@ TArray<AActor*> FActorSelection::GetAllActors(const UWorld* World)
 {
 	if (!IsValid(World))
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("ActorSelection::GetAllActors::InvalidWorld", "InvalidWorld")
 		);
 		return {};
@@ -75,7 +75,7 @@ TArray<AActor*> FActorSelection::GetAllActors(const UWorld* World)
 		{
 			if (!Actor.IsValid())
 			{
-				ULCReporter::ShowError(
+				LCReporter::ShowError(
 					LOCTEXT("ActorSelection::GetAllActors", "Landscape Combinator Actor Selection: Please select a valid actor")
 				);
 				return {};
@@ -90,7 +90,7 @@ TArray<AActor*> FActorSelection::GetAllActors(const UWorld* World)
 
 			if (Actors.IsEmpty())
 			{
-				ULCReporter::ShowError(FText::Format(
+				LCReporter::ShowError(FText::Format(
 					LOCTEXT("ActorSelection::GetAllActors", "Landscape Combinator Actor Selection: Could not find actor with tag {0}"),
 					FText::FromName(ActorTag)
 				));

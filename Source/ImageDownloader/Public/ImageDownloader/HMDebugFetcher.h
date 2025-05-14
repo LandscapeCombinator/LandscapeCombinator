@@ -16,7 +16,9 @@ public:
 		Name = Name0;
 		Fetcher = Fetcher0;
 	};
-	virtual ~HMDebugFetcher() { delete Fetcher; };
+	virtual ~HMDebugFetcher() {
+		delete Fetcher;
+	};
 
 	FString Name;
 	HMFetcher *Fetcher;
@@ -27,7 +29,7 @@ public:
 		Fetcher->SetIsUserInitiated(bIsUserInitiatedIn);
 	}
 	
-	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+	bool OnFetch(FString InputCRS, TArray<FString> InputFiles) override;
 };
 
 #undef LOCTEXT_NAMESPACE

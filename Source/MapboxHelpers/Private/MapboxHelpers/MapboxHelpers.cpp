@@ -4,7 +4,7 @@
 #include "MapboxHelpers/LogMapboxHelpers.h"
 #include "GDALInterface/GDALInterface.h"
 #include "ConcurrencyHelpers/Concurrency.h"
-#include "LCReporter/LCReporter.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "Misc/MessageDialog.h"
 
@@ -18,7 +18,7 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 
 	if (!Dataset)
 	{
-		ULCReporter::ShowOneError(
+		LCReporter::ShowOneError(
 			FText::Format(
 				LOCTEXT("MapboxHelpers::6", "Could not read file {0} using GDAL:\n{1}"),
 				FText::FromString(InputFile),
@@ -32,7 +32,7 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 
 	if (Dataset->GetRasterCount() != 1)
 	{
-		ULCReporter::ShowOneError(
+		LCReporter::ShowOneError(
 			FText::Format(
 				LOCTEXT("MapboxHelpers::0", "Expected one band from Mapbox heightmap {0}, but got {1} instead."),
 				FText::FromString(InputFile),
@@ -47,7 +47,7 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 	GDALColorTable* ColorTable = Dataset->GetRasterBand(1)->GetColorTable();
 	if (!ColorTable)
 	{
-		ULCReporter::ShowOneError(
+		LCReporter::ShowOneError(
 			FText::Format(
 				LOCTEXT("MapboxHelpers::00", "Expected to have a Color Table in the heightmap {0}."),
 				FText::FromString(InputFile)
@@ -66,7 +66,7 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 
 	if (!CodeBand)
 	{
-		ULCReporter::ShowOneError(LOCTEXT("MapboxHelpers::7", "Not enough memory to allocate for decoding data."), bShowedDialog);
+		LCReporter::ShowOneError(LOCTEXT("MapboxHelpers::7", "Not enough memory to allocate for decoding data."), bShowedDialog);
 		GDALClose(Dataset);
 		if (CodeBand) free(CodeBand);
 		return false;
@@ -77,7 +77,7 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 
 	if (ReadErr != CE_None)
 	{
-		ULCReporter::ShowOneError(
+		LCReporter::ShowOneError(
 			FText::Format(
 				LOCTEXT("MapboxHelpers::7", "There was an error while reading heightmap data from file {0}."),
 				FText::FromString(OutputFile)
@@ -98,7 +98,7 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 
 	if (!TIFDriver || !MEMDriver)
 	{
-		ULCReporter::ShowOneError(LOCTEXT("MapboxHelpers::3", "Could not load GDAL drivers."), bShowedDialog);
+		LCReporter::ShowOneError(LOCTEXT("MapboxHelpers::3", "Could not load GDAL drivers."), bShowedDialog);
 		GDALClose(Dataset);
 		free(CodeBand);
 		return false;
@@ -112,7 +112,7 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 
 	if (!HeightmapData)
 	{
-		ULCReporter::ShowOneError(
+		LCReporter::ShowOneError(
 			FText::Format(
 				LOCTEXT("MapboxHelpers::12", "Not enough memory to allocate for decoding data."),
 				FText::FromString(OutputFile)
@@ -132,7 +132,7 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 			const GDALColorEntry *ColorEntry = ColorTable->GetColorEntry(CodeBand[i]);
 			if (!ColorEntry)
 			{
-				ULCReporter::ShowOneError(
+				LCReporter::ShowOneError(
 					FText::Format(
 						LOCTEXT("MapboxHelpers::12", "No Color Entry for X = {0}, Y = {1}, Index = {2}, i = {3}, ColorTable Entry Count: {4}"),
 						FText::AsNumber(X),
@@ -173,7 +173,7 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 
 	if (!NewDataset)
 	{
-		ULCReporter::ShowOneError(
+		LCReporter::ShowOneError(
 			FText::Format(
 				LOCTEXT("MapboxHelpers::4", "There was an error while creating a GDAL Dataset."),
 				FText::FromString(InputFile)
@@ -188,7 +188,7 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 
 	if (WriteErr != CE_None)
 	{
-		ULCReporter::ShowOneError(
+		LCReporter::ShowOneError(
 			FText::Format(
 				LOCTEXT("MapboxHelpers::5", "There was an error while writing heightmap data to file {0}. (Error: {1})"),
 				FText::FromString(OutputFile),
@@ -207,7 +207,7 @@ bool MapboxHelpers::DecodeMapboxOneBand(FString InputFile, FString OutputFile, b
 
 	if (!TIFDataset)
 	{
-		ULCReporter::ShowOneError(
+		LCReporter::ShowOneError(
 			FText::Format(
 				LOCTEXT("MapboxHelpers::5", "Could not write heightmap to file {0}."),
 				FText::FromString(OutputFile),
@@ -233,7 +233,7 @@ bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile
 
 	if (!Dataset)
 	{
-		ULCReporter::ShowOneError(
+		LCReporter::ShowOneError(
 			FText::Format(
 				LOCTEXT("MapboxHelpers::6", "Could not read (three bands) file {0} using GDAL.\n{1}"),
 				FText::FromString(InputFile),
@@ -246,7 +246,7 @@ bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile
 
 	if (Dataset->GetRasterCount() < 3)
 	{
-		ULCReporter::ShowOneError(
+		LCReporter::ShowOneError(
 			FText::Format(
 				LOCTEXT("MapboxHelpers::0", "Expected at least three bands from heightmap {0}, but got {1} instead."),
 				FText::FromString(InputFile),
@@ -266,7 +266,7 @@ bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile
 
 	if (!RedBand || !GreenBand || !BlueBand)
 	{
-		ULCReporter::ShowOneError(
+		LCReporter::ShowOneError(
 			LOCTEXT("MapboxHelpers::7", "Not enough memory to allocate for decoding data."),
 			bShowedDialog
 		);
@@ -284,7 +284,7 @@ bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile
 
 	if (ReadErr1 != CE_None || ReadErr2 != CE_None || ReadErr3 != CE_None)
 	{
-		ULCReporter::ShowOneError(
+		LCReporter::ShowOneError(
 			FText::Format(
 				LOCTEXT("MapboxHelpers::7", "There was an error while reading heightmap data from file {0}."),
 				FText::FromString(OutputFile)
@@ -306,7 +306,7 @@ bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile
 
 	if (!TIFDriver || !MEMDriver)
 	{
-		ULCReporter::ShowOneError(LOCTEXT("MapboxHelpers::3", "Could not load GDAL drivers."), bShowedDialog);
+		LCReporter::ShowOneError(LOCTEXT("MapboxHelpers::3", "Could not load GDAL drivers."), bShowedDialog);
 		free(RedBand);
 		free(GreenBand);
 		free(BlueBand);
@@ -321,7 +321,7 @@ bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile
 
 	if (!HeightmapData)
 	{
-		ULCReporter::ShowOneError(
+		LCReporter::ShowOneError(
 			FText::Format(
 				LOCTEXT("MapboxHelpers::12", "Not enough memory to allocate for decoding data."),
 				FText::FromString(OutputFile)
@@ -368,7 +368,7 @@ bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile
 
 	if (!NewDataset)
 	{
-		ULCReporter::ShowOneError(
+		LCReporter::ShowOneError(
 			FText::Format(
 				LOCTEXT("MapboxHelpers::4", "There was an error while creating a GDAL Dataset."),
 				FText::FromString(InputFile)
@@ -383,7 +383,7 @@ bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile
 
 	if (WriteErr != CE_None)
 	{
-		ULCReporter::ShowOneError(
+		LCReporter::ShowOneError(
 			FText::Format(
 				LOCTEXT("MapboxHelpers::5", "There was an error while writing heightmap data to file {0}. (Error: {1})"),
 				FText::FromString(OutputFile),
@@ -401,7 +401,7 @@ bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile
 
 	if (!TIFDataset)
 	{
-		ULCReporter::ShowOneError(
+		LCReporter::ShowOneError(
 			FText::Format(
 				LOCTEXT("MapboxHelpers::5", "Could not write heightmap to file {0}."),
 				FText::FromString(OutputFile),
