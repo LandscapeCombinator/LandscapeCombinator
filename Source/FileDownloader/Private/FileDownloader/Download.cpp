@@ -3,24 +3,23 @@
 #include "FileDownloader/Download.h"
 #include "FileDownloader/LogFileDownloader.h"
 #include "FileDownloader/FileDownloaderStyle.h"
-#include "LCReporter/LCReporter.h"
 
 #include "ConcurrencyHelpers/Concurrency.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "Async/Async.h"
 #include "Http.h"
 #include "Misc/FileHelper.h"
 #include "HAL/PlatformFileManager.h" 
 #include "Widgets/Notifications/SProgressBar.h"
-#include "Misc/ScopedSlowTask.h"
 #include "Misc/EngineVersionComparison.h"
 #include "Misc/MessageDialog.h"
-
+#include "HAL/ThreadManager.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
-float SleepSeconds = 0.1;
-float TimeoutSeconds = 100;
+// FIXME: implement proper critical section instead of bTriggered
+
 TMap<FString, int> ExpectedSizeCache; 
 
 FString Shorten(FString Input)
@@ -35,17 +34,22 @@ FString Shorten(FString Input)
 	}
 }
 
-// FIXME: use TAtomic<bool> for bTriggered, but with TAtomic<bool> bTriggered { false}, everything blocks
-// We use bTriggered to avoid OnProcessRequestComplete being invoked multiple times
-
-bool Download::SynchronousFromURL(FString URL, FString File)
+bool Download::SynchronousFromURL(FString URL, FString File, bool bProgress)
 {
+	if (IsInGameThread())
+	{
+		LCReporter::ShowError(
+			LOCTEXT("Download::SynchronousFromURL", "Synchronous download must be run on a background thread.")
+		);
+		return false;
+	}
+
 	UE_LOG(LogFileDownloader, Log, TEXT("Downloading '%s' to '%s'"), *URL, *File);
 
 	if (ExpectedSizeCache.Contains(URL))
 	{
 		UE_LOG(LogFileDownloader, Log, TEXT("Cache says expected size for '%s' is '%d'"), *URL, ExpectedSizeCache[URL]);
-		return SynchronousFromURLExpecting(URL, File, ExpectedSizeCache[URL]);
+		return SynchronousFromURLExpecting(URL, File, bProgress, ExpectedSizeCache[URL]);
 	}
 	else
 	{
@@ -53,38 +57,53 @@ bool Download::SynchronousFromURL(FString URL, FString File)
 		Request->SetURL(URL);
 		Request->SetVerb("HEAD");
 		Request->SetHeader("User-Agent", "X-UnrealEngine-Agent");
+		Request->SetTimeout(10);
 
-		bool bIsComplete = false;
+		FEvent* SyncEvent = FPlatformProcess::GetSynchEventFromPool(false);
+		if (!SyncEvent)
+		{
+			LCReporter::ShowError(
+				LOCTEXT("SynchronousFromURLSync", "Failed to create sync event for synchronous download.")
+			);
+			return false;
+		}
+
 		int32 ExpectedSize = 0;
-		
+
 		bool *bTriggered = new bool(false);
-		Request->OnProcessRequestComplete().BindLambda([URL, File, &ExpectedSize, &bIsComplete, bTriggered](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful) {
+		Request->OnProcessRequestComplete().BindLambda([URL, File, bTriggered, &ExpectedSize, SyncEvent](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful) {
 			if (*bTriggered) return;
 			*bTriggered = true;
+
 			if (bWasSuccessful && Response.IsValid() && EHttpResponseCodes::IsOk(Response->GetResponseCode()))
 			{
 				ExpectedSize = FCString::Atoi(*Response->GetHeader("Content-Length"));
 			}
-			bIsComplete = true;
+			SyncEvent->Trigger();
 		});
+
 		Request->ProcessRequest();
-
-		float StartTime = FPlatformTime::Seconds();
-		UE_LOG(LogFileDownloader, Log, TEXT("Actively waiting for Content-Length request to complete"));
-		while (!bIsComplete && FPlatformTime::Seconds() - StartTime <= TimeoutSeconds)
-		{
-			FPlatformProcess::Sleep(SleepSeconds);
-		}
+		double StartTime = FPlatformTime::Seconds();
+		UE_LOG(LogFileDownloader, Log, TEXT("Waiting for Content-Length request to complete (10s timeout)"));
+		SyncEvent->Wait();
 		UE_LOG(LogFileDownloader, Log, TEXT("Finished waiting for Content-Length request to complete"));
-
+		Request->OnProcessRequestComplete().Unbind();
 		Request->CancelRequest();
 
-		return SynchronousFromURLExpecting(URL, File, ExpectedSize);
+		return SynchronousFromURLExpecting(URL, File, bProgress, ExpectedSize);
 	}
 }
 
-bool Download::SynchronousFromURLExpecting(FString URL, FString File, int32 ExpectedSize)
+bool Download::SynchronousFromURLExpecting(FString URL, FString File, bool bProgress, int32 ExpectedSize)
 {
+	if (IsInGameThread())
+	{
+		LCReporter::ShowError(
+			LOCTEXT("Download::SynchronousFromURLExpecting", "Synchronous download must be run on a background thread.")
+		);
+		return false;
+	}
+
 	IPlatformFile &PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 	if (PlatformFile.FileExists(*File) && ExpectedSize != 0 && PlatformFile.FileSize(*File) == ExpectedSize)
 	{
@@ -99,11 +118,23 @@ bool Download::SynchronousFromURLExpecting(FString URL, FString File, int32 Expe
 	Request->SetURL(URL);
 	Request->SetVerb("GET");
 	Request->SetHeader("User-Agent", "X-UnrealEngine-Agent");
+	Request->SetTimeout(100);
+
+	FEvent* SyncEvent = FPlatformProcess::GetSynchEventFromPool(false);
+	if (!SyncEvent)
+	{
+		LCReporter::ShowError(
+			LOCTEXT("SynchronousFromURLExpectingSync", "Failed to create sync event for synchronous download.")
+		);
+		return false;
+	}
+
 	bool *bTriggered = new bool(false);
-	Request->OnProcessRequestComplete().BindLambda([URL, File, &bDownloadResult, &bIsComplete, bTriggered](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
+	Request->OnProcessRequestComplete().BindLambda([URL, File, &bDownloadResult, SyncEvent, bTriggered](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
 	{
 		if (*bTriggered) return;
 		*bTriggered = true;
+		
 		IPlatformFile &PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 		bool DownloadSuccess = bWasSuccessful && Response.IsValid() && EHttpResponseCodes::IsOk(Response->GetResponseCode());
 		bool SavedFile = false;
@@ -114,36 +145,32 @@ bool Download::SynchronousFromURLExpecting(FString URL, FString File, int32 Expe
 			{
 				AddExpectedSize(URL, PlatformFile.FileSize(*File));
 				bDownloadResult = true;
-				bIsComplete = true;
-
 				UE_LOG(LogFileDownloader, Log, TEXT("Finished downloading '%s' to '%s'"), *URL, *File);
 			}
 			else
 			{
 				bDownloadResult = false;
-				bIsComplete = true;
 				UE_LOG(LogFileDownloader, Error, TEXT("Error while saving '%s' to '%s'"), *URL, *File);
 			}
 		}
 		else
 		{
 			UE_LOG(LogFileDownloader, Error, TEXT("Error while downloading '%s' to '%s'"), *URL, *File);
-			UE_LOG(LogFileDownloader, Error, TEXT("Request was not successful. Error %d."), Response->GetResponseCode());
+			if (Response)
+			{
+				UE_LOG(LogFileDownloader, Error, TEXT("Request was not successful. Error %d."), Response->GetResponseCode());
+			}
 			bDownloadResult = false;
-			bIsComplete = true;
 		}
+		SyncEvent->Trigger();
 	});
-	Request->ProcessRequest();
-		
 
+	Request->ProcessRequest();
 	float StartTime = FPlatformTime::Seconds();
-	UE_LOG(LogFileDownloader, Log, TEXT("Actively waiting for download to complete"));
-	while (!bIsComplete && FPlatformTime::Seconds() - StartTime <= TimeoutSeconds)
-	{
-		FPlatformProcess::Sleep(SleepSeconds);
-	}
+	UE_LOG(LogFileDownloader, Log, TEXT("Waiting for download to complete (100s timeout)"));
+	SyncEvent->Wait();
 	UE_LOG(LogFileDownloader, Log, TEXT("Finished waiting for download to complete"));
-		
+	Request->OnProcessRequestComplete().Unbind();
 	Request->CancelRequest();
 
 	return bDownloadResult;
@@ -167,22 +194,9 @@ void Download::FromURL(FString URL, FString File, bool bProgress, TFunction<void
 		Request->SetHeader("User-Agent", "X-UnrealEngine-Agent");
 		bool *bTriggered = new bool(false);
 
-		FScopedSlowTask* Task = nullptr;
-
-		if (bProgress)
-		{
-			Task = new FScopedSlowTask(0, LOCTEXT("Download::FromURL", "Fetching Content Length from URL"));
-			Task->MakeDialog();
-		}
-
-		Request->OnProcessRequestComplete().BindLambda([Task, bProgress, URL, File, OnComplete, bTriggered](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful) {
+		Request->OnProcessRequestComplete().BindLambda([bProgress, URL, File, OnComplete, bTriggered](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful) {
 			if (*bTriggered) return;
 			*bTriggered = true;
-
-			if (bProgress)
-			{
-				Task->Destroy();
-			}
 
 			if (bWasSuccessful && Response.IsValid() && EHttpResponseCodes::IsOk(Response->GetResponseCode()))
 			{
@@ -196,7 +210,6 @@ void Download::FromURL(FString URL, FString File, bool bProgress, TFunction<void
 		});
 		Request->ProcessRequest();
 	}
-
 }
 
 void Download::DownloadMany(TArray<FString> URLs, FString Directory, TFunction<void(TArray<FString>)> OnComplete)
@@ -209,7 +222,7 @@ void Download::DownloadMany(TArray<FString> URLs, FString Directory, TFunction<v
 
 		if (NumElements == 0)
 		{
-			ULCReporter::ShowError(
+			LCReporter::ShowError(
 				FText::Format(
 					LOCTEXT("Download::DownloadMany", "URL could not be parsed to extract a file name: {0}"),
 					FText::FromString(URL)
@@ -249,6 +262,53 @@ void Download::DownloadMany(TArray<FString> URLs, TArray<FString> Files, TFuncti
 			}
 		}
 	);
+}
+
+TArray<FString> Download::DownloadManyAndWait(TArray<FString> URLs, FString Directory, bool bProgress)
+{
+	TArray<FString> Files;
+	for (auto& URL : URLs)
+	{
+		TArray<FString> Elements;
+		int NumElements = URL.ParseIntoArray(Elements, TEXT("/"), true);
+
+		if (NumElements == 0)
+		{
+			LCReporter::ShowError(
+				FText::Format(
+					LOCTEXT("Download::DownloadMany", "URL could not be parsed to extract a file name: {0}"),
+					FText::FromString(URL)
+				)
+			);
+			return TArray<FString>();
+		}
+
+		FString FileName = Elements[NumElements - 1];
+		FString CleanFileName = FPaths::GetCleanFilename(FileName);
+		
+		FString File = FPaths::Combine(Directory, FPaths::GetCleanFilename(FileName));
+		Files.Add(File);
+	}
+
+	return DownloadManyAndWait(URLs, Files, bProgress);
+}
+
+TArray<FString> Download::DownloadManyAndWait(TArray<FString> URLs, TArray<FString> Files, bool bProgress)
+{
+	if (Concurrency::RunManyAndWait(
+		URLs.Num(),
+		[URLs, Files, bProgress](int i)
+		{
+			return Download::SynchronousFromURL(URLs[i], Files[i], bProgress);
+		}
+	))
+	{
+		return Files;
+	}
+	else
+	{
+		return TArray<FString>();
+	}
 }
 
 void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64 ExpectedSize, TFunction<void(bool)> OnComplete)

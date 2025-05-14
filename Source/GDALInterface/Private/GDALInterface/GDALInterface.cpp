@@ -2,9 +2,10 @@
 
 #include "GDALInterface/GDALInterface.h"
 #include "GDALInterface/LogGDALInterface.h"
-#include "LCReporter/LCReporter.h"
 
 #include "FileDownloader/Download.h"
+#include "ConcurrencyHelpers/Concurrency.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "Async/Async.h"
 #include "Async/TaskGraphInterfaces.h"
@@ -12,7 +13,6 @@
 #include "Internationalization/TextLocalizationResource.h" 
 #include "GenericPlatform/GenericPlatformHttp.h"
 #include "Misc/Paths.h"
-#include "Misc/ScopedSlowTask.h"
 #include "Misc/MessageDialog.h"
 
 #include "HAL/FileManager.h"
@@ -25,7 +25,7 @@ bool GDALInterface::SetWellKnownGeogCRS(OGRSpatialReference& InRs, FString CRS)
 
 	if (Err != OGRERR_NONE)
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("SetWellKnownGeogCRS", "Unable to set spatial reference from string: {0}.\nError: {1}"),
 			FText::FromString(CRS),
 			FText::AsNumber(Err, &FNumberFormattingOptions::DefaultNoGrouping())
@@ -57,7 +57,7 @@ bool GDALInterface::SetCRSFromFile(OGRSpatialReference &InRs, FString File, bool
 	{
 		if (bDialog)
 		{
-			ULCReporter::ShowError(FText::Format(
+			LCReporter::ShowError(FText::Format(
 				LOCTEXT("GetSpatialReferenceError", "Unable to open file {0} to read its spatial reference."),
 				FText::FromString(File)
 			));
@@ -76,7 +76,7 @@ bool GDALInterface::SetCRSFromDataset(OGRSpatialReference& InRs, GDALDataset* Da
 	{
 		if (bDialog)
 		{
-			ULCReporter::ShowError(
+			LCReporter::ShowError(
 				LOCTEXT("GetSpatialReferenceError", "Unable to get spatial reference from dataset (null pointer).")
 			);
 		}
@@ -90,7 +90,7 @@ bool GDALInterface::SetCRSFromDataset(OGRSpatialReference& InRs, GDALDataset* Da
 	{
 		if (bDialog)
 		{
-			ULCReporter::ShowError(FText::Format(
+			LCReporter::ShowError(FText::Format(
 				LOCTEXT("GetSpatialReferenceError2", "Unable to get spatial reference from dataset (Error {0})."),
 				FText::AsNumber(Err, &FNumberFormattingOptions::DefaultNoGrouping())
 			));
@@ -148,7 +148,7 @@ bool GDALInterface::SetCRSFromEPSG(OGRSpatialReference& InRs, int EPSG)
 	OGRErr Err = InRs.importFromEPSG(EPSG);
 	if (Err != OGRERR_NONE)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("StartupModuleError1", "Could not create spatial reference from EPSG {0} (Error {1})."),
 				FText::AsNumber(EPSG, &FNumberFormattingOptions::DefaultNoGrouping()),
@@ -168,7 +168,7 @@ bool GDALInterface::SetCRSFromUserInput(OGRSpatialReference& InRs, FString CRS, 
 	{
 		if (bDialog)
 		{
-			ULCReporter::ShowError(
+			LCReporter::ShowError(
 				FText::Format(
 					LOCTEXT("StartupModuleError1", "Could not create spatial reference from user input '{0}' (Error {1})."),
 					FText::FromString(CRS),
@@ -210,7 +210,7 @@ bool GDALInterface::GetCoordinates(FVector4d& Coordinates, FString File)
 	GDALDataset *Dataset = (GDALDataset *)GDALOpen(TCHAR_TO_UTF8(*File), GA_ReadOnly);
 	if (!Dataset)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("GetCoordinatesError", "Could not open file '{0}' to read the coordinates.\n{1}"),
 				FText::FromString(File),
@@ -223,7 +223,7 @@ bool GDALInterface::GetCoordinates(FVector4d& Coordinates, FString File)
 	bool bSuccess = GDALInterface::GetCoordinates(Coordinates, Dataset);
 	if (!bSuccess)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("GetCoordinatesError", "Could not read coordinates from file '{0}'.\n{1}"),
 				FText::FromString(File),
@@ -244,7 +244,7 @@ bool GDALInterface::GetCoordinates(FVector4d& Coordinates, TArray<FString> Files
 
 	if (Files.IsEmpty())
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("GetCoordinatesError", "GetCoordinates requires a non-empty array of files.")
 		);
 		return false;
@@ -277,7 +277,7 @@ OGRCoordinateTransformation *GDALInterface::MakeTransform(FString InCRS, FString
 		!GDALInterface::SetCRSFromUserInput(OutRs, OutCRS)
 	)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("GDALInterface::MakeTransform::1", "Internal error while setting CRS.\n{0}"),
 				FText::FromString(FString(CPLGetLastErrorMsg()))
@@ -289,7 +289,7 @@ OGRCoordinateTransformation *GDALInterface::MakeTransform(FString InCRS, FString
 	OGRCoordinateTransformation *CoordinateTransformation = OGRCreateCoordinateTransformation(&InRs, &OutRs);
 	if (!CoordinateTransformation )
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("GDALInterface::MakeTransform::3", "Internal error while creating coordinate transformation.\n{0}"),
 				FText::FromString(FString(CPLGetLastErrorMsg()))
@@ -305,13 +305,13 @@ bool GDALInterface::Transform(OGRCoordinateTransformation* CoordinateTransformat
 {
 	if (!CoordinateTransformation)
 	{
-		ULCReporter::ShowError(LOCTEXT("GDALInterface::Transform", "Invalid Coordinate Transformation"));
+		LCReporter::ShowError(LOCTEXT("GDALInterface::Transform", "Invalid Coordinate Transformation"));
 		return false;
 	}
 		
 	if (!CoordinateTransformation->Transform(1, Longitude, Latitude))
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("GDALInterface::Transform", "Internal error while transforming coordinates ({0}, {1}).\n{2}"),
 				FText::AsNumber(*Longitude),
@@ -328,7 +328,7 @@ bool GDALInterface::Transform2(OGRCoordinateTransformation* CoordinateTransforma
 {
 	if (!CoordinateTransformation || !CoordinateTransformation->Transform(2, xs, ys))
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("GDALInterface::Transform2", "Internal error while transforming coordinates.\n{0}"),
 				FText::FromString(FString(CPLGetLastErrorMsg()))
@@ -368,7 +368,7 @@ bool GDALInterface::ConvertCoordinates(FVector4d& OriginalCoordinates, FVector4d
 
 	OGRSpatialReference InRs, OutRs;
 	if (!SetCRSFromUserInput(InRs, InCRS) || !SetCRSFromUserInput(OutRs, OutCRS) || !OGRCreateCoordinateTransformation(&InRs, &OutRs)->Transform(2, xs, ys)) {
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("GDALInterface::ConvertCoordinates", "Internal error while transforming coordinates.")
 		);
 		return false;
@@ -393,7 +393,7 @@ bool GDALInterface::ConvertCoordinates(FVector4d& OriginalCoordinates, bool bCro
 
 	if (!OGRCreateCoordinateTransformation(&InRs, &OutRs)->Transform(4, xs, ys))
 	{
-		ULCReporter::ShowError(LOCTEXT("GDALInterface::ConvertCoordinates", "Internal error while transforming coordinates."));
+		LCReporter::ShowError(LOCTEXT("GDALInterface::ConvertCoordinates", "Internal error while transforming coordinates."));
 		return false;
 	}
 
@@ -420,7 +420,7 @@ bool GDALInterface::GetPixels(FIntPoint& Pixels, FString File)
 	GDALDataset *Dataset = (GDALDataset *)GDALOpen(TCHAR_TO_UTF8(*File), GA_ReadOnly);
 
 	if (!Dataset) {
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			FText::Format(LOCTEXT("GetInsidePixelsError", "Could not open heightmap file '{0}' to read its size.\n{1}"),
 				FText::FromString(File),
 				FText::FromString(FString(CPLGetLastErrorMsg()))
@@ -446,7 +446,7 @@ bool GDALInterface::GetMinMax(FVector2D &MinMax, TArray<FString> Files)
 
 		if (!Dataset)
 		{
-			ULCReporter::ShowError(
+			LCReporter::ShowError(
 				FText::Format(LOCTEXT("GetMinMaxError", "Could not open heightmap file '{0}' to compute min/max altitudes.\n{1}"),
 					FText::FromString(File),
 					FText::FromString(FString(CPLGetLastErrorMsg()))
@@ -459,7 +459,7 @@ bool GDALInterface::GetMinMax(FVector2D &MinMax, TArray<FString> Files)
 
 		if (GDALComputeRasterMinMax(Dataset->GetRasterBand(1), false, AdfMinMax) != CE_None)
 		{
-			ULCReporter::ShowError(
+			LCReporter::ShowError(
 				FText::Format(LOCTEXT("GetMinMaxError2", "Could not compute min/max altitudes of file '{0}'.\n{1}"),
 					FText::FromString(File),
 					FText::FromString(FString(CPLGetLastErrorMsg()))
@@ -481,7 +481,7 @@ FString GDALInterface::GetColorInterpretation(const FString &File)
 {
 	GDALDataset *Dataset = (GDALDataset *)GDALOpen(TCHAR_TO_UTF8(*File), GA_ReadOnly);
 	if (!Dataset) {
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			FText::Format(LOCTEXT("GetColorInterpretationError", "Could not open file '{0}' to read color interpretation.\n{1}"),
 				FText::FromString(File),
 				FText::FromString(FString(CPLGetLastErrorMsg()))
@@ -492,7 +492,7 @@ FString GDALInterface::GetColorInterpretation(const FString &File)
 
 	if (Dataset->GetRasterCount() < 1)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			FText::Format(LOCTEXT("GetColorInterpretationError2", "File '{0}' should have at least one band to read color interpretation"),
 				FText::FromString(File)
 			)
@@ -503,7 +503,7 @@ FString GDALInterface::GetColorInterpretation(const FString &File)
 
 	GDALRasterBand* Band = Dataset->GetRasterBand(1);
 	if (!Band) {
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			FText::Format(LOCTEXT("GetColorInterpretationError3", "Could not get band for file '{0}'"),
 				FText::FromString(File),
 				FText::FromString(FString(CPLGetLastErrorMsg()))
@@ -566,7 +566,7 @@ bool GDALInterface::Translate(FString SourceFile, FString TargetFile, TArray<FSt
 
 	if (!SourceDataset)
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("ConvertGDALOpenError", "Could not open file {0}."),
 			FText::FromString(SourceFile)
 		));
@@ -586,7 +586,7 @@ bool GDALInterface::Translate(FString SourceFile, FString TargetFile, TArray<FSt
 
 	if (!Options)
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("ConvertParseOptionsError", "Internal GDAL error while parsing GDALTranslate options for file {0}."),
 			FText::FromString(SourceFile)
 		));
@@ -608,7 +608,7 @@ bool GDALInterface::Translate(FString SourceFile, FString TargetFile, TArray<FSt
 	{
 		FString Error = FString(CPLGetLastErrorMsg());
 		UE_LOG(LogGDALInterface, Error, TEXT("Error while translating: %s to %s:\n%s"), *SourceFile, *TargetFile, *Error);
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("ConvertGDALTranslateError",
 				"Internal GDALTranslate error while converting dataset from file {0} to PNG.\nIt is possible that the source image is not a heightmap.\n{1}"),
 			FText::FromString(SourceFile),
@@ -646,7 +646,7 @@ bool GDALInterface::Merge(TArray<FString> SourceFiles, FString TargetFile)
 	
 	if (!DatasetVRT)
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("GDALInterfaceMergeError", "Could not merge the files {0}.\n{1}."),
 			FText::FromString(FString::Join(SourceFiles, TEXT(", "))),
 			FText::FromString(FString(CPLGetLastErrorMsg()))
@@ -675,7 +675,7 @@ bool GDALInterface::ReadHeightmapFromFile(FString File, int& OutWidth, int& OutH
 
 	if (!Dataset)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			FText::Format(LOCTEXT("GDALInterface::ReadHeightsFromFile", "Could not open file '{0}' to read heightmap."),
 				FText::FromString(File)
 			)
@@ -730,7 +730,7 @@ bool GDALInterface::ReadColorsFromFile(FString File, int &OutWidth, int &OutHeig
 	GDALDataset *Dataset = (GDALDataset *)GDALOpen(TCHAR_TO_UTF8(*File), GA_ReadOnly);
 	if (!Dataset)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			FText::Format(LOCTEXT("GDALInterface::ReadTextureFromFile", "Could not open file '{0}' to create a texture."),
 				FText::FromString(File)
 			)
@@ -850,7 +850,7 @@ bool GDALInterface::Warp(FString SourceFile, FString TargetFile, TArray<FString>
 
 	if (!SrcDataset)
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("GDALWarpOpenError", "Could not open file {0}.\n{1}"),
 			FText::FromString(SourceFile),
 			FText::FromString(FString(CPLGetLastErrorMsg()))
@@ -872,7 +872,7 @@ bool GDALInterface::Warp(FString SourceFile, FString TargetFile, TArray<FString>
 
 	if (!Options)
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("GDALWarpError", "Could not parse gdalwarp options for file {0}.\nError: {1}"),
 			FText::FromString(SourceFile),
 			FText::FromString(FString(CPLGetLastErrorMsg()))
@@ -888,7 +888,7 @@ bool GDALInterface::Warp(FString SourceFile, FString TargetFile, TArray<FString>
 
 	if (!WarpedDataset)
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("GDALWarpError", "Internal GDALWarp error ({0}):\n{1}"),
 			FText::AsNumber(WarpError, &FNumberFormattingOptions::DefaultNoGrouping()),
 			FText::FromString(FString(CPLGetLastErrorMsg()))
@@ -1024,9 +1024,6 @@ TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset)
 {
 	TArray<FPointList> PointLists;
 	
-	FScopedSlowTask FeaturesTask = FScopedSlowTask(0, LOCTEXT("PointsTask", "Reading Features from Dataset..."));
-	FeaturesTask.MakeDialog(true);
-	
 	OGRFeature *Feature;
 	OGRLayer *Layer;
 	Feature = Dataset->GetNextFeature(&Layer, nullptr, nullptr, nullptr);
@@ -1034,10 +1031,6 @@ TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset)
 	while (Feature)
 	{
 		NumFeatures += 1;
-		if (FeaturesTask.ShouldCancel())
-		{
-			return TArray<FPointList>();
-		}
 
 		TMap<FString, FString> Fields = FieldsFromFeature(Feature);
 
@@ -1082,7 +1075,7 @@ GDALDataset* GDALInterface::LoadGDALVectorDatasetFromFile(const FString &File)
 
 	if (!Dataset)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("FileNotFound", "Could not load vector file '{0}'.\n{1}"),
 				FText::FromString(File),
@@ -1094,7 +1087,7 @@ GDALDataset* GDALInterface::LoadGDALVectorDatasetFromFile(const FString &File)
 	return Dataset;
 }
 
-void GDALInterface::LoadGDALVectorDatasetFromQuery(FString Query, bool bIsUserInitiated, TFunction<void(GDALDataset*)> OnComplete)
+GDALDataset* GDALInterface::LoadGDALVectorDatasetFromQuery(FString Query, bool bIsUserInitiated)
 {
 	UE_LOG(LogGDALInterface, Log, TEXT("Loading dataset from Overpass query: '%s'"), *Query);
 	UE_LOG(LogGDALInterface, Log, TEXT("Decoded URL: '%s'"), *(FGenericPlatformHttp::UrlDecode(Query)));
@@ -1104,22 +1097,17 @@ void GDALInterface::LoadGDALVectorDatasetFromQuery(FString Query, bool bIsUserIn
 	uint32 Hash = FTextLocalizationResource::HashString(Query);
 	FString XmlFilePath = FPaths::Combine(DownloadDir, FString::Format(TEXT("overpass_query_{0}.xml"), { Hash }));
 
-	Download::FromURL(Query.Replace(TEXT(" "), TEXT("+")), XmlFilePath, bIsUserInitiated,
-		[Query, XmlFilePath, OnComplete](bool bWasSuccessful) {
-			if (bWasSuccessful && OnComplete)
-			{
-				OnComplete(LoadGDALVectorDatasetFromFile(XmlFilePath));
-			}
-			else
-			{
-				ULCReporter::ShowError(FText::Format(
-					LOCTEXT("GetSpatialReferenceError", "Unable to get the result for the Overpass query: {0}."),
-					FText::FromString(Query)
-				));
-			}
-			return;
-		}
-	);
+	if (!Download::SynchronousFromURL(Query.Replace(TEXT(" "), TEXT("+")), XmlFilePath, bIsUserInitiated))
+	{
+		
+		LCReporter::ShowError(FText::Format(
+			LOCTEXT("GetSpatialReferenceError", "Unable to get the result for the Overpass query: {0}."),
+			FText::FromString(Query)
+		));
+		return nullptr;
+	}
+	
+	return LoadGDALVectorDatasetFromFile(XmlFilePath);
 }
 
 bool GDALInterface::ExportMesh(const FDynamicMesh3 &Mesh, const FString &File)
@@ -1259,7 +1247,7 @@ bool GDALInterface::WriteHeightmapDataToTIF(const FString& File, int32 SizeX, in
 
 	if (!TIFDriver || !MEMDriver)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("GDALInterface::WriteHeightmapDataToTIF::3", "Could not load GDAL drivers.")
 		);
 		return false;
@@ -1275,7 +1263,7 @@ bool GDALInterface::WriteHeightmapDataToTIF(const FString& File, int32 SizeX, in
 
 	if (!Dataset)
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("GDALInterface::WriteHeightmapDataToTIF::4", "There was an error while creating a GDAL Dataset."),
 			FText::FromString(File)
 		));
@@ -1284,7 +1272,7 @@ bool GDALInterface::WriteHeightmapDataToTIF(const FString& File, int32 SizeX, in
 
 	if (Dataset->GetRasterCount() != 1)
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("GDALInterface::WriteHeightmapDataToTIF::4", "There was an error while writing heightmap data to file {0}."),
 			FText::FromString(File)
 		));
@@ -1297,7 +1285,7 @@ bool GDALInterface::WriteHeightmapDataToTIF(const FString& File, int32 SizeX, in
 
 	if (WriteErr != CE_None)
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("GDALInterface::WriteHeightmapDataToTIF::5", "There was an error while writing heightmap data to file {0}. (Error: {1})"),
 			FText::FromString(File),
 			FText::AsNumber(WriteErr, &FNumberFormattingOptions::DefaultNoGrouping())
@@ -1311,7 +1299,7 @@ bool GDALInterface::WriteHeightmapDataToTIF(const FString& File, int32 SizeX, in
 
 	if (!TIFDataset)
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("GDALInterface::WriteHeightmapDataToTIF::5", "Could not write heightmap to file {0}."),
 			FText::FromString(File),
 			FText::AsNumber(WriteErr, &FNumberFormattingOptions::DefaultNoGrouping())

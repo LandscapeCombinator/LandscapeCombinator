@@ -4,8 +4,8 @@
 #include "Coordinates/LevelCoordinates.h"
 #include "Coordinates/LogCoordinates.h"
 #include "GDALInterface/GDALInterface.h"
-#include "LCReporter/LCReporter.h"
-#include "ConcurrencyHelpers//Concurrency.h"
+#include "ConcurrencyHelpers/Concurrency.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "Components/DecalComponent.h"
 #include "Misc/Paths.h"
@@ -31,7 +31,7 @@ bool UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 	ADecalActor *DecalActor = Cast<ADecalActor>(GetOwner());
 	if (!DecalActor)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("UDecalCoordinates::PlaceDecal", "UDecalCoordinates must be placed on a Decal Actor.")
 		);
 		return false;
@@ -39,7 +39,7 @@ bool UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 	
 	if (!FPaths::FileExists(PathToGeoreferencedImage))
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("UDecalCoordinates::PlaceDecal::NoFile", "File {0} does not exist."),
 			FText::FromString(PathToGeoreferencedImage)
 		));
@@ -102,14 +102,15 @@ bool UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 				)
 			);
 
-		if (!IsValid(M_GeoDecal)) return;
+		if (!IsValid(M_GeoDecal)) return false;
 		
 		MI_GeoDecal = UMaterialInstanceDynamic::Create(M_GeoDecal, this);
+		return true;
 	});
 
 	if (!IsValid(M_GeoDecal) || !IsValid(MI_GeoDecal))
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("UDecalCoordinates::PlaceDecal::M_GeoDecal", "Coordinates Internal Error: Could not find material M_GeoDecal.")
 		);
 		return false;
@@ -122,7 +123,7 @@ bool UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 
 	if (!GDALInterface::ReadColorsFromFile(ReprojectedImage, Width, Height, Colors))
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("UDecalCoordinates::PlaceDecal::ReadColorsFromFile", "Coordinates Internal Error: Could not read colors from file {0}."),
 			FText::FromString(ReprojectedImage)
 		));
@@ -139,6 +140,7 @@ bool UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 
 		MI_GeoDecal->SetTextureParameterValue(FName("Texture"), Texture);
 		DecalActor->SetDecalMaterial(MI_GeoDecal);
+		return true;
 	});
 
 	return true;
@@ -157,7 +159,7 @@ TArray<ADecalActor*> UDecalCoordinates::CreateDecals(UWorld *World, TArray<FStri
 		}
 		else
 		{
-			ULCReporter::ShowError(
+			LCReporter::ShowError(
 				LOCTEXT("UDecalCoordinates::CreateDecals", "There was an error while creating a decal actor")
 			);
 			return {};
@@ -177,7 +179,7 @@ ADecalActor* UDecalCoordinates::CreateDecal(UWorld *World, FString Path, FVector
 {
 	if (!IsValid(World))
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("UDecalCoordinates::CreateDecal::InvalidWorld", "Invalid World.")
 		);
 		return nullptr;
@@ -188,7 +190,7 @@ ADecalActor* UDecalCoordinates::CreateDecal(UWorld *World, FString Path, FVector
 	
 	Concurrency::RunOnGameThreadAndWait([&DecalActor, &DecalCoordinates, World, Path]{
 		DecalActor = World->SpawnActor<ADecalActor>();
-		if (!IsValid(DecalActor)) return;
+		if (!IsValid(DecalActor)) return false;
 		FString BaseName = FPaths::GetBaseFilename(Path);
 
 #if WITH_EDITOR
@@ -196,16 +198,17 @@ ADecalActor* UDecalCoordinates::CreateDecal(UWorld *World, FString Path, FVector
 #endif
 
 		DecalCoordinates = NewObject<UDecalCoordinates>(DecalActor->GetRootComponent());
-		if (!IsValid(DecalCoordinates)) return;
+		if (!IsValid(DecalCoordinates)) return false;
 		DecalCoordinates->CreationMethod = EComponentCreationMethod::UserConstructionScript;
 		DecalCoordinates->RegisterComponent();
 		DecalCoordinates->PathToGeoreferencedImage = Path;
 		DecalActor->AddInstanceComponent(DecalCoordinates);
+		return true;
 	});
 
 	if (!IsValid(DecalActor) || !IsValid(DecalCoordinates))
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("UDecalCoordinates::CreateDecal", "Coordinates Internal Error: Could not spawn a Decal Actor.")
 		);
 		return nullptr;
@@ -219,6 +222,7 @@ ADecalActor* UDecalCoordinates::CreateDecal(UWorld *World, FString Path, FVector
 	{
 		Concurrency::RunOnGameThreadAndWait([&DecalActor]{
 			DecalActor->Destroy();
+			return true;
 		});
 		return nullptr;
 	}

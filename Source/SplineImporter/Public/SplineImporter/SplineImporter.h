@@ -111,7 +111,7 @@ public:
 	)
 	FVector SplinePointsOffset;
 
-	void OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete) override;
+	bool OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated) override;
 	
 	UPROPERTY(
 		EditAnywhere, DuplicateTransient, Category = "GDALImporter",

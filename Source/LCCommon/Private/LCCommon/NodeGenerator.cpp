@@ -1,4 +1,5 @@
 #include "LCCommon/NodeGenerator.h"
+#include "ConcurrencyHelpers/Concurrency.h"
 
 UNodeGenerator* UNodeGenerator::Generate(
 		const UObject* WorldContextObject,
@@ -17,7 +18,10 @@ void UNodeGenerator::Activate()
 {
 	if (Generator.GetInterface())
 	{
-		Generator.GetInterface()->Generate(SpawnedActorsPath, true, [this](bool bSuccess) { TaskComplete(bSuccess); });
+		Concurrency::RunAsync([this]() {
+			bool bSuccess = Generator.GetInterface()->Generate(SpawnedActorsPath, true);
+			TaskComplete(bSuccess);
+		});
 	}
 }
 

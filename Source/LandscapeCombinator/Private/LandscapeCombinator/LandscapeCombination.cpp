@@ -1,6 +1,5 @@
 #include "LandscapeCombinator/LandscapeCombination.h"
 #include "LandscapeCombinator/LogLandscapeCombinator.h"
-#include "LCReporter/LCReporter.h"
 #include "LCCommon/LCBlueprintLibrary.h"
 #include "SplineImporter/SplineImporter.h"
 #include "ConcurrencyHelpers/Concurrency.h"
@@ -11,98 +10,76 @@
 #include "FileHelpers.h"
 #endif
 
-
-using namespace ConcurrencyOperators;
-
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
-void ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete)
+bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated)
 {
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("Starting Combination with %d Generators"), Generators.Num());
 
-	Concurrency::RunSuccessively<FGeneratorWrapper>(
-		Generators,
+	for (auto &GeneratorWrapper: Generators)
+	{
+		TSoftObjectPtr<AActor> Generator = GeneratorWrapper.Generator;
 
-		[this, SpawnedActorsPathOverride, bIsUserInitiated](FGeneratorWrapper GeneratorWrapper, TFunction<void(bool)> OnCompleteOne) -> void
+		if (!GeneratorWrapper.bIsEnabled) continue;
+
+		if (!Generator.IsValid())
 		{
-			TSoftObjectPtr<AActor> Generator = GeneratorWrapper.Generator;
-
-			if (!GeneratorWrapper.bIsEnabled)
-			{
-				if (OnCompleteOne) OnCompleteOne(true);
-				return;
-			}
-			else if (Generator.IsValid())
-			{
-				if (Generator->Implements<ULCGenerator>())
-				{
-					UE_LOG(LogLandscapeCombinator, Log, TEXT("Starting generator: %s"), *Generator->GetActorNameOrLabel());
-
-					double StartTime = FPlatformTime::Seconds();
-					auto OnCompleteOneSave = [OnCompleteOne, bIsUserInitiated, this, StartTime, Generator](bool bSuccess) {
-#if WITH_EDITOR
-						if (bSuccess && bSaveAfterEachGenerator)
-						{
-							UE_LOG(LogLandscapeCombinator, Log, TEXT("Saving Level"));
-							Concurrency::RunOnGameThreadAndWait([bIsUserInitiated](){
-								const bool bPromptUserToSave = bIsUserInitiated;
-								const bool bSaveMapPackages = true;
-								const bool bSaveContentPackages = true;
-								const bool bFastSave = false;
-								const bool bNotifyNoPackagesSaved = false;
-								const bool bCanBeDeclined = false;
-								FEditorFileUtils::SaveDirtyPackages( bPromptUserToSave, bSaveMapPackages, bSaveContentPackages, bFastSave, bNotifyNoPackagesSaved, bCanBeDeclined );
-							});
-						}
-#endif
-						double Time = FPlatformTime::Seconds() - StartTime;
-
-						if (!TimeSpent.Contains(Generator.Get())) TimeSpent.Add(Generator.Get(), Time);
-						else TimeSpent[Generator.Get()] += Time;
-
-						if (OnCompleteOne) OnCompleteOne(bSuccess);
-					};
-
-					UE_LOG(LogLandscapeCombinator, Log, TEXT("Starting Generation with %s"), *Generator->GetActorNameOrLabel());
-					if (SpawnedActorsPathOverride.IsNone())
-						Cast<ILCGenerator>(Generator.Get())->Generate(FName(), bIsUserInitiated, OnCompleteOneSave);
-					else
-						Cast<ILCGenerator>(Generator.Get())->Generate(
-							FName(SpawnedActorsPathOverride.ToString() / Generator->GetActorNameOrLabel()),
-							bIsUserInitiated,
-							OnCompleteOneSave
-						);
-				}
-				else
-				{
-					UE_LOG(LogLandscapeCombinator, Error, TEXT("Non-generator actor in combination: %s"), *Generator->GetActorNameOrLabel());
-					if (OnCompleteOne) OnCompleteOne(false);
-					return;
-				}
-			}
-			else
-			{
-				UE_LOG(LogLandscapeCombinator, Error, TEXT("Invalid actor in combination"))
-
-				if (OnCompleteOne) OnCompleteOne(false);
-				return;
-			}
-		},
-
-		[this, OnComplete](bool bSuccess) {
-			TArray<TPair<AActor*, double>> Times;
-			for (auto &Time : TimeSpent)
-			{
-				Times.Add(TPair<AActor*, double>(Time.Key, Time.Value));
-			}
-			Times.Sort([](const TPair<AActor*, double> &A, const TPair<AActor*, double> &B) { return A.Value < B.Value; });
-			for (auto &Time : Times)
-			{
-				UE_LOG(LogLandscapeCombinator, Log, TEXT("Total generation time for %s: %f seconds"), *Time.Key->GetActorNameOrLabel(), Time.Value);
-			}
-			if (OnComplete) OnComplete(bSuccess);
+			LCReporter::ShowError(LOCTEXT("InvalidActor", "Invalid actor in combination"));
+			return false;
 		}
-	);
+		
+		if (!Generator->Implements<ULCGenerator>())
+		{
+			LCReporter::ShowError(
+				FText::Format(
+					LOCTEXT("NonGeneratorActor", "Non-generator actor in combination: {0}"),
+					FText::FromString(Generator->GetActorNameOrLabel())
+				)
+			);
+			return false;
+		}
+
+		double StartTime = FPlatformTime::Seconds();
+		UE_LOG(LogLandscapeCombinator, Log, TEXT("Starting Generation with %s"), *Generator->GetActorNameOrLabel());
+
+		FName Path = SpawnedActorsPathOverride.IsNone() ? FName() : FName(SpawnedActorsPathOverride.ToString() / Generator->GetActorNameOrLabel());
+
+		if (!Cast<ILCGenerator>(Generator.Get())->Generate(Path, bIsUserInitiated)) return false;
+#if WITH_EDITOR
+		if (bSaveAfterEachGenerator)
+		{
+			UE_LOG(LogLandscapeCombinator, Log, TEXT("Saving Level"));
+			if (!Concurrency::RunOnGameThreadAndWait([bIsUserInitiated](){
+				const bool bPromptUserToSave = bIsUserInitiated;
+				const bool bSaveMapPackages = true;
+				const bool bSaveContentPackages = true;
+				const bool bFastSave = false;
+				const bool bNotifyNoPackagesSaved = false;
+				const bool bCanBeDeclined = false;
+				return FEditorFileUtils::SaveDirtyPackages( bPromptUserToSave, bSaveMapPackages, bSaveContentPackages, bFastSave, bNotifyNoPackagesSaved, bCanBeDeclined );
+			}))
+			{
+				return false;
+			}
+		}
+#endif
+		double Time = FPlatformTime::Seconds() - StartTime;
+
+		if (!TimeSpent.Contains(Generator.Get())) TimeSpent.Add(Generator.Get(), Time);
+		else TimeSpent[Generator.Get()] += Time;
+	}
+
+	TArray<TPair<AActor*, double>> Times;
+	for (auto &Time : TimeSpent)
+	{
+		Times.Add(TPair<AActor*, double>(Time.Key, Time.Value));
+	}
+	Times.Sort([](const TPair<AActor*, double> &A, const TPair<AActor*, double> &B) { return A.Value < B.Value; });
+	for (auto &Time : Times)
+	{
+		UE_LOG(LogLandscapeCombinator, Log, TEXT("Total generation time for %s: %f seconds"), *Time.Key->GetActorNameOrLabel(), Time.Value);
+	}
+	return true;
 }
 
 bool ALandscapeCombination::Cleanup_Implementation(bool bSkipPrompt)
@@ -127,7 +104,7 @@ bool ALandscapeCombination::Cleanup_Implementation(bool bSkipPrompt)
 			{
 				if (IsValid(Object)) ObjectsString += Object->GetName() + "\n";
 			}
-			if (!ULCReporter::ShowMessage(
+			if (!LCReporter::ShowMessage(
 				FText::Format(
 					LOCTEXT("ALandscapeCombination::Cleanup_Implementation",
 						"The following objects will be deleted:\n{0}\nContinue?"),
@@ -165,13 +142,13 @@ AActor* ALandscapeCombination::Duplicate(FName FromName, FName ToName)
 		{
 			if (!GeneratorWrapper.Generator.IsValid())
 			{
-				ULCReporter::ShowError(LOCTEXT("FailedDuplicateError1", "Invalid generator found during duplication."));
+				LCReporter::ShowError(LOCTEXT("FailedDuplicateError1", "Invalid generator found during duplication."));
 				continue;
 			}
 
 			if (!GeneratorWrapper.Generator->Implements<ULCGenerator>())
 			{
-				ULCReporter::ShowError(LOCTEXT("FailedDuplicateError2", "Generator does not implement the LCGenerator interface."));
+				LCReporter::ShowError(LOCTEXT("FailedDuplicateError2", "Generator does not implement the LCGenerator interface."));
 				continue;
 			}
 
@@ -185,7 +162,7 @@ AActor* ALandscapeCombination::Duplicate(FName FromName, FName ToName)
 			}
 			else
 			{
-				ULCReporter::ShowError(LOCTEXT("FailedDuplicateError1", "Failed to duplicate generator."));
+				LCReporter::ShowError(LOCTEXT("FailedDuplicateError1", "Failed to duplicate generator."));
 			}
 		}
 

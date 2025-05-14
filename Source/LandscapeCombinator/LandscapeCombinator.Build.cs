@@ -48,8 +48,7 @@ public class LandscapeCombinator : ModuleRules
 				"HeightmapModifier",
 				"ImageDownloader",
 				"SplineImporter",
-				"BuildingFromSpline",
-				"LCReporter",
+				"BuildingsFromSplines",
 				"LCCommon"
 			}
 		);

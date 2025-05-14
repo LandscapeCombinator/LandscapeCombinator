@@ -2,15 +2,11 @@
 
 #pragma once
 
+#include "LCReporter.h"
 #include "Templates/Function.h"
-#include "LogConcurrencyHelpers.h"
-
 #include "Async/Async.h"
 
-namespace ConcurrencyOperators
-{
-	CONCURRENCYHELPERS_API TFunction<void(TFunction<void(bool)>)> operator >> (TFunction<void(TFunction<void(bool)>)> Action1, TFunction<void(TFunction<void(bool)>)> Action2);
-}
+#define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
 class CONCURRENCYHELPERS_API Concurrency
 {
@@ -30,7 +26,10 @@ public:
 
 			if (FinishedTasksLocal == NumberOfTasks)
 			{
-				if (OnComplete) OnComplete(*SuccessfulTasks == NumberOfTasks);
+				bool bSuccess = *SuccessfulTasks == NumberOfTasks;
+				delete SuccessfulTasks;
+				delete FinishedTasks;
+				if (OnComplete) OnComplete(bSuccess);
 			}
 		};
 
@@ -44,6 +43,56 @@ public:
 		}
 
 		return;
+	}
+
+	template<typename T>
+	static bool RunManyAndWait(TArray<T> Elements, TFunction<bool( T Element )> Action)
+	{
+		TArray<int> UnusedResults;
+		return RunArrayAndWait<T, int>(Elements, UnusedResults, [Action](T Element, int &UnusedResult) {
+			return Action(Element);
+		});
+	}
+
+	template<typename A, typename B>
+	static bool RunArrayAndWait(TArray<A> Elements, TArray<B> &OutResults, TFunction<bool( A Element, B &OutResult )> Function)
+	{
+		if (IsInGameThread())
+		{
+			LCReporter::ShowError(
+				LOCTEXT("Concurrency::RunArrayAndWait", "Blocking function Concurrency::RunArrayAndWait must be run on a background thread.")
+			);
+			return false;
+		}
+
+		int32 NumberOfTasks = Elements.Num();
+		std::atomic<int32> *SuccessfulTasks = new std::atomic<int>(0);
+		std::atomic<int32> *FinishedTasks = new std::atomic<int>(0);
+		UE_LOG(LogTemp, Log, TEXT("Starting %d tasks in parallel"), NumberOfTasks);
+
+		OutResults.Empty(NumberOfTasks);
+		OutResults.SetNum(NumberOfTasks);
+
+		for (int i = 0; i < NumberOfTasks; i++)
+		{
+			Async(EAsyncExecution::Thread,
+				[&Function, FinishedTasks, SuccessfulTasks, NumberOfTasks, &Elements, &OutResults, i]() {
+
+					if (Function(Elements[i], OutResults[i])) (*SuccessfulTasks)++;
+					(*FinishedTasks)++;
+				}
+			);
+		}
+
+		UE_LOG(LogTemp, Log, TEXT("Actively waiting for all %d tasks to complete"), NumberOfTasks);
+		while (*FinishedTasks < NumberOfTasks) FPlatformProcess::Sleep(0.05);
+		UE_LOG(LogTemp, Log, TEXT("Finished waiting"));
+
+		bool bSuccess = *SuccessfulTasks == *FinishedTasks;
+		delete SuccessfulTasks;
+		delete FinishedTasks;
+
+		return bSuccess;
 	}
 
 	
@@ -76,12 +125,17 @@ public:
 
 	static void RunAsync(TFunction<void()> Action);
 	static void RunMany(int n, TFunction<void( int i, TFunction<void(bool)> )> Action, TFunction<void(bool)> OnComplete);
+	static bool RunManyAndWait(int n, TFunction<bool( int i )> Action);
 	static void RunOnGameThread(TFunction<void()> Action);
-	static void RunOnGameThreadAndWait(TFunction<void()> Action);
-	static bool RunOnGameThreadAndReturn(TFunction<bool()> Action);
+
+	static bool RunOnThreadAndWait(bool bRunOnGameThread, TFunction<bool()> Action);
+	static bool RunOnGameThreadAndWait(TFunction<bool()> Action);
+	static bool RunAsyncAndWait(TFunction<bool()> Action);
 	
 	static TFunction<void(TFunction<void(bool)>)> Return(TFunction<void()> Action);
 
 	// to help the type-checker
 	static TFunction<void(TFunction<void(bool)>)> I(TFunction<void(TFunction<void(bool)>)> Action);
 };
+
+#undef LOCTEXT_NAMESPACE

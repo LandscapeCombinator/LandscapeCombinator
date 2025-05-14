@@ -3,8 +3,8 @@
 #include "Coordinates/LevelCoordinates.h"
 #include "Coordinates/DecalCoordinates.h"
 #include "FileDownloader/Download.h"
-#include "LCReporter/LCReporter.h"
 #include "ConcurrencyHelpers/Concurrency.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "Engine/DecalActor.h"
 #include "Engine/StaticMesh.h"
@@ -30,6 +30,7 @@ TObjectPtr<UGlobalCoordinates> ALevelCoordinates::GetGlobalCoordinates(UWorld* W
 
 	Concurrency::RunOnGameThreadAndWait([World, &LevelCoordinatesCandidates0]() {
 		UGameplayStatics::GetAllActorsOfClass(World, ALevelCoordinates::StaticClass(), LevelCoordinatesCandidates0);
+		return true;
 	});
 
 	TArray<AActor*> LevelCoordinatesCandidates = LevelCoordinatesCandidates0.FilterByPredicate([](AActor* Actor) { return IsValid(Actor) &&!Actor->IsHidden(); });
@@ -38,7 +39,7 @@ TObjectPtr<UGlobalCoordinates> ALevelCoordinates::GetGlobalCoordinates(UWorld* W
 	{
 		if (bShowDialog)
 		{
-			ULCReporter::ShowError(
+			LCReporter::ShowError(
 				LOCTEXT("NoLevelCoordinates", "Please add a visible (not Hidden in Game) LevelCoordinates actor to your level .")
 			);
 		}
@@ -49,7 +50,7 @@ TObjectPtr<UGlobalCoordinates> ALevelCoordinates::GetGlobalCoordinates(UWorld* W
 	{
 		if (bShowDialog)
 		{
-			ULCReporter::ShowError(
+			LCReporter::ShowError(
 				LOCTEXT("MoreThanOneLevelCoordinates", "You must have only one visible (not Hidden in Game) LevelCoordinates actor in your level.")
 			);
 		}
@@ -159,7 +160,7 @@ void ALevelCoordinates::CreateWorldMap()
 {
 	if (!GlobalCoordinates)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("ALevelCoordinates::CreateWorldMap::1", "This LevelCoordinates Actor doesn't have GlobalCoordinates.")
 		);
 	}
@@ -197,14 +198,14 @@ void ALevelCoordinates::CreateWorldMap()
 				}
 				else
 				{
-					ULCReporter::ShowError(
+					LCReporter::ShowError(
 						LOCTEXT("ALevelCoordinates::CreateWorldMap", "Could not write coordinate system to world map.")
 					);
 				}
 			}
 			else
 			{
-				ULCReporter::ShowError(
+				LCReporter::ShowError(
 					LOCTEXT("ALevelCoordinates::CreateWorldMap", "Could not download world map from USGS Imagery.")
 				);
 			}

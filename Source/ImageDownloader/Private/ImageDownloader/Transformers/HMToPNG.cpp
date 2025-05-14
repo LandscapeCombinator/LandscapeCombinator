@@ -5,40 +5,24 @@
 #include "ImageDownloader/LogImageDownloader.h"
 #include "GDALInterface/GDALInterface.h"
 
-#include "Misc/ScopedSlowTask.h"
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-void HMToPNG::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+bool HMToPNG::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 {
 	OutputCRS = InputCRS;
 
 	FVector2D Altitudes;
 	if (bScaleAltitude && !GDALInterface::GetMinMax(Altitudes, InputFiles))
 	{
-		if (OnComplete) OnComplete(false);
-		return;
+		return false;
 	}
 
 	double MinAltitude = Altitudes[0];
 	double MaxAltitude = Altitudes[1];
 
-	FScopedSlowTask ToPNGTask(InputFiles.Num(), LOCTEXT("ToPNGTask", "GDAL Interface: Translating Files to PNG"));
-
-	if (InputFiles.Num() > 10)
-	{
-		ToPNGTask.MakeDialog(true);
-	}
-
 	for (int32 i = 0; i < InputFiles.Num(); i++)
 	{
-		if (ToPNGTask.ShouldCancel())
-		{
-			if (OnComplete) OnComplete(false);
-			return;
-		}
-		ToPNGTask.EnterProgressFrame(1);
-
 		FString InputFile = InputFiles[i];
 		FString PNGFile = FPaths::Combine(OutputDir, FPaths::GetBaseFilename(InputFile) + ".png");
 		OutputFiles.Add(PNGFile);
@@ -47,22 +31,19 @@ void HMToPNG::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<vo
 		{
 			if (!GDALInterface::ConvertToPNG(InputFile, PNGFile, MinAltitude - 100, MaxAltitude + 100))
 			{
-				if (OnComplete) OnComplete(false);
-				return;
+				return false;
 			}
 		}
 		else
 		{
 			if (!GDALInterface::ConvertToPNG(InputFile, PNGFile, 0, 255))
 			{
-				if (OnComplete) OnComplete(false);
-				return;
+				return false;
 			}
 		}
 	}
 	
-	if (OnComplete) OnComplete(true);
-	return;
+	return true;
 }
 
 #undef LOCTEXT_NAMESPACE

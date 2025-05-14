@@ -6,9 +6,9 @@
 #include "ImageDownloader/Transformers/HMCrop.h"
 #include "LandscapeUtils/LandscapeUtils.h"
 #include "Coordinates/DecalCoordinates.h"
-#include "LCReporter/LCReporter.h"
 #include "LCCommon/LCBlueprintLibrary.h"
 #include "ConcurrencyHelpers/Concurrency.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 #include "Components/DecalComponent.h"
 
 
@@ -23,16 +23,15 @@ ALandscapeTexturer::ALandscapeTexturer()
 	PositionBasedGeneration = CreateDefaultSubobject<ULCPositionBasedGeneration >(TEXT("PositionBasedGeneration"));
 }
 
-void ALandscapeTexturer::CreateDecals(TObjectPtr<UGlobalCoordinates> GlobalCoordinates, FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete)
+bool ALandscapeTexturer::CreateDecals(TObjectPtr<UGlobalCoordinates> GlobalCoordinates, FName SpawnedActorsPathOverride, bool bIsUserInitiated)
 {
 	Modify();
 
 	if (bDeleteOldDecalsWhenCreatingDecals)
 	{
-		if (!Concurrency::RunOnGameThreadAndReturn([this, bIsUserInitiated]() { return Execute_Cleanup(this, !bIsUserInitiated); }))
+		if (!Concurrency::RunOnGameThreadAndWait([this, bIsUserInitiated]() { return Execute_Cleanup(this, !bIsUserInitiated); }))
 		{
-			if (OnComplete) OnComplete(false);
-			return;
+			return false;
 		}
 	}
 
@@ -40,59 +39,60 @@ void ALandscapeTexturer::CreateDecals(TObjectPtr<UGlobalCoordinates> GlobalCoord
 	{
 		if (bIsUserInitiated)
 		{
-			Concurrency::RunOnGameThreadAndWait([](){
-				ULCReporter::ShowError(
-					LOCTEXT(
-						"ALandscapeTexturer::CreateDecal::NoImageDownloader",
-						"ImageDownloader is not set, you may want to create one, or create a new LandscapeTexturer"
-					)
-				);
-			});
+			LCReporter::ShowError(
+				LOCTEXT(
+					"ALandscapeTexturer::CreateDecal::NoImageDownloader",
+					"ImageDownloader is not set, you may want to create one, or create a new LandscapeTexturer"
+				)
+			);
 		}
 
-		if (OnComplete) OnComplete(false);
-		return;
+		return false;
 	}
-	ImageDownloader->DownloadImages(bIsUserInitiated, false, GlobalCoordinates, [this, bIsUserInitiated, SpawnedActorsPathOverride, OnComplete](TArray<FString> DownloadedImages, FString ImageCRS)
-	{
-		TArray<ADecalActor*> NewDecals = UDecalCoordinates::CreateDecals(this->GetWorld(), DownloadedImages);
-		DecalActors.Append(NewDecals);
+
+	TArray<FString> DownloadedImages;
+	FString ImageCRS;
+	if (!ImageDownloader->DownloadImages(bIsUserInitiated, false, GlobalCoordinates, DownloadedImages, ImageCRS)) return false;
+
+	TArray<ADecalActor*> NewDecals = UDecalCoordinates::CreateDecals(this->GetWorld(), DownloadedImages);
+	DecalActors.Append(NewDecals);
 
 #if WITH_EDITOR
-		Concurrency::RunOnGameThreadAndWait([this, &NewDecals, SpawnedActorsPathOverride](){
-			for (auto &DecalActor : NewDecals)
-			{
-				ULCBlueprintLibrary::SetFolderPath2(DecalActor, SpawnedActorsPathOverride, SpawnedActorsPath);
-				DecalActor->GetDecal()->SortOrder = DecalsSortOrder;
-			}
-		});
+	Concurrency::RunOnGameThreadAndWait([this, &NewDecals, SpawnedActorsPathOverride](){
+		for (auto &DecalActor : NewDecals)
+		{
+			ULCBlueprintLibrary::SetFolderPath2(DecalActor, SpawnedActorsPathOverride, SpawnedActorsPath);
+			DecalActor->GetDecal()->SortOrder = DecalsSortOrder;
+		}
+		return true;
+	});
 #endif
 
-		if (bIsUserInitiated)
-		{
-			Concurrency::RunOnGameThreadAndWait([this, &NewDecals](){
-				if (NewDecals.Num() > 0)
-				{
-					ULCReporter::ShowInfo(
-						FText::Format(
-							LOCTEXT("LandscapeCreated2", "Successfully created {0} Decals"),
-							FText::AsNumber(NewDecals.Num())
-						),
-						"SuppressSpawnedDecalsInfo",
-						LOCTEXT("SpawnedDecalsTitle", "Spawned Decals")
-					);
-				}
-				else
-				{
-					ULCReporter::ShowError(
-						LOCTEXT("LandscapeCreatedError", "There was an error while creating decals")
-					);
-				}
-			});
-		}
+	if (bIsUserInitiated)
+	{
+		Concurrency::RunOnGameThreadAndWait([this, &NewDecals](){
+			if (NewDecals.Num() > 0)
+			{
+				LCReporter::ShowInfo(
+					FText::Format(
+						LOCTEXT("LandscapeCreated2", "Successfully created {0} Decals"),
+						FText::AsNumber(NewDecals.Num())
+					),
+					"SuppressSpawnedDecalsInfo",
+					LOCTEXT("SpawnedDecalsTitle", "Spawned Decals")
+				);
+			}
+			else
+			{
+				LCReporter::ShowError(
+					LOCTEXT("LandscapeCreatedError", "There was an error while creating decals")
+				);
+			}
+			return true;
+		});
+	}
 
-		if (OnComplete) OnComplete(NewDecals.Num() > 0);
-	});
+	return NewDecals.Num() > 0;
 }
 
 

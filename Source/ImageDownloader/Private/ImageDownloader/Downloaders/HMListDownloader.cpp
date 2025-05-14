@@ -4,8 +4,8 @@
 #include "ImageDownloader/Directories.h"
 #include "ConcurrencyHelpers/Concurrency.h"
 #include "FileDownloader/Download.h"
-#include "LCReporter/LCReporter.h"
 #include "GDALInterfaceModule.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "Interfaces/IPluginManager.h"
 #include "HAL/FileManagerGeneric.h"
@@ -16,34 +16,32 @@
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-void HMListDownloader::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+bool HMListDownloader::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 {
 	FString AbsoluteListOfLinks = FGDALInterfaceModule::PluginDir / ListOfLinks;
 	FString FileContent = "";
 	if (!FFileHelper::LoadFileToString(FileContent, *AbsoluteListOfLinks) && !FFileHelper::LoadFileToString(FileContent, *ListOfLinks))
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("HMListDownloader::Fetch", "Could not read file {0}."),
 				FText::FromString(ListOfLinks)
 			)
 		); 
-		if (OnComplete) OnComplete(false);
-		return;
+		return false;
 	}
 
 	TArray<FString> Lines0, Lines;
 	FileContent.ParseIntoArray(Lines0, TEXT("\n"), true);
 	if (Lines0.Num() == 0)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("HMListDownloader::Fetch", "File {0} does not contain any link."),
 				FText::FromString(ListOfLinks)
 			)
 		); 
-		if (OnComplete) OnComplete(false);
-		return;
+		return false;
 	}
 
 	for (auto& Line : Lines0)
@@ -58,14 +56,13 @@ void HMListDownloader::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFu
 
 		if (NumElements == 0)
 		{
-			ULCReporter::ShowError(
+			LCReporter::ShowError(
 				FText::Format(
 					LOCTEXT("HMListDownloader::Fetch", "Line {0} is not a valid link."),
 					FText::FromString(ListOfLinks)
 				)
 			); 
-			if (OnComplete) OnComplete(false);
-			return;
+			return false;
 		}
 
 		FString FileName = Elements[NumElements - 1];
@@ -75,13 +72,12 @@ void HMListDownloader::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFu
 		OutputFiles.Add(OutputFile);
 	}
 
-	Concurrency::RunMany(
+	return Concurrency::RunManyAndWait(
 		Lines.Num(),
-		[this, Lines](int i, TFunction<void (bool)> OnCompleteElement)
+		[this, Lines](int i)
 		{
-			Download::FromURL(Lines[i], OutputFiles[i], bIsUserInitiated, OnCompleteElement);
-		},
-		OnComplete
+			return Download::SynchronousFromURL(Lines[i], OutputFiles[i], bIsUserInitiated);
+		}
 	);
 }
 

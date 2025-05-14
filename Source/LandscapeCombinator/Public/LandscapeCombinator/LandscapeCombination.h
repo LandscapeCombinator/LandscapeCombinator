@@ -5,7 +5,7 @@
 #include "LandscapeCombinator/LandscapeSpawner.h"
 #include "LandscapeCombinator/LandscapePCGVolume.h"
 #include "LandscapeCombinator/LogLandscapeCombinator.h"
-#include "BuildingFromSpline/BuildingsFromSplines.h"
+#include "BuildingsFromSplines/BuildingsFromSplines.h"
 #include "SplineImporter/GDALImporter.h"
 #include "LCCommon/LCGenerator.h"
 #include "LCCommon/LCContinuousGeneration.h"
@@ -46,10 +46,10 @@ public:
 	FName SpawnedActorsPath = FName("GeneratedActors");
 
 	UFUNCTION(CallInEditor, Category = "LandscapeCombination", meta = (DisplayPriority = "0"))
-	virtual void GenerateActors() { Generate(SpawnedActorsPath, true); }
+	virtual void GenerateActors() { GenerateFromGameThread(SpawnedActorsPath, true); }
 
 	UFUNCTION(CallInEditor, Category = "LandscapeCombination", meta = (DisplayPriority = "0"))
-	virtual void GenerateActorsNoPrompt() { Generate(SpawnedActorsPath, false); }
+	virtual void GenerateActorsNoPrompt() { GenerateFromGameThread(SpawnedActorsPath, false); }
 
 	UFUNCTION(CallInEditor, Category = "LandscapeCombination", meta = (DisplayPriority = "1"))
 	virtual void DeleteActors() { Execute_Cleanup(this, false); };
@@ -61,7 +61,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeCombination", meta = (DisplayPriority = "5"))
 	TArray<FGeneratorWrapper> Generators;
 	
-	virtual void OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete) override;
+	virtual bool OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated) override;
 	virtual bool Cleanup_Implementation(bool bSkipPrompt) override;
 
 #if WITH_EDITOR

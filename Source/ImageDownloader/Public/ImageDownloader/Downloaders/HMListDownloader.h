@@ -9,7 +9,7 @@ class HMListDownloader : public HMFetcher
 public:
 	HMListDownloader(FString ListOfLinks0) : ListOfLinks(ListOfLinks0) {};
 
-	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+	bool OnFetch(FString InputCRS, TArray<FString> InputFiles) override;
 
 private:
 	FString ListOfLinks;

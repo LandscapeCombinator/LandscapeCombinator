@@ -2,7 +2,7 @@
 
 #include "ConsoleHelpers/Console.h"
 #include "ConsoleHelpers/LogConsoleHelpers.h"
-#include "LCReporter/LCReporter.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "Misc/MessageDialog.h" 
 #include "GenericPlatform/GenericPlatformProcess.h" 
@@ -20,7 +20,7 @@ bool Console::ExecProcess(const TCHAR* URL, const TCHAR* Params, bool bDebug, bo
 	{
 		if (bDialog)
 		{
-			ULCReporter::ShowError(
+			LCReporter::ShowError(
 				FText::Format(
 					LOCTEXT("ExecProcessError", "Error while running command '{0} {1}': (Error: {2})\nStdOut:\n{3}\nStdErr:\n{4}"),
 					FText::FromString(URL),

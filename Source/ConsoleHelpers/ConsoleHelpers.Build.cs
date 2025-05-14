@@ -27,8 +27,7 @@ public class ConsoleHelpers : ModuleRules
 				"SlateCore",
 				"HTTP",
 
-				// LandscapeCombinator Dependencies
-				"LCReporter"
+				"ConcurrencyHelpers"
 			}
 		);
 	}

@@ -4,12 +4,12 @@
 #include "ImageDownloader/Directories.h"
 #include "ImageDownloader/LogImageDownloader.h"
 #include "GDALInterface/GDALInterface.h"
-#include "LCReporter/LCReporter.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 #include "Misc/MessageDialog.h"
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-void HMFunction::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+bool HMFunction::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 {
 	OutputCRS = InputCRS;
 	OutputFiles.Append(InputFiles);
@@ -19,29 +19,27 @@ void HMFunction::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction
 		GDALDataset *Dataset = (GDALDataset *) GDALOpen(TCHAR_TO_UTF8(*InputFile), GA_Update);
 		if (!Dataset)
 		{
-			ULCReporter::ShowError(
+			LCReporter::ShowError(
 				FText::Format(
 					LOCTEXT("HMFunction::Fetch::1", "Image Downloader Error: Could not open heightmap file '{0}'.\nError: {1}"),
 					FText::FromString(InputFile),
 					FText::FromString(FString(CPLGetLastErrorMsg()))
 				)
 			);
-			if (OnComplete) OnComplete(false);
-			return;
+			return false;
 		}
 
 		GDALRasterBand *Band = Dataset->GetRasterBand(1);
 
 		if (!Band)
 		{
-			ULCReporter::ShowError(FText::Format(
+			LCReporter::ShowError(FText::Format(
 				LOCTEXT("HMFunction::Fetch::2", "Internal error: Could not get raster band of file {0}.\nError: {1}"),
 				FText::FromString(InputFile),
 				FText::FromString(FString(CPLGetLastErrorMsg()))
 			));
 			GDALClose(Dataset);
-			if (OnComplete) OnComplete(false);
-			return;
+			return false;
 		}
 
 		int SizeX = Band->GetXSize();
@@ -50,12 +48,11 @@ void HMFunction::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction
 
 		if (!Data)
 		{
-			ULCReporter::ShowError(
+			LCReporter::ShowError(
 				LOCTEXT("HMFunction::Fetch::3", "Internal error: Could not allocate memory.")
 			);
 			GDALClose(Dataset);
-			if (OnComplete) OnComplete(false);
-			return;
+			return false;
 		}
 
 		CPLErr Err;
@@ -63,14 +60,13 @@ void HMFunction::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction
 
 		if (Err != CE_None)
 		{
-			ULCReporter::ShowError(FText::Format(
+			LCReporter::ShowError(FText::Format(
 				LOCTEXT("HMFunction::Fetch::4", "Internal error: Could not read data from file {0}.\nError: {1}"),
 				FText::FromString(InputFile),
 				FText::FromString(FString(CPLGetLastErrorMsg()))
 			));
 			GDALClose(Dataset);
-			if (OnComplete) OnComplete(false);
-			return;
+			return false;
 		}
 
 		for (int i = 0; i < SizeX; i++)
@@ -85,21 +81,19 @@ void HMFunction::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction
 
 		if (Err != CE_None)
 		{
-			ULCReporter::ShowError(FText::Format(
+			LCReporter::ShowError(FText::Format(
 				LOCTEXT("HMFunction::Fetch::5", "Internal error: Could not write data to dataset in file {0}.\nError: {1}"),
 				FText::FromString(InputFile),
 				FText::FromString(FString(CPLGetLastErrorMsg()))
 			));
 			GDALClose(Dataset);
-			if (OnComplete) OnComplete(false);
-			return;
+			return false;
 		}
 
 		GDALClose(Dataset);
 	}
 
-	if (OnComplete) OnComplete(true);
-	return;
+	return true;
 }
 
 #undef LOCTEXT_NAMESPACE

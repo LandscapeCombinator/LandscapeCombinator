@@ -3,22 +3,21 @@
 #include "ImageDownloader/Downloaders/HMWMS.h"
 #include "ImageDownloader/Directories.h"
 #include "ImageDownloader/LogImageDownloader.h"
-#include "LCReporter/LCReporter.h"
 #include "ConcurrencyHelpers/Concurrency.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "FileDownloader/Download.h"
 #include "GDALInterface/GDALInterface.h"
 
 #include "HAL/FileManagerGeneric.h"
 #include "Misc/FileHelper.h"
-#include "Misc/ScopedSlowTask.h"
 #include "Misc/MessageDialog.h"
 #include "Misc/Paths.h"
 #include "Internationalization/TextLocalizationResource.h" 
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-void HMWMS::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+bool HMWMS::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 {
 	FString URL;
 	bool bGeoTiff;
@@ -46,7 +45,7 @@ void HMWMS::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void
 		double Height = FMath::Min(WMS_MaxTileHeight, (WMS_MaxLat - WMS_MinLat) * WMS_ResolutionPixelsPerUnit);
 
 		double ActualResolution = FMath::Min(Width / (WMS_MaxLong - WMS_MinLong), Height / (WMS_MaxLat - WMS_MinLat));
-		if (bIsUserInitiated && ActualResolution < WMS_ResolutionPixelsPerUnit && !ULCReporter::ShowMessage(
+		if (bIsUserInitiated && ActualResolution < WMS_ResolutionPixelsPerUnit && !LCReporter::ShowMessage(
 				FText::Format(
 					LOCTEXT(
 						"LowResolutionMessage",
@@ -63,8 +62,7 @@ void HMWMS::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void
 			)
 		)
 		{
-			if (OnComplete) OnComplete(false);
-			return;
+			return false;
 		}
 
 		if (WMS_Provider.CreateURL(Width, Height, WMS_Name, WMS_CRS, WMS_X_IsLong,
@@ -77,8 +75,7 @@ void HMWMS::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void
 		}
 		else
 		{
-			if (OnComplete) OnComplete(false);
-			return;
+			return false;
 		}
 	}
 	else
@@ -93,14 +90,13 @@ void HMWMS::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void
 		int TotalTiles = NumTilesX * NumTilesY;
 		if (TotalTiles <= 0)
 		{
-			ULCReporter::ShowError(LOCTEXT("GenericWMSNoTiles", "No tiles to download."));
-			if (OnComplete) OnComplete(false);
-			return;
+			LCReporter::ShowError(LOCTEXT("GenericWMSNoTiles", "No tiles to download."));
+			return false;
 		}
 
 		if (TotalTiles >= 100)
 		{
-			if (!ULCReporter::ShowMessage(
+			if (!LCReporter::ShowMessage(
 				FText::Format(
 					LOCTEXT(
 						"GenericWMSManyTilesMessage",
@@ -112,8 +108,7 @@ void HMWMS::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void
 				LOCTEXT("GenericWMSManyTilesTitle", "Several WMS Tiles to Download")
 			))
 			{
-				if (OnComplete) OnComplete(false);
-				return;
+				return false;
 			}
 		}
 
@@ -136,8 +131,7 @@ void HMWMS::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void
 				}
 				else
 				{
-					if (OnComplete) OnComplete(false);
-					return;
+					return false;
 				}
 			}
 		}
@@ -145,42 +139,37 @@ void HMWMS::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void
 
 	OutputCRS = WMS_CRS;
 
-	Concurrency::RunMany(
+	
+	TQueue<FString> OutputFilesQueue; // thread-safe
+
+	bool bSuccess = Concurrency::RunManyAndWait(
 		DownloadURLs.Num(),
-		[this, DownloadURLs, Bounds, FileNames, bGeoTiff](int i, TFunction<void(bool)> OnCompleteElement)
+		[this, DownloadURLs, Bounds, FileNames, bGeoTiff, &OutputFilesQueue](int i)
 		{
 			const FString FileName = FPaths::Combine(DownloadDir, FileNames[i]);
-			Download::FromURL(
-				DownloadURLs[i], FileName, bIsUserInitiated,
-				[this, Bounds, FileNames, i, FileName, bGeoTiff, OnCompleteElement](bool bSuccess)
-				{
-					if (bSuccess)
-					{
-						if (!bGeoTiff || !GDALInterface::HasCRS(FileName))
-						{
-							const FString FileNameTiff = FPaths::GetBaseFilename(FileName) + TEXT(".tif");
-							if (!GDALInterface::AddGeoreference(FileName, FileNameTiff, WMS_CRS, Bounds[i].X, Bounds[i].Y, Bounds[i].Z, Bounds[i].W))
-							{
-								if (OnCompleteElement) OnCompleteElement(false);
-								return;
-							}
-							OutputFiles.Add(FileNameTiff);
-						}
-						else
-						{
-							OutputFiles.Add(FileName);
-						}
-						if (OnCompleteElement) OnCompleteElement(true);
-					}
-					else
-					{
-						if (OnCompleteElement) OnCompleteElement(false);
-					}
-				}
-			);
-		},
-		OnComplete
+			if (!Download::SynchronousFromURL(DownloadURLs[i], FileName, bIsUserInitiated)) return false;
+
+			if (!bGeoTiff || !GDALInterface::HasCRS(FileName))
+			{
+				const FString FileNameTiff = FPaths::GetBaseFilename(FileName) + TEXT(".tif");
+				if (!GDALInterface::AddGeoreference(FileName, FileNameTiff, WMS_CRS, Bounds[i].X, Bounds[i].Y, Bounds[i].Z, Bounds[i].W)) return false;
+				OutputFilesQueue.Enqueue(FileNameTiff);
+			}
+			else
+			{
+				OutputFilesQueue.Enqueue(FileName);
+			}
+			return true;
+		}
 	);
+
+	if (bSuccess)
+	{
+		FString Element;
+		while (OutputFilesQueue.Dequeue(Element)) OutputFiles.Add(Element);
+	}
+
+	return bSuccess;
 }
 
 #undef LOCTEXT_NAMESPACE

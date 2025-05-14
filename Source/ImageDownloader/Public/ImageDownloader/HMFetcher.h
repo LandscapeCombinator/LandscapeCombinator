@@ -7,7 +7,6 @@
 
 // Often used in the subclasses
 #include "HAL/PlatformFile.h"
-#include "Misc/ScopedSlowTask.h"
 #include "Misc/MessageDialog.h"
 #include "Misc/Paths.h"
 
@@ -28,10 +27,9 @@ public:
 	HMFetcher* AndThen(HMFetcher* OtherFetcher);
 	HMFetcher* AndRun(TFunction<bool(HMFetcher*)> Lambda);
 
-	void Fetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+	bool Fetch(FString InputCRS, TArray<FString> InputFiles)
 	{
-		if (SetDirectories()) OnFetch(InputCRS, InputFiles, OnComplete);
-		else if (OnComplete) OnComplete(false);
+		return SetDirectories() && OnFetch(InputCRS, InputFiles);
 	}
 
 protected:
@@ -58,7 +56,7 @@ protected:
 			IPlatformFile::GetPlatformPhysical().CreateDirectory(*OutputDir);
 	}
 
-	virtual void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) = 0;
+	virtual bool OnFetch(FString InputCRS, TArray<FString> InputFiles) = 0;
 };
 
 class IMAGEDOWNLOADER_API HMAndThenFetcher : public HMFetcher
@@ -69,7 +67,10 @@ public:
 		Fetcher1 = F1;
 		Fetcher2 = F2;
 	}
-	~HMAndThenFetcher() { delete Fetcher1; delete Fetcher2; }
+	~HMAndThenFetcher() {
+		delete Fetcher1;
+		delete Fetcher2;
+	}
 	
 	HMFetcher* Fetcher1;
 	HMFetcher* Fetcher2;
@@ -80,7 +81,7 @@ public:
 		Fetcher2->SetIsUserInitiated(bIsUserInitiatedIn);
 	}
 	
-	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+	bool OnFetch(FString InputCRS, TArray<FString> InputFiles) override;
 };
 
 class IMAGEDOWNLOADER_API HMAndRunFetcher : public HMFetcher
@@ -91,7 +92,9 @@ public:
 		Fetcher = Fetcher0;
 		Lambda = Lambda0;
 	}
-	~HMAndRunFetcher() { delete Fetcher; }
+	~HMAndRunFetcher() {
+		delete Fetcher;
+	}
 	
 	HMFetcher* Fetcher;
 	TFunction<bool(HMFetcher*)> Lambda;
@@ -101,7 +104,7 @@ public:
 		Fetcher->SetIsUserInitiated(bIsUserInitiatedIn);
 	}
 	
-	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+	bool OnFetch(FString InputCRS, TArray<FString> InputFiles) override;
 };
 
 #undef LOCTEXT_NAMESPACE

@@ -36,7 +36,7 @@ public class HeightmapModifier : ModuleRules
 				"LandscapeUtils",
 				"ConsoleHelpers",
 				"LCCommon",
-				"LCReporter"
+				"ConcurrencyHelpers"
 			}
 		);
 

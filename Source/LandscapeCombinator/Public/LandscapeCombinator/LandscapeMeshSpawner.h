@@ -5,11 +5,11 @@
 #include "Coordinates/GlobalCoordinates.h"
 #include "ImageDownloader/ImageDownloader.h"
 
+#include "ConcurrencyHelpers/LCReporter.h"
 #include "ConsoleHelpers/ExternalTool.h"
 #include "LCCommon/LCGenerator.h"
 #include "LCCommon/ActorSelection.h"
 #include "LandscapeMesh.h"
-#include "LCReporter/LCReporter.h"
 
 #include "GenericPlatform/GenericPlatformMisc.h"
 #include "Components/DynamicMeshComponent.h"
@@ -35,7 +35,7 @@ public:
 		if (IsValid(HeightmapDownloader)) return HeightmapDownloader->ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY);
 		else
 		{
-			ULCReporter::ShowError(LOCTEXT("Error", "HeightmapDownloader is not set"));
+			LCReporter::ShowError(LOCTEXT("Error", "HeightmapDownloader is not set"));
 			return false;
 		}
 	}
@@ -118,9 +118,11 @@ public:
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeMeshSpawner",
 		meta = (DisplayPriority = "-1")
 	)
-	void SpawnLandscape() { Generate(SpawnedActorsPath, true, nullptr); };
+	void SpawnLandscape() {
+		GenerateFromGameThread(SpawnedActorsPath, true);
+	};
 
-	virtual void OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete) override;
+	virtual bool OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated) override;
 
 	virtual bool Cleanup_Implementation(bool bSkipPrompt) override
 	{

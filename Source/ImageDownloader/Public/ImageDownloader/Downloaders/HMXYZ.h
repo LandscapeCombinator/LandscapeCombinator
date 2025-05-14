@@ -5,8 +5,6 @@
 #include "CoreMinimal.h"
 #include "ImageDownloader/HMFetcher.h"
 
-#define LOCTEXT_NAMESPACE "FImageDownloaderModule"
-
 class HMXYZ: public HMFetcher
 {
 public:
@@ -39,7 +37,7 @@ public:
 	{
 		return FPaths::Combine(ImageDownloaderDir, Name + "-XYZ");
 	}
-	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+	bool OnFetch(FString InputCRS, TArray<FString> InputFiles) override;
 
 protected:
 	bool bAllowInvalidTiles;
@@ -58,5 +56,3 @@ protected:
 	bool bUseTerrariumFormula;
 	FString CRS;
 };
-
-#undef LOCTEXT_NAMESPACE

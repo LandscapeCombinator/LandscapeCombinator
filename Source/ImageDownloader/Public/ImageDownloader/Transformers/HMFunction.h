@@ -12,7 +12,7 @@ public:
 	HMFunction(TFunction<float(float)> Function0) :
 		Function(Function0) {};
 
-	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+	bool OnFetch(FString InputCRS, TArray<FString> InputFiles) override;
 
 private:
 	TFunction<float(float)> Function;

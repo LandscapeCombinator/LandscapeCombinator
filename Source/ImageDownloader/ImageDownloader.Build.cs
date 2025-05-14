@@ -38,8 +38,7 @@ public class ImageDownloader : ModuleRules
 				"ConsoleHelpers",
 				"LandscapeUtils",
 				"MapboxHelpers",
-				"LCCommon",
-				"LCReporter"
+				"LCCommon"
 			}
 		);
 	}

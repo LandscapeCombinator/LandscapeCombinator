@@ -7,12 +7,13 @@
 #include "UObject/Interface.h"
 #include "Delegates/Delegate.h"
 #include "Kismet/BlueprintAsyncActionBase.h"
-#include "LCCommon/LogLCCommon.h"
+#include "Async/Async.h"
 
 #if WITH_EDITOR
 #include "Subsystems/EditorActorSubsystem.h"
 #endif
 
+#include "LCCommon/LogLCCommon.h"
 #include "LCPositionBasedGeneration.h"
 
 #include "LCGenerator.generated.h"
@@ -37,13 +38,20 @@ public:
 		return false;
 	}
 
-	void Generate(FName SpawnedActorsPath, bool bIsUserInitiated) { Generate(SpawnedActorsPath, bIsUserInitiated, nullptr); }
-
 	UFUNCTION(BlueprintImplementableEvent, Category = "LCGenerator")
 	void OnGenerateBP(FName SpawnedActorsPath, bool bIsUserInitiated);
-	virtual void OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete) { OnComplete(true); }
 
-	void Generate(FName SpawnedActorsPath, bool bIsUserInitiated, TFunction<void(bool)> OnComplete);
+	virtual bool OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated) { return true; }
+
+	bool Generate(FName SpawnedActorsPath, bool bIsUserInitiated);
+
+	void GenerateFromGameThread(FName SpawnedActorsPath, bool bIsUserInitiated, TFunction<void(bool)> OnComplete = nullptr)
+	{
+		Async(EAsyncExecution::Thread, [this, SpawnedActorsPath, bIsUserInitiated, OnComplete]() {
+			bool bSuccess = Generate(SpawnedActorsPath, bIsUserInitiated);
+			if (OnComplete) OnComplete(bSuccess);
+		});
+	}
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, CallInEditor, Category = "LCGenerator")
 	// return false if the user doesn't want to cleanup

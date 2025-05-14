@@ -3,7 +3,8 @@
 #include "LCCommon/LCContinuousGeneration.h"
 #include "LCCommon/LCGenerator.h"
 #include "LCCommon/LogLCCommon.h"
-#include "LCReporter/LCReporter.h"
+#include "ConcurrencyHelpers/Concurrency.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
 
@@ -13,27 +14,32 @@ void ULCContinuousGeneration::StartContinuousGeneration()
 {
 	if (AActor *Owner = GetOwner())
 	{
-		auto Generate = [this, Owner]()
+		auto Generate = [this, Owner]() -> bool
 		{
 			if (ILCGenerator *Generator = Cast<ILCGenerator>(Owner))
 			{
 				if (bIsCurrentlyGenerating)
 				{
 					UE_LOG(LogLCCommon, Warning, TEXT("Skipping generation as it already in progress"));
-					return;
+					return false;
 				}
 				bIsCurrentlyGenerating = true;
 				UE_LOG(LogLCCommon, Log, TEXT("Continuous Generation Calling Generate"));
-				Generator->Generate(FName(), false, [this](bool bSuccess) { bIsCurrentlyGenerating = false; });
+				bool bSuccess = Generator->Generate(FName(), false);
+				bIsCurrentlyGenerating = false;
+				if (!bSuccess) StopContinuousGeneration();
+				return bSuccess;
 			}
+			return false;
 		};
 		UE_LOG(LogLCCommon, Log, TEXT("Starting Continuous Generation Timer (generate every %f seconds)"), ContinuousGenerationSeconds);
-		Generate();
+		if (!Generate()) return;
+
 		GetWorld()->GetTimerManager().SetTimer(ContinuousGenerationTimer, Generate, ContinuousGenerationSeconds, true);
 	}
 	else
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT(
 				"NoOwner" ,
 				"Position Based Generation needs an owner to start continuous generation"

@@ -3,9 +3,9 @@
 #include "ImageDownloader/Downloaders/HMViewfinderDownloader.h"
 #include "ConsoleHelpers/Console.h"
 #include "ImageDownloader/Directories.h"
-#include "LCReporter/LCReporter.h"
 
 #include "ConcurrencyHelpers/Concurrency.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 #include "FileDownloader/Download.h"
 #include "HAL/FileManagerGeneric.h"
 #include "Misc/MessageDialog.h"
@@ -28,68 +28,57 @@ HMViewfinderDownloader::HMViewfinderDownloader(FString MegaTilesString, FString 
 	bIs15 = bIs15_0;
 }
 
-void HMViewfinderDownloader::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+bool HMViewfinderDownloader::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 {
 	if (!Console::ExecProcess(TEXT("7z"), TEXT(""), false))
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT(
 				"MissingRequirement",
 				"Please make sure 7z is installed on your computer and available in your PATH if you want to use Viewfinder Panoramas heightmaps."
 			)
 		);
-		if (OnComplete) OnComplete(false);
-		return;
+		return false;
 	}
 
-	if (!ValidateTiles())
-	{
-		if (OnComplete) OnComplete(false);
-		return;
-	}
+	if (!ValidateTiles()) return false;
 
-	Concurrency::RunMany<FString>(
+	TQueue<FString> OutputFilesQueue; // thread-safe
+
+	bool bSuccess = Concurrency::RunManyAndWait<FString>(
 		MegaTiles,
-		[this](FString MegaTile, TFunction<void(bool)> OnCompleteElement)
+		[this, &OutputFilesQueue](FString MegaTile)
 		{
 			FString ZipFile = FPaths::Combine(DownloadDir, FString::Format(TEXT("{0}.zip"), { MegaTile }));
 			FString ExtractionDir = FPaths::Combine(ImageDownloaderDir, MegaTile);
 			FString URL = FString::Format(TEXT("{0}{1}.zip"), { BaseURL, MegaTile });
 
-			Download::FromURL(URL, ZipFile, bIsUserInitiated, [this, ExtractionDir, ZipFile, MegaTile, OnCompleteElement](bool bWasSuccessful)
-			{
-				if (bWasSuccessful)
-				{
-					FString ExtractParams = FString::Format(TEXT("x -aos \"{0}\" -o\"{1}\""), { ZipFile, ExtractionDir });
+			if (!Download::SynchronousFromURL(URL, ZipFile, bIsUserInitiated)) return false;
+			FString ExtractParams = FString::Format(TEXT("x -aos \"{0}\" -o\"{1}\""), { ZipFile, ExtractionDir });
 
-					if (Console::ExecProcess(TEXT("7z"), *ExtractParams))
-					{
-						if (bIs15)
-						{
-							FString TifFile = FPaths::Combine(ExtractionDir, FString::Format(TEXT("{0}.tif"), { MegaTile }));
-							OutputFiles.Add(TifFile);
-						}
-						else
-						{
-							TArray<FString> HGTFiles;
-							FFileManagerGeneric::Get().FindFilesRecursive(HGTFiles, *ExtractionDir, TEXT("*.hgt"), true, false);
-							OutputFiles.Append(HGTFiles);
-						}
-						OnCompleteElement(true);
-					}
-					else
-					{
-						OnCompleteElement(false);
-					}
-				}
-				else
-				{
-					OnCompleteElement(false);
-				}
-			});
-		},
-		OnComplete
+			if (!Console::ExecProcess(TEXT("7z"), *ExtractParams)) return false;
+			if (bIs15)
+			{
+				FString TifFile = FPaths::Combine(ExtractionDir, FString::Format(TEXT("{0}.tif"), { MegaTile }));
+				OutputFilesQueue.Enqueue(TifFile);
+			}
+			else
+			{
+				TArray<FString> HGTFiles;
+				FFileManagerGeneric::Get().FindFilesRecursive(HGTFiles, *ExtractionDir, TEXT("*.hgt"), true, false);
+				for (auto &HGTFile: HGTFiles) OutputFilesQueue.Enqueue(HGTFile);
+			}
+			return true;
+		}
 	);
+
+	if (bSuccess)
+	{
+		FString Element;
+		while (OutputFilesQueue.Dequeue(Element)) OutputFiles.Add(Element);
+	}
+
+	return bSuccess;
 }
 
 #undef LOCTEXT_NAMESPACE

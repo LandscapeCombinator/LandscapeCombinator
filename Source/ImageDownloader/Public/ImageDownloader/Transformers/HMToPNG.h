@@ -16,7 +16,7 @@ public:
 		return FPaths::Combine(ImageDownloaderDir, Name + "-PNG");
 	}
 
-	void OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete) override;
+	bool OnFetch(FString InputCRS, TArray<FString> InputFiles) override;
 
 protected:
 	FString Name;

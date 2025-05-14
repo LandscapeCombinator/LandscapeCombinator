@@ -36,7 +36,6 @@ public class SplineImporter : ModuleRules
 				"FileDownloader",
 				"OSMUserData",
 				"LCCommon",
-				"LCReporter",
 				"ConcurrencyHelpers"
 			}
 		);

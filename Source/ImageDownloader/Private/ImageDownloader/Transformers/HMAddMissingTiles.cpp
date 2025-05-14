@@ -4,9 +4,9 @@
 #include "ImageDownloader/TilesCounter.h"
 #include "ImageDownloader/Directories.h"
 #include "ImageDownloader/LogImageDownloader.h"
-#include "LCReporter/LCReporter.h"
 
 #include "GDALInterface/GDALInterface.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "HAL/FileManagerGeneric.h"
 #include "Internationalization/Regex.h"
@@ -14,14 +14,13 @@
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-void HMAddMissingTiles::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+bool HMAddMissingTiles::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 {
 	OutputCRS = InputCRS;
 	if (InputFiles.Num() == 1)
 	{
 		OutputFiles.Add(InputFiles[0]);
-		if (OnComplete) OnComplete(true);
-		return;
+		return true;
 	}
 
 	FRegexPattern XYPattern(TEXT("(.*)_x\\d+_y\\d+\\.png"));
@@ -29,7 +28,7 @@ void HMAddMissingTiles::OnFetch(FString InputCRS, TArray<FString> InputFiles, TF
 
 	if (!XYMatcher.FindNext())
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("MultipleFileImportError",
 				"Image Downloader internal error: The Add Missing Tiles phase can only be used on files on the form Filename_x0_y0.png, "
 				"but it was used on file: '{0}'."
@@ -37,8 +36,7 @@ void HMAddMissingTiles::OnFetch(FString InputCRS, TArray<FString> InputFiles, TF
 			FText::FromString(InputFiles[0])
 		));
 
-		if (OnComplete) OnComplete(false);
-		return;
+		return false;
 	}
 	
 	FString BaseName = XYMatcher.GetCaptureGroup(1);
@@ -52,11 +50,11 @@ void HMAddMissingTiles::OnFetch(FString InputCRS, TArray<FString> InputFiles, TF
 	if (!PNGDriver || !MEMDriver)
 	{
 		UE_LOG(LogImageDownloader, Error, TEXT("Could not load GDAL drivers"));
-		if (OnComplete) OnComplete(false);
+		return false;
 	}
 
 	FIntPoint Pixels;
-	if (!GDALInterface::GetPixels(Pixels, InputFiles[0])) return;
+	if (!GDALInterface::GetPixels(Pixels, InputFiles[0])) return false;
 	
 	for (int i = 0; i <= TilesCounter.LastTileX; i++)
 	{
@@ -79,8 +77,7 @@ void HMAddMissingTiles::OnFetch(FString InputCRS, TArray<FString> InputFiles, TF
 				if (!Dataset)
 				{
 					UE_LOG(LogImageDownloader, Error, TEXT("Could not create missing file %s"), *CurrentFile);
-					if (OnComplete) OnComplete(false);
-					return;
+					return false;
 				}
 
 				GDALRasterBand *Band = Dataset->GetRasterBand(1);
@@ -90,8 +87,7 @@ void HMAddMissingTiles::OnFetch(FString InputCRS, TArray<FString> InputFiles, TF
 				if (Band->RasterIO(GF_Write, 0, 0, Pixels[0], Pixels[1], Data, Pixels[0], Pixels[1], GDT_UInt16, 0, 0) != CE_None)
 				{
 					UE_LOG(LogImageDownloader, Error, TEXT("Could not write data for missing file %s"), *CurrentFile);
-					if (OnComplete) OnComplete(false);
-					return;
+					return false;
 				}
 
 				GDALDataset *PNGDataset = PNGDriver->CreateCopy(TCHAR_TO_UTF8(*CurrentFile), Dataset, 1, nullptr, nullptr, nullptr);
@@ -100,8 +96,7 @@ void HMAddMissingTiles::OnFetch(FString InputCRS, TArray<FString> InputFiles, TF
 				if (!PNGDataset)
 				{
 					UE_LOG(LogImageDownloader, Error, TEXT("Could not create missing file %s"), *CurrentFile);
-					if (OnComplete) OnComplete(false);
-					return;
+					return false;
 				}
 				
 				GDALClose(PNGDataset);
@@ -109,7 +104,7 @@ void HMAddMissingTiles::OnFetch(FString InputCRS, TArray<FString> InputFiles, TF
 		}
 	}
 
-	if (OnComplete) OnComplete(true);
+	return true;
 }
 
 #undef LOCTEXT_NAMESPACE

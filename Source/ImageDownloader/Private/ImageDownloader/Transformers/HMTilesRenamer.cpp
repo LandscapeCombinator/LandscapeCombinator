@@ -5,17 +5,15 @@
 #include "ImageDownloader/LogImageDownloader.h"
 
 #include "HAL/FileManagerGeneric.h"
-#include "Misc/ScopedSlowTask.h"
 
-void HMTilesRenamer::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+bool HMTilesRenamer::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 {
 	OutputCRS = InputCRS;
 
 	if (InputFiles.Num() == 1)
 	{
 		OutputFiles.Add(InputFiles[0]);
-		if (OnComplete) OnComplete(true);
-		return;
+		return true;
 	}
 
 	Tiles = InputFiles;
@@ -35,7 +33,7 @@ void HMTilesRenamer::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunc
 		OutputFiles.Add(OutputFile);
 	}
 
-	if (OnComplete) OnComplete(true);
+	return true;
 }
 
 FString HMTilesRenamer::Rename(FString Tile) const

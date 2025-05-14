@@ -5,27 +5,25 @@
 #include "ImageDownloader/LogImageDownloader.h"
 
 #include "ConsoleHelpers/Console.h"
-#include "LCReporter/LCReporter.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "HAL/FileManagerGeneric.h"
-#include "Misc/ScopedSlowTask.h"
 #include "Misc/MessageDialog.h"
 #include "Misc/Paths.h"
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-void HMLitto3DGuadeloupe::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+bool HMLitto3DGuadeloupe::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 {
 	if (!Console::ExecProcess(TEXT("7z"), TEXT(""), false))
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT(
 				"MissingRequirement",
 				"Please make sure 7z is installed on your computer and available in your PATH if you want to use Litto 3D Guadeloupe heightmaps."
 			)
 		);
-		if (OnComplete) OnComplete(false);
-		return;
+		return false;
 	}
 
 	FString AllArchives = FPaths::Combine(Folder, FString("*.7z"));
@@ -36,21 +34,15 @@ void HMLitto3DGuadeloupe::OnFetch(FString InputCRS, TArray<FString> InputFiles, 
 
 	if (FileNamesNum == 0)
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("NoArchives", "Folder '{0}' does not contain any 7z file."),
 			FText::FromString(Folder)
 		));
-		if (OnComplete) OnComplete(false);
-		return;
+		return false;
 	}
-
-	FScopedSlowTask ExecProcessTask(FileNamesNum, LOCTEXT("ExtractTask", "Image Downloader: Extracting Litto3D Files"));
-	ExecProcessTask.MakeDialog();
 
 	for (auto& FileName : FileNames)
 	{
-		ExecProcessTask.EnterProgressFrame(1);
-
 		FString ArchiveFile = FPaths::Combine(Folder, FileName);
 		FString ExtractionDir = FPaths::Combine(ImageDownloaderDir, FPaths::GetBaseFilename(FileName));
 		FString ExtractParams = FString::Format(TEXT("x -aos \"{0}\" -o\"{1}\""), { ArchiveFile, ExtractionDir });
@@ -58,8 +50,7 @@ void HMLitto3DGuadeloupe::OnFetch(FString InputCRS, TArray<FString> InputFiles, 
 		if (!bSkipExtraction && !Console::ExecProcess(TEXT("7z"), *ExtractParams))
 		{
 			UE_LOG(LogImageDownloader, Error, TEXT("Could not extract %s."), *ArchiveFile);
-			if (OnComplete) OnComplete(false);
-			return;
+			return false;
 		}
 
 		TArray<FString> AscFiles;
@@ -77,27 +68,24 @@ void HMLitto3DGuadeloupe::OnFetch(FString InputCRS, TArray<FString> InputFiles, 
 		
 		if (AscFiles.Num() == 0)
 		{
-			ULCReporter::ShowError(FText::Format(
+			LCReporter::ShowError(FText::Format(
 				LOCTEXT("NoHeightMaps", "After extraction, folder '{0}' did not contain any heightmap files."),
 				FText::FromString(ExtractionDir)
 			));
-			if (OnComplete) OnComplete(false);
-			return;
+			return false;
 		}
 	}
 		
 	if (OutputFiles.Num() == 0)
 	{
-		ULCReporter::ShowError(FText::Format(
+		LCReporter::ShowError(FText::Format(
 			LOCTEXT("NoHeightMaps2", "After extraction, folder '{0}' did not contain any heightmap files."),
 			FText::FromString(Folder)
 		));
-		if (OnComplete) OnComplete(false);
-		return;
+		return false;
 	}
 
-	if (OnComplete) OnComplete(true);
-	return;
+	return true;
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -4,11 +4,10 @@
 
 #include "Coordinates/GlobalCoordinates.h"
 #include "ImageDownloader/ImageDownloader.h"
-
+#include "ConcurrencyHelpers/Concurrency.h"
 #include "ConsoleHelpers/ExternalTool.h"
 #include "LCCommon/LCGenerator.h"
 #include "LCCommon/ActorSelection.h"
-#include "LCReporter/LCReporter.h"
 
 #include "GenericPlatform/GenericPlatformMisc.h"
 #include "CoreMinimal.h"
@@ -18,6 +17,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Landscape.h"
 #include "LandscapeStreamingProxy.h"
+#include "HAL/ThreadManager.h"
 
 #include "LandscapeSpawner.generated.h"
 
@@ -73,7 +73,7 @@ public:
 		if (IsValid(HeightmapDownloader)) return HeightmapDownloader->ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY);
 		else
 		{
-			ULCReporter::ShowError(LOCTEXT("Error", "HeightmapDownloader is not set"));
+			LCReporter::ShowError(LOCTEXT("Error", "HeightmapDownloader is not set"));
 			return false;
 		}
 	}
@@ -263,10 +263,16 @@ public:
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeSpawner",
 		meta = (DisplayPriority = "-1")
 	)
-	void SpawnLandscape() { SpawnLandscape(SpawnedActorsPath, true, nullptr); };
+	void SpawnLandscape() {
+		Concurrency::RunAsync([this]() {
+			TObjectPtr<ALandscape> UnusedLandscape;
+			TArray<ADecalActor*> UnusedDecals;
+			SpawnLandscape(SpawnedActorsPath, true, UnusedLandscape, UnusedDecals);
+		});
+	};
 
-	void SpawnLandscape(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(ALandscape*)> OnComplete);
-	virtual void OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete) override;
+	bool SpawnLandscape(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TObjectPtr<ALandscape>& OutLandscape, TArray<ADecalActor*>& OutDecals);
+	virtual bool OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated) override;
 
 	virtual bool Cleanup_Implementation(bool bSkipPrompt) override
 	{

@@ -9,10 +9,10 @@
 #include "Coordinates/LevelCoordinates.h"
 #include "ImageDownloader/HMDebugFetcher.h"
 #include "ImageDownloader/Transformers/HMMerge.h"
-#include "LCReporter/LCReporter.h"
 #include "LCCommon/LCSettings.h"
 #include "LCCommon/LCBlueprintLibrary.h"
 #include "ConcurrencyHelpers/Concurrency.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "Async/Async.h"
 #include "Components/DecalComponent.h"
@@ -60,40 +60,35 @@ AActor *ALandscapeMeshSpawner::Duplicate(FName FromName, FName ToName)
 	}
 	else
 	{
-		ULCReporter::ShowError(LOCTEXT("ALandscapeMeshSpawner::DuplicateActor", "Failed to duplicate actor."));
+		LCReporter::ShowError(LOCTEXT("ALandscapeMeshSpawner::DuplicateActor", "Failed to duplicate actor."));
 		return nullptr;
 	}
 }
 
 #endif
 
-void ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TFunction<void(bool)> OnComplete)
+bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated)
 {
 	Modify();
 
 	if (bDeleteExistingMeshesBeforeSpawningMeshes)
 	{
-		if (!Execute_Cleanup(this, !bIsUserInitiated))
-		{
-			if (OnComplete) OnComplete(false);
-			return;
-		}	
+		if (!Execute_Cleanup(this, !bIsUserInitiated)) return false;
 	}
 
 	if (!IsValid(HeightmapDownloader))
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			LOCTEXT("ALandscapeMeshSpawner::OnGenerate", "HeightmapDownloader is not set, you may want to create one, or create a new LandscapeMeshSpawner")
 		);
 
-		if (OnComplete) OnComplete(false);
-		return;
+		return false;
 	}
 
 	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false);
 	if (IsValid(GlobalCoordinates))
 	{
-		if (bIsUserInitiated && !ULCReporter::ShowMessage(
+		if (bIsUserInitiated && !LCReporter::ShowMessage(
 			LOCTEXT(
 				"ALandscapeMeshSpawner::OnGenerate::ExistingGlobal",
 				"There already exists a LevelCoordinates actor. Continue?\n"
@@ -104,8 +99,7 @@ void ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 			LOCTEXT("ExistingGlobalTitle", "Already Existing Level Coordinates")
 		))
 		{
-			if (OnComplete) OnComplete(false);
-			return;
+			return false;
 		}
 	}
 
@@ -114,66 +108,46 @@ void ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 
 	if (!Fetcher)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("NoFetcher", "There was an error while creating the fetcher for Landscape {0}."),
 				FText::FromString(LandscapeMeshLabel)
 			)
 		);
 
-		if (OnComplete) OnComplete(false);
-		return;
+		return false;
 	}
 
 	Fetcher->bIsUserInitiated = bIsUserInitiated;
 
-	Fetcher->Fetch("", TArray<FString>(), [Fetcher, OnComplete, SpawnedActorsPathOverride, this](bool bSuccess)
+	TArray<FString> Files;
+	FString FilesCRS;
+	bool bSuccess = Fetcher->Fetch("", TArray<FString>());
+	if (bSuccess)
 	{
-		if (!bSuccess)
-		{
-			delete Fetcher;
-			if (OnComplete) OnComplete(false);
-			return;
-		}
+		Files = Fetcher->OutputFiles;
+		FilesCRS = Fetcher->OutputCRS;
+	}
 
-		int CmPerPixel = 0;
-		TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false);
+	delete Fetcher;
 
-		if (!GlobalCoordinates && !ULCBlueprintLibrary::GetCmPerPixelForCRS(Fetcher->OutputCRS, CmPerPixel))
-		{
-			ULCReporter::ShowError(
-				FText::Format(
-					LOCTEXT("ErrorBound",
-						"Please create a LevelCoordinates actor with CRS: '{0}', and set the scale that you wish here.\n"
-						"Then, try again to spawn your landscape."
-					),
-					FText::FromString(Fetcher->OutputCRS)
-				)
-			);
+	int CmPerPixel = 0;
 
-			delete Fetcher;
-			if (OnComplete) OnComplete(false);
-			return;
-		}
-
-		if (!GlobalCoordinates)
+	if (!IsValid(GlobalCoordinates))
+	{
+		if (ULCBlueprintLibrary::GetCmPerPixelForCRS(FilesCRS, CmPerPixel))
 		{
 			UWorld *World = GetWorld();
 			ALevelCoordinates *LevelCoordinates = World->SpawnActor<ALevelCoordinates>();
 			GlobalCoordinates = LevelCoordinates->GlobalCoordinates;
-
+	
 			FVector4d Coordinates = FVector4d();
-			if (!GDALInterface::GetCoordinates(Coordinates, Fetcher->OutputFiles))
-			{
-				delete Fetcher;
-				if (OnComplete) OnComplete(false);
-				return;
-			}
-
-			GlobalCoordinates->CRS = Fetcher->OutputCRS;
+			if (!GDALInterface::GetCoordinates(Coordinates, Files)) return false;
+	
+			GlobalCoordinates->CRS = FilesCRS;
 			GlobalCoordinates->CmPerLongUnit = CmPerPixel;
 			GlobalCoordinates->CmPerLatUnit = -CmPerPixel;
-
+	
 			double MinCoordWidth = Coordinates[0];
 			double MaxCoordWidth = Coordinates[1];
 			double MinCoordHeight = Coordinates[2];
@@ -181,114 +155,102 @@ void ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 			GlobalCoordinates->WorldOriginLong = (MinCoordWidth + MaxCoordWidth) / 2;
 			GlobalCoordinates->WorldOriginLat = (MinCoordHeight + MaxCoordHeight) / 2;
 		}
-
-		if (Fetcher->OutputFiles.Num() == 0)
+		else
 		{
-			ULCReporter::ShowError(
+			LCReporter::ShowError(
 				FText::Format(
-					LOCTEXT("NoFiles", "No output files for Landscape {0}."),
-					FText::FromString(LandscapeMeshLabel)
+					LOCTEXT("ErrorBound",
+						"Please create a LevelCoordinates actor with CRS: '{0}', and set the scale that you wish here.\n"
+						"Then, try again to spawn your landscape."
+					),
+					FText::FromString(FilesCRS)
 				)
 			);
 
-			delete Fetcher;
-			if (OnComplete) OnComplete(false);
-			return;
+			return false;
 		}
+	}
 
-		ALandscapeMesh *ReusedLandscapeMesh = nullptr;
-		for (auto &OutputFile : Fetcher->OutputFiles)
-		{
-			FVector4d ThisFileCoordinates = FVector4d();
-			if (!GDALInterface::GetCoordinates(ThisFileCoordinates, OutputFile))
-			{
-				delete Fetcher;
-				if (OnComplete) OnComplete(false);
-				return;
-			}
+	if (Files.Num() == 0)
+	{
+		LCReporter::ShowError(
+			FText::Format(
+				LOCTEXT("NoFiles", "No output files for Landscape {0}."),
+				FText::FromString(LandscapeMeshLabel)
+			)
+		);
 
-			if (bReuseExistingMesh)
-			{
-				if (!IsValid(ReusedLandscapeMesh)) ReusedLandscapeMesh = Cast<ALandscapeMesh>(ExistingLandscapeMesh.GetActor(GetWorld()));
+		return false;
+	}
 
-				if (!IsValid(ReusedLandscapeMesh))
-				{
-					ULCReporter::ShowError(
-						LOCTEXT(
-							"ALandscapeMeshSpawner::OnGenerate::ExistingLandscapeMesh",
-							"ExistingLandscapeMesh must point to a valid LandscapeMesh"
-						)
-					);
+	ALandscapeMesh *ReusedLandscapeMesh = nullptr;
+	for (auto &OutputFile : Files)
+	{
+		FVector4d ThisFileCoordinates = FVector4d();
+		if (!GDALInterface::GetCoordinates(ThisFileCoordinates, OutputFile)) return false;
 
-					delete Fetcher;
-					if (OnComplete) OnComplete(false);
-					return;
-				}
-				if (!ReusedLandscapeMesh->AddHeightmap(HeightmapPriority, ThisFileCoordinates, GlobalCoordinates, OutputFile))
-				{
-					delete Fetcher;
-					if (OnComplete) OnComplete(false);
-					return;
-				}
-			}
-			else
-			{
-				ALandscapeMesh *LandscapeMesh = nullptr;
-				bool bThreadSuccess = Concurrency::RunOnGameThreadAndReturn([this, &LandscapeMesh, ThisFileCoordinates, GlobalCoordinates, OutputFile, SpawnedActorsPathOverride]()
-				{
-					LandscapeMesh = GetWorld()->SpawnActor<ALandscapeMesh>();
-					if (!IsValid(LandscapeMesh)) return false;
-
-					SpawnedLandscapeMeshes.Add(LandscapeMesh);
-
-#if WITH_EDITOR
-					LandscapeMesh->SetActorLabel(LandscapeMeshLabel);
-					ULCBlueprintLibrary::SetFolderPath2(LandscapeMesh, SpawnedActorsPathOverride, SpawnedActorsPath);
-#endif
-
-					if (!SpawnedLandscapeMeshesTag.IsNone()) LandscapeMesh->Tags.Add(SpawnedLandscapeMeshesTag);
-					if (!LandscapeMesh->AddHeightmap(0, ThisFileCoordinates, GlobalCoordinates, OutputFile)) return false;
-					LandscapeMesh->MeshComponent->SetMaterial(0, LandscapeMaterial);
-					return LandscapeMesh->RegenerateMesh(SplitNormalsAngle);
-				});
-
-
-				if (!IsValid(LandscapeMesh))
-				{
-					ULCReporter::ShowError(
-						LOCTEXT(
-							"ALandscapeMeshSpawner::OnGenerate::CouldNotSpawnLandscapeMesh",
-							"Could not spawn LandscapeMesh"
-						)
-					);
-
-					delete Fetcher;
-					if (OnComplete) OnComplete(false);
-					return;
-				}
-
-				if (!bThreadSuccess)
-				{
-					delete Fetcher;
-					if (OnComplete) OnComplete(false);
-					return;
-				}
-			}
-		}
-
-		// here ReusedLandscapeMesh is necessarily non null because it has been set in the (non-empty) for loop
 		if (bReuseExistingMesh)
 		{
-			ReusedLandscapeMesh->RegenerateMesh(SplitNormalsAngle);
-			ReusedLandscapeMesh->MeshComponent->SetMaterial(0, LandscapeMaterial);
+			if (!IsValid(ReusedLandscapeMesh)) ReusedLandscapeMesh = Cast<ALandscapeMesh>(ExistingLandscapeMesh.GetActor(GetWorld()));
+
+			if (!IsValid(ReusedLandscapeMesh))
+			{
+				LCReporter::ShowError(
+					LOCTEXT(
+						"ALandscapeMeshSpawner::OnGenerate::ExistingLandscapeMesh",
+						"ExistingLandscapeMesh must point to a valid LandscapeMesh"
+					)
+				);
+				return false;
+			}
+			if (!ReusedLandscapeMesh->AddHeightmap(HeightmapPriority, ThisFileCoordinates, GlobalCoordinates, OutputFile)) return false;
 		}
+		else
+		{
+			ALandscapeMesh *LandscapeMesh = nullptr;
+			bool bThreadSuccess = Concurrency::RunOnGameThreadAndWait([this, &LandscapeMesh, ThisFileCoordinates, GlobalCoordinates, OutputFile, SpawnedActorsPathOverride]()
+			{
+				LandscapeMesh = GetWorld()->SpawnActor<ALandscapeMesh>();
+				if (!IsValid(LandscapeMesh)) return false;
 
-		delete Fetcher;
-		if (OnComplete) OnComplete(true);
-		return;
-	});
+				SpawnedLandscapeMeshes.Add(LandscapeMesh);
 
-	return;
+#if WITH_EDITOR
+				LandscapeMesh->SetActorLabel(LandscapeMeshLabel);
+				ULCBlueprintLibrary::SetFolderPath2(LandscapeMesh, SpawnedActorsPathOverride, SpawnedActorsPath);
+#endif
+
+				if (!SpawnedLandscapeMeshesTag.IsNone()) LandscapeMesh->Tags.Add(SpawnedLandscapeMeshesTag);
+				if (!LandscapeMesh->AddHeightmap(0, ThisFileCoordinates, GlobalCoordinates, OutputFile)) return false;
+				LandscapeMesh->MeshComponent->SetMaterial(0, LandscapeMaterial);
+				return LandscapeMesh->RegenerateMesh(SplitNormalsAngle);
+			});
+
+
+			if (!IsValid(LandscapeMesh))
+			{
+				LCReporter::ShowError(
+					LOCTEXT(
+						"ALandscapeMeshSpawner::OnGenerate::CouldNotSpawnLandscapeMesh",
+						"Could not spawn LandscapeMesh"
+					)
+				);
+
+				return false;
+			}
+
+			if (!bThreadSuccess) return false;
+		}
+	}
+
+	// here ReusedLandscapeMesh is necessarily non null because it has been set in the (non-empty) for loop
+	if (bReuseExistingMesh)
+	{
+		ReusedLandscapeMesh->RegenerateMesh(SplitNormalsAngle);
+		ReusedLandscapeMesh->MeshComponent->SetMaterial(0, LandscapeMaterial);
+	}
+
+	return true;
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -6,9 +6,9 @@
 
 #include "Misc/Paths.h"
 
-void HMURL::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+bool HMURL::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 {
 	FString FilePath = FPaths::Combine(DownloadDir, FileName);
 	OutputFiles.Add(FilePath);
-	Download::FromURL(URL, FilePath, bIsUserInitiated, OnComplete);
+	return Download::SynchronousFromURL(URL, FilePath, bIsUserInitiated);
 }

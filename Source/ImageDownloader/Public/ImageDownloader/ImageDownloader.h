@@ -875,7 +875,7 @@ public:
 	 * Actions *
 	 ***********/
 
-	void DownloadImages(bool bIsUserInitiated, bool bEnsureOneBand, TObjectPtr<UGlobalCoordinates> GlobalCoordinates, TFunction<void(TArray<FString>, FString)> OnComplete);
+	 bool DownloadImages(bool bIsUserInitiated, bool bEnsureOneBand, TObjectPtr<UGlobalCoordinates> GlobalCoordinates, TArray<FString> &OutDownloadedImages, FString &OutImagesCRS);
 
 	/* Click this to force reloading the WMS Provider from the URL */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "ImageDownloader",
@@ -962,6 +962,9 @@ protected:
 	FString GetMapboxToken();
 	FString GetMapTilerToken();
 	FString GetNextZenToken();
+
+	static bool ShowMapboxFreeTierWarning();
+	static bool ShowMapTilerFreeTierWarning();
 };
 
 #undef LOCTEXT_NAMESPACE

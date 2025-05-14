@@ -7,8 +7,8 @@
 #include "LandscapeUtils/LandscapeUtils.h"
 #include "GDALInterface/GDALInterface.h"
 #include "OSMUserData/OSMUserData.h"
-#include "LCReporter/LCReporter.h"
 #include "ConcurrencyHelpers/Concurrency.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "LandscapeSplineActor.h"
 #include "ILandscapeSplineInterface.h"
@@ -21,7 +21,6 @@
 #include "Misc/CString.h"
 #include "Logging/StructuredLog.h"
 #include "Async/Async.h"
-#include "Misc/ScopedSlowTask.h"
 #include "Stats/Stats.h"
 #include "Stats/StatsMisc.h"
 #include "ObjectEditorUtils.h"
@@ -57,7 +56,7 @@ bool AGDALImporter::IsOverpassPreset()
 		Source == EVectorSource::OSM_Parks;
 }
 
-void AGDALImporter::LoadGDALDatasetFromShortQuery(FString ShortQuery, bool bIsUserInitiated, TFunction<void(GDALDataset*)> OnComplete)
+GDALDataset* AGDALImporter::LoadGDALDatasetFromShortQuery(FString ShortQuery, bool bIsUserInitiated)
 {
 	UE_LOG(LogSplineImporter, Log, TEXT("Loading Dataset with Short Overpass Query: '%s'"), *ShortQuery);
 
@@ -68,13 +67,10 @@ void AGDALImporter::LoadGDALDatasetFromShortQuery(FString ShortQuery, bool bIsUs
 		AActor *BoundingActor = nullptr;
 		Concurrency::RunOnGameThreadAndWait([&BoundingActor, this]() { 
 			BoundingActor = BoundingActorSelection.GetActor(this->GetWorld());
+			return true;
 		});
 
-		if (!IsValid(BoundingActor))
-		{
-			if (OnComplete) OnComplete(nullptr);
-			return;
-		}
+		if (!IsValid(BoundingActor)) return nullptr;
 
 		if (!BoundingActor->IsA<ALandscape>())
 		{
@@ -82,23 +78,21 @@ void AGDALImporter::LoadGDALDatasetFromShortQuery(FString ShortQuery, bool bIsUs
 			BoundingActor->GetActorBounds(true, Origin, BoxExtent);
 			if (!ALevelCoordinates::GetCRSCoordinatesFromOriginExtent(BoundingActor->GetWorld(), Origin, BoxExtent, "EPSG:4326", Coordinates))
 			{
-				ULCReporter::ShowError(
+				LCReporter::ShowError(
 					LOCTEXT("LoadGDALDatasetFromShortQuery2", "Internal error while reading coordinates. Make sure that your level coordinates are valid.")
 				);
-				if (OnComplete) OnComplete(nullptr);
-				return;
+				return nullptr;
 			}
 		}
 		else
 		{
 			ALandscape *Landscape = Cast<ALandscape>(BoundingActor);
 
-			if (!Concurrency::RunOnGameThreadAndReturn([Landscape, &Coordinates]() {
+			if (!Concurrency::RunOnGameThreadAndWait([Landscape, &Coordinates]() {
 				return ALevelCoordinates::GetLandscapeCRSBounds(Landscape, "EPSG:4326", Coordinates);
 			}))
 			{
-				if (OnComplete) OnComplete(nullptr);
-				return;
+				return nullptr;
 			}
 		}
 
@@ -107,7 +101,7 @@ void AGDALImporter::LoadGDALDatasetFromShortQuery(FString ShortQuery, bool bIsUs
 		const double West = Coordinates[0];
 		const double North = Coordinates[3];
 		const double East = Coordinates[1];
-		GDALInterface::LoadGDALVectorDatasetFromQuery(Overpass::QueryFromShortQuery(South, West, North, East, ShortQuery), bIsUserInitiated, OnComplete);
+		return GDALInterface::LoadGDALVectorDatasetFromQuery(Overpass::QueryFromShortQuery(South, West, North, East, ShortQuery), bIsUserInitiated);
 	}
 	else if (BoundingMethod == EBoundingMethod::TileNumbers)
 	{
@@ -119,40 +113,38 @@ void AGDALImporter::LoadGDALDatasetFromShortQuery(FString ShortQuery, bool bIsUs
 		const double North = FMath::RadiansToDegrees(NorthRad);
 		const double South = FMath::RadiansToDegrees(SouthRad);
 
-		GDALInterface::LoadGDALVectorDatasetFromQuery(Overpass::QueryFromShortQuery(South, West, North, East, ShortQuery), bIsUserInitiated, OnComplete);
+		return GDALInterface::LoadGDALVectorDatasetFromQuery(Overpass::QueryFromShortQuery(South, West, North, East, ShortQuery), bIsUserInitiated);
 	}
 	else
 	{
 		check(false);
+		return nullptr;
 	}
 }
 
-void AGDALImporter::LoadGDALDataset(bool bIsUserInitiated, TFunction<void(GDALDataset*)> OnComplete)
+GDALDataset* AGDALImporter::LoadGDALDataset(bool bIsUserInitiated)
 {
-	if (Source == EVectorSource::LocalFile)
-	{
-		if (OnComplete) OnComplete(GDALInterface::LoadGDALVectorDatasetFromFile(LocalFile));
-	}
+	if (Source == EVectorSource::LocalFile) return GDALInterface::LoadGDALVectorDatasetFromFile(LocalFile);
 	else if (Source == EVectorSource::OverpassQuery)
 	{
-		GDALInterface::LoadGDALVectorDatasetFromQuery(
+		return GDALInterface::LoadGDALVectorDatasetFromQuery(
 			FString("https://overpass-api.de/api/interpreter?data=") + OverpassQuery,
-			bIsUserInitiated,
-			OnComplete
+			bIsUserInitiated
 		);
 	}
 	else if (Source == EVectorSource::OverpassShortQuery)
 	{
-		LoadGDALDatasetFromShortQuery(OverpassShortQuery, bIsUserInitiated, OnComplete);
+		return LoadGDALDatasetFromShortQuery(OverpassShortQuery, bIsUserInitiated);
 	}
 	else if (IsOverpassPreset())
 	{
 		SetOverpassShortQuery();
-		LoadGDALDatasetFromShortQuery(OverpassShortQuery, bIsUserInitiated, OnComplete);
+		return LoadGDALDatasetFromShortQuery(OverpassShortQuery, bIsUserInitiated);
 	}
 	else
 	{
 		check(false);
+		return nullptr;
 	}
 }
 
@@ -177,7 +169,5 @@ void AGDALImporter::PostEditChangeProperty(FPropertyChangedEvent& Event)
 }
 
 #endif
-
-
 
 #undef LOCTEXT_NAMESPACE

@@ -2,7 +2,7 @@
 
 #include "ImageDownloader/Transformers/HMReadCRS.h"
 #include "ImageDownloader/LogImageDownloader.h"
-#include "LCReporter/LCReporter.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 
 #include "GDALInterface/GDALInterface.h"
 #include "Misc/MessageDialog.h"
@@ -11,19 +11,18 @@
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-void HMReadCRS::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<void(bool)> OnComplete)
+bool HMReadCRS::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 {
 	OGRSpatialReference InRs;
 	if (!GDALInterface::SetCRSFromFile(InRs, InputFiles[0]))
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("HMSetEPSG::Fetch", "Could not read Spatial Reference from file {0}. Please make sure that it is correctly georeferenced."),
 				FText::FromString(InputFiles[0])
 			)
 		); 
-		if (OnComplete) OnComplete(false);
-		return;
+		return false;
 	}
 
 	OGRErr Err = InRs.AutoIdentifyEPSG();
@@ -33,7 +32,7 @@ void HMReadCRS::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<
 
 	if (Err != OGRERR_NONE || Name != "EPSG" || EPSG == 0)
 	{
-		ULCReporter::ShowError(
+		LCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("HMSetEPSG::Fetch", "Could not read EPSG code from file {0} (Error: {1}). Authority name and code are {2}:{3}"),
 				FText::FromString(InputFiles[0]),
@@ -42,12 +41,11 @@ void HMReadCRS::OnFetch(FString InputCRS, TArray<FString> InputFiles, TFunction<
 				FText::AsNumber(EPSG, &FNumberFormattingOptions::DefaultNoGrouping())
 			)
 		); 
-		if (OnComplete) OnComplete(false);
-		return;
+		return false;
 	}
 
 	OutputFiles.Append(InputFiles);
-	if (OnComplete) OnComplete(true);
+	return true;
 }
 
 #undef LOCTEXT_NAMESPACE
