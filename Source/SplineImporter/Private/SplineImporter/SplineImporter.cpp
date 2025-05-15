@@ -404,44 +404,38 @@ bool ASplineImporter::AddRegularSpline(
 
 	SplineComponent->ClearSplinePoints();
 
+	int ExpectedNumPoints = NumPoints;
+	if (Last == First) ExpectedNumPoints--;  // don't add last point in case the spline is a closed loop
+
 	TArray<FVector> SplinePoints;
 	TArray<FVector2D> SplinePoints2D;
-	for (int i = 0; i < NumPoints; i++)
+	for (int i = 0; i < ExpectedNumPoints; i++)
 	{
-		if (Last != First || i < NumPoints - 1) // don't add last point in case the spline is a closed loop
+		OGRPoint Point = PointList.Points[i];
+		double Longitude = Point.getX();
+		double Latitude = Point.getY();
+
+		double x = 0;
+		double y = 0;
+
+		if (!GetUECoordinates(Longitude, Latitude, OGRTransform, GlobalCoordinates, x, y)) return false;
+
+		double z = 0;
+		if (LandscapeUtils::GetZ(World, CollisionQueryParams, x, y, z, bDebugLineTraces))
 		{
-			OGRPoint Point = PointList.Points[i];
-			double Longitude = Point.getX();
-			double Latitude = Point.getY();
-		
-			// copy before converting
-			double ConvertedLongitude = Longitude;
-			double ConvertedLatitude = Latitude;
-
-			if (!GDALInterface::Transform(OGRTransform, &ConvertedLongitude, &ConvertedLatitude)) return false;
-			
-			FVector2D XY;
-			GlobalCoordinates->GetUnrealCoordinatesFromCRS(ConvertedLongitude, ConvertedLatitude, XY);
-
-			double x = XY[0];
-			double y = XY[1];
-			double z;
-			if (LandscapeUtils::GetZ(World, CollisionQueryParams, x, y, z, bDebugLineTraces))
-			{
-				FVector Location = FVector(x, y, z) + SplinePointsOffset;
-				SplinePoints.Add(Location);
-				SplinePoints2D.Add( { Location.X, Location.Y });
-			}
-			else
-			{
-				UE_LOG(LogSplineImporter, Warning, TEXT("No collision for point %f, %f"), x, y);
-			}
+			FVector Location = FVector(x, y, z) + SplinePointsOffset;
+			SplinePoints.Add(Location);
+			SplinePoints2D.Add( { Location.X, Location.Y });
+		}
+		else
+		{
+			UE_LOG(LogSplineImporter, Warning, TEXT("No collision for point %f, %f"), x, y);
 		}
 	}
 
-	if (SplinePoints.Num() < NumPoints)
+	if (SplinePoints.Num() < ExpectedNumPoints)
 	{
-		UE_LOG(LogSplineImporter, Warning, TEXT("Got only %d/%d Spline Points"), SplinePoints.Num(), NumPoints);
+		UE_LOG(LogSplineImporter, Warning, TEXT("Got only %d/%d Spline Points"), SplinePoints.Num(), ExpectedNumPoints);
 	}
 	if (SplinePoints.IsEmpty()) return false;
 	
@@ -479,6 +473,34 @@ bool ASplineImporter::AddRegularSpline(
 	SplineComponent->bSplineHasBeenEdited = true;
 
 	return true;
+}
+
+bool ASplineImporter::GetUECoordinates(
+	double Longitude, double Latitude,
+	OGRCoordinateTransformation *OGRTransform, UGlobalCoordinates *GlobalCoordinates,
+	double &OutX, double &OutY
+)
+{
+	if (bSkipCoordinateConversion)
+	{
+		OutX = Longitude * ScaleX;
+		OutY = Latitude * ScaleY;
+		return true;
+	}
+	else
+	{
+		double ConvertedLongitude = Longitude;
+		double ConvertedLatitude = Latitude;
+
+		if (!GDALInterface::Transform(OGRTransform, &ConvertedLongitude, &ConvertedLatitude)) return false;
+		
+		FVector2D XY;
+		GlobalCoordinates->GetUnrealCoordinatesFromCRS(ConvertedLongitude, ConvertedLatitude, XY);
+
+		OutX = XY[0];
+		OutY = XY[1];
+		return true;
+	}
 }
 
 bool ASplineImporter::Cleanup_Implementation(bool bSkipPrompt) 
@@ -632,17 +654,10 @@ void ASplineImporter::AddLandscapeSplinesPoints(
 		double Longitude = Point.getX();
 		double Latitude = Point.getY();
 
-		// copy before converting
-		double ConvertedLongitude = Point.getX();
-		double ConvertedLatitude = Point.getY();
+		double x = 0;
+		double y = 0;
+		if (!GetUECoordinates(Longitude, Latitude, OGRTransform, GlobalCoordinates, x, y)) return;
 
-		if (!GDALInterface::Transform(OGRTransform, &ConvertedLongitude, &ConvertedLatitude)) return;
-
-		FVector2D XY;
-		GlobalCoordinates->GetUnrealCoordinatesFromCRS(ConvertedLongitude, ConvertedLatitude, XY);
-
-		double x = XY[0];
-		double y = XY[1];
 		double z = 0;
 		if (LandscapeUtils::GetZ(World, CollisionQueryParams, x, y, z, bDebugLineTraces))
 		{

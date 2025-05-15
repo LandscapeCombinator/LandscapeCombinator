@@ -58,11 +58,6 @@ bool AOGRGeometry::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIniti
 		return false;
 	}
 	
-	
-	UWorld *World = this->GetWorld();
-	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World);
-	OGRCoordinateTransformation *CoordinateTransformation = GDALInterface::MakeTransform("EPSG:4326", GlobalCoordinates->CRS);
-	
 	int n = Dataset->GetLayerCount();
 	for (int i = 0; i < n; i++)
 	{
