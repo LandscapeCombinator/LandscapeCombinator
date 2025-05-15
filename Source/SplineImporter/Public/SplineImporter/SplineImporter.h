@@ -45,23 +45,38 @@ public:
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
-		meta = (DisplayPriority = "-1")
+		meta = (DisplayPriority = "-100")
 	)
 	bool bDebugLineTraces = false;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+		meta = (EditCondition = "Source == EVectorSource::LocalFile", EditConditionHides, DisplayPriority = "0")
+	)
+	bool bSkipCoordinateConversion = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+		meta = (EditCondition = "Source == EVectorSource::LocalFile && bSkipCoordinateConversion", EditConditionHides, DisplayPriority = "0")
+	)
+	double ScaleX = 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+		meta = (EditCondition = "Source == EVectorSource::LocalFile && bSkipCoordinateConversion", EditConditionHides, DisplayPriority = "1")
+	)
+	double ScaleY = 1;
+
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
-		meta = (DisplayPriority = "0")
+		meta = (DisplayPriority = "1000")
 	)
 	bool bDeleteOldSplinesWhenCreatingSplines = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
-		meta = (DisplayPriority = "2")
+		meta = (DisplayPriority = "1001")
 	)
 	FActorSelection ActorsOrLandscapesToPlaceSplinesSelection;
 
 	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
-		meta = (DisplayPriority = "3")
+		meta = (DisplayPriority = "1002")
 	)
 	/* Check this only if `ActorToPlaceSplines` is a landscape and if you want to use landscape splines instead of normal spline components.
 	 * For roads, it is recommended you use landscape splines (checked).
@@ -70,44 +85,44 @@ public:
 
 	/* Increasing this value (before generating splines) makes your landscape splines less curvy. This does not apply to regular splines. */
 	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
-		meta = (EditCondition = "bUseLandscapeSplines", EditConditionHides, DisplayPriority = "4")
+		meta = (EditCondition = "bUseLandscapeSplines", EditConditionHides, DisplayPriority = "1004")
 	)
 	double LandscapeSplinesStraightness = 1;
 
 	
 	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
-		meta = (EditCondition = "!bUseLandscapeSplines", EditConditionHides, DisplayPriority = "5")
+		meta = (EditCondition = "!bUseLandscapeSplines", EditConditionHides, DisplayPriority = "1005")
 	)
 	/* Whether to put the created spline components in a single Spline Collection actor, or use one Spline Collection per actor, or use a custom actor. */
 	ESplineOwnerKind SplineOwnerKind = ESplineOwnerKind::SingleSplineCollection;
 	
 	/* Tag to apply to the Spline Owners which are created. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
-		meta = (DisplayPriority = "5")
+		meta = (DisplayPriority = "1005")
 	)
 	FName SplinesTag;
 
 	/* Tag to apply to the Spline Components which are created. */
 	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
-		meta = (EditCondition = "!bUseLandscapeSplines", EditConditionHides, DisplayPriority = "6")
+		meta = (EditCondition = "!bUseLandscapeSplines", EditConditionHides, DisplayPriority = "1006")
 	)
 	FName SplineComponentsTag;
 	
 	/* Spawn an actor of this type for each imported spline, and copy the imported spline points to the spawned actor's spline component. */
 	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
-		meta = (EditCondition = "!bUseLandscapeSplines && SplineOwnerKind == ESplineOwnerKind::CustomActor", EditConditionHides, DisplayPriority = "10")
+		meta = (EditCondition = "!bUseLandscapeSplines && SplineOwnerKind == ESplineOwnerKind::CustomActor", EditConditionHides, DisplayPriority = "1010")
 	)
 	TSubclassOf<AActor> ActorToSpawn;
 
 	/* Splines that are closed loops can be forced to be Clockwise or CounterClockwise (when seen from top). */
 	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
-		meta = (EditCondition = "!bUseLandscapeSplines", EditConditionHides, DisplayPriority = "100")
+		meta = (EditCondition = "!bUseLandscapeSplines", EditConditionHides, DisplayPriority = "1200")
 	)
 	ESplineDirection SplineDirection = ESplineDirection::Any;
 
 	/* An offset which is added to all spline points that are generated. */
 	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
-		meta = (DisplayPriority = "1000")
+		meta = (DisplayPriority = "1300")
 	)
 	FVector SplinePointsOffset;
 
@@ -134,6 +149,12 @@ public:
 	virtual bool Cleanup_Implementation(bool bSkipPrompt) override;
 
 protected:
+	bool GetUECoordinates(
+		double Longitude, double Latitude,
+		OGRCoordinateTransformation *OGRTransform, UGlobalCoordinates *GlobalCoordinates,
+		double &OutX, double &OutY
+	);
+
 	virtual void SetOverpassShortQuery() override;
 
 	bool GenerateRegularSplines(
