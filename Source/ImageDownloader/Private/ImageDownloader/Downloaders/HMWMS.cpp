@@ -13,7 +13,8 @@
 #include "Misc/FileHelper.h"
 #include "Misc/MessageDialog.h"
 #include "Misc/Paths.h"
-#include "Internationalization/TextLocalizationResource.h" 
+#include "Internationalization/TextLocalizationResource.h"
+#include "Containers/Queue.h"
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
