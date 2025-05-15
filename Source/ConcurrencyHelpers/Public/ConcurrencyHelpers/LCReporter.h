@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "Templates/Function.h"
-#include "Async/Async.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
+#include "Styling/AppStyle.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
