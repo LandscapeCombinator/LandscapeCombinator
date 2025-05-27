@@ -1124,7 +1124,7 @@ bool GDALInterface::ExportMesh(const FDynamicMesh3 &Mesh, const FString &File)
 		return false;
 	}
 
-	OGRLayer *Layer = Dataset->CreateLayer("faces");
+	OGRLayer *Layer = Dataset->CreateLayer("faces", nullptr, OGRwkbGeometryType::wkbPolygon25D);
 	if (!Layer) {
 		UE_LOG(LogGDALInterface, Error, TEXT("Failed to create DXF layer"));
 		GDALClose(Dataset);
@@ -1180,6 +1180,7 @@ bool GDALInterface::ExportMesh(const FDynamicMesh3 &Mesh, const FString &File)
 
 bool GDALInterface::ExportPolygon(const TArray<FVector> &Points, const FString &File)
 {
+	CPLSetConfigOption("DXF_WRITE_HATCH", "NO");
 	GDALDriver *DXFDriver = GetGDALDriverManager()->GetDriverByName("DXF");
 	if (!DXFDriver) {
 		UE_LOG(LogGDALInterface, Error, TEXT("DXF driver not available"));
@@ -1192,7 +1193,7 @@ bool GDALInterface::ExportPolygon(const TArray<FVector> &Points, const FString &
 		return false;
 	}
 
-	OGRLayer *Layer = Dataset->CreateLayer("faces");
+	OGRLayer *Layer = Dataset->CreateLayer("faces", nullptr, OGRwkbGeometryType::wkbPolygon25D);
 	if (!Layer) {
 		UE_LOG(LogGDALInterface, Error, TEXT("Failed to create DXF layer"));
 		GDALClose(Dataset);
