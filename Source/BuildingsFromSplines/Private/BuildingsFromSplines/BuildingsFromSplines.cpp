@@ -22,22 +22,9 @@
 
 TSubclassOf<UBuildingConfiguration> FWeightedBuildingConfigurationClass::GetRandomBuildingConfigurationClass(TArray<FWeightedBuildingConfigurationClass>& BuildingConfigurationClasses)
 {
-	if (BuildingConfigurationClasses.Num() == 0) return nullptr;
-
-	double TotalWeight = 0.0;
-	for (const FWeightedBuildingConfigurationClass& WeightedBuildingConfigurationClass : BuildingConfigurationClasses)
-	{
-		TotalWeight += WeightedBuildingConfigurationClass.Weight;
-	}
-
-	double RandomValue = FMath::RandRange(0.0, TotalWeight);
-	double CurrentWeight = 0.0;
-	for (const FWeightedBuildingConfigurationClass& WeightedBuildingConfigurationClass : BuildingConfigurationClasses)
-	{
-		CurrentWeight += WeightedBuildingConfigurationClass.Weight;
-		if (RandomValue <= CurrentWeight) return WeightedBuildingConfigurationClass.BuildingConfigurationClass;
-	}
-	return nullptr;
+	int Index = ULCBlueprintLibrary::GetRandomIndex<FWeightedBuildingConfigurationClass>(BuildingConfigurationClasses);
+	if (0 <= Index && Index < BuildingConfigurationClasses.Num()) return BuildingConfigurationClasses[Index].BuildingConfigurationClass;
+	else return nullptr;
 }
 
 ABuildingsFromSplines::ABuildingsFromSplines()
