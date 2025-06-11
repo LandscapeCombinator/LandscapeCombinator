@@ -38,8 +38,24 @@ public:
 	UFUNCTION(BlueprintCallable, Category="LandscapeCombinator")
 	static bool GetFirstPlayerPosition(FVector &OutPosition);
 
-	
+	template<class T>
+	static int GetRandomIndex(const TArray<T> &WeightedElements)
+	{
+		int NumWeights = WeightedElements.Num();
+		if (NumWeights == 0) return -1;
 
+		double TotalWeight = 0.0;
+		for (const auto &Element: WeightedElements) TotalWeight += Element.Weight;
+
+		double RandomValue = FMath::RandRange(0.0, TotalWeight);
+		double CurrentWeight = 0.0;
+		for (int i = 0; i < NumWeights; i++)
+		{
+			CurrentWeight += WeightedElements[i].Weight;
+			if (RandomValue <= CurrentWeight) return i;
+		}
+		return -1;
+	}
 
 #if WITH_EDITOR
 
