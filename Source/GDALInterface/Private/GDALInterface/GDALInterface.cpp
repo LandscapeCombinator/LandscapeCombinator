@@ -1112,6 +1112,7 @@ GDALDataset* GDALInterface::LoadGDALVectorDatasetFromQuery(FString Query, bool b
 
 bool GDALInterface::ExportMesh(const FDynamicMesh3 &Mesh, const FString &File)
 {
+	CPLSetConfigOption("DXF_WRITE_HATCH", "NO");
 	GDALDriver *DXFDriver = GetGDALDriverManager()->GetDriverByName("DXF");
 	if (!DXFDriver) {
 		UE_LOG(LogGDALInterface, Error, TEXT("DXF driver not available"));
