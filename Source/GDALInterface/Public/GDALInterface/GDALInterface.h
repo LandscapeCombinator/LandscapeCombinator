@@ -70,6 +70,6 @@ public:
 	static GDALDataset* LoadGDALVectorDatasetFromQuery(FString Query, bool bIsUserInitiated);
 
 	static bool ExportMesh(const FDynamicMesh3 &Mesh, const FString &File);
-	static bool ExportPolygon(const TArray<FVector> &Points, const FString &File);
+	static bool ExportPolygons(const TArray<TArray<FVector>> &PointLists, const FString &File);
 	static bool WriteHeightmapDataToTIF(const FString& File, int32 SizeX, int32 SizeY, uint16* HeightmapData);
 };

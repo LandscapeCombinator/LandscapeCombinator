@@ -1179,7 +1179,7 @@ bool GDALInterface::ExportMesh(const FDynamicMesh3 &Mesh, const FString &File)
 	return true;
 }
 
-bool GDALInterface::ExportPolygon(const TArray<FVector> &Points, const FString &File)
+bool GDALInterface::ExportPolygons(const TArray<TArray<FVector>> &PointLists, const FString &File)
 {
 	CPLSetConfigOption("DXF_WRITE_HATCH", "NO");
 	GDALDriver *DXFDriver = GetGDALDriverManager()->GetDriverByName("DXF");
@@ -1194,7 +1194,7 @@ bool GDALInterface::ExportPolygon(const TArray<FVector> &Points, const FString &
 		return false;
 	}
 
-	OGRLayer *Layer = Dataset->CreateLayer("faces", nullptr, OGRwkbGeometryType::wkbPolygon25D);
+	OGRLayer *Layer = Dataset->CreateLayer("polygons", nullptr, OGRwkbGeometryType::wkbPolygon25D);
 	if (!Layer) {
 		UE_LOG(LogGDALInterface, Error, TEXT("Failed to create DXF layer"));
 		GDALClose(Dataset);
@@ -1208,35 +1208,38 @@ bool GDALInterface::ExportPolygon(const TArray<FVector> &Points, const FString &
 		return false;
 	}
 
-	OGRPolygon Polygon;
-	OGRLinearRing Ring;
-	int NumPoints = Points.Num();
-	for (int i = 0; i < NumPoints; ++i) {
-		Ring.addPoint(Points[i].X, Points[i].Y, Points[i].Z);
-	}
-	
-	Polygon.addRing(&Ring);
-
-	OGRFeature *Feature = OGRFeature::CreateFeature(LayerDefn);
-
-	if (!Feature)
+	for (const TArray<FVector> &Points: PointLists)
 	{
-		UE_LOG(LogGDALInterface, Error, TEXT("Failed to create feature"));
-		GDALClose(Dataset);
-		return false;	
-	}
+		OGRPolygon Polygon;
+		OGRLinearRing Ring;
+		int NumPoints = Points.Num();
+		for (int i = 0; i < NumPoints; ++i) {
+			Ring.addPoint(Points[i].X, Points[i].Y, Points[i].Z);
+		}
+		
+		Polygon.addRing(&Ring);
 
-	Feature->SetGeometry(&Polygon);
+		OGRFeature *Feature = OGRFeature::CreateFeature(LayerDefn);
 
-	if (Layer->CreateFeature(Feature) != OGRERR_NONE)
-	{
-		UE_LOG(LogGDALInterface, Error, TEXT("Failed to add feature to layer"));
+		if (!Feature)
+		{
+			UE_LOG(LogGDALInterface, Error, TEXT("Failed to create feature"));
+			GDALClose(Dataset);
+			return false;	
+		}
+
+		Feature->SetGeometry(&Polygon);
+
+		if (Layer->CreateFeature(Feature) != OGRERR_NONE)
+		{
+			UE_LOG(LogGDALInterface, Error, TEXT("Failed to add feature to layer"));
+			OGRFeature::DestroyFeature(Feature);
+			GDALClose(Dataset);
+			return false;
+		}
+
 		OGRFeature::DestroyFeature(Feature);
-		GDALClose(Dataset);
-		return false;
 	}
-
-	OGRFeature::DestroyFeature(Feature);
 
 	GDALClose(Dataset);
 	return true;
