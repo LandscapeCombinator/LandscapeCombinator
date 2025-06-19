@@ -11,6 +11,8 @@
 
 #if WITH_EDITOR
 #include "Subsystems/EditorActorSubsystem.h"
+#include "Editor/EditorEngine.h"
+#include "Editor.h"
 #endif
 
 #include "LCCommon/LogLCCommon.h"

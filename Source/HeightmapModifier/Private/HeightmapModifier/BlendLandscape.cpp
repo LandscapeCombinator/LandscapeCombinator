@@ -15,6 +15,7 @@
 
 #if WITH_EDITOR
 #include "ScopedTransaction.h"
+#include "Styling/AppStyle.h"
 #endif
 
 #if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 5)

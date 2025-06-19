@@ -31,8 +31,9 @@
 #include "EditorModes.h"
 #include "EditorModeManager.h"
 #include "LandscapeEditorObject.h"
-#include "LandscapeImportHelper.h" 
+#include "LandscapeImportHelper.h"
 #include "Subsystems/EditorActorSubsystem.h"
+#include "Styling/AppStyle.h"
 
 #endif
 
