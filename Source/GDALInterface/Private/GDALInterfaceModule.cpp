@@ -23,6 +23,7 @@ FString GetPluginBaseDir(FString PluginName)
 
 void FGDALInterfaceModule::SetGDALPaths()
 {
+	UE_LOG(LogGDALInterface, Log, TEXT("Starting GDALInterface module"));
 	FString PluginBaseDir = "";
 	PluginBaseDir = GetPluginBaseDir("LandscapeCombinator");
 	if (PluginBaseDir.IsEmpty()) PluginBaseDir = GetPluginBaseDir("ImageDownloader");

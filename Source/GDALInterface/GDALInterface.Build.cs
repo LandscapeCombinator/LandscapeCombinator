@@ -2,6 +2,7 @@
 
 using UnrealBuildTool;
 using System.IO;
+using System;
 
 using Microsoft.Extensions.Logging;
 using UnrealBuildTool.Rules;
@@ -35,7 +36,13 @@ public class GDALInterface : ModuleRules
 		{
 			foreach (string SOFile in Directory.GetFiles(Path.Combine(GDALDirectory, "bin"), "*.so"))
 			{
-				PublicAdditionalLibraries.Add(SOFile);
+				if (SOFile.Contains("gdal") || SOFile.Contains("geos"))
+				{
+					PublicAdditionalLibraries.Add(SOFile);
+				}
+			}
+			foreach (string SOFile in Directory.GetFiles(Path.Combine(GDALDirectory, "bin"), "*.so*"))
+			{
 				RuntimeDependencies.Add(Path.Combine("$(BinaryOutputDir)", Path.GetFileName(SOFile)), SOFile);
 			}
 		}
