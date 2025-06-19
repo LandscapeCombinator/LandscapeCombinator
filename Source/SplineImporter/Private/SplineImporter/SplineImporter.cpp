@@ -29,6 +29,7 @@
 #include "Misc/MessageDialog.h"
 #include "Polygon2.h"
 #include "Algo/Reverse.h"
+#include "Styling/AppStyle.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 

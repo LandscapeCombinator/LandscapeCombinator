@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 
-class Directories {
+class IMAGEDOWNLOADER_API Directories {
 public:
 	static FString ImageDownloaderDir();
 	static FString DownloadDir();

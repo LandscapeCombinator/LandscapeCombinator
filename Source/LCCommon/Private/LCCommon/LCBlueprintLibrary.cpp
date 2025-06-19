@@ -6,7 +6,10 @@
 #include "Kismet/GameplayStatics.h"
 
 #if WITH_EDITOR
+#include "EditorViewportClient.h"
 #include "EditorActorFolders.h"
+#include "Editor/EditorEngine.h"
+#include "Editor.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"

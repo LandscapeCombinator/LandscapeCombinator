@@ -19,6 +19,7 @@
 #include "PropertyEditorModule.h"
 #include "EditorUtilitySubsystem.h"
 #include "EditorUtilityWidgetBlueprint.h"
+#include "ToolMenus.h"
 
 #endif
 

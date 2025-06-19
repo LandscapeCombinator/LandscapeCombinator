@@ -28,6 +28,7 @@ public class BuildingsFromSplines : ModuleRules
 				"Engine",
 				"GeometryCore",
 				"GeometryScriptingCore",
+				"SlateCore",
 
 				// Landscape Combinator Dependencies
 				"OSMUserData",
