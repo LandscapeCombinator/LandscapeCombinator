@@ -257,7 +257,8 @@ bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 	Concurrency::RunOnGameThreadAndWait([&]() {
 		SpawnedLandscape = OutLandscape;
 		SpawnedLandscape->Modify();
-		SpawnedLandscape->SetActorLabel(LandscapeLabel);
+		if (!LandscapeLabel.IsEmpty())
+			SpawnedLandscape->SetActorLabel(LandscapeLabel);
 		ULCBlueprintLibrary::SetFolderPath2(SpawnedLandscape.Get(), SpawnedActorsPathOverride, SpawnedActorsPath);
 
 		if (!LandscapeTag.IsNone()) SpawnedLandscape->Tags.Add(LandscapeTag);
