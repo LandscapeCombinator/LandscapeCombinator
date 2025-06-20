@@ -137,23 +137,38 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 	{
 		if (ULCBlueprintLibrary::GetCmPerPixelForCRS(FilesCRS, CmPerPixel))
 		{
-			UWorld *World = GetWorld();
-			ALevelCoordinates *LevelCoordinates = World->SpawnActor<ALevelCoordinates>();
-			GlobalCoordinates = LevelCoordinates->GlobalCoordinates;
-	
-			FVector4d Coordinates = FVector4d();
-			if (!GDALInterface::GetCoordinates(Coordinates, Files)) return false;
-	
-			GlobalCoordinates->CRS = FilesCRS;
-			GlobalCoordinates->CmPerLongUnit = CmPerPixel;
-			GlobalCoordinates->CmPerLatUnit = -CmPerPixel;
-	
-			double MinCoordWidth = Coordinates[0];
-			double MaxCoordWidth = Coordinates[1];
-			double MinCoordHeight = Coordinates[2];
-			double MaxCoordHeight = Coordinates[3];
-			GlobalCoordinates->WorldOriginLong = (MinCoordWidth + MaxCoordWidth) / 2;
-			GlobalCoordinates->WorldOriginLat = (MinCoordHeight + MaxCoordHeight) / 2;
+			bool bThreadSuccess = Concurrency::RunOnGameThreadAndWait([&]() {
+				UWorld *World = GetWorld();
+				if (!IsValid(World)) return false;
+				ALevelCoordinates *LevelCoordinates = World->SpawnActor<ALevelCoordinates>();
+				if (!IsValid(LevelCoordinates)) return false;
+				GlobalCoordinates = LevelCoordinates->GlobalCoordinates;
+				if (!IsValid(GlobalCoordinates)) return false;
+		
+				FVector4d Coordinates = FVector4d();
+				if (!GDALInterface::GetCoordinates(Coordinates, Files)) return false;
+		
+				GlobalCoordinates->CRS = FilesCRS;
+				GlobalCoordinates->CmPerLongUnit = CmPerPixel;
+				GlobalCoordinates->CmPerLatUnit = -CmPerPixel;
+		
+				double MinCoordWidth = Coordinates[0];
+				double MaxCoordWidth = Coordinates[1];
+				double MinCoordHeight = Coordinates[2];
+				double MaxCoordHeight = Coordinates[3];
+				GlobalCoordinates->WorldOriginLong = (MinCoordWidth + MaxCoordWidth) / 2;
+				GlobalCoordinates->WorldOriginLat = (MinCoordHeight + MaxCoordHeight) / 2;
+				return true;
+			});
+
+			if (!bThreadSuccess)
+			{
+				LCReporter::ShowError(
+					LOCTEXT("CouldNotCreateLevelCoordinates",
+						"There was an error while spawning a Level Coordinates actor."
+					)
+				);
+			}
 		}
 		else
 		{
@@ -216,7 +231,8 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 				SpawnedLandscapeMeshes.Add(LandscapeMesh);
 
 #if WITH_EDITOR
-				LandscapeMesh->SetActorLabel(LandscapeMeshLabel);
+				if (!LandscapeMeshLabel.IsEmpty())
+					LandscapeMesh->SetActorLabel(LandscapeMeshLabel);
 				ULCBlueprintLibrary::SetFolderPath2(LandscapeMesh, SpawnedActorsPathOverride, SpawnedActorsPath);
 #endif
 
@@ -244,13 +260,15 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 	}
 
 	// here ReusedLandscapeMesh is necessarily non null because it has been set in the (non-empty) for loop
-	if (bReuseExistingMesh)
-	{
-		ReusedLandscapeMesh->RegenerateMesh(SplitNormalsAngle);
-		ReusedLandscapeMesh->MeshComponent->SetMaterial(0, LandscapeMaterial);
-	}
+	return Concurrency::RunOnGameThreadAndWait([&](){
+		if (bReuseExistingMesh)
+		{
+			ReusedLandscapeMesh->RegenerateMesh(SplitNormalsAngle);
+			ReusedLandscapeMesh->MeshComponent->SetMaterial(0, LandscapeMaterial);
+		}
 
-	return true;
+		return true;
+	});
 }
 
 #undef LOCTEXT_NAMESPACE

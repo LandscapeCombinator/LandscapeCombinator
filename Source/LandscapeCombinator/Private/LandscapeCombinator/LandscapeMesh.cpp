@@ -184,13 +184,13 @@ bool ALandscapeMesh::RegenerateMesh(double SplitNormalsAngle)
 	FTransform WorldToMesh = MeshComponent->GetComponentTransform().Inverse();
 	for (auto &Point : Points) NewMesh.AppendVertex(WorldToMesh.TransformPosition(Point));
 	for (auto &Triangle : Delaunay.GetTriangles()) NewMesh.AppendTriangle(Triangle.A, Triangle.C, Triangle.B);
-	NewMesh.EnableAttributes();
-	FMeshNormals::InitializeOverlayToPerVertexNormals(NewMesh.Attributes()->PrimaryNormals(), false);
 
 	Concurrency::RunOnGameThreadAndWait([this, &NewMesh]() {;
 		FDynamicMesh3 &TargetMesh = MeshComponent->GetDynamicMesh()->GetMeshRef();
 		TargetMesh = MoveTemp(NewMesh);
-		UGeometryScriptLibrary_MeshNormalsFunctions::SetPerVertexNormals(MeshComponent->GetDynamicMesh());
+		UGeometryScriptLibrary_MeshNormalsFunctions::ComputeSplitNormals(
+			MeshComponent->GetDynamicMesh(), FGeometryScriptSplitNormalsOptions(), FGeometryScriptCalculateNormalsOptions()
+		);
 		return true;
 	});
 
