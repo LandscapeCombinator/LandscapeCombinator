@@ -26,7 +26,8 @@ FString Directories::ImageDownloaderDir()
 {
 	FString Base = GetDefault<ULCSettings>()->TemporaryFolder;
 	if (Base.IsEmpty()) Base = FPaths::ConvertRelativePathToFull(FPaths::EngineIntermediateDir());
-	else if (!IPlatformFile::GetPlatformPhysical().CreateDirectory(*Base))
+
+	if (!IPlatformFile::GetPlatformPhysical().CreateDirectory(*Base))
 	{
 		CouldNotInitializeDirectory(Base);
 		return "";
