@@ -200,9 +200,11 @@ bool FWMSProvider::LoadFromFile(TArray<FString> ExcludeCRS, TFunction<bool(FStri
 		// For: https://elevation.nationalmap.gov/arcgis/services/3DEPElevation/ImageServer/WMSServer?request=GetCapabilities&service=WMS
 		// The root layer (not queryable) has name 0 and can't be queried, but we still want
 		// to set LastCRS and LastBounds from it for all the sublayers.
-		// We don't want to add the root layer, so we stop (continue) now.
-		if (Name == "0" && !LayerParams.Contains("queryable=\"1\"")) continue;
-
+		// We usually don't want to add the root layer, so we stop (continue) now.
+		// But this is commented for now as the NCOneMap WMS uses the root layer (not marked as queryable).
+		// https://services.nconemap.gov/secure/services/Elevation/DEM03/ImageServer/WMSServer?request=GetCapabilities&service=WMS
+		// if (Name == "0" && !LayerParams.Contains("queryable=\"1\"")) continue;
+		
 		// Initially, we ignored layers that explicitly contain queryable="0", but in NRW WMS server
 		// there are layers with queryable="0" that should not be ignored. The check is commented out.
 		// if (LayerParams.Contains("queryable=\"0\"")) continue;
