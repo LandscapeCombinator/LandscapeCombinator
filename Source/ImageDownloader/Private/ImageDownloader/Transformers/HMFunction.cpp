@@ -16,7 +16,15 @@ bool HMFunction::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 
 	for (auto &InputFile : InputFiles)
 	{
-		GDALDataset *Dataset = (GDALDataset *) GDALOpen(TCHAR_TO_UTF8(*InputFile), GA_Update);
+
+		const char* openOptions[] = { "IGNORE_COG_LAYOUT_BREAK=YES", nullptr }; // import for Swiss ALTI 3D source
+		GDALDataset *Dataset = (GDALDataset *) GDALOpenEx(
+			TCHAR_TO_UTF8(*InputFile),
+			GDAL_OF_UPDATE | GDAL_OF_RASTER,
+			nullptr,
+			openOptions,
+			nullptr
+		);
 		if (!Dataset)
 		{
 			LCReporter::ShowError(
