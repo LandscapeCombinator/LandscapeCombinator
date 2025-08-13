@@ -296,6 +296,12 @@ public:
 	/* Ignore errors when the XYZ provider has missing tiles */
 	bool bAllowInvalidTiles = true;
 
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
+		meta = (EditCondition = "IsXYZ()", EditConditionHides, DisplayPriority = "100")
+	)
+	bool bEnableParallelDownload = false;
+
 
 
 
@@ -912,7 +918,8 @@ public:
 #endif
 	
 	HMFetcher* CreateFetcher(
-		bool bIsUserInitiated, FString Name, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG,
+		bool bIsUserInitiated, FString Name, bool bEnsureOneBand, bool bScaleAltitude,
+		bool bConvertToPNG, bool bConvertFirstOnly, bool bAddMissingTiles,
 		TFunction<bool(HMFetcher*)> RunBeforePNG, TObjectPtr<UGlobalCoordinates> GlobalCoordinates
 	);
 

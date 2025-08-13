@@ -20,7 +20,7 @@
 void ULandscapeController::AdjustLandscape()
 {
 	ALandscape *Landscape = Cast<ALandscape>(GetOwner());
-	if (!Landscape)
+	if (!IsValid(Landscape))
 	{
 		LCReporter::ShowError(
 			LOCTEXT("ULandscapeController::AdjustLandscape::1", "Internal error while adjusting landscape scale and position")
@@ -30,7 +30,7 @@ void ULandscapeController::AdjustLandscape()
 	FString LandscapeLabel = Landscape->GetActorNameOrLabel();
 
 	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(Landscape->GetWorld());
-	if (!GlobalCoordinates) return;
+	if (!IsValid(GlobalCoordinates)) return;
 
 	if (CRS != GlobalCoordinates->CRS)
 	{
@@ -145,6 +145,8 @@ void ULandscapeController::AdjustLandscape()
 
 	Landscape->Modify();
 	Landscape->SetActorLocation(NewLocation);
+	Landscape->GetRootComponent()->SetRelativeLocation(NewLocation);
+
 	Landscape->PostEditChange();
 	
 	return;

@@ -89,7 +89,7 @@ GDALDataset* AGDALImporter::LoadGDALDatasetFromShortQuery(FString ShortQuery, bo
 			ALandscape *Landscape = Cast<ALandscape>(BoundingActor);
 
 			if (!Concurrency::RunOnGameThreadAndWait([Landscape, &Coordinates]() {
-				return ALevelCoordinates::GetLandscapeCRSBounds(Landscape, "EPSG:4326", Coordinates);
+				return LandscapeUtils::GetLandscapeCRSBounds(Landscape, "EPSG:4326", Coordinates);
 			}))
 			{
 				return nullptr;

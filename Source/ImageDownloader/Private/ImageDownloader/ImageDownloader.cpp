@@ -367,7 +367,8 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(bool bIsUserInitiated, FString
 }
 
 HMFetcher* UImageDownloader::CreateFetcher(
-	bool bIsUserInitiated, FString Name, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG,
+	bool bIsUserInitiated, FString Name, bool bEnsureOneBand, bool bScaleAltitude,
+	bool bConvertToPNG, bool bConvertFirstOnly, bool bAddMissingTiles,
 	TFunction<bool(HMFetcher*)> RunBeforePNG, TObjectPtr<UGlobalCoordinates> GlobalCoordinates
 )
 {
@@ -438,7 +439,7 @@ HMFetcher* UImageDownloader::CreateFetcher(
 				return nullptr;
 			}
 
-			if (!ALevelCoordinates::GetActorCRSBounds(CroppingActor, Coordinates))
+			if (!LandscapeUtils::GetActorCRSBounds(CroppingActor, Coordinates))
 			{
 				LCReporter::ShowError(FText::Format(
 					LOCTEXT("UImageDownloader::CreateFetcher::NoCoordinates", "Could not compute bounding coordinates of Actor {0}"),
@@ -458,7 +459,11 @@ HMFetcher* UImageDownloader::CreateFetcher(
 	
 	if (bConvertToPNG)
 	{
-		Result = Result->AndThen(new HMDebugFetcher("ToPNG", new HMToPNG(Name, bScaleAltitude)));
+		Result = Result->AndThen(new HMDebugFetcher("ToPNG", new HMToPNG(Name, bScaleAltitude, bConvertFirstOnly)));
+	}
+
+	if (bAddMissingTiles)
+	{
 		Result = Result->AndThen(new HMDebugFetcher("AddMissingTiles", new HMAddMissingTiles()));
 	}
 
@@ -750,7 +755,7 @@ bool UImageDownloader::SetSourceParametersFromActor(bool bDialog)
 		return false;
 	}
 
-	if (!ALevelCoordinates::GetActorCRSBounds(ParametersBoundingActor, SourceCRS, Coordinates))
+	if (!LandscapeUtils::GetActorCRSBounds(ParametersBoundingActor, SourceCRS, Coordinates))
 	{
 		if (bDialog)
 		{
@@ -1010,7 +1015,7 @@ bool UImageDownloader::DownloadImages(bool bIsUserInitiated, bool bEnsureOneBand
 	}
 	
 	FString Name = Owner->GetWorld()->GetName() + "-" + Owner->GetActorNameOrLabel();
-	HMFetcher *Fetcher = CreateFetcher(bIsUserInitiated, Name, bEnsureOneBand, false, false, nullptr, GlobalCoordinates);
+	HMFetcher *Fetcher = CreateFetcher(bIsUserInitiated, Name, bEnsureOneBand, false, false, false, false, nullptr, GlobalCoordinates);
 
 	if (!Fetcher)
 	{
