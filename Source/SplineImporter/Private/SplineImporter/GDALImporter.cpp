@@ -53,7 +53,9 @@ bool AGDALImporter::IsOverpassPreset()
 		Source == EVectorSource::OSM_Rivers ||
 		Source == EVectorSource::OSM_Forests ||
 		Source == EVectorSource::OSM_Beaches ||
-		Source == EVectorSource::OSM_Parks;
+		Source == EVectorSource::OSM_Parks ||
+		Source == EVectorSource::OSM_SkiSlopes ||
+		Source == EVectorSource::OSM_Grass;
 }
 
 GDALDataset* AGDALImporter::LoadGDALDatasetFromShortQuery(FString ShortQuery, bool bIsUserInitiated)
@@ -89,7 +91,7 @@ GDALDataset* AGDALImporter::LoadGDALDatasetFromShortQuery(FString ShortQuery, bo
 			ALandscape *Landscape = Cast<ALandscape>(BoundingActor);
 
 			if (!Concurrency::RunOnGameThreadAndWait([Landscape, &Coordinates]() {
-				return ALevelCoordinates::GetLandscapeCRSBounds(Landscape, "EPSG:4326", Coordinates);
+				return LandscapeUtils::GetLandscapeCRSBounds(Landscape, "EPSG:4326", Coordinates);
 			}))
 			{
 				return nullptr;

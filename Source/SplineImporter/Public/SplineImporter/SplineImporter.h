@@ -126,6 +126,18 @@ public:
 	)
 	FVector SplinePointsOffset;
 
+	/* An offset which is added to all spline points that are generated. */
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+		meta = (DisplayPriority = "1301")
+	)
+	bool bSkip2DColinearVertices = false;
+
+	/* The angle in ° under which two vectors are considered colinear, so that we can skip a vertex. */
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+		meta = (EditCondition = "bSkip2DColinearVertices", EditConditionHides, DisplayPriority = "1302")
+	)
+	double ColinearityAngleThreshold = 1;
+
 	bool OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated) override;
 	
 	UPROPERTY(

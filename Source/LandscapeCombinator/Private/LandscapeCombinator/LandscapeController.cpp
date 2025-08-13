@@ -20,7 +20,7 @@
 void ULandscapeController::AdjustLandscape()
 {
 	ALandscape *Landscape = Cast<ALandscape>(GetOwner());
-	if (!Landscape)
+	if (!IsValid(Landscape))
 	{
 		LCReporter::ShowError(
 			LOCTEXT("ULandscapeController::AdjustLandscape::1", "Internal error while adjusting landscape scale and position")
@@ -30,7 +30,7 @@ void ULandscapeController::AdjustLandscape()
 	FString LandscapeLabel = Landscape->GetActorNameOrLabel();
 
 	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(Landscape->GetWorld());
-	if (!GlobalCoordinates) return;
+	if (!IsValid(GlobalCoordinates)) return;
 
 	if (CRS != GlobalCoordinates->CRS)
 	{
@@ -41,26 +41,26 @@ void ULandscapeController::AdjustLandscape()
 		return;
 	}
 	
-	double MinCoordWidth = Coordinates[0];
-	double MaxCoordWidth = Coordinates[1];
-	double MinCoordHeight = Coordinates[2];
-	double MaxCoordHeight = Coordinates[3];
+	const double MinCoordWidth = Coordinates[0];
+	const double MaxCoordWidth = Coordinates[1];
+	const double MinCoordHeight = Coordinates[2];
+	const double MaxCoordHeight = Coordinates[3];
 
-	double MinAltitude = Altitudes[0];
-	double MaxAltitude = Altitudes[1];
+	const double MinAltitude = Altitudes[0];
+	const double MaxAltitude = Altitudes[1];
 	
-	int InsidePixelWidth = InsidePixels[0];
-	int InsidePixelHeight = InsidePixels[1];
+	const int InsidePixelWidth = InsidePixels[0];
+	const int InsidePixelHeight = InsidePixels[1];
 
-	double CoordWidth = MaxCoordWidth - MinCoordWidth;
-	double CoordHeight = MaxCoordHeight - MinCoordHeight;
+	const double CoordWidth = MaxCoordWidth - MinCoordWidth;
+	const double CoordHeight = MaxCoordHeight - MinCoordHeight;
 	
-	double CmPxWidthRatio = CoordWidth * FMath::Abs(GlobalCoordinates->CmPerLongUnit) / InsidePixelWidth;	 // cm / px
-	double CmPxHeightRatio = CoordHeight * FMath::Abs(GlobalCoordinates->CmPerLatUnit) / InsidePixelHeight;   // cm / px
+	const double CmPxWidthRatio = CoordWidth * FMath::Abs(GlobalCoordinates->CmPerLongUnit) / InsidePixelWidth;	 // cm / px
+	const double CmPxHeightRatio = CoordHeight * FMath::Abs(GlobalCoordinates->CmPerLatUnit) / InsidePixelHeight;   // cm / px
 
-	FVector OldScale = Landscape->GetActorScale3D();
-	FVector OldLocation = Landscape->GetActorLocation();
-	UE_LOG(LogLandscapeCombinator, Log, TEXT("I found the landscape %s. Adjusting scale and position."), *LandscapeLabel);
+	const FVector OldScale = Landscape->GetActorScale3D();
+	const FVector OldLocation = Landscape->GetActorLocation();
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("Found Landscape %s. Adjusting scale and position."), *LandscapeLabel);
 	
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("MinCoordWidth (Global EPSG): %f"), MinCoordWidth);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("MaxCoordWidth (Global EPSG): %f"), MaxCoordWidth);
@@ -68,32 +68,47 @@ void ULandscapeController::AdjustLandscape()
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("MaxCoordHeight (Global EPSG): %f"), MaxCoordHeight);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("CoordWidth: %f"), CoordWidth);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("CoordHeight: %f"), CoordHeight);
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("CmPerLongUnit: %f"), GlobalCoordinates->CmPerLongUnit);
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("CmPerLatUnit: %f"), GlobalCoordinates->CmPerLatUnit);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("InsidePixelsWidth: %d"), InsidePixelWidth);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("InsidePixelsHeight: %d"), InsidePixelHeight);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("CmPxWidthRatio: %f cm/px"), CmPxWidthRatio);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("CmPxHeightRatio: %f cm/px"), CmPxHeightRatio);
 		
-	double OutsidePixelWidth  = Landscape->ComputeComponentCounts().X * Landscape->ComponentSizeQuads + 1;
-	double OutsidePixelHeight = Landscape->ComputeComponentCounts().Y * Landscape->ComponentSizeQuads + 1;
+	const double OutsidePixelWidth  = Landscape->ComputeComponentCounts().X * Landscape->ComponentSizeQuads + 1;
+	const double OutsidePixelHeight = Landscape->ComputeComponentCounts().Y * Landscape->ComponentSizeQuads + 1;
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("OutsidePixelWidth: %f"), OutsidePixelWidth);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("OutsidePixelHeight: %f"), OutsidePixelHeight);
 
 	FVector2D MinMaxZBeforeScaling;
 	if (!LandscapeUtils::GetLandscapeMinMaxZ(Landscape, MinMaxZBeforeScaling)) return;
 
-	double MinZBeforeScaling = MinMaxZBeforeScaling.X;
-	double MaxZBeforeScaling = MinMaxZBeforeScaling.Y;
+	const double MinZBeforeScaling = MinMaxZBeforeScaling.X;
+	const double MaxZBeforeScaling = MinMaxZBeforeScaling.Y;
+	const double ZSpan = MaxZBeforeScaling - MinZBeforeScaling;
 
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("MinZBeforeScaling: %f"), MinZBeforeScaling);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("MaxZBeforeScaling: %f"), MaxZBeforeScaling);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("MaxAltitude: %f"), MaxAltitude);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("MinAltitude: %f"), MinAltitude);
 
-	FVector NewScale = FVector(
-		CoordWidth * FMath::Abs(GlobalCoordinates->CmPerLongUnit) / InsidePixelWidth,
-		CoordHeight * FMath::Abs(GlobalCoordinates->CmPerLatUnit) / InsidePixelHeight,
-		OldScale.Z * (MaxAltitude - MinAltitude) * ZScale * 100 / (MaxZBeforeScaling - MinZBeforeScaling)
-	);
+
+	const double NewLandscapeXScale = CoordWidth * FMath::Abs(GlobalCoordinates->CmPerLongUnit) / InsidePixelWidth;
+	const double NewLandscapeYScale = CoordHeight * FMath::Abs(GlobalCoordinates->CmPerLatUnit) / InsidePixelHeight;
+	double NewLandscapeZScale;
+	if (ZSpan <= UE_SMALL_NUMBER)
+	{
+		UE_LOG(LogLandscapeCombinator, Log, TEXT("Z Span of landscape is too small, so we're using the X and Y scale average for the Z scale."));
+		NewLandscapeZScale = (NewLandscapeXScale + NewLandscapeYScale) / 2.0;
+	}
+	else
+	{
+		NewLandscapeZScale = OldScale.Z * (MaxAltitude - MinAltitude) * ZScale * 100 / ZSpan;
+	}
+
+	FVector NewScale = FVector(NewLandscapeXScale, NewLandscapeYScale, NewLandscapeZScale);
+
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("NewScale: %s"), *NewScale.ToString());
 
 	Landscape->Modify();
 	Landscape->SetActorScale3D(NewScale);
@@ -102,24 +117,27 @@ void ULandscapeController::AdjustLandscape()
 	FVector2D MinMaxZAfterScaling;
 	if (!LandscapeUtils::GetLandscapeMinMaxZ(Landscape, MinMaxZAfterScaling)) return;
 
-	double MinZAfterScaling = MinMaxZAfterScaling.X;
-	double MaxZAfterScaling = MinMaxZAfterScaling.Y;
+	const double MinZAfterScaling = MinMaxZAfterScaling.X;
+	const double MaxZAfterScaling = MinMaxZAfterScaling.Y;
 			
 	// expected location of the top-left corner of the data in Unreal coordinates, assuming (0, 0) world origin
-	double TopLeftX = MinCoordWidth * GlobalCoordinates->CmPerLongUnit; // cm
-	double TopLeftY = MaxCoordHeight * GlobalCoordinates->CmPerLatUnit; // cm
+	const double TopLeftX = MinCoordWidth * GlobalCoordinates->CmPerLongUnit; // cm
+	const double TopLeftY = MaxCoordHeight * GlobalCoordinates->CmPerLatUnit; // cm
 			
 	// expected location of the top-left corner of the data in Unreal coordinates
-	double AdjustedTopLeftX = TopLeftX - GlobalCoordinates->WorldOriginLong * GlobalCoordinates->CmPerLongUnit; // cm
-	double AdjustedTopLeftY = TopLeftY - GlobalCoordinates->WorldOriginLat * GlobalCoordinates->CmPerLatUnit; // cm
+	const double AdjustedTopLeftX = TopLeftX - GlobalCoordinates->WorldOriginLong * GlobalCoordinates->CmPerLongUnit; // cm
+	const double AdjustedTopLeftY = TopLeftY - GlobalCoordinates->WorldOriginLat * GlobalCoordinates->CmPerLatUnit; // cm
 
-	double LeftPadding = (OutsidePixelWidth - InsidePixelWidth)   * CmPxWidthRatio / 2;   // padding to the left of the landscape in cm
-	double TopPadding = (OutsidePixelHeight - InsidePixelHeight) * CmPxHeightRatio / 2; // padding to the top of the landscape in cm
+	const double LeftPadding = (OutsidePixelWidth - InsidePixelWidth)  * CmPxWidthRatio / 2;  // padding to the left of the landscape in cm
+	const double TopPadding = (OutsidePixelHeight - InsidePixelHeight) * CmPxHeightRatio / 2; // padding to the top of the landscape in cm
 
-	double NewLocationX = AdjustedTopLeftX - LeftPadding;
-	double NewLocationY = AdjustedTopLeftY - TopPadding;
-	double NewLocationZ = OldLocation.Z - MaxZAfterScaling + 100 * MaxAltitude * ZScale;
-	FVector NewLocation = FVector(NewLocationX, NewLocationY, NewLocationZ);
+	const double NewLocationX = AdjustedTopLeftX - LeftPadding;
+	const double NewLocationY = AdjustedTopLeftY - TopPadding;
+	
+	double NewLocationZ;
+	if (ZSpan <= UE_SMALL_NUMBER) NewLocationZ = 0;
+	else NewLocationZ = OldLocation.Z - MaxZAfterScaling + 100 * MaxAltitude * ZScale;
+	const FVector NewLocation = FVector(NewLocationX, NewLocationY, NewLocationZ);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("MinZAfterScaling: %f"), MinZAfterScaling);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("MaxZAfterScaling: %f"), MaxZAfterScaling);
 
@@ -145,6 +163,8 @@ void ULandscapeController::AdjustLandscape()
 
 	Landscape->Modify();
 	Landscape->SetActorLocation(NewLocation);
+	Landscape->GetRootComponent()->SetRelativeLocation(NewLocation);
+
 	Landscape->PostEditChange();
 	
 	return;

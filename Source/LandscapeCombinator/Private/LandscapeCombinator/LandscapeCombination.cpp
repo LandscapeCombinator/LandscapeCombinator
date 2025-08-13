@@ -19,6 +19,7 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 	for (auto &GeneratorWrapper: Generators)
 	{
 		TSoftObjectPtr<AActor> Generator = GeneratorWrapper.Generator;
+		const FString GeneratorName = Generator->GetActorNameOrLabel();
 
 		if (!GeneratorWrapper.bIsEnabled) continue;
 
@@ -33,16 +34,16 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 			LCReporter::ShowError(
 				FText::Format(
 					LOCTEXT("NonGeneratorActor", "Non-generator actor in combination: {0}"),
-					FText::FromString(Generator->GetActorNameOrLabel())
+					FText::FromString(GeneratorName)
 				)
 			);
 			return false;
 		}
 
 		double StartTime = FPlatformTime::Seconds();
-		UE_LOG(LogLandscapeCombinator, Log, TEXT("Starting Generation with %s"), *Generator->GetActorNameOrLabel());
+		UE_LOG(LogLandscapeCombinator, Log, TEXT("Starting Generation with %s"), *GeneratorName);
 
-		FName Path = SpawnedActorsPathOverride.IsNone() ? FName() : FName(SpawnedActorsPathOverride.ToString() / Generator->GetActorNameOrLabel());
+		FName Path = SpawnedActorsPathOverride.IsNone() ? FName() : FName(SpawnedActorsPathOverride.ToString() / GeneratorName);
 
 		if (!Cast<ILCGenerator>(Generator.Get())->Generate(Path, bIsUserInitiated)) return false;
 #if WITH_EDITOR
@@ -75,9 +76,14 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 		Times.Add(TPair<AActor*, double>(Time.Key, Time.Value));
 	}
 	Times.Sort([](const TPair<AActor*, double> &A, const TPair<AActor*, double> &B) { return A.Value < B.Value; });
-	for (auto &Time : Times)
+
+	for (auto &[Actor, Time] : Times)
 	{
-		UE_LOG(LogLandscapeCombinator, Log, TEXT("Total generation time for %s: %f seconds"), *Time.Key->GetActorNameOrLabel(), Time.Value);
+		if (IsValid(Actor))
+		{
+			const FString GeneratorName = Actor->GetActorNameOrLabel();
+			UE_LOG(LogLandscapeCombinator, Log, TEXT("Total generation time for %s: %f seconds"), *GeneratorName, Time);
+		}
 	}
 	return true;
 }

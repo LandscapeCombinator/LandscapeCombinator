@@ -34,6 +34,14 @@ void AOGRGeometry::SetOverpassShortQuery()
 	{
 		OverpassShortQuery = "nwr[\"leisure\"=\"park\"];";
 	}
+	else if (Source == EVectorSource::OSM_SkiSlopes)
+	{
+		OverpassShortQuery = "nwr[\"piste:type\"=\"downhill\"][\"area\"];";
+	}
+	else if (Source == EVectorSource::OSM_Grass)
+	{
+		OverpassShortQuery = "nwr[\"landuse\"=\"grass\"];nwr[\"natural\"=\"grassland\"];";
+	}
 
 	Super::SetOverpassShortQuery();
 }

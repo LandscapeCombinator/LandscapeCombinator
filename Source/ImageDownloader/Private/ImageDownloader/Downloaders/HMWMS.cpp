@@ -144,6 +144,7 @@ bool HMWMS::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 	TQueue<FString> OutputFilesQueue; // thread-safe
 
 	bool bSuccess = Concurrency::RunManyAndWait(
+		true,
 		DownloadURLs.Num(),
 		[this, DownloadURLs, Bounds, FileNames, bGeoTiff, &OutputFilesQueue](int i)
 		{

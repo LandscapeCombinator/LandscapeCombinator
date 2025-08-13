@@ -53,6 +53,8 @@ bool Download::SynchronousFromURL(FString URL, FString File, bool bProgress)
 	}
 	else
 	{
+		UE_LOG(LogFileDownloader, Log, TEXT("No size is cached for '%s'"), *URL);
+
 		TSharedRef<IHttpRequest> Request = FHttpModule::Get().CreateRequest();
 		Request->SetURL(URL);
 		Request->SetVerb("HEAD");
@@ -296,6 +298,7 @@ TArray<FString> Download::DownloadManyAndWait(TArray<FString> URLs, FString Dire
 TArray<FString> Download::DownloadManyAndWait(TArray<FString> URLs, TArray<FString> Files, bool bProgress)
 {
 	if (Concurrency::RunManyAndWait(
+		true,
 		URLs.Num(),
 		[URLs, Files, bProgress](int i)
 		{

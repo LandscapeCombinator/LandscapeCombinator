@@ -23,6 +23,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "LandscapeSubsystem.h"
 #include "Misc/MessageDialog.h"
+#include "Misc/EngineVersionComparison.h"
 #include "HAL/ThreadManager.h"
 
 #if WITH_EDITOR
@@ -134,6 +135,19 @@ bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 {
 	Modify();
 
+#if UE_VERSION_OLDER_THAN(5,6,0)
+	if (SpawnMethod == ESpawnMethod::ExtendExistingLandscape && SpawnMethod == ESpawnMethod::CreateFreshLandscapeIncrementally)
+	{
+		LCReporter::ShowError(
+			LOCTEXT("ALandscapeSpawner::Unsupported",
+				"Incremental landscape spawning and landscape extensions have only been implemented for UE 5.6 and up"
+			)
+		);
+		
+		return false;
+	}
+#endif
+
 	if (!IsValid(HeightmapDownloader))
 	{
 		LCReporter::ShowError(
@@ -166,9 +180,51 @@ bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 	FVector4d *Coordinates= new FVector4d();
 
 	ULandscapeSubsystem* LandscapeSubsystem = GetWorld()->GetSubsystem<ULandscapeSubsystem>();
-
 	bool bIsGridBased = LandscapeSubsystem && LandscapeSubsystem->IsGridBased();
-	HeightmapDownloader->bMergeImages = !bIsGridBased;
+
+	if (SpawnMethod == ESpawnMethod::CreateFreshLandscape && !HeightmapDownloader->bMergeImages && !bIsGridBased)
+	{
+		LCReporter::ShowError(
+			LOCTEXT("ALandscapeSpawner::OnGenerate::Merge",
+				"You cannot create a landscape with multiple tiles in a basic level. You should either: "
+				"1) Select CreateFreshLandscapeIncrementally option, "
+				"2) Select the \"Merge Images\" option in the LandscapeSpawner, or "
+				"3) Use a World Partition level (Open World)"
+			)
+		);
+		
+		return false;
+	}
+
+	if (HeightmapDownloader->bMergeImages && (SpawnMethod == ESpawnMethod::CreateFreshLandscapeIncrementally || SpawnMethod == ESpawnMethod::ExtendExistingLandscape))
+	{
+		if (!LCReporter::ShowMessage(
+			LOCTEXT("ALandscapeSpawner::SpawnLandscape::Merge",
+				"It's recommended to disable the \"Merge Images\" option in the LandscapeSpawner when "
+				"using incremental or extension landscape spawning. Do you still want to continue with the \"Merge Images\" option enabled?"),
+			"SuppressIncrementalMerge"
+		))
+		{
+			return false;
+		}
+	}
+
+	if ((ComponentsMethod == EComponentsMethod::Auto || ComponentsMethod == EComponentsMethod::AutoWithoutBorder) &&
+		(SpawnMethod == ESpawnMethod::CreateFreshLandscapeIncrementally))
+	{
+		if (!LCReporter::ShowMessage(
+			LOCTEXT("ALandscapeSpawner::SpawnLandscape::IncrementalAuto",
+				"When creating a landscape incrementally, it's recommended to specify the number of components "
+				"manually. Using 'Auto' or 'Auto Without Border' can make very small components and the generation will be very slow.\n"
+				"Please choose a component count that matches one tile of your heightmap files.\n"
+				"Ignore this and continue?"
+			),
+			"SuppressIncrementalAuto"
+		))
+		{
+			return false;
+		}
+	}
 
 	FString Name = GetWorld()->GetName() + "-" + LandscapeLabel;
 	HMFetcher* Fetcher = HeightmapDownloader->CreateFetcher(
@@ -176,18 +232,25 @@ bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 		Name,
 		true,
 		true,
-		true,
-		[Altitudes, Coordinates, CRS](HMFetcher *FetcherBeforePNG)
+		SpawnMethod == ESpawnMethod::CreateFreshLandscape, // convert to PNG only for non-extension
+		SpawnMethod == ESpawnMethod::CreateFreshLandscapeIncrementally, // convert only first file to PNG for incremental spawning
+		SpawnMethod == ESpawnMethod::CreateFreshLandscape, // add missing tiles only for non-incremental mode
+		[Altitudes, Coordinates, CRS, this](HMFetcher *FetcherBeforePNG)
 		{
 			*CRS = FetcherBeforePNG->OutputCRS;
-			return GDALInterface::GetMinMax(*Altitudes, FetcherBeforePNG->OutputFiles) &&
-				   GDALInterface::GetCoordinates(*Coordinates, FetcherBeforePNG->OutputFiles);
+			TArray<FString> Files = FetcherBeforePNG->OutputFiles;
+			if (SpawnMethod == ESpawnMethod::CreateFreshLandscapeIncrementally)
+			{
+				Files = { Files[0] };
+			}
+			return GDALInterface::GetMinMax(*Altitudes, Files) &&
+				   GDALInterface::GetCoordinates(*Coordinates, Files);
 		},
 		GlobalCoordinates
 	);
 
 	if (!Fetcher)
-	{			
+	{
 		LCReporter::ShowError(
 			FText::Format(
 				LOCTEXT("NoFetcher", "There was an error while creating the fetcher for Landscape {0}."),
@@ -233,75 +296,141 @@ bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 		return false;
 	}
 
-	bool bSpawnLandscapeSuccess = Concurrency::RunOnGameThreadAndWait([&]() {
-		return LandscapeUtils::SpawnLandscape(
-			Files, LandscapeLabel, bCreateLandscapeStreamingProxies,
-			ComponentsMethod == EComponentsMethod::Auto || ComponentsMethod == EComponentsMethod::AutoWithoutBorder,
-			ComponentsMethod == EComponentsMethod::AutoWithoutBorder,
-			QuadsPerSubsection, SectionsPerComponent, ComponentCount,
-			OutLandscape, SpawnedLandscapeStreamingProxies
-		);
-	});
-
-	if (!bSpawnLandscapeSuccess || !IsValid(OutLandscape))
+	if (SpawnMethod == ESpawnMethod::CreateFreshLandscape || SpawnMethod == ESpawnMethod::CreateFreshLandscapeIncrementally)
 	{
-		LCReporter::ShowError(
-			FText::Format(
-				LOCTEXT("LandscapeNotCreated", "Landscape {0} could not be created."),
-				FText::FromString(LandscapeLabel)
-			)
-		);
-		return false;
+		if (!Concurrency::RunOnGameThreadAndWait([&]() {
+
+			TArray<FString> Files2;
+			if (SpawnMethod == ESpawnMethod::CreateFreshLandscapeIncrementally)
+			{
+				// move file to a subfolder to avoid `LandscapeUtils::SpawnLandscape` using the other files
+				const FString BaseFolder = FPaths::GetPath(Files[0]);
+				const FString SubFolder = BaseFolder / "Temp";
+				IPlatformFile &PlatformFile = IPlatformFile::GetPlatformPhysical();
+				if (!PlatformFile.CreateDirectory(*SubFolder))
+				{
+					LCReporter::ShowError(
+						FText::Format(
+							LOCTEXT("CreateTempSubdirectory", "Cannot create Temp subdirecotry in {0}"),
+							FText::FromString(BaseFolder)
+						)
+					);
+					return false;
+				}
+
+				// copy Files[0] to subfolder
+				FString NewFile = SubFolder / "Temp." + FPaths::GetExtension(Files[0]);
+				if (FPaths::FileExists(NewFile))
+				{
+					PlatformFile.DeleteFile(*NewFile);
+				}
+				if (!PlatformFile.CopyFile(*NewFile, *Files[0]))
+				{
+					LCReporter::ShowError(
+						FText::Format(
+							LOCTEXT("CopyFile", "Cannot copy {0} to {1}"),
+							FText::FromString(Files[0]),
+							FText::FromString(NewFile)
+						)
+					);
+					return false;
+				}
+				Files2 = { NewFile };
+			}
+			else
+			{
+				Files2 = Files;
+			}
+
+			bool bSpawnLandscapeSuccess = LandscapeUtils::SpawnLandscape(
+				SpawnMethod == ESpawnMethod::CreateFreshLandscapeIncrementally,
+				Files2, LandscapeLabel, bCreateLandscapeStreamingProxies,
+				ComponentsMethod == EComponentsMethod::Auto || ComponentsMethod == EComponentsMethod::AutoWithoutBorder,
+				ComponentsMethod == EComponentsMethod::AutoWithoutBorder && SpawnMethod == ESpawnMethod::CreateFreshLandscape,
+				QuadsPerSubsection, SectionsPerComponent, ComponentCount,
+				OutLandscape, SpawnedLandscapeStreamingProxies
+			);
+
+			if (!bSpawnLandscapeSuccess || !IsValid(OutLandscape))
+			{
+				LCReporter::ShowError(
+					FText::Format(
+						LOCTEXT("LandscapeNotCreated", "Landscape {0} could not be created."),
+						FText::FromString(LandscapeLabel)
+					)
+				);
+				return false;
+			}
+
+			SpawnedLandscape = OutLandscape;
+			SpawnedLandscape->Modify();
+			if (!LandscapeLabel.IsEmpty())
+				SpawnedLandscape->SetActorLabel(LandscapeLabel);
+			ULCBlueprintLibrary::SetFolderPath2(SpawnedLandscape.Get(), SpawnedActorsPathOverride, SpawnedActorsPath);
+
+			if (!LandscapeTag.IsNone()) SpawnedLandscape->Tags.Add(LandscapeTag);
+
+			if (IsValid(LandscapeMaterial))
+			{
+				SpawnedLandscape->LandscapeMaterial = LandscapeMaterial;
+				SpawnedLandscape->PostEditChange();
+			}
+
+			if (!IsValid(GlobalCoordinates))
+			{
+				ALevelCoordinates *LevelCoordinates = this->GetWorld()->SpawnActor<ALevelCoordinates>();
+				TObjectPtr<UGlobalCoordinates> NewGlobalCoordinates = LevelCoordinates->GlobalCoordinates;
+
+				NewGlobalCoordinates->CRS = FilesCRS;
+				NewGlobalCoordinates->CmPerLongUnit = CmPerPixel;
+				NewGlobalCoordinates->CmPerLatUnit = -CmPerPixel;
+
+				double MinCoordWidth = (*Coordinates)[0];
+				double MaxCoordWidth = (*Coordinates)[1];
+				double MinCoordHeight = (*Coordinates)[2];
+				double MaxCoordHeight = (*Coordinates)[3];
+				NewGlobalCoordinates->WorldOriginLong = (MinCoordWidth + MaxCoordWidth) / 2;
+				NewGlobalCoordinates->WorldOriginLat = (MinCoordHeight + MaxCoordHeight) / 2;
+			}
+
+			ULandscapeController *LandscapeController = NewObject<ULandscapeController>(SpawnedLandscape->GetRootComponent());
+			LandscapeController->RegisterComponent();
+			SpawnedLandscape->AddInstanceComponent(LandscapeController);
+
+			UHeightmapModifier *HeightmapModifier = NewObject<UHeightmapModifier>(SpawnedLandscape->GetRootComponent());
+			HeightmapModifier->RegisterComponent();
+			SpawnedLandscape->AddInstanceComponent(HeightmapModifier);
+
+			LandscapeController->Coordinates = *Coordinates;
+			LandscapeController->CRS = *CRS;
+			LandscapeController->Altitudes = *Altitudes;
+			GetPixels(LandscapeController->InsidePixels, Files2);
+			LandscapeController->ZScale = ZScale;
+
+			LandscapeController->AdjustLandscape();
+			return true;
+		}))
+		{
+			return false;
+		}
+	}
+
+	if (SpawnMethod == ESpawnMethod::CreateFreshLandscapeIncrementally)
+	{
+		if (!Concurrency::RunOnGameThreadAndWait([&]() {
+			return LandscapeUtils::ExtendLandscape(OutLandscape, Files);
+		}))
+			return false;
+	}
+	else if (SpawnMethod == ESpawnMethod::ExtendExistingLandscape)
+	{
+		if (!Concurrency::RunOnGameThreadAndWait([&]() {
+			return LandscapeUtils::ExtendLandscape(LandscapeToExtend, Files);
+		}))
+			return false;
 	}
 
 	Concurrency::RunOnGameThreadAndWait([&]() {
-		SpawnedLandscape = OutLandscape;
-		SpawnedLandscape->Modify();
-		if (!LandscapeLabel.IsEmpty())
-			SpawnedLandscape->SetActorLabel(LandscapeLabel);
-		ULCBlueprintLibrary::SetFolderPath2(SpawnedLandscape.Get(), SpawnedActorsPathOverride, SpawnedActorsPath);
-
-		if (!LandscapeTag.IsNone()) SpawnedLandscape->Tags.Add(LandscapeTag);
-
-		if (IsValid(LandscapeMaterial))
-		{
-			SpawnedLandscape->LandscapeMaterial = LandscapeMaterial;
-			SpawnedLandscape->PostEditChange();
-		}
-
-		if (!GlobalCoordinates)
-		{
-			ALevelCoordinates *LevelCoordinates = this->GetWorld()->SpawnActor<ALevelCoordinates>();
-			TObjectPtr<UGlobalCoordinates> NewGlobalCoordinates = LevelCoordinates->GlobalCoordinates;
-
-			NewGlobalCoordinates->CRS = FilesCRS;
-			NewGlobalCoordinates->CmPerLongUnit = CmPerPixel;
-			NewGlobalCoordinates->CmPerLatUnit = -CmPerPixel;
-
-			double MinCoordWidth = (*Coordinates)[0];
-			double MaxCoordWidth = (*Coordinates)[1];
-			double MinCoordHeight = (*Coordinates)[2];
-			double MaxCoordHeight = (*Coordinates)[3];
-			NewGlobalCoordinates->WorldOriginLong = (MinCoordWidth + MaxCoordWidth) / 2;
-			NewGlobalCoordinates->WorldOriginLat = (MinCoordHeight + MaxCoordHeight) / 2;
-		}
-
-		ULandscapeController *LandscapeController = NewObject<ULandscapeController>(SpawnedLandscape->GetRootComponent());
-		LandscapeController->RegisterComponent();
-		SpawnedLandscape->AddInstanceComponent(LandscapeController);
-
-		UHeightmapModifier *HeightmapModifier = NewObject<UHeightmapModifier>(SpawnedLandscape->GetRootComponent());
-		HeightmapModifier->RegisterComponent();
-		SpawnedLandscape->AddInstanceComponent(HeightmapModifier);
-
-		LandscapeController->Coordinates = *Coordinates;
-		LandscapeController->CRS = *CRS;
-		LandscapeController->Altitudes = *Altitudes;
-		GetPixels(LandscapeController->InsidePixels, Files);
-		LandscapeController->ZScale = ZScale;
-
-		LandscapeController->AdjustLandscape();
-
 		UBlendLandscape *BlendLandscape = NewObject<UBlendLandscape>(SpawnedLandscape->GetRootComponent());
 		BlendLandscape->RegisterComponent();
 		SpawnedLandscape->AddInstanceComponent(BlendLandscape);

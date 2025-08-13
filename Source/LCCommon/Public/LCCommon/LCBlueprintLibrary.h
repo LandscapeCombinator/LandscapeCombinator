@@ -57,6 +57,12 @@ public:
 		return -1;
 	}
 
+	UFUNCTION(BlueprintCallable, Category="LandscapeCombinator")
+	static TArray<AActor*> FindActors(UWorld *World, FName Tag);
+
+	UFUNCTION(BlueprintCallable, Category="LandscapeCombinator")
+	static TArray<USplineComponent*> FindSplineComponents(UWorld *World, bool bIsUserInitiated, FName Tag, FName ComponentTag);
+
 #if WITH_EDITOR
 
 	UFUNCTION(BlueprintCallable, Category="LandscapeCombinator")

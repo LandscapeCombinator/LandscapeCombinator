@@ -14,6 +14,7 @@ public class Coordinates : ModuleRules
 			new string[]
 			{
 				"Core",
+				"GDALInterface",
 				"Landscape"
 			}
 		);
@@ -30,7 +31,6 @@ public class Coordinates : ModuleRules
 
 				// Landscape Combinator Dependencies
 				"GDALInterface",
-				"LandscapeUtils",
 				"FileDownloader",
 				"ConcurrencyHelpers"
 			}

@@ -31,10 +31,6 @@ public:
 	static bool GetCRSCoordinatesFromUnrealLocations(UWorld* World, FVector4d Locations, FVector4d &OutCoordinates);
 	static bool GetCRSCoordinatesFromFBox(UWorld* World, FBox Box, FString CRS, FVector4d &OutCoordinates);
 	static bool GetCRSCoordinatesFromOriginExtent(UWorld* World, FVector Origin, FVector Extent, FString CRS, FVector4d &OutCoordinates);
-	static bool GetLandscapeCRSBounds(ALandscape* Landscape, FString CRS, FVector4d &OutCoordinates);
-	static bool GetActorCRSBounds(AActor* Actor, FString CRS, FVector4d &OutCoordinates);
-	static bool GetLandscapeCRSBounds(ALandscape* Landscape, FVector4d &OutCoordinates);
-	static bool GetActorCRSBounds(AActor* Actor, FVector4d &OutCoordinates);
 	
 	UPROPERTY(
 		EditAnywhere, Category = "LevelCoordinates | WorldMap",

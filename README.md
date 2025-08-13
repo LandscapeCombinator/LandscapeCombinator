@@ -24,7 +24,7 @@ For more information, please refer to the [documentation](https://landscapecombi
 
 # Credit
 
-Thanks to all these wonderful websites without which this plugin could not have been made!
+Thanks to all these wonderful websites and software developers without which this plugin could not have been made!
 Please check each website license when using their data.
 
 Heightmap and Imagery Providers
@@ -60,12 +60,20 @@ GDAL
 
 * [GDAL](https://gdal.org/) for all heightmaps transformations (MIT License).
 
+
 GEOS
 ----
 
 * [GEOS](https://libgeos.org/) is a core GDAL dependency (LGPL License).
 
+
 EPSG
 ----
 
 * [EPSG.io](https://epsg.io/map#srs=4326) to obtain coordinates on a map.
+
+
+StraightSkeleton
+----------------
+
+* [StraightSkeleton](https://github.com/akashskypatel/StraightSkeleton) implementation to build hip and gable roofs.

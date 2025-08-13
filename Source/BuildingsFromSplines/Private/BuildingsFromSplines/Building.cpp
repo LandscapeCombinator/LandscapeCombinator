@@ -5,8 +5,10 @@
 #include "BuildingsFromSplines/LogBuildingsFromSplines.h"
 #include "OSMUserData/OSMUserData.h"
 #include "LCCommon/LCBlueprintLibrary.h"
+#include "LCCommon/Expression.h"
 #include "ConcurrencyHelpers/Concurrency.h"
 #include "ConcurrencyHelpers/LCReporter.h"
+#include "StraightSkeletonWrapper/StraightSkeletonWrapper.h"
 
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
@@ -29,12 +31,15 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "Misc/MessageDialog.h"
 #include "Engine/World.h"
+#include "Misc/EngineVersionComparison.h"
 
 
 #if WITH_EDITOR
 
 #include "GeometryScript/CreateNewAssetUtilityFunctions.h"
+#include "AssetUtils/CreateStaticMeshUtil.h"
 #include "Editor/EditorEngine.h"
+
 
 extern UNREALED_API class UEditorEngine* GEditor;
 
@@ -81,12 +86,6 @@ ABuilding::ABuilding() : AActor()
 	BaseClockwiseSplineComponent->SetupAttachment(RootComponent);
 	BaseClockwiseSplineComponent->SetClosedLoop(true);
 	BaseClockwiseSplineComponent->ClearSplinePoints();
-
-	BuildingConfiguration = CreateDefaultSubobject<UBuildingConfiguration>(TEXT("Building Configuration"));
-
-	DummyFiller.WallSegmentKind = EWallSegmentKind::Wall;
-	DummyFiller.bAutoExpand = true;
-	DummyFiller.SegmentLength = 0;
 }
 
 bool ABuilding::Cleanup_Implementation(bool bSkipPrompt)
@@ -112,8 +111,8 @@ bool ABuilding::Cleanup_Implementation(bool bSkipPrompt)
 	if (IsValid(BaseClockwiseSplineComponent))
 		BaseClockwiseSplineComponent->ClearSplinePoints();
 
-	WallSegmentsAtSplinePoint.Empty();
-	FillersSizeAtSplinePoint.Empty();
+	WallSegmentsAtFloorAndSplinePoint.Empty();
+	FillersSizeAtFloorAndSplinePoint.Empty();
 	Volume = nullptr;
 	SplineMeshComponents.Empty();
 	InstancedStaticMeshComponents.Empty();
@@ -158,12 +157,14 @@ void ABuilding::ComputeBaseVertices()
 		float Length = Distance2 - Distance1;
 
 		if (Length == 0) continue;
-		for (int j = 0; j < InternalBuildingConfiguration->WallSubdivisions; j++)
+		if (i == NumPoints - 1 && !SplineComponent->IsClosedLoop()) continue;
+
+		for (int j = 0; j < BCfg->WallSubdivisions; j++)
 		{
 			FVector SubLocation =
 				Transform.TransformPosition(
 					SplineComponent->GetLocationAtDistanceAlongSpline(
-						Distance1 + (j + 1) * Length / (InternalBuildingConfiguration->WallSubdivisions + 1),
+						Distance1 + (j + 1) * Length / (BCfg->WallSubdivisions + 1),
 						ESplineCoordinateSpace::Local
 					)
 				);
@@ -185,7 +186,8 @@ void ABuilding::ComputeBaseVertices()
 	ClockwiseBaseVertices2D.SetNum(NumSubPoints);
 
 	// clockwise for TPolygon2 is counter-clockwise in game (inverted Y axis)
-	if (BasePolygon.IsClockwise())
+	// (we only switch the order for closed loops)
+	if (SplineComponent->IsClosedLoop() && BasePolygon.IsClockwise())
 	{
 		ClockwiseBaseVertices2D[0] = BaseVertices2D[0];
 		for (int i = 1; i < NumSubPoints; i++)
@@ -205,7 +207,7 @@ void ABuilding::ComputeBaseVertices()
 		BaseClockwiseSplineComponent->AddSplinePoint(FVector(Point2D[0], Point2D[1], MinHeightLocal), ESplineCoordinateSpace::Local, false);
 		BaseClockwiseSplineComponent->SetSplinePointType(i, ESplinePointType::Linear, false);
 	}
-
+	BaseClockwiseSplineComponent->SetClosedLoop(SplineComponent->IsClosedLoop());
 	BaseClockwiseSplineComponent->UpdateSpline();
 
 	
@@ -231,9 +233,7 @@ void ABuilding::AddExternalThickness(double Thickness)
 	ExternalWallPolygons.Add(Thickness, TArray<FVector2D>());
 	ExternalWallPolygons[Thickness].Reserve(NumFrames);
 	for (int i = 0; i < NumFrames; i++)
-	{
 		ExternalWallPolygons[Thickness].Add(GetShiftedPoint(BaseClockwiseFrames, i, - Thickness, true));
-	}
 }
 
 void ABuilding::AddInternalThickness(double Thickness)
@@ -261,17 +261,23 @@ void ABuilding::ComputeOffsetPolygons()
 	InternalWallPolygons.Empty();
 	IndexToInternalIndex.Empty();
 
-	AddExternalThickness(InternalBuildingConfiguration->ExternalWallThickness);
-	AddInternalThickness(InternalBuildingConfiguration->InternalWallThickness);
+	AddExternalThickness(BCfg->ExternalWallThickness);
+	AddInternalThickness(BCfg->InternalWallThickness);
 
-	for (auto &LevelDescriptionIndex : LevelDescriptionsIndices)
+	for (int i = 0; i < ExpandedLevelDescriptionsKeys.Num(); i++)
 	{
-		for (auto &WallSegment : ExpandedLevels[LevelDescriptionIndex].WallSegments)
+		auto &LevelDescriptionKey = ExpandedLevelDescriptionsKeys[i];
+		if (!IsValid(BCfg->LevelsMap[LevelDescriptionKey])) continue;
+		for (auto &[_, WallSegment]: BCfg->LevelsMap[LevelDescriptionKey]->WallSegmentsMap)
 		{
-			if (WallSegment.bOverrideWallThickness)
+			if (IsValid(WallSegment) && WallSegment->bOverrideWallThickness)
 			{
-				AddExternalThickness(WallSegment.ExternalWallThickness);
-				AddInternalThickness(WallSegment.InternalWallThickness);
+				if (i == ExpandedLevelDescriptionsKeys.Num() - 1)
+				{
+					LastFloorExternalWallThickness = FMath::Max(LastFloorExternalWallThickness, WallSegment->ExternalWallThickness);
+				}
+				AddExternalThickness(WallSegment->ExternalWallThickness);
+				AddInternalThickness(WallSegment->InternalWallThickness);
 			}
 		}
 	}
@@ -494,23 +500,21 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 		return false;
 	}
 
-	UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSimpleExtrudePolygon(
-		FloorMesh,
-		FGeometryScriptPrimitiveOptions(),
-		FTransform(),
-		BaseVertices2D,
-		1
-	);
+	UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSimpleExtrudePolygon(FloorMesh, FGeometryScriptPrimitiveOptions(), FTransform(), BaseVertices2D, 1);
+
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendBuilding/AutoGenerateXAtlasMeshUVsFloors");
+
+		if (BCfg->bAutoGenerateXAtlasMeshUVsFloors)
+		{
+			UGeometryScriptLibrary_MeshUVFunctions::AutoGenerateXAtlasMeshUVs(FloorMesh, 0, FGeometryScriptXAtlasOptions());
+		}
+	}
 
 	/* Set the Polygroup ID of ceiling to CeilingMaterialID in FloorMesh */
 
 	FGeometryScriptIndexList PolygroupIDs0;
-	UGeometryScriptLibrary_MeshPolygroupFunctions::GetPolygroupIDsInMesh(
-		FloorMesh,
-		FGeometryScriptGroupLayer(),
-		PolygroupIDs0
-	);
-
+	UGeometryScriptLibrary_MeshPolygroupFunctions::GetPolygroupIDsInMesh(FloorMesh, FGeometryScriptGroupLayer(), PolygroupIDs0);
 	TArray<int> PolygroupIDs = *PolygroupIDs0.List;
 
 	if (PolygroupIDs.Num() < 3)
@@ -521,17 +525,22 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 
 	/* Add several copies of the FloorMesh at every floor */
 
-	double CurrentHeight = MinHeightLocal + InternalBuildingConfiguration->ExtraWallBottom;
-	for (auto &LevelDescriptionIndex: LevelDescriptionsIndices)
+	double CurrentHeight = MinHeightLocal + BCfg->ExtraWallBottom;
+	for (auto &LevelDescriptionKey: ExpandedLevelDescriptionsKeys)
 	{
-		if (InternalBuildingConfiguration->bBuildFloorTiles)
+		if (!BCfg->CheckValidKey(LevelDescriptionKey)) return false;
+
+		auto &LevelDescription = BCfg->LevelsMap[LevelDescriptionKey];
+
+		if (BCfg->bBuildFloorTiles)
 		{
+			
 			bool bIsValidPolygroupID;
 			UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
 				FloorMesh,
 				FGeometryScriptGroupLayer(),
-				PolygroupIDs[2], // TODO: polygroup ID of the ceiling, is there a way to ensure it?
-				ExpandedLevels[LevelDescriptionIndex].UnderFloorMaterialIndex, // new material ID
+				PolygroupIDs[2], // polygroup ID of the ceiling, is there a way to ensure it?
+				BCfg->ResolveMaterial(LevelDescription->UnderFloorMaterialExpr),
 				bIsValidPolygroupID,
 				false,
 				nullptr
@@ -539,8 +548,8 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 			UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
 				FloorMesh,
 				FGeometryScriptGroupLayer(),
-				PolygroupIDs[3], // TODO: polygroup ID of the floor, is there a way to ensure it?
-				ExpandedLevels[LevelDescriptionIndex].FloorMaterialIndex, // new material ID
+				PolygroupIDs[3], // polygroup ID of the floor, is there a way to ensure it?
+				BCfg->ResolveMaterial(LevelDescription->FloorMaterialExpr),
 				bIsValidPolygroupID,
 				false,
 				nullptr
@@ -548,8 +557,8 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 			UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
 				FloorMesh,
 				FGeometryScriptGroupLayer(),
-				PolygroupIDs[0], // TODO: maybe the sides of the floor
-				ExpandedLevels[LevelDescriptionIndex].FloorMaterialIndex, // new material ID
+				PolygroupIDs[0], // maybe the sides of the floor
+				BCfg->ResolveMaterial(LevelDescription->FloorMaterialExpr),
 				bIsValidPolygroupID,
 				false,
 				nullptr
@@ -557,8 +566,8 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 			UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
 				FloorMesh,
 				FGeometryScriptGroupLayer(),
-				PolygroupIDs[1], // TODO: maybe the sides of the floor
-				ExpandedLevels[LevelDescriptionIndex].FloorMaterialIndex, // new material ID
+				PolygroupIDs[1], // maybe the sides of the floor
+				BCfg->ResolveMaterial(LevelDescription->FloorMaterialExpr),
 				bIsValidPolygroupID,
 				false,
 				nullptr
@@ -569,22 +578,22 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 				FTransform(
 					FRotator::ZeroRotator,
 					FVector(0, 0, CurrentHeight),
-					FVector(1, 1, ExpandedLevels[LevelDescriptionIndex].FloorThickness)
+					FVector(1, 1, LevelDescription->FloorThickness)
 				),
 				true
 			);
 		}
 
-		// we update the CurrentHeight outside the "if" to use for the flat roof
-		CurrentHeight += ExpandedLevels[LevelDescriptionIndex].LevelHeight;
+		// we update the CurrentHeight outside the "if" as we need the height in case we're adding a flat roof
+		CurrentHeight += LevelDescription->LevelHeight;
 	}
 	
 
 	/* Add the last floor with roof material for flat roof kind */
-	if (InternalBuildingConfiguration->RoofKind == ERoofKind::Flat)
+	if (BCfg->RoofKind == ERoofKind::Flat)
 	{
-		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(FloorMesh, 0, InternalBuildingConfiguration->RoofMaterialIndex);
-		if (!SetPolygroupMaterialID(FloorMesh, 2, InternalBuildingConfiguration->UnderRoofMaterialIndex)) return false;
+		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(FloorMesh, 0, BCfg->ResolveMaterial(BCfg->RoofMaterialExpr));
+		if (!SetPolygroupMaterialID(FloorMesh, 2, BCfg->ResolveMaterial(BCfg->UnderRoofMaterialExpr))) return false;
 	
 		UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(
 			TargetMesh, FloorMesh,
@@ -613,7 +622,7 @@ bool ABuilding::AppendBuildingWithoutInside(UDynamicMesh* TargetMesh)
 		FGeometryScriptPrimitiveOptions(),
 		FTransform(FVector(0, 0, 0)),
 		BaseVertices2D,
-		InternalBuildingConfiguration->ExtraWallBottom + LevelsHeightsSum + InternalBuildingConfiguration->ExtraWallTop
+		BCfg->ExtraWallBottom + LevelsHeightsSum + BCfg->ExtraWallTop
 	);
 
 
@@ -640,19 +649,19 @@ bool ABuilding::AppendBuildingWithoutInside(UDynamicMesh* TargetMesh)
 		SimpleBuildingMesh,
 		FGeometryScriptGroupLayer(),
 		PolygroupIDs[0], // TODO: polygroup ID of the sides of the polygon, is there a way to ensure it?
-		InternalBuildingConfiguration->ExteriorMaterialIndex,
+		BCfg->ResolveMaterial(BCfg->ExteriorMaterialExpr),
 		bIsValidPolygroupID,
 		false,
 		nullptr
 	);
 
-	if (InternalBuildingConfiguration->RoofKind == ERoofKind::None || InternalBuildingConfiguration->RoofKind == ERoofKind::Flat)
+	if (BCfg->RoofKind == ERoofKind::None || BCfg->RoofKind == ERoofKind::Flat)
 	{
 		UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
 			SimpleBuildingMesh,
 			FGeometryScriptGroupLayer(),
 			PolygroupIDs[3], // TODO: polygroup ID of the top of the polygon, is there a way to ensure it?
-			InternalBuildingConfiguration->RoofMaterialIndex,
+			BCfg->ResolveMaterial(BCfg->RoofMaterialExpr),
 			bIsValidPolygroupID,
 			false,
 			nullptr
@@ -687,21 +696,27 @@ TArray<FVector2D> ABuilding::MakePolygon(bool bInternalWall, double BeginDistanc
 	/* Add to Result all the frames whose frame time is between FirstTime and LastTime */
 
 	int NumFrames = BaseClockwiseFrames.Num();
-	int i = 0;
+
+	bool bStartOnSplinePoint = false;
+	bool bEndOnSplinePoint = false;
+	for (int i = 0; i < NumFrames; i++)
+	{
+		if ((To2D(BaseClockwiseFrames[i].GetLocation()) - FirstLocation).IsNearlyZero(MILLIMETER)) bStartOnSplinePoint = true;
+		if ((To2D(BaseClockwiseFrames[i].GetLocation()) - LastLocation).IsNearlyZero(MILLIMETER)) bEndOnSplinePoint = true;
+	}
 	
-	// TODO: make this a binary search
-	while (i < NumFrames && BaseClockwiseFramesTimes[i] < FirstTime) i++;
+	// We add a millimeter tolerance, otherwise we might skip a point and increment 'i' beyond the actual beginning
+	double SplineLength = BaseClockwiseSplineComponent->GetSplineLength();
+	int i = 0;
+	while (i < NumFrames && BaseClockwiseFramesTimes[i] + MILLIMETER / SplineLength < FirstTime) i++;
 
 	// from here, all frames with an index higher or equal than `i` have frame times larger or equal to `FirstTime`
-
 
 	// we only add a frame if its location is different from the previous one
 	auto Add = [this, &Result](FVector2D Location)
 	{
 		if (Result.IsEmpty() || !(Result.Last() - Location).IsNearlyZero(MILLIMETER))
-		{
 			Result.Add(Location);
-		}
 	};
 	
 	Add(FirstLocation);
@@ -719,16 +734,26 @@ TArray<FVector2D> ABuilding::MakePolygon(bool bInternalWall, double BeginDistanc
 	}
 	int LastIndex = i - 1;
 
-	if (LastTime == 1)
+	if (FMath::IsNearlyEqual(LastTime, 1, MILLIMETER / SplineLength))
 	{
-		Add(To2D(BaseClockwiseFrames[0].GetLocation()));
-		LastIndex = NumFrames;
+		if (SplineComponent->IsClosedLoop())
+		{
+			Add(To2D(BaseClockwiseFrames[0].GetLocation()));
+			LastIndex = NumFrames;
+		}
+		else
+		{
+			Add(To2D(BaseClockwiseFrames[NumFrames - 1].GetLocation()));
+			LastIndex = NumFrames - 1;
+		}
+	}
+	else
+	{
+		Add(LastLocation);
 	}
 
-	Add(LastLocation);
-
-	// if nothing was added in the loop, or if the LastLocation is distinct from what was added
-	if (Result.Num() >= 2 && (!bAddedPoints || !(To2D(BaseClockwiseFrames[LastIndex % NumFrames].GetLocation()) - LastLocation).IsNearlyZero(MILLIMETER)))
+	// if the last point is not on the spline
+	if (Result.Num() >= 2 && !bEndOnSplinePoint)
 	{
 		// add a shifted location corresponding to LastLocation, on the internal or external wall
 		FVector2D PrevPoint = Result.Last(1);
@@ -748,11 +773,10 @@ TArray<FVector2D> ABuilding::MakePolygon(bool bInternalWall, double BeginDistanc
 		for (i = LastIndex; i >= BeginIndex; i--)
 			Add(ExternalWallPolygons[Thickness][i % NumFrames]);
 	
-	// If the first point is not at the beginning of the spline, and
-	// If nothing was added in the loop, or if the FirstLocation is distinct from what was added
-	if (Result.Num() >= 2 && (!bAddedPoints || !(To2D(BaseClockwiseFrames[BeginIndex].GetLocation()) - FirstLocation).IsNearlyZero(MILLIMETER)))
+	// If the first point is not on the spline
+	if (Result.Num() >= 2 && !bStartOnSplinePoint)
 	{
-		// add a shifted location corresponding to LastLocation, on the internal or external wall
+		// add a shifted location corresponding to FirstLocation, on the internal or external wall
 		FVector2D NextPoint = Result[1];
 		FVector2D WallDirection = (NextPoint - FirstLocation).GetSafeNormal();
 		FVector2D InsideDirection = WallDirection.GetRotated(90);
@@ -763,10 +787,7 @@ TArray<FVector2D> ABuilding::MakePolygon(bool bInternalWall, double BeginDistanc
 			Add(FirstLocation - Thickness * InsideDirection);
 	}
 
-	if (!bInternalWall)
-	{
-		Algo::Reverse(Result);
-	}
+	if (!bInternalWall) Algo::Reverse(Result);
 
 	return Result;
 }
@@ -821,31 +842,47 @@ void ABuilding::AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, dou
 	SplineMeshComponent->MarkRenderStateDirty();
 }
 
-bool ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh, bool bInternalWall, double ZOffset, int LevelDescriptionIndex)
+bool ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh, bool bInternalWall, double ZOffset, int FloorIndex, ULevelDescription *LevelDescription)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendWallsWithHoles");
 
-	double OffsetIfInternal = 0;
-	if (bInternalWall && InternalBuildingConfiguration->bBuildFloorTiles)
+	if (!IsValid(LevelDescription))
 	{
-		OffsetIfInternal = ExpandedLevels[LevelDescriptionIndex].FloorThickness;
+		LCReporter::ShowError(
+			LOCTEXT("InvalidLevelDescription", "Internal Error: LevelDescription is null.")
+		);
+		return false;
+	}
+
+	double OffsetIfInternal = 0;
+	if (bInternalWall && BCfg->bBuildFloorTiles)
+	{
+		OffsetIfInternal = LevelDescription->FloorThickness;
 	}
 
 	// original number of spline points (without subdivisions)
 	const int NumSplinePoints = SplineComponent->GetNumberOfSplinePoints();
-	const int MaxIterations = ExpandedLevels[LevelDescriptionIndex].bResetWallSegmentsOnCorners ? NumSplinePoints : 1;
-	for (int i = 0; i < MaxIterations; i++)
+	int NumIterations = 1; // when !bResetWallSegmentsOnCorners
+	if (LevelDescription->bResetWallSegmentsOnCorners)
+	{
+		if (SplineComponent->IsClosedLoop()) NumIterations = NumSplinePoints;
+		else NumIterations = NumSplinePoints - 1;
+	}
+
+	for (int i = 0; i < NumIterations; i++)
 	{
 		double CurrentDistance = BaseClockwiseSplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineIndexToBaseSplineIndex[i]);
-		for (auto WallSegment : WallSegmentsAtSplinePoint[LevelDescriptionIndex][i])
+		for (auto WallSegment : WallSegmentsAtFloorAndSplinePoint[FloorIndex][i])
 		{
-			double FinalSegmentLength = WallSegment.bAutoExpand ? FillersSizeAtSplinePoint[LevelDescriptionIndex][i] : WallSegment.SegmentLength;
+			if (!WallSegment) continue;
+
+			double FinalSegmentLength = WallSegment->bAutoExpand ? FillersSizeAtFloorAndSplinePoint[FloorIndex][i] : WallSegment->SegmentLength;
 			if (FinalSegmentLength <= 0) continue;
-			
-			double Thickness = bInternalWall ? InternalBuildingConfiguration->InternalWallThickness : InternalBuildingConfiguration->ExternalWallThickness;
-			if (WallSegment.bOverrideWallThickness)
+
+			double Thickness = bInternalWall ? BCfg->InternalWallThickness : BCfg->ExternalWallThickness;
+			if (WallSegment->bOverrideWallThickness)
 			{
-				Thickness = bInternalWall ? WallSegment.InternalWallThickness : WallSegment.ExternalWallThickness;
+				Thickness = bInternalWall ? WallSegment->InternalWallThickness : WallSegment->ExternalWallThickness;
 			}
 			if (Thickness <= 0)
 			{
@@ -853,14 +890,14 @@ bool ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh, bool bInternalWal
 				continue;
 			}
 
-			switch (WallSegment.WallSegmentKind)
+			switch (WallSegment->WallSegmentKind)
 			{
 			case EWallSegmentKind::Wall:
 			{
 				AppendAlongSpline(
 					TargetMesh, bInternalWall, CurrentDistance, FinalSegmentLength,
-					ExpandedLevels[LevelDescriptionIndex].LevelHeight - OffsetIfInternal, ZOffset + OffsetIfInternal, Thickness,
-					bInternalWall ? WallSegment.InteriorWallMaterialIndex : WallSegment.ExteriorWallMaterialIndex
+					LevelDescription->LevelHeight - OffsetIfInternal, ZOffset + OffsetIfInternal, Thickness,
+					BCfg->ResolveMaterial(bInternalWall ? WallSegment->InteriorWallMaterialExpr : WallSegment->ExteriorWallMaterialExpr)
 				);
 				CurrentDistance += FinalSegmentLength;
 				break;
@@ -868,24 +905,24 @@ bool ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh, bool bInternalWal
 			case EWallSegmentKind::Hole:
 			{
 				// below the hole
-				double BelowHoleHeight = FMath::Max(0, WallSegment.HoleDistanceToFloor - OffsetIfInternal);
+				double BelowHoleHeight = FMath::Max(0, WallSegment->HoleDistanceToFloor - OffsetIfInternal);
 				if (BelowHoleHeight > 0)
 				{
 					AppendAlongSpline(
 						TargetMesh, bInternalWall, CurrentDistance, FinalSegmentLength,
 						BelowHoleHeight, ZOffset + OffsetIfInternal, Thickness,
-						bInternalWall ? WallSegment.UnderHoleInteriorMaterialIndex : WallSegment.UnderHoleExteriorMaterialIndex
+						BCfg->ResolveMaterial(bInternalWall ? WallSegment->UnderHoleInteriorMaterialExpr : WallSegment->UnderHoleExteriorMaterialExpr)
 					);
 				}
 
 				// above the hole
-				const double RemainingHeight = ExpandedLevels[LevelDescriptionIndex].LevelHeight - OffsetIfInternal - BelowHoleHeight - WallSegment.HoleHeight;
+				const double RemainingHeight = LevelDescription->LevelHeight - OffsetIfInternal - BelowHoleHeight - WallSegment->HoleHeight;
 				if (RemainingHeight > 0)
 				{
 					AppendAlongSpline(
 						TargetMesh, bInternalWall, CurrentDistance, FinalSegmentLength,
-						RemainingHeight, ZOffset + OffsetIfInternal + BelowHoleHeight + WallSegment.HoleHeight, Thickness,
-						bInternalWall ? WallSegment.OverHoleInteriorMaterialIndex : WallSegment.OverHoleExteriorMaterialIndex
+						RemainingHeight, ZOffset + OffsetIfInternal + BelowHoleHeight + WallSegment->HoleHeight, Thickness,
+						BCfg->ResolveMaterial(bInternalWall ? WallSegment->OverHoleInteriorMaterialExpr : WallSegment->OverHoleExteriorMaterialExpr)
 					);
 				}
 
@@ -905,71 +942,71 @@ bool ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 
 	// ExtraWallBottom (inside wall)
 
-	if (InternalBuildingConfiguration->InternalWallThickness > 0 && InternalBuildingConfiguration->ExtraWallBottom > 0)
+	if (BCfg->InternalWallThickness > 0 && BCfg->ExtraWallBottom > 0)
 	{
 		AppendAlongSpline(
 			TargetMesh, true, 0, BaseClockwiseSplineComponent->GetSplineLength(),
-			InternalBuildingConfiguration->ExtraWallBottom, MinHeightLocal,
-			InternalBuildingConfiguration->InternalWallThickness, InternalBuildingConfiguration->InteriorMaterialIndex
+			BCfg->ExtraWallBottom, MinHeightLocal,
+			BCfg->InternalWallThickness,
+			BCfg->ResolveMaterial(BCfg->InteriorMaterialExpr)
 		);
 	}
 
 	// ExtraWallBottom (outside wall)
 
-	if (InternalBuildingConfiguration->ExternalWallThickness > 0 && InternalBuildingConfiguration->ExtraWallBottom > 0)
+	if (BCfg->ExternalWallThickness > 0 && BCfg->ExtraWallBottom > 0)
 	{
 		AppendAlongSpline(
 			TargetMesh, false, 0, BaseClockwiseSplineComponent->GetSplineLength(),
-			InternalBuildingConfiguration->ExtraWallBottom, MinHeightLocal,
-			InternalBuildingConfiguration->ExternalWallThickness, InternalBuildingConfiguration->ExteriorMaterialIndex
+			BCfg->ExtraWallBottom, MinHeightLocal,
+			BCfg->ExternalWallThickness,
+			BCfg->ResolveMaterial(BCfg->ExteriorMaterialExpr)
 		);
 	}
 
 	// ExtraWallTop (inside wall)
 
-	if (InternalBuildingConfiguration->InternalWallThickness > 0 && InternalBuildingConfiguration->ExtraWallTop > 0)
+	if (BCfg->InternalWallThickness > 0 && BCfg->ExtraWallTop > 0)
 	{
 		AppendAlongSpline(
 			TargetMesh, true, 0, BaseClockwiseSplineComponent->GetSplineLength(),
-			InternalBuildingConfiguration->ExtraWallTop,
-			MinHeightLocal + InternalBuildingConfiguration->ExtraWallBottom + LevelsHeightsSum,
-			InternalBuildingConfiguration->InternalWallThickness, InternalBuildingConfiguration->InteriorMaterialIndex
+			BCfg->ExtraWallTop,
+			MinHeightLocal + BCfg->ExtraWallBottom + LevelsHeightsSum,
+			BCfg->InternalWallThickness,
+			BCfg->ResolveMaterial(BCfg->InteriorMaterialExpr)
 		);
 	}
 
 	// ExtraWallTop (outside wall)
 	
-	if (InternalBuildingConfiguration->ExternalWallThickness > 0 && InternalBuildingConfiguration->ExtraWallTop > 0)
+	if (BCfg->ExternalWallThickness > 0 && BCfg->ExtraWallTop > 0)
 	{
 		AppendAlongSpline(
 			TargetMesh, false, 0, BaseClockwiseSplineComponent->GetSplineLength(),
-			InternalBuildingConfiguration->ExtraWallTop,
-			MinHeightLocal + InternalBuildingConfiguration->ExtraWallBottom + LevelsHeightsSum,
-			InternalBuildingConfiguration->ExternalWallThickness, InternalBuildingConfiguration->ExteriorMaterialIndex
+			BCfg->ExtraWallTop,
+			MinHeightLocal + BCfg->ExtraWallBottom + LevelsHeightsSum,
+			BCfg->ExternalWallThickness,
+			BCfg->ResolveMaterial(BCfg->ExteriorMaterialExpr)
 		);
 	}
 
-	TMap<int, UDynamicMesh*> LevelMeshes;
+	TMap<ULevelDescription*, UDynamicMesh*> LevelMeshes;
 
-	auto AddMesh = [this, TargetMesh, &LevelMeshes](int LevelDescriptionIndex, double CurrentHeight) -> bool
+	auto AddMesh = [this, TargetMesh, &LevelMeshes](int FloorIndex, ULevelDescription *LevelDescription, double CurrentHeight) -> bool
 	{
-		if (!LevelMeshes.Contains(LevelDescriptionIndex))
+		if (!BCfg->bCacheLevelsWithinBuilding || !LevelMeshes.Contains(LevelDescription))
 		{
-			UDynamicMesh *DynamicMesh = NewObject<UDynamicMesh>(this);
-			LevelMeshes.Add(LevelDescriptionIndex, DynamicMesh);
+			if (LevelMeshes.Contains(LevelDescription) && IsValid(LevelMeshes[LevelDescription])) LevelMeshes[LevelDescription]->MarkAsGarbage();
 
-			if (InternalBuildingConfiguration->InternalWallThickness > 0)
-			{
-				if (!AppendWallsWithHoles(DynamicMesh, true, 0, LevelDescriptionIndex)) return false;
-			}
-			if (InternalBuildingConfiguration->ExternalWallThickness > 0)
-			{
-				if (!AppendWallsWithHoles(DynamicMesh, false, 0, LevelDescriptionIndex)) return false;
-			}
+			UDynamicMesh *DynamicMesh = NewObject<UDynamicMesh>(this);
+			LevelMeshes.Add(LevelDescription, DynamicMesh);
+
+			if (!AppendWallsWithHoles(DynamicMesh, true, 0, FloorIndex, LevelDescription)) return false;
+			if (!AppendWallsWithHoles(DynamicMesh, false, 0, FloorIndex, LevelDescription)) return false;
 		}
 
 		UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(
-			TargetMesh, LevelMeshes[LevelDescriptionIndex],
+			TargetMesh, LevelMeshes[LevelDescription],
 			FTransform(FVector(0, 0, CurrentHeight)),
 			true
 		);
@@ -977,20 +1014,20 @@ bool ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 		return true;
 	};
 	
-	double CurrentHeigth = MinHeightLocal + InternalBuildingConfiguration->ExtraWallBottom;
-	for (auto &LevelDescriptionIndex : LevelDescriptionsIndices)
+	double CurrentHeigth = MinHeightLocal + BCfg->ExtraWallBottom;
+	int NumFloors = ExpandedLevelDescriptionsKeys.Num();
+	for (int FloorIndex = 0; FloorIndex < NumFloors; FloorIndex++)
 	{
-		if (!AddMesh(LevelDescriptionIndex, CurrentHeigth)) return false;
-		CurrentHeigth += ExpandedLevels[LevelDescriptionIndex].LevelHeight;
+		auto &LevelDescriptionKey = ExpandedLevelDescriptionsKeys[FloorIndex];
+
+		if (!BCfg->CheckValidKey(LevelDescriptionKey)) return false;
+
+		if (!AddMesh(FloorIndex, BCfg->LevelsMap[LevelDescriptionKey], CurrentHeigth)) return false;
+		CurrentHeigth += BCfg->LevelsMap[LevelDescriptionKey]->LevelHeight;
 	}
 
 	for (auto& [_, LevelMesh] : LevelMeshes)
-	{
-		if (IsValid(LevelMesh))
-		{
-			LevelMesh->MarkAsGarbage();
-		}
-	}
+		if (IsValid(LevelMesh)) LevelMesh->MarkAsGarbage();
 
 	return true;
 }
@@ -1006,18 +1043,153 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 	int NumFrames = BaseClockwiseFrames.Num();
 	if (NumFrames == 0) return;
 	
-	const double WallTopHeight = MinHeightLocal + InternalBuildingConfiguration->ExtraWallBottom + LevelsHeightsSum + InternalBuildingConfiguration->ExtraWallTop;
-	const double RoofTopHeight = WallTopHeight + InternalBuildingConfiguration->RoofHeight;
+	const double WallTopHeight = MinHeightLocal + BCfg->ExtraWallBottom + LevelsHeightsSum + BCfg->ExtraWallTop;
+	const double RoofTopHeight = WallTopHeight + BCfg->RoofHeight;
 
+
+	if (BCfg->RoofKind == ERoofKind::Gable || BCfg->RoofKind == ERoofKind::Hip)
+	{
+		if (BCfg->ExtraWallTop > 0 || BCfg->BuildingGeometry == EBuildingGeometry::BuildingWithoutInside)
+		{
+			LastFloorExternalWallThickness = BCfg->ExternalWallThickness;
+		}
+		double TanAngle = FMath::Tan(FMath::DegreesToRadians(BCfg->RoofAngle));
+
+		TArray<FVector2D> OuterRoofVertices;
+		for (int i = 0; i < BaseVertices2D.Num(); i++)
+		{
+			OuterRoofVertices.Add(GetShiftedPoint(BaseClockwiseFrames, i, - BCfg->OuterRoofDistance, true));
+		}
+
+		FStraightSkeleton StraightSkeleton;
+
+		if (StraightSkeletonWrapper::ComputeStraightSkeleton(OuterRoofVertices, StraightSkeleton))
+		{
+			// this map contains the vertices that need to be moved to transform a hip roof into a gable roof
+			// (we move the vertices that are part of triangular faces)
+			TMap<FVector2D, FVector2D> GableTransform;
+			if (BCfg->RoofKind == ERoofKind::Gable)
+			{
+				for (auto &EdgeResult: StraightSkeleton.Edges)
+				{
+					if (EdgeResult.Polygon.Num() == 3)
+					{
+						for (auto &P: EdgeResult.Polygon)
+						{
+							if (P != EdgeResult.Begin && P != EdgeResult.End)
+							{
+								FVector2D MidPoint = (EdgeResult.Begin + EdgeResult.End) / 2;
+								GableTransform.Add(P, MidPoint);
+							}
+						}
+					}
+				}
+			}
+
+			// max coordinate to use for the size of the Box Projection for UVs
+			double MaxCoordinate = 0;
+			for (const FSkeletonEdgeResult &EdgeResult: StraightSkeleton.Edges)
+			{
+				for (auto &P: EdgeResult.Polygon)
+				{
+					MaxCoordinate = FMath::Max(MaxCoordinate, FMath::Abs(P.X));
+					MaxCoordinate = FMath::Max(MaxCoordinate, FMath::Abs(P.Y));
+				}
+			}
+
+			for (int EdgeIndex = 0; EdgeIndex < StraightSkeleton.Edges.Num(); EdgeIndex++)
+			{
+				TObjectPtr<UDynamicMesh> RoofFace = NewObject<UDynamicMesh>(this);
+				const FSkeletonEdgeResult &EdgeResult = StraightSkeleton.Edges[EdgeIndex];
+
+				FVector2D EdgeDir = (EdgeResult.End - EdgeResult.Begin).GetSafeNormal();
+				float EdgeAngle = FMath::Atan2(EdgeDir.Y, EdgeDir.X);
+				FRotator EdgeAngleYaw = FRotator(0, FMath::RadiansToDegrees(EdgeAngle), 0);
+				FTransform BoxTransform = FTransform(EdgeAngleYaw, FVector(), FVector(3*MaxCoordinate, 3*MaxCoordinate, 3*MaxCoordinate));
+
+				// build gable
+				if (BCfg->RoofKind == ERoofKind::Gable && EdgeResult.Polygon.Num() == 3)
+				{
+					const double OriginalEdgeLength = FVector2D::Distance(
+						BaseVertices2D[(EdgeIndex+1) % StraightSkeleton.Edges.Num()],
+						BaseVertices2D[(EdgeIndex+2) % StraightSkeleton.Edges.Num()]
+					);
+					double TopVertexHeight = 0;
+					for (auto &P: EdgeResult.Polygon)
+						if (P != EdgeResult.Begin && P != EdgeResult.End) TopVertexHeight = (StraightSkeleton.Distances.FindRef(P) - (BCfg->OuterRoofDistance - LastFloorExternalWallThickness)) * TanAngle;
+
+					FVector GablePosition =
+						To3D(BaseVertices2D[(EdgeIndex+1) % StraightSkeleton.Edges.Num()]) +
+						FVector(0, 0, WallTopHeight);
+
+					UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSimpleExtrudePolygon(
+						RoofFace,
+						FGeometryScriptPrimitiveOptions(),
+						// move the roof down a bit so that it touches the top of the wall
+						FTransform(EdgeAngleYaw + FRotator(0,0,-90), GablePosition),
+						{ FVector2D(0, 0), FVector2D(OriginalEdgeLength, 0), FVector2D(OriginalEdgeLength / 2, TopVertexHeight) },
+						BCfg->RoofThickness
+					);
+					UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofFace, 0, BCfg->ResolveMaterial(BCfg->GableMaterialExpr));
+					UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(TargetMesh, RoofFace, FTransform(), true);
+					RoofFace->MarkAsGarbage();
+				}
+				// build roof faces
+				else
+				{
+					UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSimpleExtrudePolygon(
+						RoofFace,
+						FGeometryScriptPrimitiveOptions(),
+						// move the roof down a bit so that it touches the top of the wall
+						FTransform(FVector(0, 0, WallTopHeight - (BCfg->OuterRoofDistance - LastFloorExternalWallThickness) * TanAngle)),
+						// FTransform(FVector(0, 0, WallTopHeight)),
+						EdgeResult.Polygon,
+						BCfg->RoofThickness
+					);
+
+					for (int32 VID : RoofFace->GetMeshRef().VertexIndicesItr())
+					{
+						FVector V = RoofFace->GetMeshRef().GetVertex(VID);
+						FVector2D V2 = FVector2D(V.X, V.Y);
+						V.Z += StraightSkeleton.Distances.FindRef(V2) * TanAngle;
+						
+						// We move the roof vertices that are at the top of a triangle to form a gable
+						// We only do it for non-triangles, because for triangles we build the gable separately
+						if (EdgeResult.Polygon.Num() != 3 && GableTransform.Contains(V2))
+						{
+							FVector2D MidPoint = GableTransform[V2];
+							V.X = MidPoint.X;
+							V.Y = MidPoint.Y;
+						}
+						RoofFace->GetMeshRef().SetVertex(VID, V);
+					}
+					UGeometryScriptLibrary_MeshUVFunctions::SetMeshUVsFromBoxProjection(RoofFace, 0, BoxTransform, FGeometryScriptMeshSelection());
+					UGeometryScriptLibrary_MeshUVFunctions::ScaleMeshUVs(RoofFace, 0, FVector2D(MaxCoordinate / 100, MaxCoordinate / 100), FVector2D(), FGeometryScriptMeshSelection());
+
+					UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(RoofMesh, RoofFace, FTransform(), true);
+					RoofFace->MarkAsGarbage();
+				}
+			}
+			UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, BCfg->ResolveMaterial(BCfg->RoofMaterialExpr));
+			UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(TargetMesh, RoofMesh, FTransform(), true);
+			RoofMesh->MarkAsGarbage();
+
+			return;
+		}
+
+		UE_LOG(LogBuildingsFromSplines, Error, TEXT("Failed to compute straight skeleton, falling back to point roof"));
+	}
+
+	// we continue here if we failed for gable or hip roof, or if we're using inner spline or point options
 	TArray<FTransform> Frames;
 	Frames.Append(BaseClockwiseFrames);
 
 	TArray<FVector2D> RoofPolygon;
 	TArray<int> IndexToRoofIndex;
 
-	if (InternalBuildingConfiguration->RoofKind == ERoofKind::InnerSpline)
+	if (BCfg->RoofKind == ERoofKind::InnerSpline)
 	{
-		DeflateFrames(Frames, RoofPolygon, IndexToRoofIndex, InternalBuildingConfiguration->InnerRoofDistance);
+		DeflateFrames(Frames, RoofPolygon, IndexToRoofIndex, BCfg->InnerRoofDistance);
 	}
 	else
 	{
@@ -1025,7 +1197,7 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 		IndexToRoofIndex.SetNum(NumFrames);
 	}
 	
-	if (RoofPolygon.IsEmpty() || InternalBuildingConfiguration->RoofKind == ERoofKind::Point)
+	if (RoofPolygon.IsEmpty() || BCfg->RoofKind == ERoofKind::Point)
 	{
 		double MiddleX = 0;
 		double MiddleY = 0;
@@ -1049,20 +1221,21 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 			FGeometryScriptPrimitiveOptions(),
 			FTransform(FVector(0, 0, RoofTopHeight)),
 			RoofPolygon,
-			InternalBuildingConfiguration->RoofThickness
+			BCfg->RoofThickness
 		);
 
-		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, InternalBuildingConfiguration->RoofMaterialIndex);
-		if (!SetPolygroupMaterialID(RoofMesh, 2, InternalBuildingConfiguration->UnderRoofMaterialIndex)) return;
+		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, BCfg->ResolveMaterial(BCfg->RoofMaterialExpr));
+		if (!SetPolygroupMaterialID(RoofMesh, 2, BCfg->ResolveMaterial(BCfg->UnderRoofMaterialExpr))) return;
 	}
+
 
 	/* Connection from the walls to the roof, outside */
 	
 	FTransform BuildingTransform = this->GetTransform();
 
 	
-	double ExternalWallThickness = InternalBuildingConfiguration->ExternalWallThickness;
-	double InternalWallThickness = InternalBuildingConfiguration->InternalWallThickness;
+	double ExternalWallThickness = BCfg->ExternalWallThickness;
+	double InternalWallThickness = BCfg->InternalWallThickness;
 
 	TArray<FTransform> SweepPath;
 	for (int i = 0; i < NumFrames; i++)
@@ -1071,10 +1244,10 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 		FVector2D RoofPoint = RoofPolygon[IndexToRoofIndex[i]];
 
 		FVector Source(WallPoint[0], WallPoint[1], WallTopHeight);
-		FVector Target(RoofPoint[0], RoofPoint[1], RoofTopHeight + InternalBuildingConfiguration->RoofThickness);
+		FVector Target(RoofPoint[0], RoofPoint[1], RoofTopHeight + BCfg->RoofThickness);
 
 		const FVector UnitDirection = (Target - Source).GetSafeNormal();
-		Source -= UnitDirection * InternalBuildingConfiguration->OuterRoofDistance;
+		Source -= UnitDirection * BCfg->OuterRoofDistance;
 		
 		const FVector UnitDirectionXY = FVector(UnitDirection.X, UnitDirection.Y, 0);
 		const FVector UnitDirectionYZ = FVector(0, UnitDirection.Y, UnitDirection.Z);
@@ -1098,12 +1271,12 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 		SweepPath, {}, {}, true
 	);
 
-	UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, InternalBuildingConfiguration->RoofMaterialIndex);
+	UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, BCfg->ResolveMaterial(BCfg->RoofMaterialExpr));
 
 	/* Connection from the walls to the roof, inside */
 
 	if (
-		InternalBuildingConfiguration->BuildingGeometry == EBuildingGeometry::BuildingWithFloorsAndEmptyInside &&
+		BCfg->BuildingGeometry == EBuildingGeometry::BuildingWithFloorsAndEmptyInside &&
 		!InternalWallPolygons[InternalWallThickness].IsEmpty()
 	)
 	{
@@ -1117,7 +1290,7 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 			const FVector Target(RoofPoint[0], RoofPoint[1], RoofTopHeight);
 
 			const FVector UnitDirection = (Target - Source).GetSafeNormal();
-			Source -= UnitDirection * InternalBuildingConfiguration->OuterRoofDistance;
+			Source -= UnitDirection * BCfg->OuterRoofDistance;
 
 			FTransform NewTransform;
 			NewTransform.SetLocation(Source);
@@ -1133,7 +1306,7 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 			FTransform(), { {0, 0}, {0, 0.01}, {0, 0.02}, {0, 0.05}, {0, 0.1}, {0, 0.2}, {0, 0.4}, {0, 0.6}, {0, 0.8},  {0, 0.9},  {0, 0.95},  {0, 0.98},  {0, 0.99}, {0, 1} },
 			SweepPath, {}, {}, true
 		);
-		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, InternalBuildingConfiguration->InteriorMaterialIndex);
+		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, BCfg->ResolveMaterial(BCfg->InteriorMaterialExpr));
 	}
 	
 
@@ -1166,25 +1339,22 @@ void ABuilding::SetReceivesDecals()
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("SetReceivesDecals");
 	
-	if (IsValid(StaticMeshComponent)) StaticMeshComponent->bReceivesDecals = InternalBuildingConfiguration->bBuildingReceiveDecals; 
-	if (IsValid(DynamicMeshComponent)) DynamicMeshComponent->bReceivesDecals = InternalBuildingConfiguration->bBuildingReceiveDecals;
+	if (IsValid(StaticMeshComponent)) StaticMeshComponent->bReceivesDecals = BCfg->bBuildingReceiveDecals; 
+	if (IsValid(DynamicMeshComponent)) DynamicMeshComponent->bReceivesDecals = BCfg->bBuildingReceiveDecals;
 
 	for (auto& SplineMeshComponent : SplineMeshComponents)
 	{
-		if (SplineMeshComponent.IsValid()) SplineMeshComponent->bReceivesDecals = InternalBuildingConfiguration->bBuildingReceiveDecals;
+		if (SplineMeshComponent.IsValid()) SplineMeshComponent->bReceivesDecals = BCfg->bBuildingReceiveDecals;
 	}
 
 	for (auto& InstancedStaticMeshComponent : InstancedStaticMeshComponents)
 	{
-		if (InstancedStaticMeshComponent.IsValid()) InstancedStaticMeshComponent->bReceivesDecals = InternalBuildingConfiguration->bBuildingReceiveDecals;
+		if (InstancedStaticMeshComponent.IsValid()) InstancedStaticMeshComponent->bReceivesDecals = BCfg->bBuildingReceiveDecals;
 	}
 }
 
 bool ABuilding::InitializeWallSegments()
 {
-	WallSegmentsAtSplinePoint.SetNum(InternalBuildingConfiguration->Levels.Num());
-	FillersSizeAtSplinePoint.SetNum(InternalBuildingConfiguration->Levels.Num());
-
 	// original number of spline points (without subdivisions)
 	const int NumSplinePoints = SplineComponent->GetNumberOfSplinePoints();
 	if (NumSplinePoints == 0)
@@ -1193,35 +1363,44 @@ bool ABuilding::InitializeWallSegments()
 		return false;
 	}
 
-	ExpandedLevels = InternalBuildingConfiguration->Levels;
-	int NumLevels = ExpandedLevels.Num();
+	int NumFloors = ExpandedLevelDescriptionsKeys.Num();
+	WallSegmentsAtFloorAndSplinePoint.SetNum(NumFloors);
+	FillersSizeAtFloorAndSplinePoint.SetNum(NumFloors);
 
-	for (int LevelDescriptionIndex = 0; LevelDescriptionIndex < NumLevels; LevelDescriptionIndex++)
+	for (int FloorIndex = 0; FloorIndex < NumFloors; FloorIndex++)
 	{
-		FLevelDescription &LevelDescription = ExpandedLevels[LevelDescriptionIndex];
-		if (LevelDescription.LevelHeight < 0)
+		FString LevelDescriptionKey = ExpandedLevelDescriptionsKeys[FloorIndex];
+		if (!BCfg->CheckValidKey(LevelDescriptionKey)) return false;
+
+		ULevelDescription *LevelDescription = BCfg->LevelsMap[LevelDescriptionKey];
+		if (LevelDescription->LevelHeight < 0)
 		{
 			LCReporter::ShowError(LOCTEXT("NegativeWallHeight", "Attempting to create a building with negative Wall height"));
 			return false;
 		}
 
-		TArray<TArray<FWallSegment>> ThisLevelWallSegmentsAtSplinePoint;
-		ThisLevelWallSegmentsAtSplinePoint.SetNum(NumSplinePoints);
-		WallSegmentsAtSplinePoint[LevelDescriptionIndex] = ThisLevelWallSegmentsAtSplinePoint;
+		TArray<TArray<UWallSegment*>> ThisFloorWallSegmentsAtSplinePoint;
+		ThisFloorWallSegmentsAtSplinePoint.SetNum(NumSplinePoints);
+		WallSegmentsAtFloorAndSplinePoint[FloorIndex] = ThisFloorWallSegmentsAtSplinePoint;
 
-		TArray<double> ThisLevelFillersSizeAtSplinePoint;
-		ThisLevelFillersSizeAtSplinePoint.SetNum(NumSplinePoints);
-		FillersSizeAtSplinePoint[LevelDescriptionIndex] = ThisLevelFillersSizeAtSplinePoint;
+		TArray<double> ThisFloorFillersSizeAtSplinePoint;
+		ThisFloorFillersSizeAtSplinePoint.SetNum(NumSplinePoints);
+		FillersSizeAtFloorAndSplinePoint[FloorIndex] = ThisFloorFillersSizeAtSplinePoint;
 
-		const int MaxIterations = LevelDescription.bResetWallSegmentsOnCorners ? NumSplinePoints : 1;
-		for (int i = 0; i < MaxIterations; i++)
+		int NumIterations = 1; // when !bResetWallSegmentsOnCorners
+		if (LevelDescription->bResetWallSegmentsOnCorners)
+		{
+			if (SplineComponent->IsClosedLoop()) NumIterations = NumSplinePoints;
+			else NumIterations = NumSplinePoints - 1;
+		}
+		for (int SplinePointIndex = 0; SplinePointIndex < NumIterations; SplinePointIndex++)
 		{
 			double Length;
 
-			if (LevelDescription.bResetWallSegmentsOnCorners)
+			if (LevelDescription->bResetWallSegmentsOnCorners)
 			{
-				int BaseIndex = SplineIndexToBaseSplineIndex[i];
-				int BaseIndexNext = SplineIndexToBaseSplineIndex[i + 1];
+				int BaseIndex = SplineIndexToBaseSplineIndex[SplinePointIndex];
+				int BaseIndexNext = SplineIndexToBaseSplineIndex[SplinePointIndex + 1];
 				double Distance1 = BaseClockwiseSplineComponent->GetDistanceAlongSplineAtSplinePoint(BaseIndex);
 				double Distance2 = BaseClockwiseSplineComponent->GetDistanceAlongSplineAtSplinePoint(BaseIndexNext);
 				Length = Distance2 - Distance1;
@@ -1232,93 +1411,68 @@ bool ABuilding::InitializeWallSegments()
 			}
 
 			
-			const int NumSegments = LevelDescription.WallSegments.Num();
-			TArray<int> WallSegmentIndices;
-			for (int k = 0; k < NumSegments; k++) WallSegmentIndices.Add(k);
+			TArray<FString> ExpandedWallSegmentsKeys;
 
-			TArray<int> ExpandedWallSegmentIndices;
-
-			if (!UBuildingConfiguration::Expand<int>(
-				ExpandedWallSegmentIndices,
-				WallSegmentIndices,
-				LevelDescription.WallSegmentLoops,
-				[&](const int &Index) { return LevelDescription.WallSegments[Index].SegmentLength; },
-				Length
-			)) return false;
+			if (!FExpression::Expand(
+				Length,
+				LevelDescription->WallSegmentsExpression,
+				[this, LevelDescription](FString WallSegmentKey) -> double {
+					if (LevelDescription->IsValidKey(WallSegmentKey))
+						return LevelDescription->WallSegmentsMap[WallSegmentKey]->SegmentLength;
+					else
+						return 300;
+				},
+				ExpandedWallSegmentsKeys
+			))
+			{
+				return false;
+			}
 
 			int NumFillers = 0;
-			for (auto WallSegment : WallSegmentsAtSplinePoint[LevelDescriptionIndex][i])
-				if (WallSegment.bAutoExpand) NumFillers++;
-
-
-			// if there are no fillers in the expanded wall segments, we add all fillers
-			// (ignoring their user-set length), and putting them in the correct position in our final array
-			if (NumFillers == 0)
+			for (auto &ExpandedWallSegmentsKey: ExpandedWallSegmentsKeys)
 			{
-				int Index1 = 0;
-				int Index2 = 0;
-				while (Index1 < NumSegments)
-				{
-					if (LevelDescription.WallSegments[Index1].bAutoExpand)
-					{
-						// we found a filler, we'll insert its index in the correct position in ExpandedWallSegmentIndices
+				if (!LevelDescription->CheckValidKey(ExpandedWallSegmentsKey)) return false;
 
-						// we compute the number of expanded wall segments here, and not outside the main loop,
-						// because the number increases due to our insertions
-						const int NumExpandedWallSegments = ExpandedWallSegmentIndices.Num();
-
-						while (Index2 < NumExpandedWallSegments && ExpandedWallSegmentIndices[Index2] < Index1) Index2++;
-
-						ExpandedWallSegmentIndices.Insert(Index1, Index2);
-						Index2++;
-					}
-					Index1++;
-				}
+				if (LevelDescription->WallSegmentsMap[ExpandedWallSegmentsKey]->bAutoExpand) NumFillers++;
 			}
 
 			// this is the count after all insertions
-			const int NumExpandedWallSegments = ExpandedWallSegmentIndices.Num();
+			const int NumExpandedWallSegments = ExpandedWallSegmentsKeys.Num();
 
 			// Copy the actual wall segments in the array
-			WallSegmentsAtSplinePoint[LevelDescriptionIndex][i].SetNum(NumExpandedWallSegments);
+			WallSegmentsAtFloorAndSplinePoint[FloorIndex][SplinePointIndex].SetNum(NumExpandedWallSegments);
 			for (int j = 0; j < NumExpandedWallSegments; j++)
-				WallSegmentsAtSplinePoint[LevelDescriptionIndex][i][j] = LevelDescription.WallSegments[ExpandedWallSegmentIndices[j]]; 
+			{
+				if (!LevelDescription->CheckValidKey(ExpandedWallSegmentsKeys[j])) return false;
+
+				WallSegmentsAtFloorAndSplinePoint[FloorIndex][SplinePointIndex][j] =
+					LevelDescription->WallSegmentsMap[ExpandedWallSegmentsKeys[j]];
+			}
 			
 			// we then recount the number of fillers, as well as the non-fillers segments size
 			NumFillers = 0;
 			double NonFillersSegmentsSize = 0;
-			for (auto WallSegment : WallSegmentsAtSplinePoint[LevelDescriptionIndex][i])
+			for (auto WallSegment : WallSegmentsAtFloorAndSplinePoint[FloorIndex][SplinePointIndex])
 			{
-				if (WallSegment.bAutoExpand) NumFillers++;
-				else NonFillersSegmentsSize += WallSegment.SegmentLength;
+				if (WallSegment->bAutoExpand) NumFillers++;
+				else NonFillersSegmentsSize += WallSegment->SegmentLength;
 			}
 
 			if (NonFillersSegmentsSize > Length)
 			{
-				LCReporter::ShowError(
-					FText::Format(
-						LOCTEXT("SegmentsSizeGreaterThanLengthFmt", "Internal error during Building Generation: NonFillersSegmentsSize ({0}) > Length ({1})"),
-						FText::AsNumber(NonFillersSegmentsSize),
-						FText::AsNumber(Length)
-					)
+				UE_LOG(LogBuildingsFromSplines, Warning,
+					TEXT("The size of non-filler segments (%f) is greater than the length of the wall (%f). Deleting all non-fillers segments from that wall"),
+					NonFillersSegmentsSize, Length
 				);
-				return false;
+
+				WallSegmentsAtFloorAndSplinePoint[FloorIndex][SplinePointIndex].RemoveAll(
+					[](const auto& WallSegment) { return !WallSegment->bAutoExpand; }
+				);
+
+				NonFillersSegmentsSize = 0;
 			}
 
-			// if there are still no fillers, we add two, one at the beginning and one at the end
-			double FillersSize;
-			if (NumFillers == 0)
-			{
-				WallSegmentsAtSplinePoint[LevelDescriptionIndex][i].EmplaceAt(0, DummyFiller);
-				WallSegmentsAtSplinePoint[LevelDescriptionIndex][i].Add(DummyFiller);
-				FillersSize = (Length - NonFillersSegmentsSize) / 2;
-			}
-			else
-			{
-				FillersSize = (Length - NonFillersSegmentsSize) / NumFillers;
-			}
-
-			FillersSizeAtSplinePoint[LevelDescriptionIndex][i] = FillersSize;
+			FillersSizeAtFloorAndSplinePoint[FloorIndex][SplinePointIndex] = (Length - NonFillersSegmentsSize) / NumFillers;
 		}
 	}
 
@@ -1349,76 +1503,62 @@ bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)
 		return false;
 	}
 
-	if (bUseInlineBuildingConfiguration)
-	{
-		InternalBuildingConfiguration = BuildingConfiguration;
-	}
-	else
-	{
-		if (!IsValid(BuildingConfigurationClass))
-		{
-			LCReporter::ShowError(
-				LOCTEXT("NoBuildingConfigurationClass", "Internal Error: BuildingConfigurationClass is not valid.")
-			);
-			return false;
-		}
-	
-		InternalBuildingConfiguration = BuildingConfigurationClass->GetDefaultObject<UBuildingConfiguration>();
-	}
-
-	if (!IsValid(InternalBuildingConfiguration))
+	if (!IsValid(BCfg))
 	{
 		LCReporter::ShowError(
 			LOCTEXT("NoBuildingConfiguration", "Internal Error: Building Configuration is not valid.")
 		);
 		return false;
 	}
+	
+	LastFloorExternalWallThickness = 0;
 
-	bool bFetchFromUserData = InternalBuildingConfiguration->AutoComputeNumFloors(this);
-
-	if (!bFetchFromUserData && InternalBuildingConfiguration->bUseRandomNumFloors)
+	BCfg->MaterialNamesArray.Empty();
+	BCfg->MaterialsArray.Empty();
+	for (auto &[Name, Material]: BCfg->Materials)
 	{
-		InternalBuildingConfiguration->NumFloors = UKismetMathLibrary::RandomIntegerInRange(InternalBuildingConfiguration->MinNumFloors, InternalBuildingConfiguration->MaxNumFloors);
+		BCfg->MaterialNamesArray.Add(Name);
+		BCfg->MaterialsArray.Add(Material);
 	}
 
-	int NumLevels = InternalBuildingConfiguration->Levels.Num();
-	TArray<int> OriginalIndices;
-	for (int i = 0; i < NumLevels; i++) OriginalIndices.Add(i);
+	UOSMUserData *BuildingOSMUserData = Cast<UOSMUserData>(GetRootComponent()->GetAssetUserDataOfClass(UOSMUserData::StaticClass()));
+	bool bFetchFromUserData = BCfg->AutoComputeNumFloors(BuildingOSMUserData);
 
-	if (!UBuildingConfiguration::Expand<int>(
-		LevelDescriptionsIndices,
-		OriginalIndices,
-		InternalBuildingConfiguration->LevelLoops,
-		[](int LevelDescriptionIndex) { return 1; },
-		InternalBuildingConfiguration->NumFloors
+	if (!bFetchFromUserData && BCfg->bUseRandomNumFloors)
+	{
+		BCfg->NumFloors = UKismetMathLibrary::RandomIntegerInRange(BCfg->MinNumFloors, BCfg->MaxNumFloors);
+	}
+
+	if (!FExpression::Expand(
+		BCfg->NumFloors,
+		BCfg->LevelsExpression,
+		[](FString LevelDescriptionKey) -> double { return 1; },
+		ExpandedLevelDescriptionsKeys
 	))
 	{
-		bIsGenerating = false;
 		return false;
 	}
 
 	LevelsHeightsSum = 0;
-	for (auto &LevelDescriptionIndex : LevelDescriptionsIndices)
-		LevelsHeightsSum += InternalBuildingConfiguration->Levels[LevelDescriptionIndex].LevelHeight;
+	for (auto &LevelDescriptionKey : ExpandedLevelDescriptionsKeys)
+	{
+		if (!BCfg->CheckValidKey(LevelDescriptionKey)) return false;
+
+		LevelsHeightsSum += BCfg->LevelsMap[LevelDescriptionKey]->LevelHeight;
+	}
 
 	if (!IsValid(DynamicMeshComponent))
 	{
 		LCReporter::ShowError(
 			LOCTEXT("InvalidDynamicMeshComponent", "Internal Error: DynamicMeshComponent is null.")
 		);
-		bIsGenerating = false;
 		return false;
 	}
 	
-	if (!AppendBuilding(DynamicMeshComponent->GetDynamicMesh(), SpawnedActorsPathOverride))
-	{
-		bIsGenerating = false;
-		return false;
-	}
+	if (!AppendBuilding(DynamicMeshComponent->GetDynamicMesh(), SpawnedActorsPathOverride)) return false;
 
 	SetReceivesDecals();
 
-	bIsGenerating = false;
 	return true;
 }
 
@@ -1454,26 +1594,26 @@ TArray<UObject *> ABuilding::GetGeneratedObjects() const
 	return Result;
 }
 
-bool ABuilding::AddAttachments(int LevelDescriptionIndex, double ZOffset)
+bool ABuilding::AddAttachments(int FloorIndex, ULevelDescription* LevelDescription, double ZOffset)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AddAttachments");
-	
-	FLevelDescription &LevelDescription = ExpandedLevels[LevelDescriptionIndex];
 
 	// original number of spline points (without subdivisions)
 	const int NumSplinePoints = SplineComponent->GetNumberOfSplinePoints();
-	const int MaxIterations = LevelDescription.bResetWallSegmentsOnCorners ? NumSplinePoints : 1;
+	const int MaxIterations = LevelDescription->bResetWallSegmentsOnCorners ? NumSplinePoints : 1;
 	for (int i = 0; i < NumSplinePoints; i++)
 	{
 		double CurrentDistance = BaseClockwiseSplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineIndexToBaseSplineIndex[i]);
-		for (auto &WallSegment : WallSegmentsAtSplinePoint[LevelDescriptionIndex][i])
+		for (auto &WallSegment : WallSegmentsAtFloorAndSplinePoint[FloorIndex][i])
 		{
-			double FinalSegmentLength = WallSegment.bAutoExpand ? FillersSizeAtSplinePoint[LevelDescriptionIndex][i] : WallSegment.SegmentLength;
+			double FinalSegmentLength = WallSegment->bAutoExpand ? FillersSizeAtFloorAndSplinePoint[FloorIndex][i] : WallSegment->SegmentLength;
 			
-			for (auto &Attachment: WallSegment.Attachments)
+			for (auto &Attachment: WallSegment->Attachments)
 			{
+				if (Attachment.Probability == 0 || FMath::RandRange(0.0, 1.0) > Attachment.Probability) continue;
+
 				double TargetWidth = Attachment.bFitToWallSegmentWidth ? FinalSegmentLength : Attachment.OverrideWidth;
-				double TargetHeight = Attachment.bFitToWallSegmentHeight ? LevelDescription.LevelHeight : Attachment.OverrideHeight;
+				double TargetHeight = Attachment.bFitToHoleHeight ? WallSegment->HoleHeight : (Attachment.bFitToWallSegmentHeight ? LevelDescription->LevelHeight : Attachment.OverrideHeight);
 				double TargetThickness = 0;
 
 				auto GetAxisIndex = [&Attachment](EAxisKind AxisKind) -> int
@@ -1509,14 +1649,10 @@ bool ABuilding::AddAttachments(int LevelDescriptionIndex, double ZOffset)
 
 				if (Attachment.bFitToWallSegmentThickness)
 				{
-					if (WallSegment.bOverrideWallThickness)
-					{
-						TargetThickness = WallSegment.InternalWallThickness + WallSegment.ExternalWallThickness;
-					}
+					if (WallSegment->bOverrideWallThickness)
+						TargetThickness = WallSegment->InternalWallThickness + WallSegment->ExternalWallThickness;
 					else
-					{
-						TargetThickness = InternalBuildingConfiguration->InternalWallThickness + InternalBuildingConfiguration->ExternalWallThickness;
-					}
+						TargetThickness = BCfg->InternalWallThickness + BCfg->ExternalWallThickness;
 				}
 				else
 				{
@@ -1528,29 +1664,29 @@ bool ABuilding::AddAttachments(int LevelDescriptionIndex, double ZOffset)
 				FQuat AttachmentRotation = FQuat::FindBetweenVectors(FVector(1, 0, 0), AttachmentTangent);
 				double AttachmentTangentAngle = AttachmentRotation.Rotator().Yaw;
 
-				FVector SimpleRotatedOffset = Attachment.Offset.RotateAngleAxis(AttachmentTangentAngle, FVector(0, 0, 1));
 
 				switch (Attachment.AttachmentKind)
 				{
 					case EAttachmentKind::InstancedStaticMeshComponent:
 					{
-						if (!Attachment.Mesh) break;
+						UStaticMesh *Mesh = Cast<UStaticMesh>(FWeightedObject::GetRandomObject(Attachment.MeshSelection));
+						if (!IsValid(Mesh)) break;
 
 						UInstancedStaticMeshComponent *ISM = nullptr;
-						if (!MeshToISM.Contains(Attachment.Mesh))
+						if (!MeshToISM.Contains(Mesh))
 						{
 							ISM = NewObject<UInstancedStaticMeshComponent>(RootComponent);
-							ISM->SetStaticMesh(Attachment.Mesh);
+							ISM->SetStaticMesh(Mesh);
 							ISM->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
 							ISM->CreationMethod = EComponentCreationMethod::UserConstructionScript;
 							ISM->RegisterComponent(); 
 							AddInstanceComponent(ISM);
-							MeshToISM.Add(Attachment.Mesh, ISM);
+							MeshToISM.Add(Mesh, ISM);
 							InstancedStaticMeshComponents.Add(ISM);
 						}
 						else
 						{
-							ISM = MeshToISM[Attachment.Mesh];
+							ISM = MeshToISM[Mesh];
 						}
 
 						if (!ISM)
@@ -1559,7 +1695,7 @@ bool ABuilding::AddAttachments(int LevelDescriptionIndex, double ZOffset)
 							return false;
 						}
 						
-						FBox BoundingBox = Attachment.Mesh->GetBoundingBox();
+						FBox BoundingBox = Mesh->GetBoundingBox();
 						FVector Extent = BoundingBox.GetExtent();
 						FVector Scale(
 							GetScale(Attachment.XAxis, 0, Extent),
@@ -1570,8 +1706,9 @@ bool ABuilding::AddAttachments(int LevelDescriptionIndex, double ZOffset)
 						Offset2[0] *= GetSize(EAxisKind::Width, Extent);
 						Offset2[1] *= GetSize(EAxisKind::Thickness, Extent);
 						Offset2[2] *= GetSize(EAxisKind::Height, Extent);
-						FVector FinalOffset = Attachment.Offset + Offset2;
-						FVector RotatedOffset = FinalOffset.RotateAngleAxis(AttachmentTangentAngle, FVector(0, 0, 1));
+						FVector Offset = Attachment.Offset + Offset2;
+						if (Attachment.bAddHoleZOffset) Offset.Z += WallSegment->HoleDistanceToFloor;
+						FVector RotatedOffset = Offset.RotateAngleAxis(AttachmentTangentAngle, FVector(0, 0, 1));
 
 						FTransform Transform;
 						Transform.SetLocation(AttachmentLocation + RotatedOffset + FVector(0, 0, ZOffset));
@@ -1582,11 +1719,15 @@ bool ABuilding::AddAttachments(int LevelDescriptionIndex, double ZOffset)
 					}
 					case EAttachmentKind::SplineMeshComponent:
 					{
-						if (!Attachment.Mesh) break;
+						UStaticMesh *Mesh = Cast<UStaticMesh>(FWeightedObject::GetRandomObject(Attachment.MeshSelection));
+						if (!IsValid(Mesh)) break;
 
 						double Width = TargetWidth > 0 ? TargetWidth : FinalSegmentLength;
+						FVector Offset = Attachment.Offset;
+						if (Attachment.bAddHoleZOffset) Offset.Z += WallSegment->HoleDistanceToFloor;
+						FVector SimpleRotatedOffset = Offset.RotateAngleAxis(AttachmentTangentAngle, FVector(0, 0, 1));
 						AddSplineMesh(
-							Attachment.Mesh, CurrentDistance, Width, TargetThickness, TargetHeight,
+							Mesh, CurrentDistance, Width, TargetThickness, TargetHeight,
 							SimpleRotatedOffset + FVector(0, 0, MinHeightLocal + ZOffset), Attachment.SplineMeshAxis
 						);
 						break;
@@ -1609,8 +1750,9 @@ bool ABuilding::AddAttachments(int LevelDescriptionIndex, double ZOffset)
 						Offset2[0] *= GetSize(EAxisKind::Width, ActorExtent);
 						Offset2[1] *= GetSize(EAxisKind::Thickness, ActorExtent);
 						Offset2[2] *= GetSize(EAxisKind::Height, ActorExtent);
-						FVector FinalOffset = Attachment.Offset + Offset2;
-						FVector RotatedOffset = FinalOffset.RotateAngleAxis(AttachmentTangentAngle, FVector(0, 0, 1));
+						FVector Offset = Attachment.Offset + Offset2;
+						if (Attachment.bAddHoleZOffset) Offset.Z += WallSegment->HoleDistanceToFloor;
+						FVector RotatedOffset = Offset.RotateAngleAxis(AttachmentTangentAngle, FVector(0, 0, 1));
 
 						NewActor->SetActorScale3D(Scale);
 						NewActor->SetActorLocation(AttachmentLocation + RotatedOffset + FVector(0, 0, ZOffset));
@@ -1620,13 +1762,13 @@ bool ABuilding::AddAttachments(int LevelDescriptionIndex, double ZOffset)
 				}
 			}
 
-			if (WallSegment.bAutoExpand)
+			if (WallSegment->bAutoExpand)
 			{
-				CurrentDistance += FillersSizeAtSplinePoint[LevelDescriptionIndex][i];
+				CurrentDistance += FillersSizeAtFloorAndSplinePoint[FloorIndex][i];
 			}
 			else
 			{
-				CurrentDistance += WallSegment.SegmentLength;
+				CurrentDistance += WallSegment->SegmentLength;
 			}
 		}
 	}
@@ -1638,11 +1780,20 @@ bool ABuilding::AddAttachments()
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AddAttachments");
 
-	double CurrentHeight = InternalBuildingConfiguration->ExtraWallBottom;
-	for (auto& LevelDescriptionIndex : LevelDescriptionsIndices)
+	double CurrentHeight = BCfg->ExtraWallBottom;
+
+	int NumFloors = ExpandedLevelDescriptionsKeys.Num();
+	for (int FloorIndex = 0; FloorIndex < NumFloors; FloorIndex++)
 	{
-		if (!AddAttachments(LevelDescriptionIndex, CurrentHeight)) return false;
-		CurrentHeight += ExpandedLevels[LevelDescriptionIndex].LevelHeight;
+		auto &LevelDescriptionKey = ExpandedLevelDescriptionsKeys[FloorIndex];
+
+		if (!BCfg->CheckValidKey(LevelDescriptionKey)) return false;
+
+		ULevelDescription *LevelDescription = BCfg->LevelsMap[LevelDescriptionKey];
+
+		if (!AddAttachments(FloorIndex, LevelDescription, CurrentHeight)) return false;
+
+		CurrentHeight += LevelDescription->LevelHeight;
 	}
 
 	return true;
@@ -1652,25 +1803,25 @@ void ABuilding::AppendBuildingStructure(UDynamicMesh* TargetMesh)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendBuildingStructure");
 
-	if (InternalBuildingConfiguration->bAutoPadWallBottom)
+	if (BCfg->bAutoPadWallBottom)
 	{
-		InternalBuildingConfiguration->ExtraWallBottom = MaxHeightLocal - MinHeightLocal + InternalBuildingConfiguration->PadBottom;
+		BCfg->ExtraWallBottom = MaxHeightLocal - MinHeightLocal + BCfg->PadBottom;
 	}
 
 	if (
-		InternalBuildingConfiguration->BuildingGeometry == EBuildingGeometry::BuildingWithFloorsAndEmptyInside ||
-		InternalBuildingConfiguration->RoofKind == ERoofKind::Point ||
-		InternalBuildingConfiguration->RoofKind == ERoofKind::InnerSpline
+		BCfg->BuildingGeometry == EBuildingGeometry::BuildingWithFloorsAndEmptyInside ||
+		BCfg->RoofKind == ERoofKind::Point ||
+		BCfg->RoofKind == ERoofKind::InnerSpline
 	)
 	{
 		ComputeOffsetPolygons();
 	}
 
-	if (InternalBuildingConfiguration->BuildingGeometry == EBuildingGeometry::BuildingWithFloorsAndEmptyInside)
+	if (BCfg->BuildingGeometry == EBuildingGeometry::BuildingWithFloorsAndEmptyInside)
 	{
 		AppendWallsWithHoles(TargetMesh);
 		
-		if (InternalBuildingConfiguration->bBuildFloorTiles || InternalBuildingConfiguration->RoofKind == ERoofKind::Flat)
+		if (BCfg->bBuildFloorTiles || BCfg->RoofKind == ERoofKind::Flat)
 		{
 			if (!AppendFloors(TargetMesh)) return;
 		}
@@ -1680,8 +1831,8 @@ void ABuilding::AppendBuildingStructure(UDynamicMesh* TargetMesh)
 		AppendBuildingWithoutInside(TargetMesh);
 	}
 
-	for (int i = 0; i < InternalBuildingConfiguration->Materials.Num(); i++)
-		DynamicMeshComponent->SetMaterial(i, InternalBuildingConfiguration->Materials[i]);
+	for (int i = 0; i < BCfg->MaterialsArray.Num(); i++)
+		DynamicMeshComponent->SetMaterial(i, BCfg->MaterialsArray[i]);
 }
 
 bool ABuilding::AppendBuilding(UDynamicMesh* TargetMesh, FName SpawnedActorsPathOverride)
@@ -1696,8 +1847,8 @@ bool ABuilding::AppendBuilding(UDynamicMesh* TargetMesh, FName SpawnedActorsPath
 	AppendBuildingStructure(TargetMesh);
 		
 	if (
-		InternalBuildingConfiguration->RoofKind == ERoofKind::Point ||
-		InternalBuildingConfiguration->RoofKind == ERoofKind::InnerSpline
+		BCfg->RoofKind != ERoofKind::None &&
+		BCfg->RoofKind != ERoofKind::Flat
 	)
 	{
 		AppendRoof(TargetMesh);
@@ -1713,24 +1864,24 @@ bool ABuilding::AppendBuilding(UDynamicMesh* TargetMesh, FName SpawnedActorsPath
 		}
 
 	#if WITH_EDITOR
-		if (InternalBuildingConfiguration->bConvertToStaticMesh)
+		if (BCfg->bConvertToStaticMesh)
 		{
 			GenerateStaticMesh();
 		}
 
-		if (InternalBuildingConfiguration->bConvertToVolume)
+		if (BCfg->bConvertToVolume)
 		{
 			GenerateVolume(SpawnedActorsPathOverride);
 		}
 
-		if (InternalBuildingConfiguration->bConvertToStaticMesh || InternalBuildingConfiguration->bConvertToVolume)
+		if (BCfg->bConvertToStaticMesh || BCfg->bConvertToVolume)
 		{
 			DynamicMeshComponent->GetDynamicMesh()->Reset();
 		}
 
 	#else
 
-		if (InternalBuildingConfiguration->bConvertToStaticMesh && InternalBuildingConfiguration->bConvertToVolume)
+		if (BCfg->bConvertToStaticMesh || BCfg->bConvertToVolume)
 		{
 			UE_LOG(LogBuildingsFromSplines, Warning, TEXT("Cannot convert building to static mesh or volume at runtime"));
 		}
@@ -1740,7 +1891,7 @@ bool ABuilding::AppendBuilding(UDynamicMesh* TargetMesh, FName SpawnedActorsPath
 		{
 			TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendBuilding/AutoGenerateXAtlasMeshUVs");
 
-			if (InternalBuildingConfiguration->bAutoGenerateXAtlasMeshUVs)
+			if (BCfg->bAutoGenerateXAtlasMeshUVs)
 			{
 				UGeometryScriptLibrary_MeshUVFunctions::AutoGenerateXAtlasMeshUVs(TargetMesh, 0, FGeometryScriptXAtlasOptions());
 			}
@@ -1789,37 +1940,31 @@ void ABuilding::GenerateStaticMesh()
 		}
 	}
 
+	UE::AssetUtils::FStaticMeshAssetOptions StaticMeshAssetOptions;
+	StaticMeshAssetOptions.NewAssetPath = StaticMeshPath;
+	StaticMeshAssetOptions.NumMaterialSlots = DynamicMeshComponent->GetNumMaterials();
+	StaticMeshAssetOptions.bGenerateNaniteEnabledMesh = BCfg->bEnableNanite;
+	StaticMeshAssetOptions.NaniteSettings.bEnabled = true;
+	StaticMeshAssetOptions.AssetMaterials = DynamicMeshComponent->GetMaterials();
+	StaticMeshAssetOptions.SourceMeshes.DynamicMeshes.Add(DynamicMeshComponent->GetDynamicMesh()->GetMeshPtr());
 
-	FGeometryScriptCreateNewStaticMeshAssetOptions Options;
-	Options.bEnableCollision = true;
-	Options.CollisionMode = DynamicMeshComponent->CollisionType;
-	UStaticMesh *StaticMesh = UGeometryScriptLibrary_CreateNewAssetFunctions::CreateNewStaticMeshAssetFromMesh(
-		DynamicMeshComponent->GetDynamicMesh(), StaticMeshPath,
-		Options, Outcome
-	);
-
-	if (Outcome != EGeometryScriptOutcomePins::Success || !StaticMesh)
+	UE::AssetUtils::FStaticMeshResults StaticMeshResults;
+	if (UE::AssetUtils::CreateStaticMeshAsset(StaticMeshAssetOptions, StaticMeshResults) != UE::AssetUtils::ECreateStaticMeshResult::Ok)
 	{
 		LCReporter::ShowError(
-			LOCTEXT("StaticMeshError", "Internal error while creating static mesh for building. You may want to regenerate the building.")
+			LOCTEXT("StaticMeshError", "Internal error while creating static mesh from dynamic mesh, please check log output.")
 		);
 		return;
 	}
 
-	FMeshNaniteSettings NaniteSettings;
-	NaniteSettings.bEnabled = InternalBuildingConfiguration->bEnableNanite;
-	NaniteSettings.bPreserveArea = true;
-	StaticMesh->NaniteSettings = NaniteSettings;
-
-	int NumMaterials = DynamicMeshComponent->GetNumMaterials();
-	TArray<FStaticMaterial> Materials;
-	for (int i = 0; i < NumMaterials; i++)
+	UStaticMesh *StaticMesh = StaticMeshResults.StaticMesh;
+	if (!IsValid(StaticMesh))
 	{
-		FStaticMaterial Material(DynamicMeshComponent->GetMaterial(i));
-		Materials.Add(Material);
+		LCReporter::ShowError(
+			LOCTEXT("StaticMeshError", "Internal error while creating static mesh from dynamic mesh, invalid pointer, please check log output.")
+		);
+		return;
 	}
-	StaticMesh->SetStaticMaterials(Materials);
-	StaticMesh->InitResources(); // this calls StaticMesh->UpdateUVChannelData() to avoid Error: Ensure condition failed: GetStaticMaterials()[MaterialIndex].UVChannelData.bInitialized
 
 	StaticMeshComponent = NewObject<UStaticMeshComponent>(RootComponent);
 	StaticMeshComponent->SetStaticMesh(StaticMesh);
@@ -1834,10 +1979,7 @@ void ABuilding::GenerateVolume(FName SpawnedActorsPathOverride)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("GenerateVolume");
 
-	if (Volume.IsValid())
-	{
-		Volume->Destroy();
-	}
+	if (Volume.IsValid()) Volume->Destroy();
 
 	FGeometryScriptCreateNewVolumeFromMeshOptions Options;
 	EGeometryScriptOutcomePins Outcome;
