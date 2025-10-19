@@ -15,7 +15,7 @@ public class BuildingsFromSplines : ModuleRules
 			new string[]
 			{
 				"Core",
-				"GeometryFramework",
+				"GeometryFramework"
 			}
 		);
 			
@@ -33,7 +33,8 @@ public class BuildingsFromSplines : ModuleRules
 				// Landscape Combinator Dependencies
 				"OSMUserData",
 				"LCCommon",
-				"ConcurrencyHelpers"
+				"ConcurrencyHelpers",
+				"StraightSkeletonWrapper"
 			}
 		);
 
@@ -42,8 +43,8 @@ public class BuildingsFromSplines : ModuleRules
 			PrivateDependencyModuleNames.Add("UnrealEd");
 			PrivateDependencyModuleNames.Add("PropertyEditor");
 			PrivateDependencyModuleNames.Add("GeometryScriptingEditor");
+			PrivateDependencyModuleNames.Add("ModelingComponentsEditorOnly");
 		}
-
 
 	}
 }

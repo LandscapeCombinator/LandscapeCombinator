@@ -128,34 +128,6 @@ bool ALevelCoordinates::GetCRSCoordinatesFromOriginExtent(UWorld* World, FVector
 	return GlobalCoordinates->GetCRSCoordinatesFromOriginExtent(Origin, Extent, ToCRS, OutCoordinates);
 }
 
-bool ALevelCoordinates::GetLandscapeCRSBounds(ALandscape* Landscape, FString CRS, FVector4d &OutCoordinates)
-{
-	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(Landscape->GetWorld());
-	if (!GlobalCoordinates) return false;
-	return GlobalCoordinates->GetLandscapeCRSBounds(Landscape, CRS, OutCoordinates);
-}
-
-bool ALevelCoordinates::GetLandscapeCRSBounds(ALandscape* Landscape, FVector4d& OutCoordinates)
-{
-	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(Landscape->GetWorld());
-	if (!GlobalCoordinates) return false;
-	return GlobalCoordinates->GetLandscapeCRSBounds(Landscape, OutCoordinates);
-}
-
-bool ALevelCoordinates::GetActorCRSBounds(AActor* Actor, FString CRS, FVector4d& OutCoordinates)
-{
-	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(Actor->GetWorld());
-	if (!GlobalCoordinates) return false;
-	return GlobalCoordinates->GetActorCRSBounds(Actor, CRS, OutCoordinates);
-}
-
-bool ALevelCoordinates::GetActorCRSBounds(AActor* Actor, FVector4d& OutCoordinates)
-{
-	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(Actor->GetWorld());
-	if (!GlobalCoordinates) return false;
-	return GlobalCoordinates->GetActorCRSBounds(Actor, OutCoordinates);
-}
-
 void ALevelCoordinates::CreateWorldMap()
 {
 	if (!GlobalCoordinates)

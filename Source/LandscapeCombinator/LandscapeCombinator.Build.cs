@@ -12,6 +12,7 @@ public class LandscapeCombinator : ModuleRules
 		CppStandard = CppStandardVersion.Cpp20;
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
+		bUseUnity = false;
 
 		PublicDependencyModuleNames.AddRange(
 			new string[]

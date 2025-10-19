@@ -11,7 +11,7 @@
 #include "Components/DynamicMeshComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "SegmentTypes.h"
-#include "GameFramework/Volume.h" 
+#include "GameFramework/Volume.h"
 
 #include "Building.generated.h"
 
@@ -30,8 +30,8 @@ public:
 	virtual void Destroyed() override;
 	
 	double MinHeightLocal = MAX_dbl;
-	double MaxHeightLocal = MAX_dbl;
 	double MinHeightWorld = MAX_dbl;
+	double MaxHeightLocal = -MAX_dbl;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
 	TObjectPtr<USceneComponent> EmptySceneComponent;
@@ -63,27 +63,10 @@ public:
 	bool bGenerateWhenModified = false;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Building",
-		meta = (DisplayPriority = "1")
+		EditAnywhere, BlueprintReadWrite, Instanced, Category = "Building",
+		meta = (ShowOnlyInnerProperties, DisplayName="Building Configuration", DisplayPriority = "1")
 	)
-	bool bUseInlineBuildingConfiguration = true;
-
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Building",
-		meta = (EditConditionHides, EditCondition = "!bUseInlineBuildingConfiguration", DisplayPriority = "2")
-	)
-	TSubclassOf<UBuildingConfiguration> BuildingConfigurationClass = UBuildingConfiguration::StaticClass();
-
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Building",
-		meta = (
-			EditConditionHides, EditCondition = "bUseInlineBuildingConfiguration",
-			ShowOnlyInnerProperties,
-			DisplayPriority = "4",
-			DisplayName = "Inline Building Configuration"
-		)
-	)
-	TObjectPtr<UBuildingConfiguration> BuildingConfiguration;
+	TObjectPtr<UBuildingConfiguration> BCfg;
 
 	virtual bool Cleanup_Implementation(bool bSkipPrompt) override;
 
@@ -119,89 +102,16 @@ public:
 
 	UFUNCTION()
 	void SetReceivesDecals();
-	
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "BuildingConfigurationConversion",
-		meta = (DisplayPriority = "1000")
-	)
-	FString BuildingConfigurationClassPath = "/Game";
-	
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "BuildingConfigurationConversion",
-		meta = (DisplayPriority = "1001")
-	)
-	FString BuildingConfigurationClassName = "BCFG_Converted";
-
-#if WITH_EDITOR
-
-	UFUNCTION(BlueprintCallable, CallInEditor, Category = "BuildingConfigurationConversion",
-		meta = (DisplayPriority = "111")
-	)
-	void CreateBuildingConfigurationClassFromInlineBuildingConfiguration()
-	{
-		if (IsValid(BuildingConfiguration))
-		{
-			BuildingConfigurationClass = BuildingConfiguration->CreateClass(BuildingConfigurationClassPath, BuildingConfigurationClassName);
-			if (IsValid(BuildingConfigurationClass)) bUseInlineBuildingConfiguration = false;
-		}
-		else
-		{
-			LCReporter::ShowError(
-				LOCTEXT("InvalidInlineBuildingConfiguration", "Inline Building Configuration is not valid.")
-			);
-			return;
-		}
-	}
-
-	UFUNCTION(BlueprintCallable, CallInEditor, Category = "BuildingConfigurationConversion",
-		meta = (DisplayPriority = "112")
-	)
-	void CopyBuildingConfigurationClassToInlineBuildingConfiguration()
-	{
-		if (!IsValid(BuildingConfiguration))
-		{
-			LCReporter::ShowError(
-				LOCTEXT("InvalidInlineBuildingConfiguration", "The Inline Building Configuration is not valid.")
-			);
-			return;
-		}
-
-		if (BuildingConfiguration->LoadFromClass(BuildingConfigurationClass))
-		{
-			bUseInlineBuildingConfiguration = true;
-			LCReporter::ShowInfo(
-				FText::Format(
-					LOCTEXT("CopyDataAssetToInlineBuildingConfiguration", "Class {0} was copied to Inline Building Configuration."),
-					BuildingConfigurationClass->GetDisplayNameText()
-				),
-				"SuppressCopyDataAssetToInlineBuildingConfiguration"
-			);
-		}
-		else
-		{
-			LCReporter::ShowError(
-				FText::Format(
-					LOCTEXT("CopyDataAssetToInlineBuildingConfigurationFailed", "Failed to copy class {0} to Inline Building Configuration."),
-					BuildingConfigurationClass->GetDisplayNameText()
-				)
-			);
-		}
-	}
-
-#endif
-
 
 protected:
-	TObjectPtr<UBuildingConfiguration> InternalBuildingConfiguration = nullptr;
-	FWallSegment DummyFiller;
+	double LastFloorExternalWallThickness = 0;
 	double LevelsHeightsSum = 0;
 	UDataTable *LevelsTable;
 	UDataTable *WallSegmentsTable;
-	TArray<int> LevelDescriptionsIndices;
-	TArray<FLevelDescription> ExpandedLevels;
+	TArray<FString> ExpandedLevelDescriptionsKeys;
 
-	TArray<TArray<TArray<FWallSegment>>> WallSegmentsAtSplinePoint;
-	TArray<TArray<double>> FillersSizeAtSplinePoint;
+	TArray<TArray<TArray<UWallSegment*>>> WallSegmentsAtFloorAndSplinePoint;
+	TArray<TArray<double>> FillersSizeAtFloorAndSplinePoint;
 	bool InitializeWallSegments();
 
 #if WITH_EDITOR
@@ -237,6 +147,7 @@ protected:
 	// and there are subdivisions (depending on the WallSubdivions property of the BuildingConfiguration)
 	// and the points are clockwise (when seen from above in Unreal, which isn't the same as clockwise in TPolygon2
 	// because of inverted Y-axis)
+	UPROPERTY(VisibleAnywhere, Category = "Building")
 	TObjectPtr<USplineComponent> BaseClockwiseSplineComponent;
 	TArray<FTransform> BaseClockwiseFrames;
 	TArray<double> BaseClockwiseFramesTimes;
@@ -259,7 +170,7 @@ protected:
 	TArray<FVector2D> MakePolygon(bool bInternalWall, double BeginDistance, double Length, double Thickness);
 	FVector2D GetShiftedPoint(TArray<FTransform> Frames, int Index, double Shift, bool bIsLoop);
 
-	bool AppendWallsWithHoles(UDynamicMesh* TargetMesh, bool bInternalWall, double ZOffset, int LevelDescriptionIndex);
+	bool AppendWallsWithHoles(UDynamicMesh* TargetMesh, bool bInternalWall, double ZOffset, int FloorIndex, ULevelDescription* LevelDescription);
 	bool AppendWallsWithHoles(UDynamicMesh* TargetMesh);
 	void AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, double Length, double Thickness, double Height, FVector Offset, ESplineMeshAxis::Type SplineMeshAxis);
 	void AppendAlongSpline(UDynamicMesh* TargetMesh, bool bInternalWall, double BeginDistance, double Length, double Height, double ZOffset, double Thickness, int MaterialID);
@@ -269,7 +180,7 @@ protected:
 	bool AppendBuildingWithoutInside(UDynamicMesh *TargetMesh);
 	
 	bool AddAttachments();
-	bool AddAttachments(int LevelDescriptionIndex, double ZOffset);
+	bool AddAttachments(int FloorIndex, ULevelDescription* LevelDescription, double ZOffset);
 
 };
 

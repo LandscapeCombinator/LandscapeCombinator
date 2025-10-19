@@ -40,9 +40,6 @@ public:
 		return false;
 	}
 
-	UFUNCTION(BlueprintImplementableEvent, Category = "LCGenerator")
-	void OnGenerateBP(FName SpawnedActorsPath, bool bIsUserInitiated);
-
 	virtual bool OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated) { return true; }
 
 	bool Generate(FName SpawnedActorsPath, bool bIsUserInitiated);

@@ -9,7 +9,7 @@ class HMXYZ: public HMFetcher
 {
 public:
 	HMXYZ(
-		bool bAllowInvalidTiles0,
+		bool bAllowInvalidTiles0, bool bEnableParallelDownload0,
 		FString Name0, FString Layer0, FString Format0, FString URL0,
 		int Zoom0, int MinX0, int MaxX0, int MinY0, int MaxY0,
 		bool bMaxY_IsNorth0, bool bGeoreferenceSlippyTiles0, bool bDecodeMapbox0,
@@ -31,6 +31,7 @@ public:
 		bDecodeMapbox = bDecodeMapbox0;
 		bUseTerrariumFormula = bUseTerrariumFormula0;
 		bAllowInvalidTiles = bAllowInvalidTiles0;
+		bEnableParallelDownload = bEnableParallelDownload0;
 	};
 
 	FString GetOutputDir() override
@@ -41,6 +42,7 @@ public:
 
 protected:
 	bool bAllowInvalidTiles;
+	bool bEnableParallelDownload;
 	FString Name;
 	FString Layer;
 	FString Format;

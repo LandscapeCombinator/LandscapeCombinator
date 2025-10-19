@@ -12,8 +12,6 @@
 
 #include "LandscapeCombination.generated.h"
 
-#define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
-
 USTRUCT(BlueprintType)
 struct FGeneratorWrapper
 {

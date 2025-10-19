@@ -21,6 +21,8 @@ struct FPointList
 	TMap<FString, FString> Fields;
 };
 
+#define LOCTEXT_NAMESPACE "FGDALInterfaceModule"
+
 class GDALINTERFACE_API GDALInterface
 {
 public:
@@ -73,3 +75,5 @@ public:
 	static bool ExportPolygons(const TArray<TArray<FVector>> &PointLists, const FString &File);
 	static bool WriteHeightmapDataToTIF(const FString& File, int32 SizeX, int32 SizeY, uint16* HeightmapData);
 };
+
+#undef LOCTEXT_NAMESPACE

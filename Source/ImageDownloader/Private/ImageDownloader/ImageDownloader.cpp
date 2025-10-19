@@ -338,7 +338,7 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(bool bIsUserInitiated, FString
 				HMFetcher *Result = new HMDebugFetcher(
 					"XYZ_Download",
 					new HMXYZ(
-						bAllowInvalidTiles,
+						bAllowInvalidTiles, bEnableParallelDownload,
 						Name, Layer, Format, URL2, XYZ_Zoom, XYZ_MinX, XYZ_MaxX, XYZ_MinY, XYZ_MaxY,
 						bMaxY_IsNorth2, bGeoreferenceSlippyTiles2,
 							ImageSourceKind == EImageSourceKind::MapTiler_Heightmaps ||
@@ -366,8 +366,18 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(bool bIsUserInitiated, FString
 	}
 }
 
+FVector4d GetCoordinatesFromSize(double Longitude, double Latitude, double Width, double Height)
+{
+	double LatitudeRadians = FMath::DegreesToRadians(Latitude);
+	double ScaleFactor = FMath::Max(FMath::Cos(LatitudeRadians), 0.1);
+	double LongDiff = Width / 40000000 * 360 / 2;
+	double LatDiff  = Height * ScaleFactor / 40000000 * 360 / 2;
+	return FVector4d(Longitude - LongDiff, Longitude + LongDiff, Latitude - LatDiff, Latitude + LatDiff);
+}
+
 HMFetcher* UImageDownloader::CreateFetcher(
-	bool bIsUserInitiated, FString Name, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG,
+	bool bIsUserInitiated, FString Name, bool bEnsureOneBand, bool bScaleAltitude,
+	bool bConvertToPNG, bool bConvertFirstOnly, bool bAddMissingTiles,
 	TFunction<bool(HMFetcher*)> RunBeforePNG, TObjectPtr<UGlobalCoordinates> GlobalCoordinates
 )
 {
@@ -430,21 +440,79 @@ HMFetcher* UImageDownloader::CreateFetcher(
 		FVector4d Coordinates(0, 0, 0, 0);
 		if (bCropCoordinates)
 		{
-			if (!IsValid(CroppingActor))
+			if (bCropFollowingParametersSelection)
 			{
-				LCReporter::ShowError(
-					LOCTEXT("UImageDownloader::CreateFetcher::NoActor", "Please select a Cropping Actor if you want to crop the output image.")
-				);
-				return nullptr;
-			}
+				if (!AllowsParametersSelection())
+				{
+					LCReporter::ShowError(
+						LOCTEXT("UImageDownloader::CreateFetcher::NoParameterSelection", "Crop Following Parameters Selection option is only available for WMS and XYZ tiles")
+					);
+					return nullptr;
+				}
+				
+				if (ParametersSelection == EParametersSelection::FromBoundingActor)
+				{
 
-			if (!ALevelCoordinates::GetActorCRSBounds(CroppingActor, Coordinates))
+					if (!IsValid(ParametersBoundingActor))
+					{
+						LCReporter::ShowError(
+							LOCTEXT("UImageDownloader::CreateFetcher::InvalidBoundingActor", "Invalid Bounding Actor in parameters selection")
+						);
+						return nullptr;
+					}
+
+					if (!LandscapeUtils::GetActorCRSBounds(ParametersBoundingActor, Coordinates))
+					{
+						LCReporter::ShowError(FText::Format(
+							LOCTEXT("UImageDownloader::CreateFetcher::NoCoordinates", "Could not compute bounding coordinates of Actor {0}"),
+							FText::FromString(CroppingActor->GetActorNameOrLabel())
+						));
+						return nullptr;
+					}
+				}
+				else if (ParametersSelection == EParametersSelection::FromEPSG4326Box)
+				{
+					FVector4d InCoordinates;
+					InCoordinates[0] = MinLong;
+					InCoordinates[1] = MaxLong;
+					InCoordinates[2] = MinLat;
+					InCoordinates[3] = MaxLat;
+
+					if (!GDALInterface::ConvertCoordinates(InCoordinates, Coordinates, "EPSG:4326", GlobalCoordinates->CRS)) return nullptr;
+				}
+				else if (ParametersSelection == EParametersSelection::FromEPSG4326Coordinates)
+				{
+					FVector4d InCoordinates = GetCoordinatesFromSize(Longitude, Latitude, RealWorldWidth, RealWorldHeight);
+
+					if (!GDALInterface::ConvertCoordinates(InCoordinates, Coordinates, "EPSG:4326", GlobalCoordinates->CRS)) return nullptr;
+				}
+				else
+				{
+					LCReporter::ShowError(
+						LOCTEXT("UImageDownloader::CreateFetcher::ManualParametersSelection", "Manual parameters selection cannot be used for cropping")
+					);
+					return nullptr;
+				}
+
+			}
+			else
 			{
-				LCReporter::ShowError(FText::Format(
-					LOCTEXT("UImageDownloader::CreateFetcher::NoCoordinates", "Could not compute bounding coordinates of Actor {0}"),
-					FText::FromString(CroppingActor->GetActorNameOrLabel())
-				));
-				return nullptr;
+				if (!IsValid(CroppingActor))
+				{
+					LCReporter::ShowError(
+						LOCTEXT("UImageDownloader::CreateFetcher::NoActor", "Please select a Cropping Actor to crop the output image.")
+					);
+					return nullptr;
+				}
+
+				if (!LandscapeUtils::GetActorCRSBounds(CroppingActor, Coordinates))
+				{
+					LCReporter::ShowError(FText::Format(
+						LOCTEXT("UImageDownloader::CreateFetcher::NoCoordinates", "Could not compute bounding coordinates of Actor {0}"),
+						FText::FromString(CroppingActor->GetActorNameOrLabel())
+					));
+					return nullptr;
+				}
 			}
 		}
 
@@ -458,7 +526,11 @@ HMFetcher* UImageDownloader::CreateFetcher(
 	
 	if (bConvertToPNG)
 	{
-		Result = Result->AndThen(new HMDebugFetcher("ToPNG", new HMToPNG(Name, bScaleAltitude)));
+		Result = Result->AndThen(new HMDebugFetcher("ToPNG", new HMToPNG(Name, bScaleAltitude, bConvertFirstOnly)));
+	}
+
+	if (bAddMissingTiles)
+	{
 		Result = Result->AndThen(new HMDebugFetcher("AddMissingTiles", new HMAddMissingTiles()));
 	}
 
@@ -641,14 +713,11 @@ bool UImageDownloader::SetSourceParametersBool(bool bDialog)
 
 bool UImageDownloader::SetSourceParametersFromEPSG4326Coordinates(bool bDialog)
 {
-	double LatitudeRadians = FMath::DegreesToRadians(Latitude);
-	double ScaleFactor = FMath::Max(FMath::Cos(LatitudeRadians), 0.1);
-	double LongDiff = RealWorldWidth / 40000000 * 360 / 2;
-	double LatDiff  = RealWorldHeight * ScaleFactor / 40000000 * 360 / 2;
-	MinLong = Longitude - LongDiff;
-	MaxLong = Longitude + LongDiff;
-	MinLat = Latitude - LatDiff;
-	MaxLat = Latitude + LatDiff;
+	FVector4d Coordinates = GetCoordinatesFromSize(Longitude, Latitude, RealWorldWidth, RealWorldHeight);
+	MinLong = Coordinates[0];
+	MaxLong = Coordinates[1];
+	MinLat = Coordinates[2];
+	MaxLat = Coordinates[3];
 	return SetSourceParametersFromEPSG4326Box(bDialog);
 }
 
@@ -712,7 +781,7 @@ bool UImageDownloader::SetSourceParametersFromActor(bool bDialog)
 {
 	FVector4d Coordinates;
 
-	if (!ParametersBoundingActor)
+	if (!IsValid(ParametersBoundingActor))
 	{
 		if (bDialog)
 		{
@@ -750,7 +819,7 @@ bool UImageDownloader::SetSourceParametersFromActor(bool bDialog)
 		return false;
 	}
 
-	if (!ALevelCoordinates::GetActorCRSBounds(ParametersBoundingActor, SourceCRS, Coordinates))
+	if (!LandscapeUtils::GetActorCRSBounds(ParametersBoundingActor, SourceCRS, Coordinates))
 	{
 		if (bDialog)
 		{
@@ -1010,7 +1079,7 @@ bool UImageDownloader::DownloadImages(bool bIsUserInitiated, bool bEnsureOneBand
 	}
 	
 	FString Name = Owner->GetWorld()->GetName() + "-" + Owner->GetActorNameOrLabel();
-	HMFetcher *Fetcher = CreateFetcher(bIsUserInitiated, Name, bEnsureOneBand, false, false, nullptr, GlobalCoordinates);
+	HMFetcher *Fetcher = CreateFetcher(bIsUserInitiated, Name, bEnsureOneBand, false, false, false, false, nullptr, GlobalCoordinates);
 
 	if (!Fetcher)
 	{

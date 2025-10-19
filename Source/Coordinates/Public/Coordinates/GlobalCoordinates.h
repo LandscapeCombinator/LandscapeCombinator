@@ -66,8 +66,4 @@ public:
 	bool GetCRSCoordinatesFromUnrealLocations(FVector4d Locations, FString ToCRS, FVector4d& OutCoordinates);
 	bool GetCRSCoordinatesFromFBox(FBox Box, FString ToCRS, FVector4d& OutCoordinates);
 	bool GetCRSCoordinatesFromOriginExtent(FVector Origin, FVector Extent, FString ToCRS, FVector4d& OutCoordinates);
-	bool GetLandscapeCRSBounds(ALandscape *Landscape, FString ToCRS, FVector4d &OutCoordinates);
-	bool GetLandscapeCRSBounds(ALandscape *Landscape, FVector4d &OutCoordinates);
-	bool GetActorCRSBounds(AActor *Actor, FString ToCRS, FVector4d &OutCoordinates);
-	bool GetActorCRSBounds(AActor *Actor, FVector4d &OutCoordinates);
 };

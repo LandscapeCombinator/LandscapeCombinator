@@ -15,7 +15,8 @@ public class LCCommon : ModuleRules
 			new string[]
 			{
 				"Core",
-				"DeveloperSettings"
+				"DeveloperSettings",
+				"LandscapeUtils"
 			}
 		);
 

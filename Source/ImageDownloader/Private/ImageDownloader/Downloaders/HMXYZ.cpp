@@ -91,6 +91,7 @@ bool HMXYZ::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 
 	UE_LOG(LogImageDownloader, Log, TEXT("Downloading and Georeferencing %d tiles"), NumTiles);
 	bool bSuccess = Concurrency::RunManyAndWait(
+		bEnableParallelDownload,
 		NumTiles,
 
 		[this, bShowedDialog, NumTiles, &OutputFilesQueue](int i)

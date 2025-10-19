@@ -2,8 +2,10 @@
 
 #include "LCCommon/LCBlueprintLibrary.h"
 #include "LCCommon/LogLCCommon.h"
+#include "ConcurrencyHelpers/LCReporter.h"
 #include "EngineUtils.h"
 #include "Kismet/GameplayStatics.h"
+#include "Components/SplineComponent.h"
 
 #if WITH_EDITOR
 #include "EditorViewportClient.h"
@@ -96,6 +98,54 @@ bool ULCBlueprintLibrary::GetFirstPlayerPosition(FVector &OutPosition)
 		}
 	}
 	return false;
+}
+
+
+TArray<AActor*> ULCBlueprintLibrary::FindActors(UWorld *World, FName Tag)
+{
+	check(IsInGameThread());
+
+	TArray<AActor*> Actors;
+
+	if (Tag.IsNone()) UGameplayStatics::GetAllActorsOfClass(World, AActor::StaticClass(), Actors);
+	else UGameplayStatics::GetAllActorsWithTag(World, Tag, Actors);
+
+	return Actors;
+}
+
+TArray<USplineComponent*> ULCBlueprintLibrary::FindSplineComponents(UWorld *World, bool bIsUserInitiated, FName Tag, FName ComponentTag)
+{
+	check(IsInGameThread());
+
+	TArray<USplineComponent*> Result;
+
+	bool bFound = false;
+	
+	for (auto& Actor : FindActors(World, Tag))
+	{
+		if (ComponentTag.IsNone())
+		{
+			TArray<USplineComponent*> SplineComponents;
+			Actor->GetComponents<USplineComponent>(SplineComponents, true);
+
+			for (auto &SplineComponent : SplineComponents)
+				Result.Add(Cast<USplineComponent>(SplineComponent));
+		}
+		else
+		{
+			for (auto &SplineComponent : Actor->GetComponentsByTag(USplineComponent::StaticClass(), ComponentTag))
+				Result.Add(Cast<USplineComponent>(SplineComponent));
+		}
+	}
+
+	if (bIsUserInitiated && Result.Num() == 0)
+	{
+		LCReporter::ShowError(
+			LOCTEXT("NoSplineComponentTagged", "Could not find spline components with the given tags.")
+		);
+	}
+	
+	return Result;
 }
 
 #if WITH_EDITOR

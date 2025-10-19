@@ -23,7 +23,6 @@
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
-
 UENUM(BlueprintType)
 enum class EComponentsMethod : uint8
 {
@@ -60,6 +59,22 @@ enum class EDecalCreation : uint8
 	MapTiler UMETA(DisplayName = "MapTiler"),
 };
 
+UENUM(BlueprintType)
+enum class ESpawnMethod : uint8
+{
+	CreateFreshLandscape,
+
+	CreateFreshLandscapeIncrementally,
+
+	/**
+	 * This option lets you extend an existing landscape. It will apply the heightmaps to the
+	 * landscape. It will add components as necessary to extend the landscape if the downloaded
+	 * heightmaps extend beyond the current landscape size. The landscape needs to be already placed
+	 * in the rough correct location for the downloaded heightmaps.
+	 */
+	ExtendExistingLandscape
+};
+
 UCLASS(BlueprintType)
 class LANDSCAPECOMBINATOR_API ALandscapeSpawner : public AActor, public ILCGenerator
 {
@@ -86,35 +101,40 @@ public:
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "General",
-		meta = (DisplayPriority = "-1")
+		meta = (DisplayPriority = "-100")
+	)
+	ESpawnMethod SpawnMethod = ESpawnMethod::CreateFreshLandscape;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "General",
+		meta = (EditCondition = "SpawnMethod == ESpawnMethod::ExtendExistingLandscape", EditConditionHides, DisplayPriority = "-50")
+	)
+	TObjectPtr<ALandscape> LandscapeToExtend = nullptr;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "General",
+		meta = (EditCondition = "SpawnMethod != ESpawnMethod::ExtendExistingLandscape", EditConditionHides, DisplayPriority = "-50")
 	)
 	/* Label of the landscape to create. */
 	FString LandscapeLabel = "SpawnedLandscape";
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "General",
-		meta = (DisplayPriority = "0")
+		meta = (EditCondition = "SpawnMethod != ESpawnMethod::ExtendExistingLandscape", EditConditionHides, DisplayPriority = "-49")
 	)
 	/* Tag to add on the spawned landscape. */
 	FName LandscapeTag = "lc";
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "General",
-		meta = (DisplayPriority = "1")
+		meta = (EditCondition = "SpawnMethod != ESpawnMethod::ExtendExistingLandscape", EditConditionHides, DisplayPriority = "-48")
 	)
 	/* Material to apply to the landscape */
 	TObjectPtr<UMaterialInterface> LandscapeMaterial = nullptr;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "General",
-		meta = (DisplayPriority = "2")
-	)
-	/* The scale in the Z-axis of your heightmap, ZScale = 1 corresponds to real-world size. */
-	double ZScale = 1;
-
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "General",
-		meta = (DisplayPriority = "3")
+		meta = (EditCondition = "SpawnMethod != ESpawnMethod::ExtendExistingLandscape", EditConditionHides, DisplayPriority = "-47")
 	)
 	/**
 	 * If you are using World Partition, check this option if you want to create landscape streaming proxies.
@@ -130,7 +150,15 @@ public:
 	)
 	/* Folder used to spawn the actors. This setting is unused when generating from a combination or from blueprints. */
 	FName SpawnedActorsPath;
-	
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "General",
+		meta = (DisplayPriority = "5")
+	)
+	/* The scale in the Z-axis of your heightmap, ZScale = 1 corresponds to real-world size. */
+	double ZScale = 1;
+
+
 	/************
 	 * Blending *
 	 ************/
@@ -139,6 +167,10 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "Blending",
 		meta = (DisplayPriority = "0")
 	)
+	/**
+	 * This is used if you want to create a "hole" in another, larger background landscape, so that the
+	 * newly spawned landscape doesn't get hidden by the background landscape.
+	 */
 	bool bBlendLandscapeWithAnotherLandscape = false;
 
 	UPROPERTY(
@@ -207,14 +239,17 @@ public:
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "ComponentCount",
-		meta = (DisplayPriority = "3")
+		meta = (
+			EditCondition = "SpawnMethod != ESpawnMethod::ExtendExistingLandscape",
+			EditConditionHides, DisplayPriority = "3"
+		)
 	)
 	EComponentsMethod ComponentsMethod = EComponentsMethod::AutoWithoutBorder;
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "ComponentCount",
 		meta = (
-			EditCondition = "ComponentsMethod != EComponentsMethod::Auto && ComponentsMethod != EComponentsMethod::AutoWithoutBorder",
+			EditCondition = "SpawnMethod != ESpawnMethod::ExtendExistingLandscape && ComponentsMethod != EComponentsMethod::Auto && ComponentsMethod != EComponentsMethod::AutoWithoutBorder",
 			EditConditionHides, DisplayPriority = "4"
 		)
 	)
@@ -223,7 +258,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "ComponentCount",
 		meta = (
-			EditCondition = "ComponentsMethod != EComponentsMethod::Auto && ComponentsMethod != EComponentsMethod::AutoWithoutBorder",
+			EditCondition = "SpawnMethod != ESpawnMethod::ExtendExistingLandscape && ComponentsMethod != EComponentsMethod::Auto && ComponentsMethod != EComponentsMethod::AutoWithoutBorder",
 			EditConditionHides, DisplayPriority = "5"
 		)
 	)
@@ -232,7 +267,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "ComponentCount",
 		meta = (
-			EditCondition = "ComponentsMethod != EComponentsMethod::Auto && ComponentsMethod != EComponentsMethod::AutoWithoutBorder",
+			EditCondition = "SpawnMethod != ESpawnMethod::ExtendExistingLandscape && ComponentsMethod != EComponentsMethod::Auto && ComponentsMethod != EComponentsMethod::AutoWithoutBorder",
 			EditConditionHides, DisplayPriority = "6"
 		)
 	)
@@ -264,11 +299,7 @@ public:
 		meta = (DisplayPriority = "-1")
 	)
 	void SpawnLandscape() {
-		Concurrency::RunAsync([this]() {
-			TObjectPtr<ALandscape> UnusedLandscape;
-			TArray<ADecalActor*> UnusedDecals;
-			SpawnLandscape(SpawnedActorsPath, true, UnusedLandscape, UnusedDecals);
-		});
+		GenerateFromGameThread(SpawnedActorsPath, true);
 	};
 
 	bool SpawnLandscape(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TObjectPtr<ALandscape>& OutLandscape, TArray<ADecalActor*>& OutDecals);
