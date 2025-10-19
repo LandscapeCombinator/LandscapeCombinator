@@ -1,7 +1,6 @@
 // Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "Coordinates/GlobalCoordinates.h"
-#include "LandscapeUtils/LandscapeUtils.h"
 #include "ConcurrencyHelpers/LCReporter.h"
 
 #include "Landscape.h"
@@ -123,68 +122,5 @@ bool UGlobalCoordinates::GetCRSCoordinatesFromOriginExtent(FVector Origin, FVect
 
 	return GetCRSCoordinatesFromUnrealLocations(Locations, ToCRS, OutCoordinates);
 }
-
-
-bool UGlobalCoordinates::GetLandscapeCRSBounds(ALandscape *Landscape, FString ToCRS, FVector4d &OutCoordinates)
-{
-	FVector2D MinMaxX, MinMaxY, UnusedMinMaxZ;
-	if (!LandscapeUtils::GetLandscapeBounds(Landscape, MinMaxX, MinMaxY, UnusedMinMaxZ))
-	{
-		LCReporter::ShowError(FText::Format(
-			LOCTEXT("UGlobalCoordinates::GetLandscapeCRSBounds::1", "Could not compute bounds of Landscape {0}"),
-			FText::FromString(Landscape->GetActorNameOrLabel())
-		));
-		return false;
-	}
-
-	FVector4d Locations;
-	Locations[0] = MinMaxX[0];
-	Locations[1] = MinMaxX[1];
-	Locations[2] = MinMaxY[1];
-	Locations[3] = MinMaxY[0];
-	if (!GetCRSCoordinatesFromUnrealLocations(Locations, ToCRS, OutCoordinates))
-	{
-		LCReporter::ShowError(FText::Format(
-			LOCTEXT("UGlobalCoordinates::GetLandscapeCRSBounds::2", "Could not compute coordinates of Landscape {0}"),
-			FText::FromString(Landscape->GetActorNameOrLabel())
-		));
-		return false;
-	}
-
-	return true;
-}
-
-bool UGlobalCoordinates::GetLandscapeCRSBounds(ALandscape* Landscape, FVector4d& OutCoordinates)
-{
-	return GetLandscapeCRSBounds(Landscape, CRS, OutCoordinates);
-}
-
-bool UGlobalCoordinates::GetActorCRSBounds(AActor* Actor, FString ToCRS, FVector4d& OutCoordinates)
-{
-	if (Actor->IsA<ALandscape>())
-	{
-		return GetLandscapeCRSBounds(Cast<ALandscape>(Actor), ToCRS, OutCoordinates);
-	}
-	else
-	{
-		FVector Origin, BoxExtent;
-		Actor->GetActorBounds(true, Origin, BoxExtent);
-		if (!GetCRSCoordinatesFromOriginExtent(Origin, BoxExtent, ToCRS, OutCoordinates))
-		{
-			LCReporter::ShowError(FText::Format(
-				LOCTEXT("UGlobalCoordinates::GetActorCRSBounds", "Internal error while reading {0}'s coordinates."),
-				FText::FromString(Actor->GetActorNameOrLabel())
-			));
-			return false;
-		}
-		return true;
-	}
-}
-
-bool UGlobalCoordinates::GetActorCRSBounds(AActor* Actor, FVector4d& OutCoordinates)
-{
-	return GetActorCRSBounds(Actor, CRS, OutCoordinates);
-}
-
 
 #undef LOCTEXT_NAMESPACE

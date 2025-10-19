@@ -27,15 +27,26 @@ void Concurrency::RunMany(int n, TFunction<void( int i, TFunction<void(bool)> )>
 	RunMany(Elements, Action, OnComplete);
 }
 
-bool Concurrency::RunManyAndWait(int n, TFunction<bool( int i )> Action)
+bool Concurrency::RunManyAndWait(bool bEnableParallelDownload, int n, TFunction<bool( int i )> Action)
 {
-	TArray<int> Elements;
-	Elements.Reserve(n);
-	for (int i = 0; i < n; i++)
+	if (bEnableParallelDownload)
 	{
-		Elements.Add(i);
+		TArray<int> Elements;
+		Elements.Reserve(n);
+		for (int i = 0; i < n; i++)
+		{
+			Elements.Add(i);
+		}
+		return RunManyAndWait(Elements, Action);
 	}
-	return RunManyAndWait(Elements, Action);
+	else
+	{
+		for (int i = 0; i < n; i++)
+		{
+			if (!Action(i)) return false;
+		}
+		return true;
+	}
 }
 
 void Concurrency::RunOnGameThread(TFunction<void()> Action)
@@ -80,7 +91,8 @@ bool Concurrency::RunOnThreadAndWait(bool bRunOnGameThread, TFunction<bool()> Ac
 #if UE_VERSION_OLDER_THAN(5, 6, 0)
 		Async(EAsyncExecution::TaskGraphMainThread, [Action = MoveTemp(Action), &bSuccess, SyncEvent]()
 #else
-		AsyncTask(ENamedThreads::GameThread, [Action = MoveTemp(Action), &bSuccess, SyncEvent]()
+		// AsyncTask(ENamedThreads::GameThread, [Action = MoveTemp(Action), &bSuccess, SyncEvent]()
+		Async(EAsyncExecution::TaskGraphMainTick, [Action = MoveTemp(Action), &bSuccess, SyncEvent]()
 #endif
 		{
 			bSuccess = Action();
@@ -114,20 +126,6 @@ bool Concurrency::RunOnGameThreadAndWait(TFunction<bool()> Action)
 bool Concurrency::RunAsyncAndWait(TFunction<bool()> Action)
 {
 	return RunOnThreadAndWait(false, MoveTemp(Action));
-}
-
-TFunction<void(TFunction<void(bool)>)> Concurrency::Return(TFunction<void()> Action)
-{
-	return [Action](TFunction<void(bool)> OnComplete)
-	{
-		Action();
-		if (OnComplete) OnComplete(true);
-	};
-}
-
-TFunction<void(TFunction<void(bool)>)> Concurrency::I(TFunction<void(TFunction<void(bool)>)> Action)
-{
-	return [Action](TFunction<void(bool)> OnComplete) { Action(OnComplete); };
 }
 
 #undef LOCTEXT_NAMESPACE

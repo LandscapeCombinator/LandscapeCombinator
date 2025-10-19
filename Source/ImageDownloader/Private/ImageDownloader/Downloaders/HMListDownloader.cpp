@@ -73,6 +73,7 @@ bool HMListDownloader::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 	}
 
 	return Concurrency::RunManyAndWait(
+		true,
 		Lines.Num(),
 		[this, Lines](int i)
 		{

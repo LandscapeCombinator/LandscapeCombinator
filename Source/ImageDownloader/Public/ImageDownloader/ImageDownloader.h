@@ -296,6 +296,12 @@ public:
 	/* Ignore errors when the XYZ provider has missing tiles */
 	bool bAllowInvalidTiles = true;
 
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
+		meta = (EditCondition = "IsXYZ()", EditConditionHides, DisplayPriority = "100")
+	)
+	bool bEnableParallelDownload = false;
+
 
 
 
@@ -860,13 +866,21 @@ public:
 		EditAnywhere, Category = "CropCoordinates",
 		meta = (DisplayPriority = "1")
 	)
-	/* Check this if you want to crop the coordinates following the bounds of CroppingActor (usually a LocationVolume).
-	   This is typically not needed for WMS sources where you choose the coordinates upfront. */
+	/**
+	  * Check this if you want to crop the coordinates following the bounds given in the parameters selection or a CroppingActor.
+	  * This is typically not needed for WMS sources where you choose the coordinates upfront.
+	  **/
 	bool bCropCoordinates = false;
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "CropCoordinates",
 		meta = (EditCondition = "bCropCoordinates", EditConditionHides, DisplayPriority = "2")
+	)
+	bool bCropFollowingParametersSelection = true;
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "CropCoordinates",
+		meta = (EditCondition = "bCropCoordinates && !bCropFollowingParametersSelection", EditConditionHides, DisplayPriority = "3")
 	)
 	TObjectPtr<AActor> CroppingActor;
 	
@@ -912,7 +926,8 @@ public:
 #endif
 	
 	HMFetcher* CreateFetcher(
-		bool bIsUserInitiated, FString Name, bool bEnsureOneBand, bool bScaleAltitude, bool bConvertToPNG,
+		bool bIsUserInitiated, FString Name, bool bEnsureOneBand, bool bScaleAltitude,
+		bool bConvertToPNG, bool bConvertFirstOnly, bool bAddMissingTiles,
 		TFunction<bool(HMFetcher*)> RunBeforePNG, TObjectPtr<UGlobalCoordinates> GlobalCoordinates
 	);
 

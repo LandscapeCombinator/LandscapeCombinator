@@ -85,7 +85,6 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 				Zoom, MaxX, MaxY
 			);
 
-			Execute_OnGenerateBP(Self, SpawnedActorsPath, bIsUserInitiated);
 			if (OnGenerate(SpawnedActorsPath, bIsUserInitiated))
 			{
 				PositionBasedGeneration->GeneratedTiles.Append(MissingTiles);
@@ -112,7 +111,6 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 				UE_LOG(LogLCCommon, Log, TEXT("Generating tile (%d, %d, %d)"), Tile.Zoom, Tile.X, Tile.Y);
 				if (!ConfigureForTiles(Tile.Zoom, Tile.X, Tile.X, Tile.Y, Tile.Y)) return false;
 
-				Execute_OnGenerateBP(Self, SpawnedActorsPath, bIsUserInitiated);
 				if (OnGenerate(SpawnedActorsPath, bIsUserInitiated))
 				{
 					PositionBasedGeneration->GeneratedTiles.Add(Tile);
@@ -141,7 +139,6 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 	}
 	else
 	{
-		Execute_OnGenerateBP(Self, SpawnedActorsPath, bIsUserInitiated);
 		bool bSuccess = OnGenerate(SpawnedActorsPath, bIsUserInitiated);
 		GenerationFinished(bSuccess);
 		return bSuccess;

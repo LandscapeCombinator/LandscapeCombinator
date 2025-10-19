@@ -14,28 +14,26 @@ void ULCContinuousGeneration::StartContinuousGeneration()
 {
 	if (AActor *Owner = GetOwner())
 	{
-		auto Generate = [this, Owner]() -> bool
+		auto Generate = [this, Owner]()
 		{
 			if (ILCGenerator *Generator = Cast<ILCGenerator>(Owner))
 			{
 				if (bIsCurrentlyGenerating)
 				{
-					UE_LOG(LogLCCommon, Warning, TEXT("Skipping generation as it already in progress"));
-					return false;
+					UE_LOG(LogLCCommon, Warning, TEXT("Skipping generation as it already in progress. Consider increasing the continuous generation delay."));
+					return;
 				}
 				bIsCurrentlyGenerating = true;
 				UE_LOG(LogLCCommon, Log, TEXT("Continuous Generation Calling Generate"));
-				bool bSuccess = Generator->Generate(FName(), false);
-				bIsCurrentlyGenerating = false;
-				if (!bSuccess) StopContinuousGeneration();
-				return bSuccess;
+				Generator->GenerateFromGameThread(FName(), false, [this](bool bSuccess) {
+					bIsCurrentlyGenerating = false;
+					if (!bSuccess) StopContinuousGeneration();
+				});
 			}
-			return false;
 		};
 		UE_LOG(LogLCCommon, Log, TEXT("Starting Continuous Generation Timer (generate every %f seconds)"), ContinuousGenerationSeconds);
-		if (!Generate()) return;
 
-		GetWorld()->GetTimerManager().SetTimer(ContinuousGenerationTimer, Generate, ContinuousGenerationSeconds, true);
+		GetWorld()->GetTimerManager().SetTimer(ContinuousGenerationTimer, Generate, ContinuousGenerationSeconds, true, 0);
 	}
 	else
 	{

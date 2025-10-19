@@ -21,7 +21,8 @@ bool HMToPNG::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 	double MinAltitude = Altitudes[0];
 	double MaxAltitude = Altitudes[1];
 
-	for (int32 i = 0; i < InputFiles.Num(); i++)
+	int NumFilesToConvert = bConvertOnlyFirst ? 1 : InputFiles.Num();
+	for (int32 i = 0; i < NumFilesToConvert; i++)
 	{
 		FString InputFile = InputFiles[i];
 		FString PNGFile = FPaths::Combine(OutputDir, FPaths::GetBaseFilename(InputFile) + ".png");
@@ -41,6 +42,11 @@ bool HMToPNG::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 				return false;
 			}
 		}
+	}
+
+	for (int32 i = NumFilesToConvert; i < InputFiles.Num(); i++)
+	{
+		OutputFiles.Add(InputFiles[i]);
 	}
 	
 	return true;

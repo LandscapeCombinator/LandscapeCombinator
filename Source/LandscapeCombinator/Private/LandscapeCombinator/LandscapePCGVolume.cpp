@@ -1,8 +1,10 @@
 // Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "LandscapeCombinator/LandscapePCGVolume.h"
+#include "LandscapeCombinator/LogLandscapeCombinator.h"
 #include "LCCommon/LCBlueprintLibrary.h"
 #include "ConcurrencyHelpers/LCReporter.h"
+#include "ConcurrencyHelpers/Concurrency.h"
 
 #include "PCGGraph.h"
 #include "Helpers/PCGGraphParametersHelpers.h"
@@ -12,10 +14,18 @@
 void ALandscapePCGVolume::SetPositionAndBounds()
 {
 	ALandscape *Landscape = Cast<ALandscape>(LandscapeSelection.GetActor(GetWorld()));
-	if (!IsValid(Landscape)) return;
+	if (!IsValid(Landscape))
+	{
+		UE_LOG(LogLandscapeCombinator, Error, TEXT("Could not find landscape actor."));
+		return;
+	}
 
 	FVector2D MinMaxX, MinMaxY, MinMaxZ;
-	if (!LandscapeUtils::GetLandscapeBounds(Landscape, MinMaxX, MinMaxY, MinMaxZ)) return;
+	if (!LandscapeUtils::GetLandscapeBounds(Landscape, MinMaxX, MinMaxY, MinMaxZ))
+	{
+		UE_LOG(LogLandscapeCombinator, Error, TEXT("Could not compute bounds of landscape actor %s."), *Landscape->GetActorNameOrLabel());
+		return;
+	}
 
 	Position = FVector((MinMaxX[0] + MinMaxX[1]) / 2, (MinMaxY[0] + MinMaxY[1]) / 2, 0);
 	Bounds = FVector((MinMaxX[1] - MinMaxX[0]) / 2, (MinMaxY[1] - MinMaxY[0]) / 2, 10000000);
@@ -29,6 +39,10 @@ bool ALandscapePCGVolume::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUs
 
 	if (!IsValid(PCGComponent)) return false;
 
+	Concurrency::RunOnGameThreadAndWait([this]() {
+		SetPositionAndBounds();
+		return true;
+	});
 	PCGComponent->Generate(true);
 	return true;
 }

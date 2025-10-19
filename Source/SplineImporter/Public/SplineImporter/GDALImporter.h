@@ -29,6 +29,8 @@ enum class EVectorSource: uint8 {
 	OSM_Forests,
 	OSM_Beaches,
 	OSM_Parks,
+	OSM_SkiSlopes,
+	OSM_Grass,
 	OverpassShortQuery,
 	OverpassQuery,
 	LocalFile

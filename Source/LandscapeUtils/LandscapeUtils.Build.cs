@@ -14,7 +14,8 @@ public class LandscapeUtils : ModuleRules
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"Core"
+				"Core",
+				"Coordinates"
 			}
 		);
 
@@ -31,7 +32,8 @@ public class LandscapeUtils : ModuleRules
 				"GeometryScriptingCore",
 
 				// Landscape Combinator Dependencies
-				"ConcurrencyHelpers"
+				"ConcurrencyHelpers",
+				"GDALInterface"
 			}
 		);
 

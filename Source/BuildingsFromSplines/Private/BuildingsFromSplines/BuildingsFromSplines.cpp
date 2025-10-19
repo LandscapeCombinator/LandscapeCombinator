@@ -20,80 +20,16 @@
 
 #define LOCTEXT_NAMESPACE "FBuildingsFromSplinesModule"
 
-TSubclassOf<UBuildingConfiguration> FWeightedBuildingConfigurationClass::GetRandomBuildingConfigurationClass(TArray<FWeightedBuildingConfigurationClass>& BuildingConfigurationClasses)
+TObjectPtr<UBuildingConfiguration> FWeightedBuildingConfiguration::GetRandomBuildingConfiguration(TArray<FWeightedBuildingConfiguration>& BuildingConfigurations)
 {
-	int Index = ULCBlueprintLibrary::GetRandomIndex<FWeightedBuildingConfigurationClass>(BuildingConfigurationClasses);
-	if (0 <= Index && Index < BuildingConfigurationClasses.Num()) return BuildingConfigurationClasses[Index].BuildingConfigurationClass;
+	int Index = ULCBlueprintLibrary::GetRandomIndex<FWeightedBuildingConfiguration>(BuildingConfigurations);
+	if (0 <= Index && Index < BuildingConfigurations.Num()) return BuildingConfigurations[Index].BuildingConfiguration;
 	else return nullptr;
 }
 
 ABuildingsFromSplines::ABuildingsFromSplines()
 {
 	PrimaryActorTick.bCanEverTick = false;
-
-	BuildingConfiguration = CreateDefaultSubobject<UBuildingConfiguration>(TEXT("Building Configuration"));
-
-	BuildingConfiguration->BuildingGeometry = EBuildingGeometry::BuildingWithoutInside;
-	BuildingConfiguration->InternalWallThickness = 0;
-	BuildingConfiguration->ExternalWallThickness = 1;
-	BuildingConfiguration->bAutoPadWallBottom = true;
-}
-
-TArray<AActor*> ABuildingsFromSplines::FindActors()
-{
-	TArray<AActor*> Actors;
-
-	Concurrency::RunOnGameThreadAndWait([&Actors, this]()
-	{
-		if (SplinesTag.IsNone())
-		{	
-			UGameplayStatics::GetAllActorsOfClass(this->GetWorld(), AActor::StaticClass(), Actors);
-		}
-		else
-		{
-			UGameplayStatics::GetAllActorsWithTag(this->GetWorld(), SplinesTag, Actors);
-		}
-		return true;
-	});
-
-	return Actors;
-}
-
-TArray<USplineComponent*> ABuildingsFromSplines::FindSplineComponents(bool bIsUserInitiated)
-{
-	TArray<USplineComponent*> Result;
-
-	bool bFound = false;
-	
-	for (auto& Actor : FindActors())
-	{
-		if (SplineComponentsTag.IsNone())
-		{
-			TArray<USplineComponent*> SplineComponents;
-			Actor->GetComponents<USplineComponent>(SplineComponents, true);
-
-			for (auto &SplineComponent : SplineComponents)
-			{
-				Result.Add(Cast<USplineComponent>(SplineComponent));
-			}
-		}
-		else
-		{
-			for (auto &SplineComponent : Actor->GetComponentsByTag(USplineComponent::StaticClass(), SplineComponentsTag))
-			{
-				Result.Add(Cast<USplineComponent>(SplineComponent));
-			}
-		}
-	}
-
-	if (bIsUserInitiated && Result.Num() == 0)
-	{
-		LCReporter::ShowError(
-			LOCTEXT("NoSplineComponentTagged", "BuildingsFromSplines: Could not find spline components with the given tags.")
-		);
-	}
-	
-	return Result;
 }
 
 bool ABuildingsFromSplines::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated)
@@ -133,21 +69,20 @@ bool ABuildingsFromSplines::GenerateBuildings(FName SpawnedActorsPathOverride, b
 		return false;
 	}
 
-	if (!bUseInlineBuildingConfiguration && BuildingConfigurationClasses.IsEmpty())
+	if (BuildingConfigurations.IsEmpty())
 	{
 		LCReporter::ShowError(
-			LOCTEXT("NoBuildingConfiguration", "BuildingsFromSplines: No Building Configuration classes.")
+			LOCTEXT("NoBuildingConfiguration", "BuildingsFromSplines: No Building Configurations.")
 		);
 		return false;
 	}
 
 	if (bDeleteOldBuildingsWhenCreatingBuildings)
 	{
-		if (!Concurrency::RunOnGameThreadAndWait([this, bIsUserInitiated]() { return Execute_Cleanup(this, !bIsUserInitiated); }))
-			return false;
+		if (!Execute_Cleanup(this, !bIsUserInitiated)) return false;
 	}
 
-	TArray<USplineComponent*> SplineComponents = FindSplineComponents(bIsUserInitiated);
+	TArray<USplineComponent*> SplineComponents = ULCBlueprintLibrary::FindSplineComponents(GetWorld(), bIsUserInitiated, SplinesTag, SplineComponentsTag);
 	const int NumComponents = SplineComponents.Num();
 	UE_LOG(LogBuildingsFromSplines, Log, TEXT("Found %d spline components to create buildings"), NumComponents);
 
@@ -177,7 +112,11 @@ void ABuildingsFromSplines::ClearBuildings()
 bool ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent, FName SpawnedActorsPathOverride, bool bIsUserInitiated)
 {
 	int NumPoints = SplineComponent->GetNumberOfSplinePoints();
-	if (NumPoints < 2) return false;
+	if (NumPoints <= 1)
+	{
+		UE_LOG(LogBuildingsFromSplines, Log, TEXT("Skipping building with zero or one point"));
+		return true;
+	}
 
 	FVector Location = SplineComponent->GetWorldLocationAtSplinePoint(0);
 
@@ -221,12 +160,7 @@ bool ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent, 
 #endif
 
 		Buildings.Add(Building);
-		Building->bUseInlineBuildingConfiguration = bUseInlineBuildingConfiguration;
-
-		if (bUseInlineBuildingConfiguration)
-			UEngine::CopyPropertiesForUnrelatedObjects(BuildingConfiguration, Building->BuildingConfiguration);
-		else
-			Building->BuildingConfigurationClass = FWeightedBuildingConfigurationClass::GetRandomBuildingConfigurationClass(BuildingConfigurationClasses);
+        Building->BCfg = FWeightedBuildingConfiguration::GetRandomBuildingConfiguration(BuildingConfigurations);
 
 		Building->SplineComponent->ClearSplinePoints();
 		for (int i = 0; i < NumPoints; i++)
@@ -238,7 +172,7 @@ bool ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent, 
 		
 		UOSMUserData *SplineOSMUserData = Cast<UOSMUserData>(SplineComponent->GetAssetUserDataOfClass(UOSMUserData::StaticClass()));
 
-		if (SplineOSMUserData && Building->GetRootComponent())
+		if (IsValid(SplineOSMUserData) && Building->GetRootComponent())
 		{
 			UOSMUserData *BuildingOSMUserData = NewObject<UOSMUserData>(Building->GetRootComponent());
 			BuildingOSMUserData->Fields = SplineOSMUserData->Fields;

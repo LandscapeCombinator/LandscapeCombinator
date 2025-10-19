@@ -9,7 +9,12 @@
 class HMToPNG : public HMFetcher
 {
 public:
-	HMToPNG(FString Name0, bool bScaleAltitude0) : Name(Name0), bScaleAltitude(bScaleAltitude0) {};	
+	HMToPNG(FString Name0, bool bScaleAltitude0, bool bConvertOnlyFirst0) :
+		Name(Name0),
+		bScaleAltitude(bScaleAltitude0),
+		bConvertOnlyFirst(bConvertOnlyFirst0)
+	{		
+	};	
 	
 	FString GetOutputDir() override
 	{
@@ -21,6 +26,7 @@ public:
 protected:
 	FString Name;
 	bool bScaleAltitude;
+	bool bConvertOnlyFirst;
 };
 
 #undef LOCTEXT_NAMESPACE

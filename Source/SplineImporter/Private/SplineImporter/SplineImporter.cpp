@@ -61,6 +61,14 @@ void ASplineImporter::SetOverpassShortQuery()
 	{
 		OverpassShortQuery = "way[\"leisure\"=\"park\"];";
 	}
+	else if (Source == EVectorSource::OSM_SkiSlopes)
+	{
+		OverpassShortQuery = "way[\"piste:type\"=\"downhill\"][!\"area\"];";
+	}
+	else if (Source == EVectorSource::OSM_Grass)
+	{
+		OverpassShortQuery = "way[\"landuse\"=\"grass\"];way[\"natural\"=\"grassland\"];";
+	}
 
 	Super::SetOverpassShortQuery();
 }
@@ -308,10 +316,23 @@ bool ASplineImporter::GenerateRegularSplines(
 		}
 		else if (SplineOwnerKind == ESplineOwnerKind::CustomActor)
 		{
-			Concurrency::RunOnGameThreadAndWait([&SplineOwner, &SpawnedActorsPathOverride, World, i, this]()
+			if (!Concurrency::RunOnGameThreadAndWait([&SplineOwner, &SpawnedActorsPathOverride, World, i, this]()
 			{
+				if (!IsValid(ActorToSpawn))
+				{
+					LCReporter::ShowError(LOCTEXT("SpawnActorFailed1", "Please specify a valid actor to spawn."));
+					return false;
+				}
+
 				SplineOwner = World->SpawnActor(ActorToSpawn);
-				if (!IsValid(SplineOwner)) return false;
+				if (!IsValid(SplineOwner))
+				{
+					LCReporter::ShowError(FText::Format(
+						LOCTEXT("SpawnActorFailed2", "Internal error while creating splines. Could not spawn {0}."),
+						FText::FromString(ActorToSpawn->GetName())
+					));
+					return false;
+				}
 
 #if WITH_EDITOR
 				SplineOwner->SetActorLabel(SplineOwner->GetActorNameOrLabel() + "_" + FString::FromInt(i));
@@ -319,14 +340,8 @@ bool ASplineImporter::GenerateRegularSplines(
 #endif
 				SplineOwner->Tags.Add(SplinesTag);
 				return true;
-			});
-			
-			if (!SplineOwner)
+			}))
 			{
-				LCReporter::ShowError(FText::Format(
-					LOCTEXT("SpawnActorFailed2", "Internal error while creating splines. Could not spawn {0}."),
-					FText::FromString(ActorToSpawn->GetName())
-				));
 				return false;
 			}
 
@@ -365,6 +380,7 @@ bool ASplineImporter::AddRegularSpline(
 
 	OGRPoint First = PointList.Points[0];
 	OGRPoint Last = PointList.Points.Last();
+	const bool bIsLoop = (First == Last);
 			
 	USplineComponent *SplineComponent = nullptr;
 	if (ASplineCollection* SplineCollection = Cast<ASplineCollection>(SplineOwner))
@@ -406,7 +422,7 @@ bool ASplineImporter::AddRegularSpline(
 	SplineComponent->ClearSplinePoints();
 
 	int ExpectedNumPoints = NumPoints;
-	if (Last == First) ExpectedNumPoints--;  // don't add last point in case the spline is a closed loop
+	if (bIsLoop) ExpectedNumPoints--;  // don't add last point in case the spline is a closed loop
 
 	TArray<FVector> SplinePoints;
 	TArray<FVector2D> SplinePoints2D;
@@ -434,18 +450,48 @@ bool ASplineImporter::AddRegularSpline(
 		}
 	}
 
-	if (SplinePoints.Num() < ExpectedNumPoints)
+	int NumSplinePoints = SplinePoints.Num();
+	if (NumSplinePoints < ExpectedNumPoints)
 	{
 		UE_LOG(LogSplineImporter, Warning, TEXT("Got only %d/%d Spline Points"), SplinePoints.Num(), ExpectedNumPoints);
 	}
 	if (SplinePoints.IsEmpty()) return false;
+
+	if (bSkip2DColinearVertices && SplinePoints2D.Num() >= 3)
+	{
+		int i = bIsLoop ? 0 : 1; // skip first point if not loop
+
+		// skip last point if not loop; the array size can change during iteration, so we don't precompute the max bound
+		while (i <= (bIsLoop ?  SplinePoints2D.Num() - 1 :  SplinePoints2D.Num() - 2))  
+		{
+			const FVector2D& A = SplinePoints2D[(i - 1 + SplinePoints2D.Num()) % SplinePoints2D.Num()];
+			const FVector2D& B = SplinePoints2D[i];
+			const FVector2D& C = SplinePoints2D[(i + 1) % SplinePoints2D.Num()];
+
+			FVector2D AB = B - A;
+			FVector2D BC = C - B;
+
+			if (AB.Length() >= UE_DOUBLE_SMALL_NUMBER && BC.Length() >= UE_DOUBLE_SMALL_NUMBER)
+			{
+				const double Angle = FMath::Abs(FMath::RadiansToDegrees(FMath::Acos(FVector2D::DotProduct(AB, BC) / (AB.Length() * BC.Length()))));
+				if (Angle <= ColinearityAngleThreshold)
+				{
+					SplinePoints.RemoveAt(i);
+					SplinePoints2D.RemoveAt(i);
+					continue; // don't increment i in that case, as arrays have shifted
+				}
+			}
+
+			i++;
+		}
+	}
 	
 	TPolygon2<double> SplinePolygon(SplinePoints2D);
 
 	// clockwise for TPolygon2 is counter-clockwise in game when see from top (inverted Y axis)
 	// so we swap the array when the current (inverted) orientation matches
 	// the spline direction given by the user
-	if (First == Last)
+	if (bIsLoop)
 	{
 		if (SplinePolygon.IsClockwise())
 		{
@@ -459,7 +505,7 @@ bool ASplineImporter::AddRegularSpline(
 
 	for (auto &SplinePoint : SplinePoints) SplineComponent->AddSplinePoint(SplinePoint, ESplineCoordinateSpace::World, false);
 
-	if (First == Last) SplineComponent->SetClosedLoop(true);
+	SplineComponent->SetClosedLoop(bIsLoop);
 
 	if (Source == EVectorSource::OSM_Buildings)
 	{

@@ -6,10 +6,10 @@
 #include "Engine/DataTable.h"
 #include "Components/ActorComponent.h" 
 #include "Components/SplineMeshComponent.h"
-#include "CoreMinimal.h"
 
 #include "ConcurrencyHelpers/LCReporter.h"
 #include "BuildingsFromSplines/LogBuildingsFromSplines.h"
+#include "LCCommon/LCBlueprintLibrary.h"
 
 #include "BuildingConfiguration.generated.h"
 
@@ -45,9 +45,34 @@ enum class EAxisKind : uint8
 };
 
 USTRUCT(BlueprintType)
+struct FWeightedObject
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeightedConfig")
+	TObjectPtr<UObject> Object;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeightedConfig")
+	double Weight = 1;
+
+	static TObjectPtr<UObject> GetRandomObject(const TArray<FWeightedObject>& Objects)
+	{
+		int Index = ULCBlueprintLibrary::GetRandomIndex<FWeightedObject>(Objects);
+		if (0 <= Index && Index < Objects.Num()) return Objects[Index].Object;
+		else return nullptr;
+	}
+};
+
+
+USTRUCT(BlueprintType)
 struct FAttachment
 {
 	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "-1"))
+	// between 0 and 1
+	float Probability = 1;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "0"))
 	EAttachmentKind AttachmentKind = EAttachmentKind::InstancedStaticMeshComponent;
 
@@ -57,7 +82,7 @@ struct FAttachment
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment",
 		meta=(EditConditionHides, EditCondition="AttachmentKind != EAttachmentKind::Actor", DisplayPriority = "2"))
-	TObjectPtr<UStaticMesh> Mesh;
+	TArray<FWeightedObject> MeshSelection;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "3"))
 	/* offset from the bottom/start of the wall segment:
@@ -75,45 +100,51 @@ struct FAttachment
 	FRotator ExtraRotation = FRotator::ZeroRotator;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment",
-		meta=(EditConditionHides, EditCondition="AttachmentKind == EAttachmentKind::SplineMeshComponent", DisplayPriority = "5"))
+		meta=(EditConditionHides, EditCondition="AttachmentKind == EAttachmentKind::SplineMeshComponent", DisplayPriority = "6"))
 	TEnumAsByte<ESplineMeshAxis::Type> SplineMeshAxis = ESplineMeshAxis::X;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "6"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "7"))
+	bool bAddHoleZOffset = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "20"))
 	bool bFitToWallSegmentWidth = false;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "7"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "21"))
 	bool bFitToWallSegmentHeight = false;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "7"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "22"))
+	bool bFitToHoleHeight = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "23"))
 	bool bFitToWallSegmentThickness = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment",
-		meta=(EditConditionHides, EditCondition="!bFitToWallSegmentWidth", DisplayPriority = "10")
+		meta=(EditConditionHides, EditCondition="!bFitToWallSegmentWidth", DisplayPriority = "24")
 	)
 	double OverrideWidth = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment",
-		meta=(EditConditionHides, EditCondition="!bFitToWallSegmentHeight", DisplayPriority = "11")
+		meta=(EditConditionHides, EditCondition="!bFitToWallSegmentHeight && !bFitToHoleHeight", DisplayPriority = "25")
 	)
 	double OverrideHeight = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment",
-		meta=(EditConditionHides, EditCondition="!bFitToWallSegmentThickness", DisplayPriority = "12")
+		meta=(EditConditionHides, EditCondition="!bFitToWallSegmentThickness", DisplayPriority = "26")
 	)
 	double OverrideThickness = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment",
-		meta=(EditConditionHides, EditCondition="AttachmentKind != EAttachmentKind::SplineMeshComponent", DisplayPriority = "20")
+		meta=(EditConditionHides, EditCondition="AttachmentKind != EAttachmentKind::SplineMeshComponent", DisplayPriority = "100")
 	)
 	EAxisKind XAxis = EAxisKind::Width;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment",
-		meta=(EditConditionHides, EditCondition="AttachmentKind != EAttachmentKind::SplineMeshComponent", DisplayPriority = "21")
+		meta=(EditConditionHides, EditCondition="AttachmentKind != EAttachmentKind::SplineMeshComponent", DisplayPriority = "101")
 	)
 	EAxisKind YAxis = EAxisKind::Thickness;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment",
-		meta=(EditConditionHides, EditCondition="AttachmentKind != EAttachmentKind::SplineMeshComponent", DisplayPriority = "22")
+		meta=(EditConditionHides, EditCondition="AttachmentKind != EAttachmentKind::SplineMeshComponent", DisplayPriority = "102")
 	)
 	EAxisKind ZAxis = EAxisKind::Height;
 };
@@ -125,11 +156,12 @@ enum class EWallSegmentKind : uint8
 	Hole
 };
 
-USTRUCT(BlueprintType)
-struct FWallSegment
+UCLASS(BlueprintType, Blueprintable, EditInlineNew)
+class UWallSegment : public UObject
 {
 	GENERATED_BODY()
 
+public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WallSegment", meta = (DisplayPriority = "-1"))
 	EWallSegmentKind WallSegmentKind = EWallSegmentKind::Wall;
 
@@ -152,32 +184,32 @@ struct FWallSegment
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "WallSegment",
 		meta = (EditCondition = "WallSegmentKind == EWallSegmentKind::Hole", EditConditionHides, DisplayPriority = "1")
 	)
-	int UnderHoleInteriorMaterialIndex = 0;
+	FString UnderHoleInteriorMaterialExpr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "WallSegment",
 		meta = (EditCondition = "WallSegmentKind == EWallSegmentKind::Hole", EditConditionHides, DisplayPriority = "2")
 	)
-	int OverHoleInteriorMaterialIndex = 0;
+	FString OverHoleInteriorMaterialExpr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "WallSegment",
 		meta = (EditCondition = "WallSegmentKind == EWallSegmentKind::Hole", EditConditionHides, DisplayPriority = "3")
 	)
-	int UnderHoleExteriorMaterialIndex = 0;
+	FString UnderHoleExteriorMaterialExpr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "WallSegment",
 		meta = (EditCondition = "WallSegmentKind == EWallSegmentKind::Hole", EditConditionHides, DisplayPriority = "4")
 	)
-	int OverHoleExteriorMaterialIndex = 0;
+	FString OverHoleExteriorMaterialExpr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "WallSegment",
 		meta = (EditCondition = "WallSegmentKind != EWallSegmentKind::Hole", EditConditionHides, DisplayPriority = "1")
 	)
-	int InteriorWallMaterialIndex = 0;
+	FString InteriorWallMaterialExpr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "WallSegment",
 		meta = (EditCondition = "WallSegmentKind != EWallSegmentKind::Hole", EditConditionHides, DisplayPriority = "2")
 	)
-	int ExteriorWallMaterialIndex = 0;
+	FString ExteriorWallMaterialExpr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category = "WallSegment", meta = (DisplayPriority = "10"))
 	bool bOverrideWallThickness = false;
@@ -212,50 +244,39 @@ struct FWallSegment
 	}
 };
 
-USTRUCT(BlueprintType)
-struct FLoop
+UCLASS(BlueprintType, Blueprintable, EditInlineNew)
+class ULevelDescription : public UObject
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Loop")
-	int StartIndex = 0;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Loop")
-	int EndIndex = 0;
-};
-
-USTRUCT(BlueprintType)
-struct FLevelDescription
-{
-	GENERATED_BODY()
-
+public:
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "WindowsSpecification",
+		EditAnywhere, BlueprintReadWrite, Category = "LevelDescription",
 		meta = (DisplayPriority = "1")
 	)
 	double LevelHeight = 300;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "WindowsSpecification",
+		EditAnywhere, BlueprintReadWrite, Category = "LevelDescription",
 		meta = (DisplayPriority = "2")
 	)
 	double FloorThickness = 20;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "WindowsSpecification",
+		EditAnywhere, BlueprintReadWrite, Category = "LevelDescription",
 		meta = (DisplayPriority = "10")
 	)
-	int FloorMaterialIndex = 0;
+	FString FloorMaterialExpr;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "WindowsSpecification",
+		EditAnywhere, BlueprintReadWrite, Category = "LevelDescription",
 		meta = (DisplayPriority = "11")
 	)
 	/* Ceiling Material Index for the floor below this one */
-	int UnderFloorMaterialIndex = 0;
+	FString UnderFloorMaterialExpr;
 	
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "WindowsSpecification",
+		EditAnywhere, BlueprintReadWrite, Category = "LevelDescription",
 		meta = (DisplayPriority = "12")
 	)
 	/**
@@ -264,29 +285,28 @@ struct FLevelDescription
 	 */
 	bool bResetWallSegmentsOnCorners = true;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WindowsSpecification", meta = (DisplayPriority = "100"))
-    TArray<FWallSegment> WallSegments;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Instanced, Category = "LevelDescription", meta = (DisplayPriority = "100"))
+    TMap<FString, TObjectPtr<UWallSegment>> WallSegmentsMap;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WindowsSpecification", meta = (DisplayPriority = "101"))
-    TArray<FLoop> WallSegmentLoops;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LevelDescription", meta = (DisplayPriority = "101"))
+    FString WallSegmentsExpression;
 
-	FString ToString() const
+	bool IsValidKey(FString Key) const
 	{
-		FString Result;
-		Result += "LevelHeight: ";
-		Result += FString::SanitizeFloat(LevelHeight);
-		Result += ", FloorThickness: ";
-		Result += FString::SanitizeFloat(FloorThickness);
-		Result += ", WallSegments: ";
-		Result += FString::FromInt(WallSegments.Num());
-		for (auto &WallSegment : WallSegments)
+		return WallSegmentsMap.Contains(Key) && IsValid(WallSegmentsMap[Key]);
+	}
+
+	bool CheckValidKey(FString Key) const
+	{
+		if (IsValidKey(Key)) return true;
+		else
 		{
-			Result += ", ";
-			Result += WallSegment.ToString();
+			LCReporter::ShowError(FText::Format(
+				LOCTEXT("Invalid Key", "Unknown WallSegment: '{0}'. Please adjust your expression."),
+				FText::FromString(Key)
+			));
+			return false;
 		}
-		Result += ", WallSegmentLoops: ";
-		Result += FString::FromInt(WallSegmentLoops.Num());
-		return Result;
 	}
 };
 
@@ -296,10 +316,13 @@ enum class ERoofKind : uint8
 	None,
 	Flat,
 	Point,
-	InnerSpline
+	InnerSpline,
+	Hip,
+	Gable
 };
 
-UCLASS(PrioritizeCategories = "Building", BlueprintType, Blueprintable)
+// this doesn't need to be UActorComponent, but changing back to UObject will make old maps crash on load
+UCLASS(PrioritizeCategories = "Building", BlueprintType, Blueprintable, EditInlineNew)
 class BUILDINGSFROMSPLINES_API UBuildingConfiguration : public UActorComponent
 {
 	GENERATED_BODY()
@@ -324,14 +347,14 @@ public:
 	)
 	EBuildingGeometry BuildingGeometry = EBuildingGeometry::BuildingWithoutInside;
 
-	/* The tickness of the external walls */
+	/* The thickness of the external walls */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
 		meta = (EditCondition = "BuildingGeometry == EBuildingGeometry::BuildingWithFloorsAndEmptyInside", EditConditionHides, DisplayPriority = "0")
 	)
 	double ExternalWallThickness = 10;
 	
-	/* The tickness of the internal walls */
+	/* The thickness of the internal walls */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
 		meta = (EditCondition = "BuildingGeometry == EBuildingGeometry::BuildingWithFloorsAndEmptyInside", EditConditionHides, DisplayPriority = "1")
@@ -421,10 +444,17 @@ public:
 	)
 	int ExtraWallTop = 20;
 
-	/* Recompute UVs using AutoGenerateXAtlasMeshUVs (slow operation). */
+	/* Recompute UVs using AutoGenerateXAtlasMeshUVs for floors (slow operation). */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
-		meta = (DisplayPriority = "1000")
+		meta = (DisplayPriority = "1002")
+	)
+	bool bAutoGenerateXAtlasMeshUVsFloors = true;
+
+	/* Recompute UVs using AutoGenerateXAtlasMeshUVs for full building (slow operation). */
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
+		meta = (DisplayPriority = "1003")
 	)
 	bool bAutoGenerateXAtlasMeshUVs = false;
 
@@ -435,38 +465,42 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
 		meta = (DisplayPriority = "0")
 	)
-	TArray<TObjectPtr<UMaterialInterface>> Materials;
+	TMap<FString, TObjectPtr<UMaterialInterface>> Materials;
+
+	TArray<FString> MaterialNamesArray;
+	TArray<TObjectPtr<UMaterialInterface>> MaterialsArray;
+
+	int ResolveMaterial(FString ExprStr);
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
 		meta = (EditCondition = "BuildingGeometry == EBuildingGeometry::BuildingWithFloorsAndEmptyInside", EditConditionHides, DisplayPriority = "0")
 	)
-	int InteriorMaterialIndex = 0;
+	FString InteriorMaterialExpr;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
 		meta = (DisplayPriority = "1")
 	)
-	int ExteriorMaterialIndex = 0;
-
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials", meta = (DisplayPriority = "2")
-	)
-	int RoofMaterialIndex = 0;
-
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
-		meta = (EditCondition = "BuildingGeometry == EBuildingGeometry::BuildingWithFloorsAndEmptyInside && RoofKind != ERoofKind::None", EditConditionHides, DisplayPriority = "3")
-	)
-	int UnderRoofMaterialIndex = 0;
+	FString ExteriorMaterialExpr;
 
 	/** Levels */
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building|Levels", meta = (DisplayPriority = "1"))
-	TArray<FLevelDescription> Levels;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building|Levels", meta = (DisplayPriority = "0"))
+	/**
+	  * if false, then the same level can be generated in different ways due to randomization in the wall segments
+	  * if true, then all occurrences of a given level in the building will be identical
+	  */
+	bool bCacheLevelsWithinBuilding = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Instanced, Category = "Building|Levels", meta = (DisplayPriority = "1"))
+	TMap<FString, TObjectPtr<ULevelDescription>> LevelsMap;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building|Levels", meta = (DisplayPriority = "2"))
-	TArray<FLoop> LevelLoops;
+	// an expression using the level names above, with space for concatenation, star (*) for repetition {A:2, B:3, C:5} for random choice
+	FString LevelsExpression = "GroundLevel OtherLevel*";
+
+	bool CheckValidKey(FString LevelDescriptionKey) const;
 
 
 	/** Roof Settings */
@@ -478,11 +512,11 @@ public:
 	)
 	ERoofKind RoofKind = ERoofKind::Flat;
 
-	/* The length of the roof that goes outside the building */
+	/* The length of the roof that goes outside the building (overhang) */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Roof",
 		meta = (
-			EditCondition = "RoofKind == ERoofKind::Point || RoofKind == ERoofKind::InnerSpline",
+			EditCondition = "RoofKind != ERoofKind::None && RoofKind != ERoofKind::Flat",
 			EditConditionHides, DisplayPriority = "3"
 		)
 	)
@@ -502,7 +536,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Roof",
 		meta = (
-			EditCondition = "RoofKind == ERoofKind::Point || RoofKind == ERoofKind::InnerSpline",
+			EditCondition = "RoofKind != ERoofKind::None && RoofKind != ERoofKind::Flat",
 			EditConditionHides, DisplayPriority = "5"
 		)
 	)
@@ -517,6 +551,34 @@ public:
 		)
 	)
 	double RoofHeight = 250;
+	
+	/* The angle of roof faces in °, 0° means fully horizontal, and 90° fully vertical */
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|Roof",
+		meta = (
+			EditCondition = "RoofKind == ERoofKind::Hip || RoofKind == ERoofKind::Gable",
+			EditConditionHides, DisplayPriority = "6"
+		)
+	)
+	double RoofAngle = 30;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|Roof",
+		meta = (EditCondition = "RoofKind != ERoofKind::None", EditConditionHides, DisplayPriority = "100")
+	)
+	FString RoofMaterialExpr;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|Roof",
+		meta = (EditCondition = "BuildingGeometry == EBuildingGeometry::BuildingWithFloorsAndEmptyInside && RoofKind != ERoofKind::None", EditConditionHides, DisplayPriority = "101")
+	)
+	FString UnderRoofMaterialExpr;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|Roof",
+		meta = (EditCondition = "RoofKind == ERoofKind::Gable", EditConditionHides, DisplayPriority = "101")
+	)
+	FString GableMaterialExpr;
 
 	
 	/** Conversions to Static Mesh or Volume */
@@ -551,211 +613,7 @@ public:
 
 
 	UFUNCTION()
-	bool AutoComputeNumFloors(ABuilding *Building);
-
-	// check that all ids are valid, and that BeginRepeat and EndRepeat only appear in a well
-	// parenthesized manner
-	static bool AreValidLoops(int NumItems, const TArray<FLoop> &Loops)
-	// template code goes in header to avoid linker error
-	{
-		int LastSeenIndex = -1;
-		for (const FLoop& Loop : Loops)
-		{
-			if (LastSeenIndex < Loop.StartIndex && 0 <= Loop.StartIndex && Loop.StartIndex <= Loop.EndIndex && Loop.EndIndex < NumItems)
-			{
-				// valid loop
-				LastSeenIndex = Loop.EndIndex;
-			}
-			else
-			{
-				if (Loop.StartIndex < 0)
-				{
-					LCReporter::ShowError(
-						FText::Format(
-							LOCTEXT(
-								"InvalidStartIndex", "Invalid loop ({0}, {1}) found in loops array:\n"
-								"StartIndex ({0}) must be >= 0"
-							),
-							FText::AsNumber(Loop.StartIndex),
-							FText::AsNumber(Loop.EndIndex)
-						)
-					);
-				}
-				else if (LastSeenIndex >= Loop.StartIndex)
-				{
-					LCReporter::ShowError(
-						FText::Format(
-							LOCTEXT(
-								"InvalidEndIndex", "Invalid loop ({0}, {1}) found in loops array:\n"
-								"EndIndex ({1}) of previous loop must be >= StartIndex ({0})"
-							),
-							FText::AsNumber(Loop.StartIndex),
-							FText::AsNumber(Loop.EndIndex)
-						)
-					);
-				}
-				else if (Loop.EndIndex >= NumItems)
-				{
-					LCReporter::ShowError(
-						FText::Format(
-							LOCTEXT(
-								"InvalidEndIndex", "Invalid loop ({0}, {1}) found in loops array:\n"
-								"EndIndex ({1}) must be < NumItems ({2})"
-							),
-							FText::AsNumber(Loop.StartIndex),
-							FText::AsNumber(Loop.EndIndex),
-							FText::AsNumber(NumItems)
-						)
-					);
-				}
-				else if (Loop.StartIndex > Loop.EndIndex)
-				{
-					LCReporter::ShowError(
-						FText::Format(
-							LOCTEXT(
-								"InvalidLoop", "Invalid loop ({0}, {1}) found in loops array:\n"
-								"StartIndex ({0}) must be <= EndIndex ({1})"
-							),
-							FText::AsNumber(Loop.StartIndex),
-							FText::AsNumber(Loop.EndIndex)
-						)
-					);
-				}
-				else
-				{
-					check(false);
-				}
-				return false;
-				
-			}
-		}
-		return true;
-	}
-
-	template<class T>
-	static bool Expand(
-		TArray<T> &OutItems,
-		const TArray<T> &Items,
-		const TArray<FLoop> &Loops,
-		TFunction<double(const T&)> GetSize,
-		double TargetSize
-	)
-	// template code goes in header to avoid linker error
-	{
-		OutItems.Empty();
-		if (!AreValidLoops(Items.Num(), Loops)) return false;
-
-		int NumLoops = Loops.Num();
-		TArray<double> LoopSizes;
-		LoopSizes.SetNum(NumLoops);
-		// bool bInsideLoop = false;
-		int NumItems = Items.Num();
-		double OverallSizes = 0; // initialized with items that are outside loops
-
-		int LoopIndex = 0;
-		double CurrentLoopSize = 0;
-
-		// first pass on the array to find the size of each loop
-		for (int IdIndex = 0; IdIndex < NumItems; IdIndex++)
-		{
-			if (LoopIndex < NumLoops)
-			{
-				// before the next loop
-				if (IdIndex < Loops[LoopIndex].StartIndex)
-				{
-					OverallSizes += GetSize(Items[IdIndex]);
-				}
-				// in the middle of a loop
-				else if (IdIndex < Loops[LoopIndex].EndIndex)
-				{
-					CurrentLoopSize += GetSize(Items[IdIndex]);
-				}
-				// at the end of a loop
-				else if (IdIndex == Loops[LoopIndex].EndIndex)
-				{
-					CurrentLoopSize += GetSize(Items[IdIndex]);
-					LoopSizes[LoopIndex] = CurrentLoopSize;
-					CurrentLoopSize = 0;
-					LoopIndex++;
-				}
-				// at the beginning of a loop (different than the end)
-				else if (IdIndex == Loops[LoopIndex].StartIndex)
-				{
-					CurrentLoopSize = GetSize(Items[IdIndex]);
-				}
-			}
-			// there are no more loops
-			else
-			{
-				OverallSizes += GetSize(Items[IdIndex]);
-			}
-		}
-
-		// if we are already above the threshold, return an empty array
-		if (OverallSizes > TargetSize) return true;
-
-		// compute how many times each loop can be unrolled, in a fair way
-		TArray<int> LoopUnrollCounts;
-		LoopUnrollCounts.Init(0, LoopSizes.Num());
-		while (true)
-		{
-			bool bUnrolled = false;
-
-			for (LoopIndex = 0; LoopIndex < LoopSizes.Num(); LoopIndex++)
-			{
-				if (OverallSizes + LoopSizes[LoopIndex] <= TargetSize)
-				{
-					if (LoopSizes[LoopIndex] <= 0)
-					{
-						UE_LOG(LogBuildingsFromSplines, Warning, TEXT("Invalid loop size: %f, continuing anyway"), LoopSizes[LoopIndex]);
-						continue;
-					}
-					LoopUnrollCounts[LoopIndex]++;
-					OverallSizes += LoopSizes[LoopIndex];
-					bUnrolled = true;
-				}
-			}
-			
-			if (!bUnrolled) break;
-		}
-
-		// second pass on the loop to unroll the loops
-		int IdIndex = 0;
-		LoopIndex = 0;
-		while (IdIndex < NumItems)
-		{
-			if (LoopIndex < NumLoops)
-			{
-				// before the next loop
-				if (IdIndex < Loops[LoopIndex].StartIndex)
-				{
-					OutItems.Add(Items[IdIndex]);
-					IdIndex++;
-				}
-				// at the beginning of a loop
-				else if (IdIndex == Loops[LoopIndex].StartIndex)
-				{
-					for (int k = 0; k < LoopUnrollCounts[LoopIndex]; k++)
-					{
-						for (int j = Loops[LoopIndex].StartIndex; j <= Loops[LoopIndex].EndIndex; j++)
-						{
-							OutItems.Add(Items[j]);
-						}
-					}
-					IdIndex = Loops[LoopIndex].EndIndex + 1;
-					LoopIndex++;
-				}
-			}
-			// there are no more loops
-			else
-			{
-				OutItems.Add(Items[IdIndex]);
-				IdIndex++;
-			}
-		}
-		return true;
-	}
-
+	bool AutoComputeNumFloors(UOSMUserData *BuildingOSMUserData);
 
 };
 

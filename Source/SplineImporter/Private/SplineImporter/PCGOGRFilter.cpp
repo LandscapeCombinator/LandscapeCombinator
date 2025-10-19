@@ -43,8 +43,18 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 	TArray<FPCGTaggedData> Inputs = Context->InputData.GetInputs();
 	TArray<FPCGTaggedData>& Outputs = Context->OutputData.TaggedData;
 
+	if (Settings->GeometryTag.IsNone())
+	{
+		Outputs = Inputs;
+		return true;
+	}
+
+	UWorld *World = Context->SourceComponent->GetWorld();
 	TArray<AActor*> Geometries;
-	UGameplayStatics::GetAllActorsOfClassWithTag(Cast<UObject>(Context->SourceComponent->GetWorld()), AOGRGeometry::StaticClass(), Settings->GeometryTag, Geometries);
+	Concurrency::RunOnGameThreadAndWait([World, Settings, &Geometries]{
+		UGameplayStatics::GetAllActorsOfClassWithTag(World, AOGRGeometry::StaticClass(), Settings->GeometryTag, Geometries);
+		return true;
+	});
 
 	if (Geometries.Num() == 0)
 	{
@@ -60,7 +70,13 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 
 	AOGRGeometry *GeometryActor = Cast<AOGRGeometry>(Geometries[0]);
 
-	OGRGeometry *Geometry = IsValid(GeometryActor) ? GeometryActor->Geometry : nullptr;
+	if (!IsValid(GeometryActor))
+	{
+		PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("NoGeometryActor", "Unable to get find OGR Geometry Actor."));
+		return true;
+	}
+
+	OGRGeometry *Geometry = GeometryActor->Geometry;
 
 	if (!Geometry)
 	{
@@ -68,9 +84,8 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 		return true;
 	}
 
-	UWorld *World = Context->SourceComponent->GetWorld();
 	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World);
-	if (!GlobalCoordinates)
+	if (!IsValid(GlobalCoordinates))
 	{
 		PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("NoGlobalCoordinates", "No Global Coordinates"));
 		return true;

@@ -125,17 +125,12 @@ public:
 
 	static void RunAsync(TFunction<void()> Action);
 	static void RunMany(int n, TFunction<void( int i, TFunction<void(bool)> )> Action, TFunction<void(bool)> OnComplete);
-	static bool RunManyAndWait(int n, TFunction<bool( int i )> Action);
+	static bool RunManyAndWait(bool bEnableParallelDownload, int n, TFunction<bool( int i )> Action);
 	static void RunOnGameThread(TFunction<void()> Action);
 
 	static bool RunOnThreadAndWait(bool bRunOnGameThread, TFunction<bool()> Action);
 	static bool RunOnGameThreadAndWait(TFunction<bool()> Action);
 	static bool RunAsyncAndWait(TFunction<bool()> Action);
-	
-	static TFunction<void(TFunction<void(bool)>)> Return(TFunction<void()> Action);
-
-	// to help the type-checker
-	static TFunction<void(TFunction<void(bool)>)> I(TFunction<void(TFunction<void(bool)>)> Action);
 };
 
 #undef LOCTEXT_NAMESPACE
