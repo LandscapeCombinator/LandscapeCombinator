@@ -145,6 +145,7 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 		
 		for (auto& Point : (OGRMultiPoint *) AllPoints->Intersection(Geometry))
 		{
+			if (!Point) continue;
 			InsideLocations.Add(FVector2D(Point->getX(), Point->getY()));
 		}
 
