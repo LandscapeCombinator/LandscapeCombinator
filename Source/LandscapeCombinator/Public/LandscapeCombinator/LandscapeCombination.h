@@ -5,24 +5,13 @@
 #include "LandscapeCombinator/LandscapeSpawner.h"
 #include "LandscapeCombinator/LandscapePCGVolume.h"
 #include "LandscapeCombinator/LogLandscapeCombinator.h"
+#include "LandscapeCombinator/GeneratorWrapper.h"
 #include "BuildingsFromSplines/BuildingsFromSplines.h"
 #include "SplineImporter/GDALImporter.h"
 #include "LCCommon/LCGenerator.h"
 #include "LCCommon/LCContinuousGeneration.h"
 
 #include "LandscapeCombination.generated.h"
-
-USTRUCT(BlueprintType)
-struct FGeneratorWrapper
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneratorWrapper", meta = (DisplayPriority = "0"))
-	bool bIsEnabled = true;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneratorWrapper", meta = (DisplayPriority = "1", MustImplement = "/Script/LCCommon.LCGenerator"))
-	TSoftObjectPtr<AActor> Generator;
-};
 
 
 UCLASS(BlueprintType)

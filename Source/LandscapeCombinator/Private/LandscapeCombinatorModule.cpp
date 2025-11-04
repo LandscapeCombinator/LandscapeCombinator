@@ -13,6 +13,7 @@
 #include "LandscapeCombinator/LandscapeMesh.h"
 #include "LandscapeCombinator/LandscapeMeshCustomization.h"
 #include "LandscapeCombinator/LogLandscapeCombinator.h"
+#include "LandscapeCombinator/GeneratorWrapper.h"
 
 
 #include "PropertyEditorDelegates.h"
@@ -42,6 +43,8 @@ void FLandscapeCombinatorModule::StartupModule()
 	PropertyModule.RegisterCustomClassLayout(ALandscapeMesh::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FLandscapeMeshCustomization::MakeInstance));
 	PropertyModule.RegisterCustomClassLayout(ALandscapeSpawner::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FLandscapeSpawnerCustomization::MakeInstance));
 	PropertyModule.RegisterCustomClassLayout(ALandscapeTexturer::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FLandscapeTexturerCustomization::MakeInstance));
+
+	PropertyModule.RegisterCustomPropertyTypeLayout("GeneratorWrapper", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FGeneratorWrapperCustomization::MakeInstance));
 
 	FLandscapeCombinatorStyle::Initialize();
 	FLandscapeCombinatorStyle::ReloadTextures();
@@ -79,9 +82,9 @@ void FLandscapeCombinatorModule::PluginButtonClicked()
 			"WidgetDisabled",
 			"This widget has been disabled for now. Please use Landscape Combination actors directly as in the L_LandscapeCombinatorExamples map."
 		)
-	);	
-
+	);
 	return;
+
 	// const FString WidgetPath = TEXT("/Script/Blutility.EditorUtilityWidgetBlueprint'/LandscapeCombinator/UI/LandscapeCombinator.LandscapeCombinator'");
 	
 	// UEditorUtilitySubsystem* EditorUtilitySubsystem = GEditor->GetEditorSubsystem<UEditorUtilitySubsystem>();
