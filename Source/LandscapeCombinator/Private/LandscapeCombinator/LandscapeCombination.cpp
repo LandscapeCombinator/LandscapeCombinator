@@ -16,6 +16,11 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 {
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("Starting Combination with %d Generators"), Generators.Num());
 
+	Modify();
+
+	for (auto &GeneratorWrapper: Generators)
+		GeneratorWrapper.GeneratorStatus = EGeneratorStatus::Idle;
+
 	for (auto &GeneratorWrapper: Generators)
 	{
 		TSoftObjectPtr<AActor> Generator = GeneratorWrapper.Generator;
@@ -23,9 +28,20 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 
 		if (!GeneratorWrapper.bIsEnabled) continue;
 
+		GeneratorWrapper.GeneratorStatus = EGeneratorStatus::Generating;
+
+#if WITH_EDITOR
+		Concurrency::RunOnGameThreadAndWait([this](){
+			FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
+			PropertyModule.NotifyCustomizationModuleChanged();
+			return true;
+		});
+#endif
+
 		if (!Generator.IsValid())
 		{
 			LCReporter::ShowError(LOCTEXT("InvalidActor", "Invalid actor in combination"));
+			GeneratorWrapper.GeneratorStatus = EGeneratorStatus::Error;
 			return false;
 		}
 		
@@ -37,6 +53,7 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 					FText::FromString(GeneratorName)
 				)
 			);
+			GeneratorWrapper.GeneratorStatus = EGeneratorStatus::Error;
 			return false;
 		}
 
@@ -45,7 +62,18 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 
 		FName Path = SpawnedActorsPathOverride.IsNone() ? FName() : FName(SpawnedActorsPathOverride.ToString() / GeneratorName);
 
-		if (!Cast<ILCGenerator>(Generator.Get())->Generate(Path, bIsUserInitiated)) return false;
+		bool bGeneratorSuccess = Cast<ILCGenerator>(Generator.Get())->Generate(Path, bIsUserInitiated);
+		GeneratorWrapper.GeneratorStatus = bGeneratorSuccess ? EGeneratorStatus::Success : EGeneratorStatus::Error;
+
+#if WITH_EDITOR
+		Concurrency::RunOnGameThreadAndWait([this](){
+			if (GEditor) GEditor->SelectActor(this, true, true);
+			return true;
+		});
+#endif
+
+		if (!bGeneratorSuccess) return false;
+
 #if WITH_EDITOR
 		if (bSaveAfterEachGenerator)
 		{
@@ -60,6 +88,7 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 				return FEditorFileUtils::SaveDirtyPackages( bPromptUserToSave, bSaveMapPackages, bSaveContentPackages, bFastSave, bNotifyNoPackagesSaved, bCanBeDeclined );
 			}))
 			{
+				GeneratorWrapper.GeneratorStatus = EGeneratorStatus::Error;
 				return false;
 			}
 		}
@@ -92,6 +121,9 @@ bool ALandscapeCombination::Cleanup_Implementation(bool bSkipPrompt)
 {
 	Modify();
 
+	for (auto &GeneratorWrapper: Generators)
+		GeneratorWrapper.GeneratorStatus = EGeneratorStatus::Idle;
+
 	if (!bSkipPrompt)
 	{
 		TArray<UObject*> ObjectsToDelete;
@@ -103,13 +135,14 @@ bool ALandscapeCombination::Cleanup_Implementation(bool bSkipPrompt)
 			}
 		}
 
-		if (ObjectsToDelete.Num() > 0)
+		FString ObjectsString;
+		for (UObject* Object : ObjectsToDelete)
 		{
-			FString ObjectsString;
-			for (UObject* Object : ObjectsToDelete)
-			{
-				if (IsValid(Object)) ObjectsString += Object->GetName() + "\n";
-			}
+			if (IsValid(Object)) ObjectsString += Object->GetName() + "\n";
+		}
+
+		if (!ObjectsString.IsEmpty())
+		{
 			if (!LCReporter::ShowMessage(
 				FText::Format(
 					LOCTEXT("ALandscapeCombination::Cleanup_Implementation",
