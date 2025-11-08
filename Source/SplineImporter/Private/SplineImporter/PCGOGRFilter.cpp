@@ -39,8 +39,13 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 
 	const UPCGOGRFilterSettings* Settings = Context->GetInputSettings<UPCGOGRFilterSettings>();
 	check(Settings);
-
+	
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 6)
+	TArray<FPCGTaggedData> Inputs = Context->InputData.GetAllSpatialInputs();
+#else
 	TArray<FPCGTaggedData> Inputs = Context->InputData.GetInputs();
+#endif
+
 	TArray<FPCGTaggedData>& Outputs = Context->OutputData.TaggedData;
 
 	if (Settings->GeometryTag.IsNone())
@@ -49,7 +54,26 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 		return true;
 	}
 
-	UWorld *World = Context->SourceComponent->GetWorld();
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 6)
+	UPCGComponent* PCGComponent = Cast<UPCGComponent>(Context->ExecutionSource.Get());
+	if (!IsValid(PCGComponent))
+#else
+	TWeakObjectPtr<UPCGComponent> PCGComponent = Context->SourceComponent;
+	if (!PCGComponent.IsValid())
+#endif
+	{
+		PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("NoPCGComponent", "Unable to get source PCG Component."));
+		return true;
+	}
+
+	UWorld* World = PCGComponent->GetWorld();
+
+	if (!IsValid(World))
+	{
+		PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("NoWorld", "Invalid World."));
+		return true;
+	}
+
 	TArray<AActor*> Geometries;
 	Concurrency::RunOnGameThreadAndWait([World, Settings, &Geometries]{
 		UGameplayStatics::GetAllActorsOfClassWithTag(World, AOGRGeometry::StaticClass(), Settings->GeometryTag, Geometries);
@@ -80,7 +104,12 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 
 	if (!Geometry)
 	{
-		PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("NoGeometry", "Unable to get OGR Geometry. Please make sure the OGRGeometry actor is valid and initialized"));
+		PCGE_LOG_C(Error, GraphAndLog, Context,
+			FText::Format(
+				LOCTEXT("NoGeometry", "Unable to get OGR Geometry. Please make sure the OGRGeometry actor {0} is valid and initialized"),
+				FText::FromString(GeometryActor->GetActorNameOrLabel())
+			)
+		);
 		return true;
 	}
 
@@ -123,9 +152,14 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 		TSet<FVector2D> InsideLocations;
 		OGRMultiPoint *AllPoints = (OGRMultiPoint*) OGRGeometryFactory::createGeometry(OGRwkbGeometryType::wkbMultiPoint);
 		
+		if (!AllPoints)
+		{
+			PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("AllPointsNullPointer", "Couldn't create geometry"));
+			return true;
+		}
+
 		UE_LOG(LogSplineImporter, Log, TEXT("Exploring %d PCG points"), PCGPoints.Num());
 		
-		FlushPersistentDebugLines(World);
 		for (const FPCGPoint& PCGPoint : PCGPoints)
 		{
 			const FVector& Location0 = PCGPoint.Transform.GetLocation();
@@ -143,8 +177,32 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 			AllPoints->addGeometry(&Point4326);
 		}
 		
-		for (auto& Point : (OGRMultiPoint *) AllPoints->Intersection(Geometry))
+		if (!AllPoints)
 		{
+			PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("AllPointsNullPointer", "Couldn't create geometry"));
+			return true;
+		}
+		OGRGeometry *Intersection = AllPoints->Intersection(Geometry);
+		
+		if (!Intersection)
+		{
+			PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("IntersectionNullPointer", "Couldn't compute intersection"));
+			return true;
+		}
+
+		OGRMultiPoint* IntersectionPoints = Intersection->toMultiPoint();
+		
+		if (!IntersectionPoints)
+		{
+			PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("IntersectionNotPoints", "Couldn't compute intersection as a set of points"));
+			return true;
+		}
+		
+		for (int i = 0, n = IntersectionPoints->getNumGeometries(); i < n; ++i)
+		{
+			OGRGeometry* PointGeometry = IntersectionPoints->getGeometryRef(i);
+			if (!PointGeometry) continue;
+			OGRPoint* Point = PointGeometry->toPoint();
 			if (!Point) continue;
 			InsideLocations.Add(FVector2D(Point->getX(), Point->getY()));
 		}

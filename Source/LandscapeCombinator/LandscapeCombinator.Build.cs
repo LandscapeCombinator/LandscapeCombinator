@@ -12,7 +12,10 @@ public class LandscapeCombinator : ModuleRules
 		CppStandard = CppStandardVersion.Cpp20;
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
-		bUseUnity = false;
+		if (Target.Version.MajorVersion == 5 && Target.Version.MinorVersion == 6)
+		{
+			PublicDefinitions.Add("UE_ENABLE_INCLUDE_ORDER_DEPRECATED_IN_5_7=1"); // work-around for engine warnings in 5.6
+		}
 
 		PublicDependencyModuleNames.AddRange(
 			new string[]
@@ -22,6 +25,10 @@ public class LandscapeCombinator : ModuleRules
 			}
 		);
 
+		if (Target.Version.MajorVersion == 5 && Target.Version.MinorVersion < 6)
+		{
+			PrivateDependencyModuleNames.Add("StructUtils");
+		}
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
@@ -38,7 +45,6 @@ public class LandscapeCombinator : ModuleRules
 				"Landscape",
 				"PCG",
 				"ApplicationCore",
-				"StructUtils",
 
 				// Landscape Combinator dependencies
 				"Coordinates",

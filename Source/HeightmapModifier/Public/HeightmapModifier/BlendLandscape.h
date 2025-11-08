@@ -3,6 +3,7 @@
 #pragma once
 
 #include "ConsoleHelpers/ExternalTool.h"
+#include "LCCommon/ActorSelection.h"
 
 #include "CoreMinimal.h"
 #include "Landscape.h"
@@ -21,7 +22,7 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "BlendLandscape",
 		meta = (DisplayPriority = "19")
 	)
-	TObjectPtr<ALandscape> LandscapeToBlendWith;
+	FActorSelection OtherLandscapeSelection;
 	
 	UPROPERTY(
 		AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "BlendLandscape",
@@ -30,7 +31,7 @@ public:
 	/* A curve that specifies how the data at the border of this landscape gets degraded into the other landscape.
 	 * The X axis of the curve represents the distance from the border of the overlapping region and goes from 0 (at the border) to (1 at the center).
 	 * The Y axis (Alpha) defines how we compute the new heightmap data:
-	 * NewData = Alpha * OldData + (1 - Alpha) * OverlappingLandscapeData
+	 * NewData = Alpha * OldData + (1 - Alpha) * (OtherLandscapeData + OtherLandscapeOffset) 
 	 * For example, a curve which is always 1 means that this landscape data is not changed. */
 	TObjectPtr<UCurveFloat> DegradeThisData;
 	
@@ -61,12 +62,19 @@ public:
 	/* Please check the tooltip of `DegradeOtherData` for documentation on how to use this value. */
 	double OtherLandscapeNoData = 0;
 	
+	UPROPERTY(
+		AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "BlendLandscape",
+		meta = (DisplayPriority = "25")
+	)
+	/* Please check the tooltip of `DegradeThisData` for documentation on how to use this value. */
+	double OtherLandscapeOffset = -2000;
+	
 #if WITH_EDITOR
 
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "BlendLandscape")
 	void BlendWithLandscape() { BlendWithLandscape(true); };
 
-	void BlendWithLandscape(bool bIsUserInitiated);
+	bool BlendWithLandscape(bool bIsUserInitiated);
 
 #endif
 

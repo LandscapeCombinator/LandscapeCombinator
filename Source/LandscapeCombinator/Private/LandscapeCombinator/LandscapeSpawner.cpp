@@ -46,7 +46,10 @@ ALandscapeSpawner::ALandscapeSpawner() : AActor()
 
 	HeightmapDownloader = CreateDefaultSubobject<UImageDownloader>(TEXT("HeightmapDownloader"));
 	DecalDownloader = CreateDefaultSubobject<UImageDownloader>(TEXT("DecalDownloader"));
+	DecalDownloader->bCropCoordinates = true;
+	DecalDownloader->bCropFollowingParametersSelection = true;
 	PositionBasedGeneration = CreateDefaultSubobject<ULCPositionBasedGeneration >(TEXT("PositionBasedGeneration"));
+	BlendLandscape = CreateDefaultSubobject<UBlendLandscape>(TEXT("BlendLandscape"));
 }
 
 TArray<UObject*> ALandscapeSpawner::GetGeneratedObjects() const
@@ -110,8 +113,12 @@ AActor *ALandscapeSpawner::Duplicate(FName FromName, FName ToName)
 	{
 		NewLandscapeSpawner->LandscapeTag = ULCBlueprintLibrary::ReplaceName(LandscapeTag, FromName, ToName);
 		NewLandscapeSpawner->LandscapeLabel = ULCBlueprintLibrary::Replace(LandscapeLabel, FromName.ToString(), ToName.ToString());
-		NewLandscapeSpawner->LandscapeToBlendWith.ActorTag =
-			ULCBlueprintLibrary::ReplaceName(LandscapeToBlendWith.ActorTag, FromName, ToName);
+
+		if (IsValid(BlendLandscape))
+		{
+			NewLandscapeSpawner->BlendLandscape->OtherLandscapeSelection.ActorTag =
+				ULCBlueprintLibrary::ReplaceName(BlendLandscape->OtherLandscapeSelection.ActorTag, FromName, ToName);
+		}
 
 		return NewLandscapeSpawner;
 	}
@@ -431,31 +438,29 @@ bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 	}
 
 	Concurrency::RunOnGameThreadAndWait([&]() {
-		UBlendLandscape *BlendLandscape = NewObject<UBlendLandscape>(SpawnedLandscape->GetRootComponent());
-		BlendLandscape->RegisterComponent();
-		SpawnedLandscape->AddInstanceComponent(BlendLandscape);
+		UBlendLandscape *SpawnedBlendLandscape = NewObject<UBlendLandscape>(SpawnedLandscape->GetRootComponent());
+
+		if (!IsValid(SpawnedBlendLandscape))
+		{
+			LCReporter::ShowError(
+				FText::Format(
+					LOCTEXT("BlendingError",
+						"There was an error while getting the landscape to blend with,\n"
+						"please double-check the settings."
+					),
+					FText::FromString(LandscapeLabel)
+				)
+			);
+			return false;
+		}
+
+		SpawnedBlendLandscape->RegisterComponent();
+		SpawnedLandscape->AddInstanceComponent(SpawnedBlendLandscape);
+		UEngine::CopyPropertiesForUnrelatedObjects(BlendLandscape, SpawnedBlendLandscape);
 
 		if (bBlendLandscapeWithAnotherLandscape)
 		{
-			if (ALandscape *OtherLandscape = Cast<ALandscape>(LandscapeToBlendWith.GetActor(GetWorld())))
-			{
-				BlendLandscape->LandscapeToBlendWith = OtherLandscape;
-				BlendLandscape->BlendWithLandscape(bIsUserInitiated);
-			}
-			else
-			{
-				FMessageDialog::Open(
-					EAppMsgCategory::Error,
-					EAppMsgType::Ok,
-					FText::Format(
-						LOCTEXT("BlendingError",
-							"There was an error while getting the landscape to blend with,\n"
-							"please double-check the settings."
-						),
-						FText::FromString(LandscapeLabel)
-					)
-				);
-			}
+			if (!SpawnedBlendLandscape->BlendWithLandscape(bIsUserInitiated)) return false;
 		}
 
 		UE_LOG(LogLandscapeCombinator, Log, TEXT("Created Landscape %s successfully."), *LandscapeLabel);
@@ -489,9 +494,7 @@ bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 		{
 			if (!IsValid(DecalDownloader))
 			{
-				FMessageDialog::Open(
-					EAppMsgCategory::Error,
-					EAppMsgType::Ok,
+				LCReporter::ShowError(
 					FText::Format(
 						LOCTEXT("NoDecalDownloader", "Internal Error: The Decal Downloader is not set. Please try again with a new Landscape Spawner."),
 						FText::FromString(LandscapeLabel)
@@ -543,10 +546,12 @@ bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 			Concurrency::RunOnGameThreadAndWait([this, &NewDecals, SpawnedActorsPathOverride]() {
 				for (auto &DecalActor : NewDecals)
 				{
-					if (IsValid(DecalActor))
+					if (IsValid(DecalActor) && IsValid(DecalActor->GetDecal()))
 					{
 						ULCBlueprintLibrary::SetFolderPath2(DecalActor, SpawnedActorsPathOverride, SpawnedActorsPath);
+						DecalActor->GetDecal()->Modify();
 						DecalActor->GetDecal()->SortOrder = DecalsSortOrder;
+						DecalActor->GetDecal()->MarkRenderStateDirty();
 					}
 				}
 				return true;

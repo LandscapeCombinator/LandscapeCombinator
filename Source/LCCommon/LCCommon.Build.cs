@@ -9,6 +9,7 @@ public class LCCommon : ModuleRules
 		CppStandard = CppStandardVersion.Cpp20;
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
+		bUseUnity = false;
 
 		// Unreal Dependencies
 		PublicDependencyModuleNames.AddRange(

@@ -2,11 +2,7 @@
 
 #pragma once
 
-
-#include "IPropertyTypeCustomization.h"
-#include "PropertyHandle.h"
-#include "DetailWidgetRow.h"
-#include "Widgets/Images/SThrobber.h"
+#include "CoreMinimal.h"
 #include "GeneratorWrapper.generated.h"
 
 UENUM(BlueprintType)
@@ -33,6 +29,8 @@ struct FGeneratorWrapper
 	EGeneratorStatus GeneratorStatus = EGeneratorStatus::Idle;
 };
 
+#if WITH_EDITOR
+
 class FGeneratorWrapperCustomization : public IPropertyTypeCustomization
 {
 public:
@@ -40,3 +38,5 @@ public:
 	virtual void CustomizeHeader(TSharedRef<IPropertyHandle> StructHandle, FDetailWidgetRow& Row, IPropertyTypeCustomizationUtils&);
 	virtual void CustomizeChildren(TSharedRef<IPropertyHandle>, IDetailChildrenBuilder&, IPropertyTypeCustomizationUtils&) override {}
 };
+
+#endif

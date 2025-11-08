@@ -1,6 +1,12 @@
 #include "SplitChain.h"
 #include <memory>
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wpotentially-evaluated-expression"
+#endif
+
+
 SplitChain::SplitChain(spse event)
 {
     _splitEvent = event;
@@ -47,3 +53,7 @@ EChainType SplitChain::ChainType()
 {
     return EChainType::SPLIT;
 }
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif

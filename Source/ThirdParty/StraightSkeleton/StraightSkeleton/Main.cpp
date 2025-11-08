@@ -1,13 +1,10 @@
-#pragma once
 #include <iostream>
 #include <string>
 #include <memory>
 #include <unordered_set>
 #include <sstream>
 #include "SkeletonBuilder.h"
-#define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
-#include <crtdbg.h>
 
 
 static bool EqualEpsilon(double d1, double d2)

@@ -16,6 +16,10 @@ public class GDALInterface : ModuleRules
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
 		PublicDefinitions.Add("__STDC_VERSION__=0");
+		if (Target.Version.MajorVersion == 5 && Target.Version.MinorVersion == 6)
+		{
+			PublicDefinitions.Add("UE_ENABLE_INCLUDE_ORDER_DEPRECATED_IN_5_7=1"); // work-around for engine warnings in 5.6
+		}
 
 		// GDAL
 
