@@ -14,10 +14,10 @@ struct FSkeletonEdgeResult
     TArray<FVector2D> Polygon;
 
     UPROPERTY()
-    FVector2D Begin;
+    FVector2D Begin = FVector2D();
 
     UPROPERTY()
-    FVector2D End;
+    FVector2D End = FVector2D();
 };
 
 USTRUCT()
