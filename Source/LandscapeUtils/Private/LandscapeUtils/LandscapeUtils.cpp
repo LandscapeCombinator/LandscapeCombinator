@@ -711,9 +711,12 @@ bool LandscapeUtils::SpawnLandscape(
 		OutSpawnedLandscapeStreamingProxies.Append(LandscapeStreamingProxies);
 	}
 
+	
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION <= 6
 	// this enables Edit Layers, and makes line traces from Spline Importers work without having
 	// to restart the level
 	OutSpawnedLandscape->ToggleCanHaveLayersContent();
+#endif
 
 	return true;
 }
@@ -927,15 +930,24 @@ bool LandscapeUtils::ExtendLandscape(ALandscape *LandscapeToExtend, FString Heig
 		LandscapeComponent->RegisterComponent();
 	}
 
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION <= 6
 	if (LandscapeToExtend->HasLayersContent())
 	{
 		LandscapeToExtend->RequestLayersInitialization();
 	}
+#else
+	LandscapeToExtend->RequestLayersInitialization();
+#endif
 
 	for (auto &LandscapeComponent: AddedComponents)
 	{
 		TRACE_CPUPROFILER_EVENT_SCOPE_STR("ExtendLandscape::Updates");
+
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION <= 6
 		if (LandscapeToExtend->HasLayersContent())
+#else
+		if (true)
+#endif
 		{
 			TArray<ULandscapeComponent*> ComponentsUsingHeightmap;
 			ComponentsUsingHeightmap.Add(LandscapeComponent);

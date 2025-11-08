@@ -94,6 +94,18 @@
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
 			"WhitelistPlatforms": [ "Win64", "Linux" ]
+		},
+		{
+			"Name": "StraightSkeletonWrapper",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [ "Win64", "Linux" ]
+		},
+		{
+			"Name": "StraightSkeleton",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [ "Win64", "Linux" ]
 		}
 	],
 	"Plugins": [

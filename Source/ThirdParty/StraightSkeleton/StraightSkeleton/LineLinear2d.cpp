@@ -1,5 +1,6 @@
 #include "LineLinear2d.h"
 #include <limits>
+#include <float.h>
 
 LineLinear2d::LineLinear2d()
 {

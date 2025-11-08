@@ -1,5 +1,11 @@
+#if WITH_EDITOR
+
 #include "LandscapeCombinator/GeneratorWrapper.h"
 #include "IPropertyUtilities.h"
+#include "DetailWidgetRow.h"
+#include "Widgets/Images/SThrobber.h"
+#include "PropertyHandle.h"
+#include "IPropertyTypeCustomization.h"
 
 TSharedRef<IPropertyTypeCustomization> FGeneratorWrapperCustomization::MakeInstance()
 {
@@ -23,9 +29,9 @@ void FGeneratorWrapperCustomization::CustomizeHeader(TSharedRef<IPropertyHandle>
             GenerratorStatusHandle->GetValue((uint8&)GeneratorStatus);
 
             FColor Color = bIsEnabled ?
-                (GeneratorStatus == EGeneratorStatus::Idle ? FColor(0, 0, 50) : 
-                GeneratorStatus == EGeneratorStatus::Generating ? FColor(170, 80, 0) : 
-                GeneratorStatus == EGeneratorStatus::Error ? FColor(50, 0, 0) : FColor(0, 50, 0)) 
+                (GeneratorStatus == EGeneratorStatus::Idle ? FColor(0, 0, 16) : 
+                GeneratorStatus == EGeneratorStatus::Generating ? FColor(50, 30, 0) : 
+                GeneratorStatus == EGeneratorStatus::Error ? FColor(16, 0, 0) : FColor(0, 16, 0)) 
                 : FColor(0, 0, 0);
 
             return FSlateColor(Color);
@@ -60,3 +66,5 @@ void FGeneratorWrapperCustomization::CustomizeHeader(TSharedRef<IPropertyHandle>
         ]
     ];
 }
+
+#endif

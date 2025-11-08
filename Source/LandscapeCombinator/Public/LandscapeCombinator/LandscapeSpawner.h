@@ -8,6 +8,7 @@
 #include "ConsoleHelpers/ExternalTool.h"
 #include "LCCommon/LCGenerator.h"
 #include "LCCommon/ActorSelection.h"
+#include "HeightmapModifier/BlendLandscape.h"
 
 #include "GenericPlatform/GenericPlatformMisc.h"
 #include "CoreMinimal.h"
@@ -175,9 +176,9 @@ public:
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Blending",
-		meta = (EditCondition = "bBLendLandscapeWithAnotherLandscape", EditConditionHides, DisplayPriority = "1")
+		meta = (EditCondition = "bBLendLandscapeWithAnotherLandscape", EditConditionHides, DisplayPriority = "1", ShowOnlyInnerProperties)
 	)
-	FActorSelection LandscapeToBlendWith;
+	TObjectPtr<UBlendLandscape> BlendLandscape;
 
 	/**********
 	 * Decals *

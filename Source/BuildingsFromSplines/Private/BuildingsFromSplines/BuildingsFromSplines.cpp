@@ -30,6 +30,10 @@ TObjectPtr<UBuildingConfiguration> FWeightedBuildingConfiguration::GetRandomBuil
 ABuildingsFromSplines::ABuildingsFromSplines()
 {
 	PrimaryActorTick.bCanEverTick = false;
+
+	FWeightedBuildingConfiguration WBCFG;
+	WBCFG.BuildingConfiguration = CreateDefaultSubobject<UBuildingConfiguration>(TEXT("BuildingConfiguration"));
+	BuildingConfigurations.Add(MoveTemp(WBCFG));
 }
 
 bool ABuildingsFromSplines::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated)

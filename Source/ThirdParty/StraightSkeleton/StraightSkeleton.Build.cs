@@ -9,6 +9,7 @@ public class StraightSkeleton : ModuleRules
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
 		bUseRTTI = true;
+		bEnableExceptions = true;
 
 		PublicDependencyModuleNames.Add("Core");
 	}

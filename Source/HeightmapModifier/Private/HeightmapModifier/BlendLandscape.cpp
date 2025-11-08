@@ -26,71 +26,34 @@
 
 UBlendLandscape::UBlendLandscape()
 {
-	{
-		FRichCurveKey ZeroKey, OneKey;
-		ZeroKey.Time = 0;
-		ZeroKey.Value = 0;
-		ZeroKey.InterpMode = ERichCurveInterpMode::RCIM_Cubic;
-		ZeroKey.TangentMode = ERichCurveTangentMode::RCTM_User;
-		ZeroKey.TangentWeightMode = ERichCurveTangentWeightMode::RCTWM_WeightedBoth;
-		ZeroKey.LeaveTangent = FLT_MAX;
-		ZeroKey.LeaveTangentWeight = 1;
-
-		OneKey.Time = 0.1;
-		OneKey.Value = 1;
-		OneKey.InterpMode = ERichCurveInterpMode::RCIM_Cubic;
-		OneKey.TangentMode = ERichCurveTangentMode::RCTM_User;
-		OneKey.TangentWeightMode = ERichCurveTangentWeightMode::RCTWM_WeightedBoth;
-		OneKey.ArriveTangent = 0;
-		OneKey.ArriveTangentWeight = 1;
-	
-		FRichCurve *ThisCurve = new FRichCurve();
-		ThisCurve->SetKeys( { ZeroKey, OneKey });
-		DegradeThisData = CreateDefaultSubobject<UCurveFloat>(TEXT("DegradeThisData"));
-		DegradeThisData->FloatCurve = *ThisCurve;
-	}
-
-	{
-		FRichCurveKey ZeroKey, OneKey;
-		ZeroKey.Time = 0;
-		ZeroKey.Value = 1;
-		ZeroKey.InterpMode = ERichCurveInterpMode::RCIM_Cubic;
-		ZeroKey.TangentMode = ERichCurveTangentMode::RCTM_User;
-		ZeroKey.TangentWeightMode = ERichCurveTangentWeightMode::RCTWM_WeightedBoth;
-		ZeroKey.LeaveTangent = 0;
-		ZeroKey.LeaveTangentWeight = 1;
-
-		OneKey.Time = 1;
-		OneKey.Value = 0;
-		OneKey.InterpMode = ERichCurveInterpMode::RCIM_Cubic;
-		OneKey.TangentMode = ERichCurveTangentMode::RCTM_User;
-		OneKey.TangentWeightMode = ERichCurveTangentWeightMode::RCTWM_WeightedBoth;
-		OneKey.ArriveTangent = 0;
-		OneKey.ArriveTangentWeight = 1;
-	
-		FRichCurve *OtherCurve = new FRichCurve();
-		OtherCurve->SetKeys( { ZeroKey, OneKey });
-		DegradeOtherData = CreateDefaultSubobject<UCurveFloat>(TEXT("DegradeOtherData"));
-		DegradeOtherData->FloatCurve = *OtherCurve;
-	}
-
+	DegradeThisData = LoadObject<UCurveFloat>(nullptr, TEXT("/Script/Engine.CurveFloat'/LandscapeCombinator/FloatCurves/DegradeThisData.DegradeThisData'"));
+	DegradeOtherData = LoadObject<UCurveFloat>(nullptr, TEXT("/Script/Engine.CurveFloat'/LandscapeCombinator/FloatCurves/DegradeOtherData.DegradeOtherData'"));
 }
 
 #if WITH_EDITOR
 
-void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
+bool UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 {
 	ALandscape *Landscape = Cast<ALandscape>(GetOwner());
-	if (!Landscape) return;
+	if (!IsValid(Landscape))
+	{
+		LCReporter::ShowError(
+			LOCTEXT("UBlendLandscape::BlendWithLandscape::InvalidOwner", "Blend landscape can only be called directly from a landscape.\nWhen using a landscape spawner, this will be done automatically when spawning the landscape.")
+		);
+		return false;
+	}
 
-	TArray<AActor*> LandscapeToBlendWiths;
-	UGameplayStatics::GetAllActorsOfClass(this->GetWorld(), ALandscape::StaticClass(), LandscapeToBlendWiths);
+	ALandscape *OtherLandscape = Cast<ALandscape>(OtherLandscapeSelection.GetActor(GetWorld()));
+	if (!IsValid(OtherLandscape))
+	{
+		LCReporter::ShowError(
+			LOCTEXT("UBlendLandscape::BlendWithLandscape::OtherLandscape", "Invalid landscape selection for the blend landscape option")
+		); 
+		return false;
+	}
 
 	FVector2D MinMaxX, MinMaxY, UnusedMinMaxZ;
-	if (!LandscapeUtils::GetLandscapeBounds(Landscape, MinMaxX, MinMaxY, UnusedMinMaxZ))
-	{
-		return;
-	}
+	if (!LandscapeUtils::GetLandscapeBounds(Landscape, MinMaxX, MinMaxY, UnusedMinMaxZ)) return false;
 
 	double ExtentX = MinMaxX[1] - MinMaxX[0];
 	double ExtentY = MinMaxY[1] - MinMaxY[0];
@@ -102,32 +65,24 @@ void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 	FTransform ThisToGlobal = Landscape->GetTransform();
 	FTransform GlobalToThis = ThisToGlobal.Inverse();
 
-	const FScopedTransaction Transaction(LOCTEXT("BlendWithLandscapeToBlendWiths", "Blending With Other Landscapes"));
+	const FScopedTransaction Transaction(LOCTEXT("BlendWithOtherLandscapes", "Blending With Landscape"));
 
-	if (!IsValid(LandscapeToBlendWith))
+	if (OtherLandscape == Landscape)
 	{
 		LCReporter::ShowError(
-			LOCTEXT("UBlendLandscape::BlendWithLandscape", "Please select a LandscapeToBlendWith")
+			LOCTEXT("UBlendLandscape::BlendWithLandscape", "Please select a OtherLandscape different than this one")
 		);
-		return;
-	}
-
-	if (LandscapeToBlendWith == Landscape)
-	{
-		LCReporter::ShowError(
-			LOCTEXT("UBlendLandscape::BlendWithLandscape", "Please select a LandscapeToBlendWith different than this one")
-		);
-		return;
+		return false;
 	}
 
 	FVector2D OtherMinMaxX, OtherMinMaxY, UnusedOtherMinMaxZ;
-	if (!LandscapeUtils::GetLandscapeBounds(LandscapeToBlendWith, OtherMinMaxX, OtherMinMaxY, UnusedOtherMinMaxZ))
+	if (!LandscapeUtils::GetLandscapeBounds(OtherLandscape, OtherMinMaxX, OtherMinMaxY, UnusedOtherMinMaxZ))
 	{
 		LCReporter::ShowError(FText::Format(
 			LOCTEXT("UBlendLandscape::BlendWithLandscape::2", "Could not compute landscape bounds of Landscape {0}."),
-			FText::FromString(LandscapeToBlendWith->GetActorNameOrLabel())
+			FText::FromString(OtherLandscape->GetActorNameOrLabel())
 		));
-		return;
+		return false;
 	}
 
 	if (
@@ -141,18 +96,18 @@ void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 		FHeightmapAccessor<false> HeightmapAccessor(Landscape->GetLandscapeInfo());
 		HeightmapAccessor.GetDataFast(0, 0, SizeX - 1, SizeY - 1, OldHeightmapData);
 
-		FTransform OtherToGlobal = LandscapeToBlendWith->GetTransform();
+		FTransform OtherToGlobal = OtherLandscape->GetTransform();
 		FTransform GlobalToOther = OtherToGlobal.Inverse();
 		FVector OtherTopLeft = GlobalToOther.TransformPosition(GlobalTopLeft);
 		FVector OtherBottomRight = GlobalToOther.TransformPosition(GlobalBottomRight);
 			
-		FHeightmapAccessor<false> OtherHeightmapAccessor(LandscapeToBlendWith->GetLandscapeInfo());
+		FHeightmapAccessor<false> OtherHeightmapAccessor(OtherLandscape->GetLandscapeInfo());
 
-		// We are only interested in the heightmap data from `LandscapeToBlendWith` in the rectangle delimited by
+		// We are only interested in the heightmap data from `OtherLandscape` in the rectangle delimited by
 		// the `TopLeft` and `BottomRight` corners 
 			
-		int32 OtherTotalSizeX = LandscapeToBlendWith->ComputeComponentCounts().X * LandscapeToBlendWith->ComponentSizeQuads + 1;
-		int32 OtherTotalSizeY = LandscapeToBlendWith->ComputeComponentCounts().Y * LandscapeToBlendWith->ComponentSizeQuads + 1;
+		int32 OtherTotalSizeX = OtherLandscape->ComputeComponentCounts().X * OtherLandscape->ComponentSizeQuads + 1;
+		int32 OtherTotalSizeY = OtherLandscape->ComputeComponentCounts().Y * OtherLandscape->ComponentSizeQuads + 1;
 		int32 OtherX1 = FMath::Min(OtherTotalSizeX - 1, FMath::Max(0, OtherTopLeft.X));
 		int32 OtherX2 = FMath::Min(OtherTotalSizeX - 1, FMath::Max(0, OtherBottomRight.X));
 		int32 OtherY1 = FMath::Min(OtherTotalSizeY - 1, FMath::Max(0, OtherTopLeft.Y));
@@ -164,13 +119,13 @@ void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 		{
 			LCReporter::ShowError(FText::Format(
 				LOCTEXT("UBlendLandscape::BlendWithLandscape::2", "Could not blend with Landscape{0}. Its resolution might be too small."),
-				FText::FromString(LandscapeToBlendWith->GetActorNameOrLabel())
+				FText::FromString(OtherLandscape->GetActorNameOrLabel())
 			));
-			return;
+			return false;
 		}
 
 		UE_LOG(LogHeightmapModifier, Log, TEXT("Blending with Landscape %s (MinX: %d, MaxX: %d, MinY: %d, MaxY: %d)"),
-			*LandscapeToBlendWith->GetActorNameOrLabel(), OtherX1, OtherX2, OtherY1, OtherY2
+			*OtherLandscape->GetActorNameOrLabel(), OtherX1, OtherX2, OtherY1, OtherY2
 		);
 
 		uint16* OtherOldHeightmapData = (uint16*) malloc(OtherSizeX * OtherSizeY * (sizeof (uint16)));
@@ -211,7 +166,11 @@ void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 
 #if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 3)
 		
-		if (LandscapeToBlendWith->CanHaveLayersContent())
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION <= 6
+		if (OtherLandscape->CanHaveLayersContent())
+#else
+		if (true)
+#endif
 		{
 			/* Make the new data to be a difference, so that it can be used on a different edit layer (>= 5.3 only) */
 	
@@ -219,25 +178,25 @@ void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 
 			/* Write difference data to a new edit layer (>= 5.3 only) */
 
-			int OtherLayerIndex = LandscapeToBlendWith->CreateLayer();
+			int OtherLayerIndex = OtherLandscape->CreateLayer();
 			if (OtherLayerIndex == INDEX_NONE)
 			{
 				LCReporter::ShowError(FText::Format(
 					LOCTEXT("UHeightmapModifier::ModifyHeightmap::10", "Could not create landscape layer. Make sure that edit layers are enabled on Landscape {0}."),
-					FText::FromString(LandscapeToBlendWith->GetActorNameOrLabel())
+					FText::FromString(OtherLandscape->GetActorNameOrLabel())
 				));
 				free(OldHeightmapData);
 				free(OtherOldHeightmapData);
 				free(OtherNewHeightmapData);
-				return;
+				return false;
 			}
 
 #if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 6)
-			OtherHeightmapAccessor.SetEditLayer(LandscapeToBlendWith->GetEditLayer(OtherLayerIndex)->GetGuid());
+			OtherHeightmapAccessor.SetEditLayer(OtherLandscape->GetEditLayer(OtherLayerIndex)->GetGuid());
 #elif ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 5)
-			OtherHeightmapAccessor.SetEditLayer(LandscapeToBlendWith->GetLayerConst(OtherLayerIndex)->Guid);
+			OtherHeightmapAccessor.SetEditLayer(OtherLandscape->GetLayerConst(OtherLayerIndex)->Guid);
 #else
-			OtherHeightmapAccessor.SetEditLayer(LandscapeToBlendWith->GetLayer(OtherLayerIndex)->Guid);
+			OtherHeightmapAccessor.SetEditLayer(OtherLandscape->GetLayer(OtherLayerIndex)->Guid);
 #endif
 		}
 
@@ -247,6 +206,11 @@ void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 		OtherHeightmapAccessor.SetData(OtherX1, OtherY1, OtherX2, OtherY2, OtherNewHeightmapData);
 		free(OtherNewHeightmapData);
 
+		double ThisLandscapeZ = Landscape->GetActorLocation().Z;
+		double OtherLandscapeZ = OtherLandscape->GetActorLocation().Z;
+
+		double ThisLandscapeZScale = Landscape->GetActorScale3D().Z;
+		double OtherLandscapeZScale = OtherLandscape->GetActorScale3D().Z;
 		
 		/* Modify the data of this landscape */
 		
@@ -273,11 +237,26 @@ void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 					double DistanceFromBorder = FMath::Min(X, FMath::Min(Y, FMath::Min(SizeX - X - 1, SizeY - Y - 1)));
 					double DistanceRatio = DistanceFromBorder / MaxDistance2;
 					double Alpha = DegradeThisData->GetFloatValue(DistanceRatio);
-					NewHeightmapData[X + Y * SizeX] = Alpha * OldHeightmapData[X + Y * SizeX] + (1 - Alpha) * OtherLandscapeNoData;
+					if (X == 0)
+					{
+						UE_LOG(LogTemp, Error, TEXT("1. Alpha: %f"), Alpha);
+						UE_LOG(LogTemp, Error, TEXT("1. OldHeightmapData[X + Y * SizeX]: %d"), OldHeightmapData[X + Y * SizeX]);
+						UE_LOG(LogTemp, Error, TEXT("1. NewHeightmapData[X + Y * SizeX]: %d"), NewHeightmapData[X + Y * SizeX]);
+					}
+
+					float OtherLocalHeight = LandscapeDataAccess::GetLocalHeight(OtherOldHeightmapData[OtherXOffset + OtherYOffset * OtherSizeX]);
+					double OtherGlobalHeight = OtherLocalHeight * OtherLandscapeZScale + OtherLandscapeZ + OtherLandscapeOffset;
+					float OtherLocalHeight2 = (OtherGlobalHeight - ThisLandscapeZ) / ThisLandscapeZScale;
+					float OtherTextHeight2 = LandscapeDataAccess::GetTexHeight(OtherLocalHeight2);
+
+					// const float LocalHeight = (GlobalHeightMeters * 100.0f - LandscapeToExtend->GetActorLocation().Z) / LandscapeToExtend->GetActorScale3D().Z;
+					// HeightmapDataUE[Y * SizeX + X] = LandscapeDataAccess::GetTexHeight(LocalHeight);
+					NewHeightmapData[X + Y * SizeX] = Alpha * OldHeightmapData[X + Y * SizeX] + (1 - Alpha) * OtherTextHeight2;
 				}
 				else
 				{
 					// otherwise, we keep the old data
+					UE_LOG(LogTemp, Error, TEXT("2. OldHeightmapData[X + Y * SizeX]: %d"), OldHeightmapData[X + Y * SizeX]);
 					NewHeightmapData[X + Y * SizeX] = OldHeightmapData[X + Y * SizeX];
 				}
 			}
@@ -289,11 +268,16 @@ void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 
 		/* Make the new data to be a difference, so that it can be used on a different edit layer (>= 5.3 only) */
 	
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION <= 6
 		if (Landscape->CanHaveLayersContent())
+#else
+		if (true)
+#endif
 		{
 			LandscapeUtils::MakeDataRelativeTo(SizeX, SizeY, NewHeightmapData, OldHeightmapData);
 	
 			int LayerIndex = Landscape->CreateLayer();
+			UE_LOG(LogTemp, Error, TEXT("CreateLayer: %d"), LayerIndex);
 			if (LayerIndex == INDEX_NONE)
 			{
 				LCReporter::ShowError(FText::Format(
@@ -303,15 +287,15 @@ void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 				free(OldHeightmapData);
 				free(NewHeightmapData);
 				free(OtherOldHeightmapData);
-				return;
+				return false;
 			}
 
 #if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 6)
-			OtherHeightmapAccessor.SetEditLayer(Landscape->GetEditLayer(LayerIndex)->GetGuid());
+			HeightmapAccessor.SetEditLayer(Landscape->GetEditLayer(LayerIndex)->GetGuid());
 #elif ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 5)
-			OtherHeightmapAccessor.SetEditLayer(Landscape->GetLayerConst(LayerIndex)->Guid);
+			HeightmapAccessor.SetEditLayer(Landscape->GetLayerConst(LayerIndex)->Guid);
 #else
-			OtherHeightmapAccessor.SetEditLayer(Landscape->GetLayer(LayerIndex)->Guid);
+			HeightmapAccessor.SetEditLayer(Landscape->GetLayer(LayerIndex)->Guid);
 #endif
 
 	}
@@ -325,7 +309,7 @@ void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 		free(NewHeightmapData);
 
 		UE_LOG(LogHeightmapModifier, Log, TEXT("Finished blending with Landscape %s (MinX: %d, MaxX: %d, MinY: %d, MaxY: %d)"),
-			*LandscapeToBlendWith->GetActorNameOrLabel(), OtherX1, OtherX2, OtherY1, OtherY2
+			*OtherLandscape->GetActorNameOrLabel(), OtherX1, OtherX2, OtherY1, OtherY2
 		);
 
 		if (bIsUserInitiated)
@@ -336,7 +320,7 @@ void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 						"UBlendLandscape::BlendWithLandscape::Finished",
 						"Finished blending with Landscape {0}."
 					),
-					FText::FromString(LandscapeToBlendWith->GetActorNameOrLabel()),
+					FText::FromString(OtherLandscape->GetActorNameOrLabel()),
 					false
 				),
 				"SuppressBlendInfoMessages",
@@ -345,23 +329,23 @@ void UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 				FAppStyle::GetBrush("Icons.InfoWithColor.Large")
 			);
 		}
-		return;
+		return false;
 	}
 	else
 	{
 		UE_LOG(LogHeightmapModifier, Log, TEXT("Skipping blending with Landscape %s, which does not overlap with Landscape %s"),
-			*LandscapeToBlendWith->GetActorNameOrLabel(),
+			*OtherLandscape->GetActorNameOrLabel(),
 			*Landscape->GetActorNameOrLabel()
 		);
 		LCReporter::ShowError(FText::Format(
 			LOCTEXT("UBlendLandscape::BlendWithLandscape::Skip", "Skipping blending with Landscape {0}, which does not overlap with Landscape {1}."),
-			FText::FromString(LandscapeToBlendWith->GetActorNameOrLabel()),
+			FText::FromString(OtherLandscape->GetActorNameOrLabel()),
 			FText::FromString(Landscape->GetActorNameOrLabel())
 		));
-		return;
+		return false;
 	}
 
-	return;
+	return true;
 }
 
 #endif

@@ -266,7 +266,7 @@ bool PrimitiveUtils::IsPointInsidePolygon(Vector2d point, std::shared_ptr<std::v
         double x = point.X;
         double y = point.Y;
 
-        if (node1->Y < y && node2->Y >= y || node2->Y < y && node1->Y >= y)
+        if ((node1->Y < y && node2->Y >= y) || (node2->Y < y && node1->Y >= y))
         {
             if (node1->X + (y - node1->Y) / (node2->Y - node1->Y) * (node2->X - node1->X) < x)
                 oddNodes = !oddNodes;

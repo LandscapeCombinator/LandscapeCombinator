@@ -129,7 +129,7 @@ bool ALandscapeCombination::Cleanup_Implementation(bool bSkipPrompt)
 		TArray<UObject*> ObjectsToDelete;
 		for (auto &GeneratorWrapper : Generators)
 		{
-			if (GeneratorWrapper.bIsEnabled && GeneratorWrapper.Generator.IsValid() && GeneratorWrapper.Generator->Implements<ULCGenerator>())
+			if (GeneratorWrapper.Generator.IsValid() && GeneratorWrapper.Generator->Implements<ULCGenerator>())
 			{
 				ObjectsToDelete.Append(Cast<ILCGenerator>(GeneratorWrapper.Generator.Get())->GetGeneratedObjects());
 			}
@@ -160,7 +160,7 @@ bool ALandscapeCombination::Cleanup_Implementation(bool bSkipPrompt)
 
 	for (auto &GeneratorWrapper : Generators)
 	{
-		if (GeneratorWrapper.bIsEnabled && GeneratorWrapper.Generator.IsValid() && GeneratorWrapper.Generator->Implements<ULCGenerator>())
+		if (GeneratorWrapper.Generator.IsValid() && GeneratorWrapper.Generator->Implements<ULCGenerator>())
 		{
 			if (!Cast<ILCGenerator>(GeneratorWrapper.Generator.Get())->Execute_Cleanup(GeneratorWrapper.Generator.Get(), true)) return false;
 		}

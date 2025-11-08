@@ -1,5 +1,11 @@
 #include "SkeletonBuilder.h"
 #include "CircularList.h"
+#include <float.h>
+
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wpotentially-evaluated-expression"
+#endif
 
 // const double SkeletonBuilder::SplitEpsilon = 1E-10;
 const double SkeletonBuilder::SplitEpsilon = 5E-6;
@@ -1070,8 +1076,8 @@ std::shared_ptr<Vertex> SkeletonBuilder::ChooseOppositeEdgeLav(sp<listVertex> ed
 		// are vertex chosen by opposite edge (then point to opposite edge).
 		// Chose lav only when center is between begin and end. Only one lav
 		// should meet criteria.
-		if (beginDot < centerDot && centerDot < endDot ||
-			beginDot > centerDot && centerDot > endDot)
+		if ((beginDot < centerDot && centerDot < endDot) ||
+			(beginDot > centerDot && centerDot > endDot))
 			return end;
 	}
 
@@ -1160,3 +1166,7 @@ Vector2d SkeletonBuilder::CalcVectorBisector(Vector2d norm1, Vector2d norm2)
 {
 	return PrimitiveUtils::BisectorNormalized(norm1, norm2);
 }
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
