@@ -300,7 +300,7 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition = "IsXYZ()", EditConditionHides, DisplayPriority = "100")
 	)
-	bool bEnableParallelDownload = false;
+	bool bEnableXYZParallelDownload = false;
 
 
 
@@ -533,6 +533,12 @@ public:
 	)
 	/* Enter the number of pixels per units (the higher the number, the higher the resolution). */
 	double WMS_ResolutionPixelsPerUnit = 1;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
+		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "100")
+	)
+	bool bEnableWMSParallelDownload = false;
 
 
 	/**********
