@@ -11,6 +11,7 @@ class HMWMS : public HMFetcher
 public:
     HMWMS(
         FWMSProvider InWMS_Provider,
+        bool bEnableParallelDownload0,
         int InMaxTileWidth,
         int InMaxTileHeight,
         FString InName,
@@ -28,6 +29,7 @@ public:
         double InResolutionPixelsPerUnit
     ) :
         WMS_Provider(InWMS_Provider),
+        bEnableParallelDownload(bEnableParallelDownload0),
         WMS_MaxTileWidth(InMaxTileWidth),
         WMS_MaxTileHeight(InMaxTileHeight),
         WMS_Name(InName),
@@ -50,6 +52,7 @@ public:
 
 protected:
     FWMSProvider WMS_Provider;
+    bool bEnableParallelDownload;
     int WMS_MaxTileWidth;
     int WMS_MaxTileHeight;
     FString WMS_Name;

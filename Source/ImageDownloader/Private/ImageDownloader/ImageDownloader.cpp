@@ -190,7 +190,7 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(bool bIsUserInitiated, FString
 				AutoSetResolution();
 
 				HMFetcher *WMSFetcher = new HMWMS(
-					WMS_Provider,
+					WMS_Provider, bEnableWMSParallelDownload,
 					WMS_MaxTileWidth, WMS_MaxTileHeight,
 					WMS_Name, WMS_CRS, WMS_X_IsLong,
 					WMS_MinAllowedLong, WMS_MaxAllowedLong, WMS_MinAllowedLat, WMS_MaxAllowedLat,
@@ -338,7 +338,7 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(bool bIsUserInitiated, FString
 				HMFetcher *Result = new HMDebugFetcher(
 					"XYZ_Download",
 					new HMXYZ(
-						bAllowInvalidTiles, bEnableParallelDownload,
+						bAllowInvalidTiles, bEnableXYZParallelDownload,
 						Name, Layer, Format, URL2, XYZ_Zoom, XYZ_MinX, XYZ_MaxX, XYZ_MinY, XYZ_MaxY,
 						bMaxY_IsNorth2, bGeoreferenceSlippyTiles2,
 							ImageSourceKind == EImageSourceKind::MapTiler_Heightmaps ||
