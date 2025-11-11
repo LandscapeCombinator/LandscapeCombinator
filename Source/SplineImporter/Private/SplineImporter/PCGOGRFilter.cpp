@@ -202,6 +202,7 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 		{
 			OGRGeometry* PointGeometry = IntersectionPoints->getGeometryRef(i);
 			if (!PointGeometry) continue;
+			if (wkbFlatten(PointGeometry->getGeometryType() != wkbPoint)) continue;
 			OGRPoint* Point = PointGeometry->toPoint();
 			if (!Point) continue;
 			InsideLocations.Add(FVector2D(Point->getX(), Point->getY()));
