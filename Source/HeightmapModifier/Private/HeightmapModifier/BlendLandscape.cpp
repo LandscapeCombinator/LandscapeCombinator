@@ -148,13 +148,13 @@ bool UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 				int ThisY = ThisPosition.Y;
 
 				// if this landscape has data at this position
-				if (ThisX >= 0 && ThisY >= 0 && ThisX < SizeX && ThisY < SizeY && OldHeightmapData[ThisX + ThisY * SizeX] != ThisLandscapeNoData)
+				if (ThisX >= 0 && ThisY >= 0 && ThisX < SizeX && ThisY < SizeY && OldHeightmapData[ThisX + ThisY * SizeX] != 0)
 				{
 					// we transform the data according to the curve
 					double DistanceFromBorder = FMath::Min(X, FMath::Min(Y, FMath::Min(OtherSizeX - X - 1, OtherSizeY - Y - 1)));
 					double DistanceRatio = DistanceFromBorder / MaxDistance;
 					double Alpha = DegradeOtherData->GetFloatValue(DistanceRatio);
-					OtherNewHeightmapData[X + Y * OtherSizeX] = Alpha * OtherOldHeightmapData[X + Y * OtherSizeX] + (1 - Alpha) * OtherLandscapeNoData;
+					OtherNewHeightmapData[X + Y * OtherSizeX] = Alpha * OtherOldHeightmapData[X + Y * OtherSizeX];
 				}
 				else
 				{					
@@ -230,35 +230,11 @@ bool UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 				int OtherXOffset = FMath::Max(FMath::Min(OtherX2, OtherX - OtherX1), 0);
 				int OtherYOffset = FMath::Max(FMath::Min(OtherY2, OtherY - OtherY1), 0);
 				
-				// if the other landscape has data at this position
-				if (OtherOldHeightmapData[OtherXOffset + OtherYOffset * OtherSizeX] != OtherLandscapeNoData)
-				{
-					// we transform the data according to the curve
-					double DistanceFromBorder = FMath::Min(X, FMath::Min(Y, FMath::Min(SizeX - X - 1, SizeY - Y - 1)));
-					double DistanceRatio = DistanceFromBorder / MaxDistance2;
-					double Alpha = DegradeThisData->GetFloatValue(DistanceRatio);
-					if (X == 0)
-					{
-						UE_LOG(LogTemp, Error, TEXT("1. Alpha: %f"), Alpha);
-						UE_LOG(LogTemp, Error, TEXT("1. OldHeightmapData[X + Y * SizeX]: %d"), OldHeightmapData[X + Y * SizeX]);
-						UE_LOG(LogTemp, Error, TEXT("1. NewHeightmapData[X + Y * SizeX]: %d"), NewHeightmapData[X + Y * SizeX]);
-					}
-
-					float OtherLocalHeight = LandscapeDataAccess::GetLocalHeight(OtherOldHeightmapData[OtherXOffset + OtherYOffset * OtherSizeX]);
-					double OtherGlobalHeight = OtherLocalHeight * OtherLandscapeZScale + OtherLandscapeZ + OtherLandscapeOffset;
-					float OtherLocalHeight2 = (OtherGlobalHeight - ThisLandscapeZ) / ThisLandscapeZScale;
-					float OtherTextHeight2 = LandscapeDataAccess::GetTexHeight(OtherLocalHeight2);
-
-					// const float LocalHeight = (GlobalHeightMeters * 100.0f - LandscapeToExtend->GetActorLocation().Z) / LandscapeToExtend->GetActorScale3D().Z;
-					// HeightmapDataUE[Y * SizeX + X] = LandscapeDataAccess::GetTexHeight(LocalHeight);
-					NewHeightmapData[X + Y * SizeX] = Alpha * OldHeightmapData[X + Y * SizeX] + (1 - Alpha) * OtherTextHeight2;
-				}
-				else
-				{
-					// otherwise, we keep the old data
-					UE_LOG(LogTemp, Error, TEXT("2. OldHeightmapData[X + Y * SizeX]: %d"), OldHeightmapData[X + Y * SizeX]);
-					NewHeightmapData[X + Y * SizeX] = OldHeightmapData[X + Y * SizeX];
-				}
+				// we transform the data according to the curve
+				double DistanceFromBorder = FMath::Min(X, FMath::Min(Y, FMath::Min(SizeX - X - 1, SizeY - Y - 1)));
+				double DistanceRatio = DistanceFromBorder / MaxDistance2;
+				double Alpha = DegradeThisData->GetFloatValue(DistanceRatio);
+				NewHeightmapData[X + Y * SizeX] = Alpha * OldHeightmapData[X + Y * SizeX];
 			}
 		}
 
@@ -277,7 +253,6 @@ bool UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 			LandscapeUtils::MakeDataRelativeTo(SizeX, SizeY, NewHeightmapData, OldHeightmapData);
 	
 			int LayerIndex = Landscape->CreateLayer();
-			UE_LOG(LogTemp, Error, TEXT("CreateLayer: %d"), LayerIndex);
 			if (LayerIndex == INDEX_NONE)
 			{
 				LCReporter::ShowError(FText::Format(

@@ -17,7 +17,7 @@ for blending the landscapes.
   | A curve that specifies how the data at the border of this landscape gets degraded into the other landscape.
   | The X axis of the curve represents the distance from the border of the overlapping region and goes from 0 (at the border) to (1 at the center).
   | The Y axis (Alpha) defines how we compute the new heightmap data:
-  | ``NewData = Alpha * OldData + (1 - Alpha) * OverlappingLandscapeData``
+  | ``NewData = Alpha * OldData``
   | For example, a curve which is always 1 means that this landscape data is not changed.
 	
 * | **DegradeOtherData (pointer to UCurveFloat)**:
@@ -25,14 +25,8 @@ for blending the landscapes.
   | The X axis of the curve represents the distance from the border of the overlapping region and goes from 0 (at the border) to (1 at the center).
   | The Y axis (Alpha) defines how we compute the new heightmap data of the overlapping landscape.
   | For example, a curve which is always 1 means that the overlapping landscape data is not changed.
-  | In addition, the data of the overlapping landscape will not be changed in the positions where this landscape's data is equal to `ThisLandscapeNoData`.
-  | ``NewData = ThisData == ThisLandscapeNoData ? OldData : Alpha * OldData + (1 - Alpha) * OtherLandscapeNoData``
-	
-* | **ThisLandscapeNoData (double)**:
-  | The Z value that this landscape takes when it has no data.
-	
-* | **OtherLandscapeNoData (double)**:
-  | The Z value that the other landscape takes when it has no data.
+  | In addition, the data of the overlapping landscape will not be changed in the positions where this landscape's data is equal to 0.
+  | ``NewData = ThisData == 0 ? OldData : Alpha * OldData``
 
 
 Matterhorn Example

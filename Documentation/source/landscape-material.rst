@@ -3,7 +3,7 @@
 Landscape Material
 ==================
 
-There is a landscape material ``M_Landscape`` (instance ``MI_Landscape``) in the plugin that has the following features:
+There is a landscape material ``M_Landscape`` in the plugin that has the following features:
 
 * Au auto layer called ``Mix`` (with adjustable snow, grass, cliff, and road materials).
 * Adjustable height above which there is snow instead of grass.
