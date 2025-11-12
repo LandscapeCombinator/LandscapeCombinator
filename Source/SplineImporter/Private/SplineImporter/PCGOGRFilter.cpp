@@ -184,7 +184,7 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 		}
 		OGRGeometry *Intersection = AllPoints->Intersection(Geometry);
 		
-		if (!Intersection)
+		if (!Intersection || wkbFlatten(Intersection->getGeometryType()) != wkbMultiPoint)
 		{
 			PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("IntersectionNullPointer", "Couldn't compute intersection"));
 			return true;
@@ -202,7 +202,7 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 		{
 			OGRGeometry* PointGeometry = IntersectionPoints->getGeometryRef(i);
 			if (!PointGeometry) continue;
-			if (wkbFlatten(PointGeometry->getGeometryType() != wkbPoint)) continue;
+			if (wkbFlatten(PointGeometry->getGeometryType()) != wkbPoint) continue;
 			OGRPoint* Point = PointGeometry->toPoint();
 			if (!Point) continue;
 			InsideLocations.Add(FVector2D(Point->getX(), Point->getY()));
