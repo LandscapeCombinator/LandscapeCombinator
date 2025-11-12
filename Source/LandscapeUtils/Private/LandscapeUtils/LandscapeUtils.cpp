@@ -521,7 +521,7 @@ bool LandscapeUtils::GetActorCRSBounds(AActor* Actor, UGlobalCoordinates *Global
 #include "LandscapeSubsystem.h"
 #include "LandscapeUtils.h"
 #include "ConcurrencyHelpers/LCReporter.h"
-// #include "LandscapeEditLayer.h"
+#include "Editor/LandscapeEditor/Private/LandscapeEdMode.h"
 
 bool LandscapeUtils::SpawnLandscape(
 	bool bIgnoreHeightmapData,

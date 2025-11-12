@@ -18,7 +18,7 @@ void FGeneratorWrapperCustomization::CustomizeHeader(TSharedRef<IPropertyHandle>
     auto GeneratorHandle        = StructHandle->GetChildHandle("Generator");
     auto GenerratorStatusHandle = StructHandle->GetChildHandle("GeneratorStatus");
 
-    Row.WholeRowContent()
+    Row.ValueContent().HAlign(HAlign_Fill)
     [
         SNew(SBorder)
         .Padding(4, 4)
