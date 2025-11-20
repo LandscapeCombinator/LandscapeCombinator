@@ -67,6 +67,7 @@ bool AOGRGeometry::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIniti
 	}
 	
 	int n = Dataset->GetLayerCount();
+	int NumGeometries = 0;
 	for (int i = 0; i < n; i++)
 	{
 		OGRLayer* Layer = Dataset->GetLayer(i);
@@ -90,16 +91,19 @@ bool AOGRGeometry::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIniti
 			if (NewUnion)
 			{
 				Geometry = NewUnion;
+				NumGeometries++;
 			}
 			else
 			{
 				UE_LOG(LogSplineImporter, Warning, TEXT("Error: %s"), *FString(CPLGetLastErrorMsg()));
-				UE_LOG(LogSplineImporter, Warning, TEXT("There was an error while taking union of geometries in OGR, we'll still try to filter"))
+				UE_LOG(LogSplineImporter, Warning, TEXT("There was an error while taking union of geometries in OGR, we'll still skip a geometry"))
 			}
 		}
 	}
 
-	this->Tags.AddUnique(AreaTag);
+	UE_LOG(LogSplineImporter, Log, TEXT("Found %d geometries"), NumGeometries);
+	Tags.AddUnique(AreaTag);
+	
 	return true;
 }
 
