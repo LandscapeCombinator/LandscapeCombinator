@@ -24,6 +24,13 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 	for (auto &GeneratorWrapper: Generators)
 	{
 		TSoftObjectPtr<AActor> Generator = GeneratorWrapper.Generator;
+		if (!Generator.IsValid())
+		{
+			LCReporter::ShowError(LOCTEXT("InvalidActor", "Invalid actor in combination"));
+			GeneratorWrapper.GeneratorStatus = EGeneratorStatus::Error;
+			return false;
+		}
+
 		const FString GeneratorName = Generator->GetActorNameOrLabel();
 
 		if (!GeneratorWrapper.bIsEnabled) continue;
@@ -37,13 +44,6 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 			return true;
 		});
 #endif
-
-		if (!Generator.IsValid())
-		{
-			LCReporter::ShowError(LOCTEXT("InvalidActor", "Invalid actor in combination"));
-			GeneratorWrapper.GeneratorStatus = EGeneratorStatus::Error;
-			return false;
-		}
 		
 		if (!Generator->Implements<ULCGenerator>())
 		{
