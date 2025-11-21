@@ -1,5 +1,4 @@
 /******************************************************************************
- * $Id$
  *
  * Project:  OpenGIS Simple Features Reference Implementation
  * Purpose:  Define of Feature Representation
@@ -8,23 +7,7 @@
  ******************************************************************************
  * Copyright (c) 1999, Frank Warmerdam
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * SPDX-License-Identifier: MIT
  ****************************************************************************/
 
 #ifndef OGR_FEATURESTYLE_INCLUDE
@@ -261,6 +244,10 @@ class CPL_DLL OGRStyleTool
     double GetParamDbl(const OGRStyleParamId &sStyleParam,
                        const OGRStyleValue &sStyleValue, GBool &bValueIsNull);
 
+    double GetRawParamDbl(const OGRStyleParamId &sStyleParam,
+                          const OGRStyleValue &sStyleValue,
+                          OGRSTUnitId &eRawUnit, GBool &bValueIsNull);
+
     void SetParamStr(const OGRStyleParamId &sStyleParam,
                      OGRStyleValue &sStyleValue, const char *pszParamString);
 
@@ -310,6 +297,11 @@ class CPL_DLL OGRStylePen : public OGRStyleTool
     double Width(GBool &bDefault)
     {
         return GetParamDbl(OGRSTPenWidth, bDefault);
+    }
+
+    double RawWidth(OGRSTUnitId &eRawUnit, GBool &bDefault)
+    {
+        return GetRawParamDbl(OGRSTPenWidth, eRawUnit, bDefault);
     }
 
     void SetWidth(double dfWidth)
@@ -382,6 +374,8 @@ class CPL_DLL OGRStylePen : public OGRStyleTool
     const char *GetParamStr(OGRSTPenParam eParam, GBool &bValueIsNull);
     int GetParamNum(OGRSTPenParam eParam, GBool &bValueIsNull);
     double GetParamDbl(OGRSTPenParam eParam, GBool &bValueIsNull);
+    double GetRawParamDbl(OGRSTPenParam eParam, OGRSTUnitId &eRawUnit,
+                          GBool &bValueIsNull);
     void SetParamStr(OGRSTPenParam eParam, const char *pszParamString);
     void SetParamNum(OGRSTPenParam eParam, int nParam);
     void SetParamDbl(OGRSTPenParam eParam, double dfParam);

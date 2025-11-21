@@ -1,5 +1,4 @@
 /******************************************************************************
- * $Id$
  *
  * Project:  GDAL Core
  * Purpose:  GDAL Core C/Public declarations.
@@ -9,23 +8,7 @@
  * Copyright (c) 1998, 2002 Frank Warmerdam
  * Copyright (c) 2007-2014, Even Rouault <even dot rouault at spatialys.com>
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * SPDX-License-Identifier: MIT
  ****************************************************************************/
 
 #ifndef GDAL_H_INCLUDED
@@ -41,6 +24,7 @@
 #if defined(GDAL_COMPILATION)
 #define DO_NOT_DEFINE_GDAL_DATE_NAME
 #endif
+#include "gdal_fwd.h"
 #include "gdal_version.h"
 #include "cpl_port.h"
 #include "cpl_error.h"
@@ -71,17 +55,24 @@ typedef enum
     /*! Thirty two bit signed integer */ GDT_Int32 = 5,
     /*! 64 bit unsigned integer (GDAL >= 3.5)*/ GDT_UInt64 = 12,
     /*! 64 bit signed integer  (GDAL >= 3.5)*/ GDT_Int64 = 13,
+    /*! Sixteen bit floating point */ GDT_Float16 = 15,
     /*! Thirty two bit floating point */ GDT_Float32 = 6,
     /*! Sixty four bit floating point */ GDT_Float64 = 7,
     /*! Complex Int16 */ GDT_CInt16 = 8,
     /*! Complex Int32 */ GDT_CInt32 = 9,
     /* TODO?(#6879): GDT_CInt64 */
+    /*! Complex Float16 */ GDT_CFloat16 = 16,
     /*! Complex Float32 */ GDT_CFloat32 = 10,
     /*! Complex Float64 */ GDT_CFloat64 = 11,
-    GDT_TypeCount = 15 /* maximum type # + 1 */
+    GDT_TypeCount = 17 /* maximum type # + 1 */
 } GDALDataType;
 
-int CPL_DLL CPL_STDCALL GDALGetDataTypeSize(GDALDataType);  // Deprecated.
+int CPL_DLL CPL_STDCALL GDALGetDataTypeSize(GDALDataType)
+    /*! @cond Doxygen_Suppress */
+    CPL_WARN_DEPRECATED("Use GDALGetDataTypeSizeBits() or "
+                        "GDALGetDataTypeSizeBytes() * 8 instead")
+    /*! @endcond */
+    ;
 int CPL_DLL CPL_STDCALL GDALGetDataTypeSizeBits(GDALDataType eDataType);
 int CPL_DLL CPL_STDCALL GDALGetDataTypeSizeBytes(GDALDataType);
 int CPL_DLL CPL_STDCALL GDALDataTypeIsComplex(GDALDataType);
@@ -100,6 +91,8 @@ GDALDataType CPL_DLL CPL_STDCALL GDALFindDataTypeForValue(double dValue,
                                                           int bComplex);
 double CPL_DLL GDALAdjustValueToDataType(GDALDataType eDT, double dfValue,
                                          int *pbClamped, int *pbRounded);
+bool CPL_DLL GDALIsValueExactAs(double dfValue, GDALDataType eDT);
+bool CPL_DLL GDALIsValueInRangeOf(double dfValue, GDALDataType eDT);
 GDALDataType CPL_DLL CPL_STDCALL GDALGetNonComplexDataType(GDALDataType);
 int CPL_DLL CPL_STDCALL GDALDataTypeIsConversionLossy(GDALDataType eTypeFrom,
                                                       GDALDataType eTypeTo);
@@ -137,7 +130,6 @@ typedef enum
 /* NOTE: values are selected to be consistent with GDALResampleAlg of
  * alg/gdalwarper.h */
 /** RasterIO() resampling method.
- * @since GDAL 2.0
  */
 typedef enum
 {
@@ -166,11 +158,11 @@ typedef enum
     /*! @endcond */
 } GDALRIOResampleAlg;
 
-/* NOTE to developers: only add members, and if so edit INIT_RASTERIO_EXTRA_ARG
+/* NOTE to developers: if required, only add members at the end of the
+ * structure, and when doing so increase RASTERIO_EXTRA_ARG_CURRENT_VERSION
  */
 /** Structure to pass extra arguments to RasterIO() method,
  * must be initialized with INIT_RASTERIO_EXTRA_ARG
- * @since GDAL 2.0
  */
 typedef struct
 {
@@ -203,14 +195,19 @@ typedef struct
     /*! Height in pixels of the area of interest. Only valid if
      * bFloatingPointWindowValidity = TRUE */
     double dfYSize;
+    /*! Indicate if overviews should be considered. Tested in
+        GDALBandGetBestOverviewLevel(), mostly reserved for use by
+        GDALRegenerateOverviewsMultiBand()
+        Only available if RASTERIO_EXTRA_ARG_CURRENT_VERSION >= 2
+    */
+    int bUseOnlyThisScale;
 } GDALRasterIOExtraArg;
 
 #ifndef DOXYGEN_SKIP
-#define RASTERIO_EXTRA_ARG_CURRENT_VERSION 1
+#define RASTERIO_EXTRA_ARG_CURRENT_VERSION 2
 #endif
 
 /** Macro to initialize an instance of GDALRasterIOExtraArg structure.
- * @since GDAL 2.0
  */
 #define INIT_RASTERIO_EXTRA_ARG(s)                                             \
     do                                                                         \
@@ -220,29 +217,130 @@ typedef struct
         (s).pfnProgress = CPL_NULLPTR;                                         \
         (s).pProgressData = CPL_NULLPTR;                                       \
         (s).bFloatingPointWindowValidity = FALSE;                              \
+        (s).bUseOnlyThisScale = FALSE;                                         \
     } while (0)
 
-/*! Types of color interpretation for raster bands. */
+/** Value indicating the start of the range for color interpretations belonging
+ * to the InfraRed (IR) domain. All constants of the GDALColorInterp enumeration
+ * in the IR domain are in the [GCI_IR_Start, GCI_IR_End] range.
+ *
+ * @since 3.10
+ */
+#define GCI_IR_Start 20
+
+/** Value indicating the end of the range for color interpretations belonging
+ * to the InfraRed (IR) domain. All constants of the GDALColorInterp enumeration
+ * in the IR domain are in the [GCI_IR_Start, GCI_IR_End] range.
+ *
+ * @since 3.10
+ */
+#define GCI_IR_End 29
+
+/** Value indicating the start of the range for color interpretations belonging
+ * to the Synthetic Aperture Radar (SAR) domain.
+ * All constants of the GDALColorInterp enumeration
+ * in the SAR domain are in the [GCI_SAR_Start, GCI_SAR_End] range.
+ *
+ * @since 3.10
+ */
+#define GCI_SAR_Start 30
+
+/** Value indicating the end of the range for color interpretations belonging
+ * to the Synthetic Aperture Radar (SAR) domain.
+ * All constants of the GDALColorInterp enumeration
+ * in the SAR domain are in the [GCI_SAR_Start, GCI_SAR_End] range.
+ *
+ * @since 3.10
+ */
+#define GCI_SAR_End 39
+
+/** Types of color interpretation for raster bands.
+ *
+ * For spectral bands, the wavelength ranges are indicative only, and may vary
+ * depending on sensors. The CENTRAL_WAVELENGTH_UM and FWHM_UM metadata
+ * items in the IMAGERY metadata domain of the raster band, when present, will
+ * give more accurate characteristics.
+ *
+ * Values belonging to the IR domain are in the [GCI_IR_Start, GCI_IR_End] range.
+ * Values belonging to the SAR domain are in the [GCI_SAR_Start, GCI_SAR_End] range.
+ *
+ * Values between GCI_PanBand to GCI_SAR_Reserved_2 have been added in GDAL 3.10.
+ */
 typedef enum
 {
     /*! Undefined */ GCI_Undefined = 0,
     /*! Greyscale */ GCI_GrayIndex = 1,
     /*! Paletted (see associated color table) */ GCI_PaletteIndex = 2,
-    /*! Red band of RGBA image */ GCI_RedBand = 3,
-    /*! Green band of RGBA image */ GCI_GreenBand = 4,
-    /*! Blue band of RGBA image */ GCI_BlueBand = 5,
+    /*! Red band of RGBA image, or red spectral band [0.62 - 0.69 um]*/
+    GCI_RedBand = 3,
+    /*! Green band of RGBA image, or green spectral band [0.51 - 0.60 um]*/
+    GCI_GreenBand = 4,
+    /*! Blue band of RGBA image, or blue spectral band [0.45 - 0.53 um] */
+    GCI_BlueBand = 5,
     /*! Alpha (0=transparent, 255=opaque) */ GCI_AlphaBand = 6,
     /*! Hue band of HLS image */ GCI_HueBand = 7,
     /*! Saturation band of HLS image */ GCI_SaturationBand = 8,
     /*! Lightness band of HLS image */ GCI_LightnessBand = 9,
     /*! Cyan band of CMYK image */ GCI_CyanBand = 10,
     /*! Magenta band of CMYK image */ GCI_MagentaBand = 11,
-    /*! Yellow band of CMYK image */ GCI_YellowBand = 12,
+    /*! Yellow band of CMYK image, or yellow spectral band [0.58 - 0.62 um] */
+    GCI_YellowBand = 12,
     /*! Black band of CMYK image */ GCI_BlackBand = 13,
     /*! Y Luminance */ GCI_YCbCr_YBand = 14,
     /*! Cb Chroma */ GCI_YCbCr_CbBand = 15,
     /*! Cr Chroma */ GCI_YCbCr_CrBand = 16,
-    /*! Max current value (equals to GCI_YCbCr_CrBand currently) */ GCI_Max = 16
+
+    /* GDAL 3.10 addition: begin */
+    /*! Panchromatic band [0.40 - 1.00 um] */ GCI_PanBand = 17,
+    /*! Coastal band [0.40 - 0.45 um] */ GCI_CoastalBand = 18,
+    /*! Red-edge band [0.69 - 0.79 um] */ GCI_RedEdgeBand = 19,
+
+    /*! Near-InfraRed (NIR) band [0.75 - 1.40 um] */ GCI_NIRBand =
+        GCI_IR_Start + 0,
+    /*! Short-Wavelength InfraRed (SWIR) band [1.40 - 3.00 um] */ GCI_SWIRBand =
+        GCI_IR_Start + 1,
+    /*! Mid-Wavelength InfraRed (MWIR) band [3.00 - 8.00 um] */ GCI_MWIRBand =
+        GCI_IR_Start + 2,
+    /*! Long-Wavelength InfraRed (LWIR) band [8.00 - 15 um] */ GCI_LWIRBand =
+        GCI_IR_Start + 3,
+    /*! Thermal InfraRed (TIR) band (MWIR or LWIR) [3 - 15 um] */ GCI_TIRBand =
+        GCI_IR_Start + 4,
+    /*! Other infrared band [0.75 - 1000 um] */ GCI_OtherIRBand =
+        GCI_IR_Start + 5,
+    /*! Reserved value. Do not set it ! */
+    GCI_IR_Reserved_1 = GCI_IR_Start + 6,
+    /*! Reserved value. Do not set it ! */
+    GCI_IR_Reserved_2 = GCI_IR_Start + 7,
+    /*! Reserved value. Do not set it ! */
+    GCI_IR_Reserved_3 = GCI_IR_Start + 8,
+    /*! Reserved value. Do not set it ! */
+    GCI_IR_Reserved_4 = GCI_IR_Start + 9,
+
+    /*! Synthetic Aperture Radar (SAR) Ka band [0.8 - 1.1 cm / 27 - 40 GHz] */
+    GCI_SAR_Ka_Band = GCI_SAR_Start + 0,
+    /*! Synthetic Aperture Radar (SAR) K band [1.1 - 1.7 cm / 18 - 27 GHz] */
+    GCI_SAR_K_Band = GCI_SAR_Start + 1,
+    /*! Synthetic Aperture Radar (SAR) Ku band [1.7 - 2.4 cm / 12 - 18 GHz] */
+    GCI_SAR_Ku_Band = GCI_SAR_Start + 2,
+    /*! Synthetic Aperture Radar (SAR) X band [2.4 - 3.8 cm / 8 - 12 GHz] */
+    GCI_SAR_X_Band = GCI_SAR_Start + 3,
+    /*! Synthetic Aperture Radar (SAR) C band [3.8 - 7.5 cm / 4 - 8 GHz] */
+    GCI_SAR_C_Band = GCI_SAR_Start + 4,
+    /*! Synthetic Aperture Radar (SAR) S band [7.5 - 15 cm / 2 - 4 GHz] */
+    GCI_SAR_S_Band = GCI_SAR_Start + 5,
+    /*! Synthetic Aperture Radar (SAR) L band [15 - 30 cm / 1 - 2 GHz] */
+    GCI_SAR_L_Band = GCI_SAR_Start + 6,
+    /*! Synthetic Aperture Radar (SAR) P band [30 - 100 cm / 0.3 - 1 GHz] */
+    GCI_SAR_P_Band = GCI_SAR_Start + 7,
+    /*! Reserved value. Do not set it ! */
+    GCI_SAR_Reserved_1 = GCI_SAR_Start + 8,
+    /*! Reserved value. Do not set it ! */
+    GCI_SAR_Reserved_2 = GCI_SAR_Start + 9,
+
+    /* GDAL 3.10 addition: end */
+
+    /*! Max current value (equals to GCI_SAR_Reserved_2 currently) */ GCI_Max =
+        GCI_SAR_Reserved_2
 } GDALColorInterp;
 
 const char CPL_DLL *GDALGetColorInterpretationName(GDALColorInterp);
@@ -281,35 +379,8 @@ const char CPL_DLL *GDALGetPaletteInterpretationName(GDALPaletteInterp);
 #endif
 
 /* -------------------------------------------------------------------- */
-/*      Define handle types related to various internal classes.        */
+/*      Types, enumerations.                                            */
 /* -------------------------------------------------------------------- */
-
-/** Opaque type used for the C bindings of the C++ GDALMajorObject class */
-typedef void *GDALMajorObjectH;
-
-/** Opaque type used for the C bindings of the C++ GDALDataset class */
-typedef void *GDALDatasetH;
-
-/** Opaque type used for the C bindings of the C++ GDALRasterBand class */
-typedef void *GDALRasterBandH;
-
-/** Opaque type used for the C bindings of the C++ GDALDriver class */
-typedef void *GDALDriverH;
-
-/** Opaque type used for the C bindings of the C++ GDALColorTable class */
-typedef void *GDALColorTableH;
-
-/** Opaque type used for the C bindings of the C++ GDALRasterAttributeTable
- * class */
-typedef void *GDALRasterAttributeTableH;
-
-/** Opaque type used for the C bindings of the C++ GDALAsyncReader class */
-typedef void *GDALAsyncReaderH;
-
-/** Opaque type used for the C bindings of the C++ GDALRelationship class
- *  @since GDAL 3.6
- */
-typedef void *GDALRelationshipH;
 
 /** Type to express pixel, line or band spacing. Signed 64 bit integer. */
 typedef GIntBig GSpacing;
@@ -338,19 +409,6 @@ typedef enum
     GEDTST_JSON
 } GDALExtendedDataTypeSubType;
 
-/** Opaque type for C++ GDALExtendedDataType */
-typedef struct GDALExtendedDataTypeHS *GDALExtendedDataTypeH;
-/** Opaque type for C++ GDALEDTComponent */
-typedef struct GDALEDTComponentHS *GDALEDTComponentH;
-/** Opaque type for C++ GDALGroup */
-typedef struct GDALGroupHS *GDALGroupH;
-/** Opaque type for C++ GDALMDArray */
-typedef struct GDALMDArrayHS *GDALMDArrayH;
-/** Opaque type for C++ GDALAttribute */
-typedef struct GDALAttributeHS *GDALAttributeH;
-/** Opaque type for C++ GDALDimension */
-typedef struct GDALDimensionHS *GDALDimensionH;
-
 /* ==================================================================== */
 /*      Registration/driver related.                                    */
 /* ==================================================================== */
@@ -369,17 +427,20 @@ typedef struct GDALDimensionHS *GDALDimensionH;
 
 /** Connection prefix to provide as the file name of the open function.
  * Typically set for non-file based drivers. Generally used with open options.
- * @since GDAL 2.0
  */
 #define GDAL_DMD_CONNECTION_PREFIX "DMD_CONNECTION_PREFIX"
 
 /** List of (space separated) extensions handled by the driver.
- * @since GDAL 2.0
  */
 #define GDAL_DMD_EXTENSIONS "DMD_EXTENSIONS"
 
 /** XML snippet with creation options. */
 #define GDAL_DMD_CREATIONOPTIONLIST "DMD_CREATIONOPTIONLIST"
+
+/** XML snippet with overview creation options.
+ * @since GDAL 3.12
+ */
+#define GDAL_DMD_OVERVIEW_CREATIONOPTIONLIST "DMD_OVERVIEW_CREATIONOPTIONLIST"
 
 /** XML snippet with multidimensional dataset creation options.
  * @since GDAL 3.1
@@ -418,7 +479,6 @@ typedef struct GDALDimensionHS *GDALDimensionH;
     "DMD_MULTIDIM_ATTRIBUTE_CREATIONOPTIONLIST"
 
 /** XML snippet with open options.
- * @since GDAL 2.0
  */
 #define GDAL_DMD_OPENOPTIONLIST "DMD_OPENOPTIONLIST"
 
@@ -428,15 +488,26 @@ typedef struct GDALDimensionHS *GDALDimensionH;
 
 /** List of (space separated) vector field types supported by the CreateField()
  * API.
- * @since GDAL 2.0
  * */
 #define GDAL_DMD_CREATIONFIELDDATATYPES "DMD_CREATIONFIELDDATATYPES"
 
 /** List of (space separated) vector field sub-types supported by the
  * CreateField() API.
- * @since GDAL 2.3
  * */
 #define GDAL_DMD_CREATIONFIELDDATASUBTYPES "DMD_CREATIONFIELDDATASUBTYPES"
+
+/** Maximum size of a String field that can be created (OGRFieldDefn.GetWidth()).
+ *
+ * It is undefined whether this is a number of bytes or Unicode character count.
+ * Most of the time, this will be a number of bytes, so a Unicode string whose
+ * character count is the maximum size could not fit.
+ *
+ * This metadata item is set only on a small number of drivers, in particular
+ * "ESRI Shapefile" and "MapInfo File", which use fixed-width storage of strings.
+ *
+ * @since GDAL 3.12
+ */
+#define GDAL_DMD_MAX_STRING_LENGTH "DMD_MAX_STRING_LENGTH"
 
 /** List of (space separated) capability flags supported by the CreateField() API.
  *
@@ -466,6 +537,13 @@ typedef struct GDALDimensionHS *GDALDimensionH;
  * for vector drivers.
  */
 #define GDAL_DMD_SUBDATASETS "DMD_SUBDATASETS"
+
+/** Capability set by a driver that can create subdatasets with the
+ * APPEND_SUBDATASET=YES creation option.
+ *
+ * @since 3.11
+ */
+#define GDAL_DCAP_CREATE_SUBDATASETS "DCAP_CREATE_SUBDATASETS"
 
 /** Capability set by a vector driver that supports field width and precision.
  *
@@ -502,7 +580,7 @@ typedef struct GDALDimensionHS *GDALDimensionH;
  */
 #define GDAL_DCAP_CREATE "DCAP_CREATE"
 
-/** Capability set by a driver that implements the CreateMultidimensional() API.
+/** Capability set by a driver that implements the CreateMultiDimensional() API.
  *
  * @since GDAL 3.1
  */
@@ -517,6 +595,14 @@ typedef struct GDALDimensionHS *GDALDimensionH;
  * GDAL_DCAP_CREATECOPY.
  */
 #define GDAL_DCAP_CREATECOPY "DCAP_CREATECOPY"
+
+/** Capability set by a driver that supports the \@CREATE_ONLY_VISIBLE_AT_CLOSE_TIME
+ * hidden creation option.
+ *
+ * @since GDAL 3.12
+ */
+#define GDAL_DCAP_CREATE_ONLY_VISIBLE_AT_CLOSE_TIME                            \
+    "DCAP_CREATE_ONLY_VISIBLE_AT_CLOSE_TIME"
 
 /** Capability set by a driver that implements the VectorTranslateFrom() API.
  *
@@ -539,22 +625,37 @@ typedef struct GDALDimensionHS *GDALDimensionH;
 /** Capability set by a driver that can copy over subdatasets. */
 #define GDAL_DCAP_SUBCREATECOPY "DCAP_SUBCREATECOPY"
 
+/** Capability set by a driver that supports the GDAL_OF_UPDATE flag and offers
+ * feature appending capabilities.
+ *
+ * Note: feature appending capability is also implied if GDAL_DCAP_UPDATE or
+ * GDAL_DCAP_CREATE_LAYER is set, in which case GDAL_DCAP_APPEND is not set.
+ *
+ * @since GDAL 3.12.
+ */
+#define GDAL_DCAP_APPEND "DCAP_APPEND"
+
+/** Capability set by a driver that supports the GDAL_OF_UPDATE flag and offers
+ * at least some update capabilities.
+ * Exact update capabilities can be determined by the GDAL_DMD_UPDATE_ITEMS
+ * metadata item
+ * @since GDAL 3.11
+ */
+#define GDAL_DCAP_UPDATE "DCAP_UPDATE"
+
 /** Capability set by a driver that can read/create datasets through the VSI*L
  * API. */
 #define GDAL_DCAP_VIRTUALIO "DCAP_VIRTUALIO"
 
 /** Capability set by a driver having raster capability.
- * @since GDAL 2.0
  */
 #define GDAL_DCAP_RASTER "DCAP_RASTER"
 
 /** Capability set by a driver having vector capability.
- * @since GDAL 2.0
  */
 #define GDAL_DCAP_VECTOR "DCAP_VECTOR"
 
 /** Capability set by a driver having geographical network model capability.
- * @since GDAL 2.1
  */
 #define GDAL_DCAP_GNM "DCAP_GNM"
 
@@ -612,7 +713,6 @@ typedef struct GDALDimensionHS *GDALDimensionH;
 #define GDAL_DMD_ILLEGAL_FIELD_NAMES "GDAL_DMD_ILLEGAL_FIELD_NAMES"
 
 /** Capability set by a driver that can create fields with NOT NULL constraint.
- * @since GDAL 2.0
  */
 #define GDAL_DCAP_NOTNULL_FIELDS "DCAP_NOTNULL_FIELDS"
 
@@ -622,20 +722,17 @@ typedef struct GDALDimensionHS *GDALDimensionH;
 #define GDAL_DCAP_UNIQUE_FIELDS "DCAP_UNIQUE_FIELDS"
 
 /** Capability set by a driver that can create fields with DEFAULT values.
- * @since GDAL 2.0
  */
 #define GDAL_DCAP_DEFAULT_FIELDS "DCAP_DEFAULT_FIELDS"
 
 /** Capability set by a driver that can create geometry fields with NOT NULL
  * constraint.
- * @since GDAL 2.0
  */
 #define GDAL_DCAP_NOTNULL_GEOMFIELDS "DCAP_NOTNULL_GEOMFIELDS"
 
 /** Capability set by a non-spatial driver having no support for geometries.
  * E.g. non-spatial vector drivers (e.g. spreadsheet format drivers) do not
  * support geometries, and accordingly will have this capability present.
- * @since GDAL 2.3
  */
 #define GDAL_DCAP_NONSPATIAL "DCAP_NONSPATIAL"
 
@@ -676,7 +773,6 @@ typedef struct GDALDimensionHS *GDALDimensionH;
  * Consider using the more granular GDAL_DCAP_FEATURE_STYLES_READ or
  * GDAL_DCAP_FEATURE_STYLES_WRITE capabilities instead.
  *
- * @since GDAL 2.3
  */
 #define GDAL_DCAP_FEATURE_STYLES "DCAP_FEATURE_STYLES"
 
@@ -754,6 +850,11 @@ typedef struct GDALDimensionHS *GDALDimensionH;
  */
 #define GDAL_DCAP_HONOR_GEOM_COORDINATE_PRECISION                              \
     "DCAP_HONOR_GEOM_COORDINATE_PRECISION"
+
+/** Capability set by drivers that implements OGRLayer::UpsertTeature().
+ * @since GDAL 3.12
+ */
+#define GDAL_DCAP_UPSERT "DCAP_UPSERT"
 
 /** List of (space separated) flags indicating the features of relationships are
  * supported by the driver.
@@ -854,6 +955,25 @@ typedef struct GDALDimensionHS *GDALDimensionH;
 #define GDAL_DMD_PLUGIN_INSTALLATION_MESSAGE "DMD_PLUGIN_INSTALLATION_MESSAGE"
 /*! @endcond */
 
+/** List of (space separated) items that a dataset opened in update mode supports
+ * updating. Possible values are:
+ * - for raster: "GeoTransform" (through GDALDataset::SetGeoTransform),
+ *   "SRS" (GDALDataset::SetSpatialRef), "GCPs" (GDALDataset::SetGCPs()),
+ *    "NoData" (GDALRasterBand::SetNoDataValue),
+ *   "ColorInterpretation" (GDALRasterBand::SetColorInterpretation()),
+ *   "RasterValues" (GF_Write flag of GDALDataset::RasterIO() and GDALRasterBand::RasterIO()),
+ *   "DatasetMetadata" (GDALDataset::SetMetadata/SetMetadataItem), "BandMetadata"
+ *   (GDALRasterBand::SetMetadata/SetMetadataItem)
+ * - for vector: "Features" (OGRLayer::SetFeature()), "DatasetMetadata",
+ *   "LayerMetadata"
+ *
+ * No distinction is made if the update is done in the native format,
+ * or in a Persistent Auxiliary Metadata .aux.xml side car file.
+ *
+ * @since GDAL 3.11
+ */
+#define GDAL_DMD_UPDATE_ITEMS "DMD_UPDATE_ITEMS"
+
 /** Value for GDALDimension::GetType() specifying the X axis of a horizontal
  * CRS.
  * @since GDAL 3.1
@@ -881,6 +1001,21 @@ typedef struct GDALDimensionHS *GDALDimensionH;
  */
 #define GDAL_DIM_TYPE_PARAMETRIC "PARAMETRIC"
 
+/** "Capability" set by drivers that require re-opening the dataset to be able
+ * to read its content if it has just been created previously
+ *
+ * @since GDAL 3.12
+ */
+#define GDAL_DCAP_REOPEN_AFTER_WRITE_REQUIRED "DCAP_REOPEN_AFTER_WRITE_REQUIRED"
+
+/** Capability set by drivers that can read from a dataset, even if it deleted
+ * from disk after it has been opened (i.e. such drivers do not need to reopen
+ * or test the existence of the file at that point)
+ *
+ * @since GDAL 3.12
+ */
+#define GDAL_DCAP_CAN_READ_AFTER_DELETE "DCAP_CAN_READ_AFTER_DELETE"
+
 #define GDsCAddRelationship                                                    \
     "AddRelationship" /**< Dataset capability for supporting AddRelationship() \
                          (at least partially) */
@@ -890,6 +1025,18 @@ typedef struct GDALDimensionHS *GDALDimensionH;
 #define GDsCUpdateRelationship                                                 \
     "UpdateRelationship" /**< Dataset capability for supporting                \
                             UpdateRelationship()*/
+
+/** Dataset capability if GDALDataset::GetExtent() is fast.
+ *
+ * @since 3.12
+ */
+#define GDsCFastGetExtent "FastGetExtent"
+
+/** Dataset capability if GDALDataset::GetExtentWGS84LongLat() is fast.
+ *
+ * @since 3.12
+ */
+#define GDsCFastGetExtentWGS84LongLat "FastGetExtentWGS84LongLat"
 
 void CPL_DLL CPL_STDCALL GDALAllRegister(void);
 void CPL_DLL GDALRegisterPlugins(void);
@@ -920,37 +1067,31 @@ GDALDatasetH CPL_DLL CPL_STDCALL GDALOpenShared(const char *, GDALAccess)
 
 /** Open in read-only mode.
  * Used by GDALOpenEx().
- * @since GDAL 2.0
  */
 #define GDAL_OF_READONLY 0x00
 
 /** Open in update mode.
  * Used by GDALOpenEx().
- * @since GDAL 2.0
  */
 #define GDAL_OF_UPDATE 0x01
 
 /** Allow raster and vector drivers to be used.
  * Used by GDALOpenEx().
- * @since GDAL 2.0
  */
 #define GDAL_OF_ALL 0x00
 
 /** Allow raster drivers to be used.
  * Used by GDALOpenEx().
- * @since GDAL 2.0
  */
 #define GDAL_OF_RASTER 0x02
 
 /** Allow vector drivers to be used.
  * Used by GDALOpenEx().
- * @since GDAL 2.0
  */
 #define GDAL_OF_VECTOR 0x04
 
 /** Allow gnm drivers to be used.
  * Used by GDALOpenEx().
- * @since GDAL 2.1
  */
 #define GDAL_OF_GNM 0x08
 
@@ -966,13 +1107,11 @@ GDALDatasetH CPL_DLL CPL_STDCALL GDALOpenShared(const char *, GDALAccess)
 
 /** Open in shared mode.
  * Used by GDALOpenEx().
- * @since GDAL 2.0
  */
 #define GDAL_OF_SHARED 0x20
 
 /** Emit error message in case of failed open.
  * Used by GDALOpenEx().
- * @since GDAL 2.0
  */
 #define GDAL_OF_VERBOSE_ERROR 0x40
 
@@ -980,7 +1119,6 @@ GDALDatasetH CPL_DLL CPL_STDCALL GDALOpenShared(const char *, GDALAccess)
  * of opened dataset. Cannot be used with GDAL_OF_SHARED.
  *
  * Used by GDALOpenEx().
- * @since GDAL 2.0
  */
 #define GDAL_OF_INTERNAL 0x80
 
@@ -991,7 +1129,6 @@ GDALDatasetH CPL_DLL CPL_STDCALL GDALOpenShared(const char *, GDALAccess)
  * GDAL_OF_HASHSET_BLOCK_ACCESS are mutually exclusive.
  *
  * Used by GDALOpenEx().
- * @since GDAL 2.1
  */
 #define GDAL_OF_DEFAULT_BLOCK_ACCESS 0
 
@@ -1001,7 +1138,6 @@ GDALDatasetH CPL_DLL CPL_STDCALL GDALOpenShared(const char *, GDALAccess)
  * GDAL_OF_HASHSET_BLOCK_ACCESS are mutually exclusive.
  *
  * Used by GDALOpenEx().
- * @since GDAL 2.1
  */
 #define GDAL_OF_ARRAY_BLOCK_ACCESS 0x100
 
@@ -1011,7 +1147,6 @@ GDALDatasetH CPL_DLL CPL_STDCALL GDALOpenShared(const char *, GDALAccess)
  * GDAL_OF_HASHSET_BLOCK_ACCESS are mutually exclusive.
  *
  * Used by GDALOpenEx().
- * @since GDAL 2.1
  */
 #define GDAL_OF_HASHSET_BLOCK_ACCESS 0x200
 
@@ -1030,6 +1165,14 @@ GDALDatasetH CPL_DLL CPL_STDCALL GDALOpenShared(const char *, GDALAccess)
 #define GDAL_OF_FROM_GDALOPEN 0x400
 #endif
 
+/** Open in thread-safe mode. Not compatible with
+ * GDAL_OF_VECTOR, GDAL_OF_MULTIDIM_RASTER or GDAL_OF_UPDATE
+ *
+ * Used by GDALOpenEx().
+ * @since GDAL 3.10
+ */
+#define GDAL_OF_THREAD_SAFE 0x800
+
 GDALDatasetH CPL_DLL CPL_STDCALL GDALOpenEx(
     const char *pszFilename, unsigned int nOpenFlags,
     const char *const *papszAllowedDrivers, const char *const *papszOpenOptions,
@@ -1045,9 +1188,7 @@ void CPL_DLL CPL_STDCALL GDALDestroyDriver(GDALDriverH);
 int CPL_DLL CPL_STDCALL GDALRegisterDriver(GDALDriverH);
 void CPL_DLL CPL_STDCALL GDALDeregisterDriver(GDALDriverH);
 void CPL_DLL CPL_STDCALL GDALDestroyDriverManager(void);
-#ifndef DOXYGEN_SKIP
 void CPL_DLL GDALDestroy(void);
-#endif
 CPLErr CPL_DLL CPL_STDCALL GDALDeleteDataset(GDALDriverH, const char *);
 CPLErr CPL_DLL CPL_STDCALL GDALRenameDataset(GDALDriverH,
                                              const char *pszNewName,
@@ -1061,6 +1202,9 @@ char CPL_DLL **GDALGetOutputDriversForDatasetName(const char *pszDestFilename,
                                                   int nFlagRasterVector,
                                                   bool bSingleMatch,
                                                   bool bEmitWarning);
+
+bool CPL_DLL GDALDriverHasOpenOption(GDALDriverH,
+                                     const char *pszOpenOptionName);
 
 /* The following are deprecated */
 const char CPL_DLL *CPL_STDCALL GDALGetDriverShortName(GDALDriverH);
@@ -1111,6 +1255,16 @@ void CPL_DLL CPL_STDCALL GDALApplyGeoTransform(const double *, double, double,
 void CPL_DLL GDALComposeGeoTransforms(const double *padfGeoTransform1,
                                       const double *padfGeoTransform2,
                                       double *padfGeoTransformOut);
+int CPL_DLL GDALGCPsToHomography(int nGCPCount, const GDAL_GCP *pasGCPs,
+                                 double *padfHomography) CPL_WARN_UNUSED_RESULT;
+int CPL_DLL GDALInvHomography(const double *padfHomographyIn,
+                              double *padfInvHomographyOut)
+    CPL_WARN_UNUSED_RESULT;
+int CPL_DLL GDALApplyHomography(const double *, double, double, double *,
+                                double *) CPL_WARN_UNUSED_RESULT;
+void CPL_DLL GDALComposeHomographies(const double *padfHomography1,
+                                     const double *padfHomography2,
+                                     double *padfHomographyOut);
 
 /* ==================================================================== */
 /*      major objects (dataset, and, driver, drivermanager).            */
@@ -1136,11 +1290,18 @@ void CPL_DLL CPL_STDCALL GDALSetDescription(GDALMajorObjectH, const char *);
 
 GDALDriverH CPL_DLL CPL_STDCALL GDALGetDatasetDriver(GDALDatasetH);
 char CPL_DLL **CPL_STDCALL GDALGetFileList(GDALDatasetH);
+void CPL_DLL GDALDatasetMarkSuppressOnClose(GDALDatasetH);
 CPLErr CPL_DLL CPL_STDCALL GDALClose(GDALDatasetH);
+CPLErr CPL_DLL GDALDatasetRunCloseWithoutDestroying(GDALDatasetH hDS);
 int CPL_DLL CPL_STDCALL GDALGetRasterXSize(GDALDatasetH);
 int CPL_DLL CPL_STDCALL GDALGetRasterYSize(GDALDatasetH);
 int CPL_DLL CPL_STDCALL GDALGetRasterCount(GDALDatasetH);
 GDALRasterBandH CPL_DLL CPL_STDCALL GDALGetRasterBand(GDALDatasetH, int);
+
+bool CPL_DLL GDALDatasetIsThreadSafe(GDALDatasetH, int nScopeFlags,
+                                     CSLConstList papszOptions);
+GDALDatasetH CPL_DLL GDALGetThreadSafeDataset(GDALDatasetH, int nScopeFlags,
+                                              CSLConstList papszOptions);
 
 CPLErr CPL_DLL CPL_STDCALL GDALAddBand(GDALDatasetH hDS, GDALDataType eType,
                                        CSLConstList papszOptions);
@@ -1157,13 +1318,13 @@ void CPL_DLL CPL_STDCALL GDALEndAsyncReader(GDALDatasetH hDS,
 CPLErr CPL_DLL CPL_STDCALL GDALDatasetRasterIO(
     GDALDatasetH hDS, GDALRWFlag eRWFlag, int nDSXOff, int nDSYOff,
     int nDSXSize, int nDSYSize, void *pBuffer, int nBXSize, int nBYSize,
-    GDALDataType eBDataType, int nBandCount, int *panBandCount, int nPixelSpace,
-    int nLineSpace, int nBandSpace) CPL_WARN_UNUSED_RESULT;
+    GDALDataType eBDataType, int nBandCount, const int *panBandCount,
+    int nPixelSpace, int nLineSpace, int nBandSpace) CPL_WARN_UNUSED_RESULT;
 
 CPLErr CPL_DLL CPL_STDCALL GDALDatasetRasterIOEx(
     GDALDatasetH hDS, GDALRWFlag eRWFlag, int nDSXOff, int nDSYOff,
     int nDSXSize, int nDSYSize, void *pBuffer, int nBXSize, int nBYSize,
-    GDALDataType eBDataType, int nBandCount, int *panBandCount,
+    GDALDataType eBDataType, int nBandCount, const int *panBandCount,
     GSpacing nPixelSpace, GSpacing nLineSpace, GSpacing nBandSpace,
     GDALRasterIOExtraArg *psExtraArg) CPL_WARN_UNUSED_RESULT;
 
@@ -1186,7 +1347,15 @@ OGRSpatialReferenceH CPL_DLL GDALGetSpatialRef(GDALDatasetH);
 CPLErr CPL_DLL CPL_STDCALL GDALSetProjection(GDALDatasetH, const char *);
 CPLErr CPL_DLL GDALSetSpatialRef(GDALDatasetH, OGRSpatialReferenceH);
 CPLErr CPL_DLL CPL_STDCALL GDALGetGeoTransform(GDALDatasetH, double *);
-CPLErr CPL_DLL CPL_STDCALL GDALSetGeoTransform(GDALDatasetH, double *);
+CPLErr CPL_DLL CPL_STDCALL GDALSetGeoTransform(GDALDatasetH, const double *);
+
+CPLErr CPL_DLL GDALGetExtent(GDALDatasetH, OGREnvelope *,
+                             OGRSpatialReferenceH hCRS);
+CPLErr CPL_DLL GDALGetExtentWGS84LongLat(GDALDatasetH, OGREnvelope *);
+
+CPLErr CPL_DLL GDALDatasetGeolocationToPixelLine(
+    GDALDatasetH, double dfGeolocX, double dfGeolocY, OGRSpatialReferenceH hSRS,
+    double *pdfPixel, double *pdfLine, CSLConstList papszTransformerOptions);
 
 int CPL_DLL CPL_STDCALL GDALGetGCPCount(GDALDatasetH);
 const char CPL_DLL *CPL_STDCALL GDALGetGCPProjection(GDALDatasetH);
@@ -1278,6 +1447,9 @@ OGRErr CPL_DLL GDALDatasetCommitTransaction(GDALDatasetH hDS);
 OGRErr CPL_DLL GDALDatasetRollbackTransaction(GDALDatasetH hDS);
 void CPL_DLL GDALDatasetClearStatistics(GDALDatasetH hDS);
 
+GDALMDArrayH CPL_DLL GDALDatasetAsMDArray(
+    GDALDatasetH hDS, CSLConstList papszOptions) CPL_WARN_UNUSED_RESULT;
+
 char CPL_DLL **GDALDatasetGetFieldDomainNames(GDALDatasetH, CSLConstList)
     CPL_WARN_UNUSED_RESULT;
 OGRFieldDomainH CPL_DLL GDALDatasetGetFieldDomain(GDALDatasetH hDS,
@@ -1338,12 +1510,6 @@ bool CPL_DLL GDALDatasetSetQueryLoggerFunc(
 /* ==================================================================== */
 
 /**
- *  Opaque type used for the C bindings of the C++ GDALSubdatasetInfo class
- *  @since GDAL 3.8
-*/
-typedef struct GDALSubdatasetInfo *GDALSubdatasetInfoH;
-
-/**
  * @brief Returns a new GDALSubdatasetInfo object with methods to extract
  *        and manipulate subdataset information.
  *        If the pszFileName argument is not recognized by any driver as
@@ -1402,72 +1568,34 @@ void CPL_DLL GDALDestroySubdatasetInfo(GDALSubdatasetInfoH hInfo);
 /*      GDALRasterBand ... one band/channel in a dataset.               */
 /* ==================================================================== */
 
-/* Note: the only user of SRCVAL() was frmts/vrt/pixelfunctions.cpp and we no */
-/* longer use it. */
+/* Note: the only user of SRCVAL() is alg/gdal_simplesurf.cpp */
 
+/* clang-format off */
 /**
  * SRCVAL - Macro which may be used by pixel functions to obtain
  *          a pixel from a source buffer.
  */
-#define SRCVAL(papoSource, eSrcType, ii)                                                                      \
-    (eSrcType == GDT_Byte                                                                                     \
-         ? CPL_REINTERPRET_CAST(const GByte *, papoSource)[ii]                                                \
-         : (eSrcType == GDT_Int8                                                                              \
-                ? CPL_REINTERPRET_CAST(const GInt8 *, papoSource)[ii]                                         \
-                : (eSrcType == GDT_Float32                                                                    \
-                       ? CPL_REINTERPRET_CAST(const float *, papoSource)[ii]                                  \
-                       : (eSrcType == GDT_Float64                                                             \
-                              ? CPL_REINTERPRET_CAST(const double *,                                          \
-                                                     papoSource)[ii]                                          \
-                              : (eSrcType == GDT_Int32                                                        \
-                                     ? CPL_REINTERPRET_CAST(const GInt32 *,                                   \
-                                                            papoSource)[ii]                                   \
-                                     : (eSrcType == GDT_UInt16                                                \
-                                            ? CPL_REINTERPRET_CAST(                                           \
-                                                  const GUInt16 *,                                            \
-                                                  papoSource)[ii]                                             \
-                                            : (eSrcType == GDT_Int16                                          \
-                                                   ? CPL_REINTERPRET_CAST(                                    \
-                                                         const GInt16 *,                                      \
-                                                         papoSource)[ii]                                      \
-                                                   : (eSrcType == GDT_UInt32                                  \
-                                                          ? CPL_REINTERPRET_CAST(                             \
-                                                                const GUInt32                                 \
-                                                                    *,                                        \
-                                                                papoSource)                                   \
-                                                                [ii]                                          \
-                                                          : (eSrcType ==                                      \
-                                                                     GDT_CInt16                               \
-                                                                 ? CPL_REINTERPRET_CAST(                      \
-                                                                       const GInt16                           \
-                                                                           *,                                 \
-                                                                       papoSource)                            \
-                                                                       [(ii)*2]                               \
-                                                                 : (eSrcType ==                               \
-                                                                            GDT_CInt32                        \
-                                                                        ? CPL_REINTERPRET_CAST(               \
-                                                                              const GInt32                    \
-                                                                                  *,                          \
-                                                                              papoSource)                     \
-                                                                              [(ii)*2]                        \
-                                                                        : (eSrcType ==                        \
-                                                                                   GDT_CFloat32               \
-                                                                               ? CPL_REINTERPRET_CAST(        \
-                                                                                     const float              \
-                                                                                         *,                   \
-                                                                                     papoSource)              \
-                                                                                     [(ii)*2]                 \
-                                                                               : (eSrcType ==                 \
-                                                                                          GDT_CFloat64        \
-                                                                                      ? CPL_REINTERPRET_CAST( \
-                                                                                            const double      \
-                                                                                                *,            \
-                                                                                            papoSource)       \
-                                                                                            [(ii)*2]          \
-                                                                                      : 0))))))))))))
+#define SRCVAL(papoSource, eSrcType, ii) \
+    (eSrcType == GDT_Byte ? CPL_REINTERPRET_CAST(const GByte *, papoSource)[ii] : \
+     eSrcType == GDT_Int8 ? CPL_REINTERPRET_CAST(const GInt8 *, papoSource)[ii] : \
+     eSrcType == GDT_UInt16 ? CPL_REINTERPRET_CAST(const GUInt16 *, papoSource)[ii] : \
+     eSrcType == GDT_Int16 ? CPL_REINTERPRET_CAST(const GInt16 *, papoSource)[ii] : \
+     eSrcType == GDT_UInt32 ? CPL_REINTERPRET_CAST(const GUInt32 *, papoSource)[ii] : \
+     eSrcType == GDT_Int32 ? CPL_REINTERPRET_CAST(const GInt32 *, papoSource)[ii] : \
+     eSrcType == GDT_UInt64 ? CPL_STATIC_CAST(double, CPL_REINTERPRET_CAST(const GUInt64 *, papoSource)[ii]) : \
+     eSrcType == GDT_Int64 ? CPL_STATIC_CAST(double, CPL_REINTERPRET_CAST(const GUInt64 *, papoSource)[ii]) : \
+     eSrcType == GDT_Float32 ? CPL_STATIC_CAST(double, CPL_REINTERPRET_CAST(const float *, papoSource)[ii]) : \
+     eSrcType == GDT_Float64 ? CPL_REINTERPRET_CAST(const double *, papoSource)[ii] : \
+     eSrcType == GDT_CInt16 ? CPL_REINTERPRET_CAST(const GInt16 *, papoSource)[(ii)*2] : \
+     eSrcType == GDT_CInt32 ? CPL_REINTERPRET_CAST(const GInt32 *, papoSource)[(ii)*2] : \
+     eSrcType == GDT_CFloat32 ? CPL_STATIC_CAST(double, CPL_REINTERPRET_CAST(const float *, papoSource)[ii*2]) : \
+     eSrcType == GDT_CFloat64 ? CPL_REINTERPRET_CAST(const double *, papoSource)[ii*2] : \
+     0)
+
+/* clang-format on */
 
 /** Type of functions to pass to GDALAddDerivedBandPixelFunc.
- * @since GDAL 2.2 */
+ */
 typedef CPLErr (*GDALDerivedPixelFunc)(void **papoSources, int nSources,
                                        void *pData, int nBufXSize,
                                        int nBufYSize, GDALDataType eSrcType,
@@ -1574,6 +1702,10 @@ CPLErr CPL_DLL CPL_STDCALL GDALSetRasterScale(GDALRasterBandH hBand,
 CPLErr CPL_DLL CPL_STDCALL GDALComputeRasterMinMax(GDALRasterBandH hBand,
                                                    int bApproxOK,
                                                    double adfMinMax[2]);
+CPLErr CPL_DLL GDALComputeRasterMinMaxLocation(GDALRasterBandH hBand,
+                                               double *pdfMin, double *pdfMax,
+                                               int *pnMinX, int *pnMinY,
+                                               int *pnMaxX, int *pnMaxY);
 CPLErr CPL_DLL CPL_STDCALL GDALFlushRasterCache(GDALRasterBandH hBand);
 CPLErr CPL_DLL CPL_STDCALL GDALDropRasterCache(GDALRasterBandH hBand);
 CPLErr CPL_DLL CPL_STDCALL GDALGetRasterHistogram(
@@ -1639,6 +1771,18 @@ CPLErr CPL_DLL CPL_STDCALL GDALAddDerivedBandPixelFunc(
 CPLErr CPL_DLL CPL_STDCALL GDALAddDerivedBandPixelFuncWithArgs(
     const char *pszName, GDALDerivedPixelFuncWithArgs pfnPixelFunc,
     const char *pszMetadata);
+
+CPLErr CPL_DLL GDALRasterInterpolateAtPoint(GDALRasterBandH hBand,
+                                            double dfPixel, double dfLine,
+                                            GDALRIOResampleAlg eInterpolation,
+                                            double *pdfRealValue,
+                                            double *pdfImagValue);
+
+CPLErr CPL_DLL GDALRasterInterpolateAtGeolocation(
+    GDALRasterBandH hBand, double dfGeolocX, double dfGeolocY,
+    OGRSpatialReferenceH hSRS, GDALRIOResampleAlg eInterpolation,
+    double *pdfRealValue, double *pdfImagValue,
+    CSLConstList papszTransformerOptions);
 
 /** Generic pointer for the working structure of VRTProcessedDataset
  * function. */
@@ -1791,6 +1935,86 @@ int CPL_DLL CPL_STDCALL GDALGetDataCoverageStatus(GDALRasterBandH hBand,
                                                   int nMaskFlagStop,
                                                   double *pdfDataPct);
 
+void CPL_DLL GDALComputedRasterBandRelease(GDALComputedRasterBandH hBand);
+
+/** Raster algebra unary operation */
+typedef enum
+{
+    /** Logical not */
+    GRAUO_LOGICAL_NOT,
+    /** Absolute value (module for complex data type) */
+    GRAUO_ABS,
+    /** Square root */
+    GRAUO_SQRT,
+    /** Natural logarithm (``ln``) */
+    GRAUO_LOG,
+    /** Logarithm base 10 */
+    GRAUO_LOG10,
+} GDALRasterAlgebraUnaryOperation;
+
+GDALComputedRasterBandH CPL_DLL GDALRasterBandUnaryOp(
+    GDALRasterBandH hBand,
+    GDALRasterAlgebraUnaryOperation eOp) CPL_WARN_UNUSED_RESULT;
+
+/** Raster algebra binary operation */
+typedef enum
+{
+    /** Addition */
+    GRABO_ADD,
+    /** Subtraction */
+    GRABO_SUB,
+    /** Multiplication */
+    GRABO_MUL,
+    /** Division */
+    GRABO_DIV,
+    /** Power */
+    GRABO_POW,
+    /** Strictly greater than test*/
+    GRABO_GT,
+    /** Greater or equal to test */
+    GRABO_GE,
+    /** Strictly lesser than test */
+    GRABO_LT,
+    /** Lesser or equal to test */
+    GRABO_LE,
+    /** Equality test */
+    GRABO_EQ,
+    /** Non-equality test */
+    GRABO_NE,
+    /** Logical and */
+    GRABO_LOGICAL_AND,
+    /** Logical or */
+    GRABO_LOGICAL_OR
+} GDALRasterAlgebraBinaryOperation;
+
+GDALComputedRasterBandH CPL_DLL GDALRasterBandBinaryOpBand(
+    GDALRasterBandH hBand, GDALRasterAlgebraBinaryOperation eOp,
+    GDALRasterBandH hOtherBand) CPL_WARN_UNUSED_RESULT;
+GDALComputedRasterBandH CPL_DLL GDALRasterBandBinaryOpDouble(
+    GDALRasterBandH hBand, GDALRasterAlgebraBinaryOperation eOp,
+    double constant) CPL_WARN_UNUSED_RESULT;
+GDALComputedRasterBandH CPL_DLL GDALRasterBandBinaryOpDoubleToBand(
+    double constant, GDALRasterAlgebraBinaryOperation eOp,
+    GDALRasterBandH hBand) CPL_WARN_UNUSED_RESULT;
+
+GDALComputedRasterBandH CPL_DLL
+GDALRasterBandIfThenElse(GDALRasterBandH hCondBand, GDALRasterBandH hThenBand,
+                         GDALRasterBandH hElseBand) CPL_WARN_UNUSED_RESULT;
+
+GDALComputedRasterBandH CPL_DLL GDALRasterBandAsDataType(
+    GDALRasterBandH hBand, GDALDataType eDT) CPL_WARN_UNUSED_RESULT;
+
+GDALComputedRasterBandH CPL_DLL GDALMaximumOfNBands(
+    size_t nBandCount, GDALRasterBandH *pahBands) CPL_WARN_UNUSED_RESULT;
+GDALComputedRasterBandH CPL_DLL GDALRasterBandMaxConstant(
+    GDALRasterBandH hBand, double dfConstant) CPL_WARN_UNUSED_RESULT;
+GDALComputedRasterBandH CPL_DLL GDALMinimumOfNBands(
+    size_t nBandCount, GDALRasterBandH *pahBands) CPL_WARN_UNUSED_RESULT;
+GDALComputedRasterBandH CPL_DLL GDALRasterBandMinConstant(
+    GDALRasterBandH hBand, double dfConstant) CPL_WARN_UNUSED_RESULT;
+GDALComputedRasterBandH CPL_DLL GDALMeanOfNBands(
+    size_t nBandCount, GDALRasterBandH *pahBands) CPL_WARN_UNUSED_RESULT;
+
 /* ==================================================================== */
 /*     GDALAsyncReader                                                  */
 /* ==================================================================== */
@@ -1832,6 +2056,10 @@ void CPL_DLL GDALCopyBits(const GByte *pabySrcData, int nSrcOffset,
 void CPL_DLL GDALDeinterleave(const void *pSourceBuffer, GDALDataType eSourceDT,
                               int nComponents, void **ppDestBuffer,
                               GDALDataType eDestDT, size_t nIters);
+
+void CPL_DLL GDALTranspose2D(const void *pSrc, GDALDataType eSrcType,
+                             void *pDst, GDALDataType eDstType,
+                             size_t nSrcWidth, size_t nSrcHeight);
 
 double CPL_DLL GDALGetNoDataReplacementValue(GDALDataType, double);
 
@@ -1996,8 +2224,14 @@ typedef enum
 {
     /*! Integer field */ GFT_Integer,
     /*! Floating point (double) field */ GFT_Real,
-    /*! String field */ GFT_String
+    /*! String field */ GFT_String,
+    /*! Boolean field (GDAL >= 3.12) */ GFT_Boolean,
+    /*! DateTime field (GDAL >= 3.12) */ GFT_DateTime,
+    /*! Geometry field, as WKB (GDAL >= 3.12) */ GFT_WKBGeometry
 } GDALRATFieldType;
+
+/** First invalid value for the GDALRATFieldType enumeration */
+#define GFT_MaxCount (GFT_WKBGeometry + 1)
 
 /** Field usage of raster attribute table */
 typedef enum
@@ -2024,7 +2258,6 @@ typedef enum
 } GDALRATFieldUsage;
 
 /** RAT table type (thematic or athematic)
- * @since GDAL 2.4
  */
 typedef enum
 {
@@ -2047,23 +2280,84 @@ GDALRATGetUsageOfCol(GDALRasterAttributeTableH, int);
 GDALRATFieldType CPL_DLL CPL_STDCALL
 GDALRATGetTypeOfCol(GDALRasterAttributeTableH, int);
 
+const char CPL_DLL *GDALGetRATFieldTypeName(GDALRATFieldType);
+const char CPL_DLL *GDALGetRATFieldUsageName(GDALRATFieldUsage);
+
 int CPL_DLL CPL_STDCALL GDALRATGetColOfUsage(GDALRasterAttributeTableH,
                                              GDALRATFieldUsage);
 int CPL_DLL CPL_STDCALL GDALRATGetRowCount(GDALRasterAttributeTableH);
 
 const char CPL_DLL *CPL_STDCALL
-GDALRATGetValueAsString(GDALRasterAttributeTableH, int, int);
-int CPL_DLL CPL_STDCALL GDALRATGetValueAsInt(GDALRasterAttributeTableH, int,
-                                             int);
+GDALRATGetValueAsString(GDALRasterAttributeTableH, int iRow, int iField);
+int CPL_DLL CPL_STDCALL GDALRATGetValueAsInt(GDALRasterAttributeTableH,
+                                             int iRow, int iField);
 double CPL_DLL CPL_STDCALL GDALRATGetValueAsDouble(GDALRasterAttributeTableH,
-                                                   int, int);
+                                                   int iRow, int iField);
+bool CPL_DLL GDALRATGetValueAsBoolean(GDALRasterAttributeTableH, int iRow,
+                                      int iField);
 
-void CPL_DLL CPL_STDCALL GDALRATSetValueAsString(GDALRasterAttributeTableH, int,
-                                                 int, const char *);
-void CPL_DLL CPL_STDCALL GDALRATSetValueAsInt(GDALRasterAttributeTableH, int,
-                                              int, int);
-void CPL_DLL CPL_STDCALL GDALRATSetValueAsDouble(GDALRasterAttributeTableH, int,
-                                                 int, double);
+#ifdef __cplusplus
+extern "C++"
+{
+#endif
+
+    /** Structure encoding a DateTime field for a GDAL Raster Attribute Table.
+ *
+ * @since 3.12
+ */
+    struct GDALRATDateTime
+    {
+        /*! Year */ int nYear;
+        /*! Month [1, 12] */ int nMonth;
+        /*! Day [1, 31] */ int nDay;
+        /*! Hour [0, 23] */ int nHour;
+        /*! Minute [0, 59] */ int nMinute;
+        /*! Second [0, 61) */ float fSecond;
+        /*! Time zone hour [0, 23] */ int nTimeZoneHour;
+        /*! Time zone minute: 0, 15, 30, 45 */ int nTimeZoneMinute;
+        /*! Whether time zone is positive (or null) */ bool bPositiveTimeZone;
+        /*! Whether this object is valid */ bool bIsValid;
+
+#ifdef __cplusplus
+        GDALRATDateTime()
+            : nYear(0), nMonth(0), nDay(0), nHour(0), nMinute(0), fSecond(0),
+              nTimeZoneHour(0), nTimeZoneMinute(0), bPositiveTimeZone(false),
+              bIsValid(false)
+        {
+        }
+#endif
+    };
+
+#ifdef __cplusplus
+}
+#endif
+
+/*! @cond Doxygen_Suppress */
+typedef struct GDALRATDateTime GDALRATDateTime;
+/*! @endcond */
+
+CPLErr CPL_DLL GDALRATGetValueAsDateTime(GDALRasterAttributeTableH, int iRow,
+                                         int iField,
+                                         GDALRATDateTime *psDateTime);
+const GByte CPL_DLL *GDALRATGetValueAsWKBGeometry(GDALRasterAttributeTableH,
+                                                  int iRow, int iField,
+                                                  size_t *pnWKBSize);
+
+void CPL_DLL CPL_STDCALL GDALRATSetValueAsString(GDALRasterAttributeTableH,
+                                                 int iRow, int iField,
+                                                 const char *);
+void CPL_DLL CPL_STDCALL GDALRATSetValueAsInt(GDALRasterAttributeTableH,
+                                              int iRow, int iField, int);
+void CPL_DLL CPL_STDCALL GDALRATSetValueAsDouble(GDALRasterAttributeTableH,
+                                                 int iRow, int iField, double);
+CPLErr CPL_DLL GDALRATSetValueAsBoolean(GDALRasterAttributeTableH, int iRow,
+                                        int iField, bool);
+CPLErr CPL_DLL GDALRATSetValueAsDateTime(GDALRasterAttributeTableH, int iRow,
+                                         int iField,
+                                         const GDALRATDateTime *psDateTime);
+CPLErr CPL_DLL GDALRATSetValueAsWKBGeometry(GDALRasterAttributeTableH, int iRow,
+                                            int iField, const void *pabyWKB,
+                                            size_t nWKBSize);
 
 int CPL_DLL CPL_STDCALL
 GDALRATChangesAreWrittenToFile(GDALRasterAttributeTableH hRAT);
@@ -2077,6 +2371,19 @@ GDALRATValuesIOAsInteger(GDALRasterAttributeTableH hRAT, GDALRWFlag eRWFlag,
 CPLErr CPL_DLL CPL_STDCALL GDALRATValuesIOAsString(
     GDALRasterAttributeTableH hRAT, GDALRWFlag eRWFlag, int iField,
     int iStartRow, int iLength, char **papszStrList);
+CPLErr CPL_DLL GDALRATValuesIOAsBoolean(GDALRasterAttributeTableH hRAT,
+                                        GDALRWFlag eRWFlag, int iField,
+                                        int iStartRow, int iLength,
+                                        bool *pbData);
+CPLErr CPL_DLL GDALRATValuesIOAsDateTime(GDALRasterAttributeTableH hRAT,
+                                         GDALRWFlag eRWFlag, int iField,
+                                         int iStartRow, int iLength,
+                                         GDALRATDateTime *pasDateTime);
+CPLErr CPL_DLL GDALRATValuesIOAsWKBGeometry(GDALRasterAttributeTableH hRAT,
+                                            GDALRWFlag eRWFlag, int iField,
+                                            int iStartRow, int iLength,
+                                            GByte **ppabyWKB,
+                                            size_t *pnWKBSize);
 
 void CPL_DLL CPL_STDCALL GDALRATSetRowCount(GDALRasterAttributeTableH, int);
 CPLErr CPL_DLL CPL_STDCALL GDALRATCreateColumn(GDALRasterAttributeTableH,
@@ -2293,6 +2600,8 @@ int CPL_DLL GDALExtendedDataTypeEquals(GDALExtendedDataTypeH hFirstEDT,
                                        GDALExtendedDataTypeH hSecondEDT);
 GDALExtendedDataTypeSubType CPL_DLL
 GDALExtendedDataTypeGetSubType(GDALExtendedDataTypeH hEDT);
+GDALRasterAttributeTableH CPL_DLL
+GDALExtendedDataTypeGetRAT(GDALExtendedDataTypeH hEDT) CPL_WARN_UNUSED_RESULT;
 
 GDALEDTComponentH CPL_DLL
 GDALEDTComponentCreate(const char *pszName, size_t nOffset,
@@ -2311,6 +2620,9 @@ const char CPL_DLL *GDALGroupGetFullName(GDALGroupH hGroup);
 char CPL_DLL **
 GDALGroupGetMDArrayNames(GDALGroupH hGroup,
                          CSLConstList papszOptions) CPL_WARN_UNUSED_RESULT;
+char CPL_DLL **GDALGroupGetMDArrayFullNamesRecursive(
+    GDALGroupH hGroup, CSLConstList papszGroupOptions,
+    CSLConstList papszArrayOptions) CPL_WARN_UNUSED_RESULT;
 GDALMDArrayH CPL_DLL
 GDALGroupOpenMDArray(GDALGroupH hGroup, const char *pszMDArrayName,
                      CSLConstList papszOptions) CPL_WARN_UNUSED_RESULT;
@@ -2368,6 +2680,9 @@ bool CPL_DLL GDALGroupDeleteAttribute(GDALGroupH hGroup, const char *pszName,
 bool CPL_DLL GDALGroupRename(GDALGroupH hGroup, const char *pszNewName);
 GDALGroupH CPL_DLL GDALGroupSubsetDimensionFromSelection(
     GDALGroupH hGroup, const char *pszSelection, CSLConstList papszOptions);
+size_t CPL_DLL GDALGroupGetDataTypeCount(GDALGroupH hGroup);
+GDALExtendedDataTypeH CPL_DLL GDALGroupGetDataType(GDALGroupH hGroup,
+                                                   size_t nIdx);
 
 void CPL_DLL GDALMDArrayRelease(GDALMDArrayH hMDArray);
 const char CPL_DLL *GDALMDArrayGetName(GDALMDArrayH hArray);
@@ -2490,6 +2805,80 @@ GDALMDArrayH CPL_DLL GDALMDArrayGetGridded(
 GDALMDArrayH CPL_DLL *
 GDALMDArrayGetCoordinateVariables(GDALMDArrayH hArray,
                                   size_t *pnCount) CPL_WARN_UNUSED_RESULT;
+
+GDALMDArrayH CPL_DLL *
+GDALMDArrayGetMeshGrid(const GDALMDArrayH *pahInputArrays,
+                       size_t nCountInputArrays, size_t *pnCountOutputArrays,
+                       CSLConstList papszOptions) CPL_WARN_UNUSED_RESULT;
+
+#ifdef __cplusplus
+extern "C++"
+{
+#endif
+
+    /** Information on a raw block of a GDALMDArray
+     *
+     * @since 3.12
+     */
+    struct
+#ifdef __cplusplus
+        CPL_DLL
+#endif
+            GDALMDArrayRawBlockInfo
+    {
+        /** Filename into which the raw block is found */
+        char *pszFilename;
+        /** File offset within pszFilename of the start of the raw block */
+        uint64_t nOffset;
+        /** Size in bytes of the raw block */
+        uint64_t nSize;
+        /** NULL or Null-terminated list of driver specific information on the
+         * raw block */
+        char **papszInfo;
+        /** In-memory buffer of nSize bytes. When this is set, pszFilename and
+         * nOffset are set to NULL.
+         *
+         * When using C++ copy constructor or copy-assignment operator, if
+         * a memory allocation fails, a CPLError() will be emitted and this
+         * field will be NULL, but nSize not zero.
+         */
+        GByte *pabyInlineData;
+
+#ifdef __cplusplus
+        /*! @cond Doxygen_Suppress */
+        inline GDALMDArrayRawBlockInfo()
+            : pszFilename(nullptr), nOffset(0), nSize(0), papszInfo(nullptr),
+              pabyInlineData(nullptr)
+        {
+        }
+
+        ~GDALMDArrayRawBlockInfo();
+
+        void clear();
+
+        GDALMDArrayRawBlockInfo(const GDALMDArrayRawBlockInfo &);
+        GDALMDArrayRawBlockInfo &operator=(const GDALMDArrayRawBlockInfo &);
+        GDALMDArrayRawBlockInfo(GDALMDArrayRawBlockInfo &&);
+        GDALMDArrayRawBlockInfo &operator=(GDALMDArrayRawBlockInfo &&);
+        /*! @endcond */
+#endif
+    };
+
+#ifdef __cplusplus
+}
+#endif
+
+/*! @cond Doxygen_Suppress */
+typedef struct GDALMDArrayRawBlockInfo GDALMDArrayRawBlockInfo;
+/*! @endcond */
+
+GDALMDArrayRawBlockInfo CPL_DLL *GDALMDArrayRawBlockInfoCreate(void);
+void CPL_DLL
+GDALMDArrayRawBlockInfoRelease(GDALMDArrayRawBlockInfo *psBlockInfo);
+bool CPL_DLL GDALMDArrayGetRawBlockInfo(GDALMDArrayH hArray,
+                                        const uint64_t *panBlockCoordinates,
+                                        GDALMDArrayRawBlockInfo *psBlockInfo);
+
 void CPL_DLL GDALReleaseArrays(GDALMDArrayH *arrays, size_t nCount);
 int CPL_DLL GDALMDArrayCache(GDALMDArrayH hArray, CSLConstList papszOptions);
 bool CPL_DLL GDALMDArrayRename(GDALMDArrayH hArray, const char *pszNewName);
@@ -2515,11 +2904,15 @@ void CPL_DLL GDALAttributeFreeRawResult(GDALAttributeH hAttr, GByte *raw,
                                         size_t nSize);
 const char CPL_DLL *GDALAttributeReadAsString(GDALAttributeH hAttr);
 int CPL_DLL GDALAttributeReadAsInt(GDALAttributeH hAttr);
+int64_t CPL_DLL GDALAttributeReadAsInt64(GDALAttributeH hAttr);
 double CPL_DLL GDALAttributeReadAsDouble(GDALAttributeH hAttr);
 char CPL_DLL **
 GDALAttributeReadAsStringArray(GDALAttributeH hAttr) CPL_WARN_UNUSED_RESULT;
 int CPL_DLL *GDALAttributeReadAsIntArray(GDALAttributeH hAttr, size_t *pnCount)
     CPL_WARN_UNUSED_RESULT;
+int64_t CPL_DLL *
+GDALAttributeReadAsInt64Array(GDALAttributeH hAttr,
+                              size_t *pnCount) CPL_WARN_UNUSED_RESULT;
 double CPL_DLL *
 GDALAttributeReadAsDoubleArray(GDALAttributeH hAttr,
                                size_t *pnCount) CPL_WARN_UNUSED_RESULT;
@@ -2527,6 +2920,11 @@ int CPL_DLL GDALAttributeWriteRaw(GDALAttributeH hAttr, const void *, size_t);
 int CPL_DLL GDALAttributeWriteString(GDALAttributeH hAttr, const char *);
 int CPL_DLL GDALAttributeWriteStringArray(GDALAttributeH hAttr, CSLConstList);
 int CPL_DLL GDALAttributeWriteInt(GDALAttributeH hAttr, int);
+int CPL_DLL GDALAttributeWriteIntArray(GDALAttributeH hAttr, const int *,
+                                       size_t);
+int CPL_DLL GDALAttributeWriteInt64(GDALAttributeH hAttr, int64_t);
+int CPL_DLL GDALAttributeWriteInt64Array(GDALAttributeH hAttr, const int64_t *,
+                                         size_t);
 int CPL_DLL GDALAttributeWriteDouble(GDALAttributeH hAttr, double);
 int CPL_DLL GDALAttributeWriteDoubleArray(GDALAttributeH hAttr, const double *,
                                           size_t);

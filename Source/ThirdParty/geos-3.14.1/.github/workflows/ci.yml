@@ -1,0 +1,534 @@
+# GitHub Actions for GEOS
+#
+# Paul Ramsey <pramsey at cleverelephant dot ca>
+# Based on AZP configuration by Mateusz Loskot <mateusz at loskot dot net>
+
+name: 'CI'
+
+on:
+  push:
+    paths-ignore:
+      - 'web/**'
+      - '**.md'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read  #  to fetch code (actions/checkout)
+
+env:
+  CCACHE_BASEDIR: ${{ github.workspace }}
+  CCACHE_DIR: ${{ github.workspace }}/.ccache
+  CCACHE_COMPRESS: "true"
+  CCACHE_COMPRESSLEVEL: "6"
+  CCACHE_MAXSIZE: "300M"
+
+jobs:
+  linux:
+    name: 'Linux'
+    strategy:
+      fail-fast: false
+      matrix:
+        ci:
+        - cxx_compiler: g++
+          c_compiler: gcc
+          build_type: Coverage
+          cxxstd: 17
+          arch: 64
+          packages: g++
+          cmake: 3.15.*
+          cmake_extra: -D BUILD_BENCHMARKS=ON
+          os: ubuntu-latest
+
+          # gcc 9 and lower are not supported
+          # in ubuntu 22.04 and higher
+
+        - cxx_compiler: g++-10
+          c_compiler: gcc-10
+          build_type: Release
+          cxxstd: 17
+          arch: 64
+          packages: 'g++-10-multilib gcc-10-multilib'
+          cmake: 3.15.*
+          os: ubuntu-22.04
+
+        - cxx_compiler: g++-11
+          c_compiler: gcc-11
+          build_type: Release
+          cxxstd: 17
+          arch: 64
+          packages: 'g++-11-multilib gcc-11-multilib'
+          cmake: 3.17.*
+          os: ubuntu-22.04
+
+        - cxx_compiler: g++-12
+          c_compiler: gcc-12
+          build_type: Release
+          cxxstd: 20
+          arch: 64
+          packages: 'g++-12-multilib gcc-12-multilib'
+          cmake: 3.20.*
+          os: ubuntu-22.04
+
+          # gcc 12 and lower are not supported
+          # in ubuntu 24.04 and higher
+
+        - cxx_compiler: g++-13
+          c_compiler: gcc-13
+          build_type: Release
+          cxxstd: 20
+          arch: 64
+          packages: 'g++-13-multilib gcc-13-multilib'
+          cmake: 3.25.*
+          os: ubuntu-24.04
+
+        - cxx_compiler: g++-14
+          c_compiler: gcc-14
+          build_type: Debug
+          cxxstd: 20
+          arch: 64
+          packages: 'g++-14-multilib gcc-14-multilib'
+          cmake: 3.31.*
+          os: ubuntu-24.04
+
+          # clang 10 and lower are not supported
+          # in ubuntu 22.04 and higher
+
+        - cxx_compiler: clang++-11
+          c_compiler: clang-11
+          build_type: Debug
+          cxxstd: 14
+          arch: 64
+          packages: 'clang-11'
+          cmake: 3.15.*
+          os: ubuntu-22.04
+
+        - cxx_compiler: clang++-12
+          c_compiler: clang-12
+          build_type: ASAN
+          cxxstd: 14
+          arch: 64
+          packages: 'clang-12'
+          cmake: 3.17.*
+          os: ubuntu-22.04
+
+        - cxx_compiler: clang++-13
+          c_compiler: clang-13
+          build_type: ASAN
+          cxxstd: 17
+          arch: 64
+          packages: 'clang-13'
+          cmake: 3.20.*
+          os: ubuntu-22.04
+
+        - cxx_compiler: clang++-14
+          c_compiler: clang-14
+          build_type: ASAN
+          cxxstd: 20
+          arch: 64
+          packages: 'clang-14'
+          cmake: 3.22.*
+          os: ubuntu-22.04
+
+        - cxx_compiler: clang++-15
+          c_compiler: clang-15
+          build_type: ASAN
+          cxxstd: 20
+          arch: 64
+          packages: 'clang-15'
+          cmake: 3.24.*
+          os: ubuntu-22.04
+
+          # clang 15 and lower are not supported
+          # in ubuntu 24.04 and higher
+
+        - cxx_compiler: clang++-16
+          c_compiler: clang-16
+          build_type: ASAN
+          cxxstd: 20
+          arch: 64
+          packages: 'clang-16'
+          cmake: 3.26.*
+          os: ubuntu-24.04
+
+        - cxx_compiler: clang++-17
+          c_compiler: clang-17
+          build_type: ASAN
+          cxxstd: 20
+          arch: 64
+          packages: 'clang-17'
+          cmake: 3.28.*
+          os: ubuntu-24.04
+
+        - cxx_compiler: clang++-18
+          c_compiler: clang-18
+          build_type: ASAN
+          cxxstd: 20
+          arch: 64
+          packages: 'clang-18'
+          cmake: 3.30.*
+          os: ubuntu-24.04
+
+
+    runs-on: ${{ matrix.ci.os }}
+    steps:
+
+    - name: 'Install'
+      run: |
+        set -e
+        uname -a
+        sudo -E apt-get update
+        sudo -E apt-get autopurge -y needrestart
+        sudo -E apt-get -yq --no-install-suggests --no-install-recommends install make doxygen lcov python3-pip ccache valgrind ${{ matrix.ci.packages }}
+        python3 -m pip install --disable-pip-version-check --user cmake==${{ matrix.ci.cmake }}
+        echo "$(python3 -m site --user-base)/bin" >> $GITHUB_PATH
+
+    - name: 'Check Out'
+      uses: actions/checkout@v4
+
+    - name: Retrieve build cache
+      uses: actions/cache/restore@v4
+      id: restore-cache
+      with:
+        path: .ccache
+        key: ${{ matrix.ci.os }}-${{ matrix.ci.cxx_compiler }}-${{ matrix.ci.build_type}}-${{ matrix.ci.cxxstd }}-${{ matrix.ci.arch }}-${{ github.ref_name }}-${{ github.run_id }}
+        restore-keys: ${{ matrix.ci.os }}-${{ matrix.ci.cxx_compiler }}-${{ matrix.ci.build_type}}-${{ matrix.ci.cxxstd }}-${{ matrix.ci.arch }}
+
+    - name: 'Build'
+      env:
+        CFLAGS: "-m${{ matrix.ci.arch }}"
+        CXXFLAGS: "-m${{ matrix.ci.arch }}"
+      run: |
+        set -e
+        mkdir build
+        cd build
+        cmake --version
+        cmake ${{ matrix.ci.cmake_extra }} \
+          -D CMAKE_BUILD_TYPE=${{ matrix.ci.build_type }} \
+          -D CMAKE_C_COMPILER=${{ matrix.ci.c_compiler }} \
+          -D CMAKE_CXX_COMPILER=${{ matrix.ci.cxx_compiler }} \
+          -D CMAKE_CXX_STANDARD=${{ matrix.ci.cxxstd }} \
+          -D BUILD_DOCUMENTATION=YES \
+          -D USE_CCACHE=ON \
+          ..
+        make -j $(nproc)
+        cmake --build . --target docs
+        ccache --show-stats
+
+    - name: Save build cache
+      uses: actions/cache/save@v4
+      with:
+        path: .ccache
+        key: ${{ steps.restore-cache.outputs.cache-primary-key }}
+
+    - name: Test
+      working-directory: ./build
+      run: ctest --output-on-failure
+
+    # Run the all-unit-tests under
+    # the memory checker when we have Debug symbols
+    # available. Change to ^all to also check all-xml-tests
+    - name: Valgrind
+      if: matrix.ci.build_type == 'Debug'
+      working-directory: ./build
+      run: |
+        ctest --output-on-failure \
+          --overwrite MemoryCheckCommandOptions="--leak-check=full --error-exitcode=100 --num-callers=100" \
+          -R ^all-unit -C Valgrind -T memcheck
+
+    - name: 'Upload Valgrind Log'
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: valgrind-log
+        path: build/Testing/Temporary/MemoryChecker.**.log
+        retention-days: 1
+
+    - name: Generate coverage report
+      if: matrix.ci.build_type == 'Coverage'
+      run: |
+        cd build
+        lcov --ignore-errors=gcov,negative --capture --directory CMakeFiles --output-file coverage.info
+
+    - name: Upload Coverage to Codecov
+      if: ${{ matrix.ci.build_type == 'Coverage' && !cancelled() }}
+      uses: codecov/codecov-action@v5
+      with:
+        fail_ci_if_error: false
+        files: build/coverage.info
+        token: ${{ secrets.CODECOV_TOKEN }}
+
+  windows-mingw:
+    name: 'Windows (mingw-w64, x86_64, windows-2022)'
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: msys2 {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: ['Debug', 'Release']
+
+    steps:
+    - name: 'Check Out'
+      uses: actions/checkout@v4
+
+    - name: 'Setup'
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install:  >-
+          make
+          mingw-w64-x86_64-ccache
+          mingw-w64-x86_64-cmake
+          mingw-w64-x86_64-gcc
+
+    - name: Retrieve build cache
+      id: restore-cache
+      uses: actions/cache/restore@v4
+      with:
+        path: .ccache
+        key: windows-mingw-${{ matrix.build_type}}-${{ github.ref_name }}-${{ github.run_id }}
+        restore-keys: windows-mingw-${{ matrix.build_type}}
+
+    - name: 'Build'
+      env:
+        CCACHE_DIR: ${{ github.workspace }}\.ccache
+      run: |
+        mkdir build
+        cd build
+        cmake --version
+        cmake \
+          -G "MSYS Makefiles" \
+          -D CMAKE_BUILD_TYPE=${{ matrix.build_type}} \
+          -D USE_CCACHE=ON \
+          ..
+        cmake --build . -j 4
+        ccache --show-stats --verbose
+
+    - name: Save build cache
+      uses: actions/cache/save@v4
+      with:
+        path: .ccache
+        key: ${{ steps.restore-cache.outputs.cache-primary-key }}
+
+    - name: 'Test'
+      working-directory: ./build
+      run: ctest --output-on-failure
+
+  windows-msvc-msbuild:
+    name: Windows (MSVC MSBuild)
+    runs-on: windows-2022
+    steps:
+    - name: 'Check Out'
+      uses: actions/checkout@v4
+
+    # ccache not supported for this generator and/or Debug
+
+    - name: 'Build'
+      shell: cmd
+      run: |
+        md build
+        cd build
+        cmake --version
+        cmake ^
+          -G "Visual Studio 17 2022" ^
+          -D CMAKE_BUILD_TYPE=Debug ^
+          -D CMAKE_CXX_STANDARD=17 ^
+          -D BUILD_SHARED_LIBS=ON ^
+          ..
+        IF %ERRORLEVEL% NEQ 0 exit /B 1
+        cmake --build . --config Debug -j 4 -- /p:CL_MPcount=4
+
+    - name: 'Test'
+      working-directory: build
+      run: ctest --output-on-failure -C Debug
+
+  windows-msvc-ninja:
+    name: Windows (MSVC Ninja)
+    strategy:
+      fail-fast: false
+      matrix:
+        ci:
+        - os: windows-2022
+          cxxstd: 20
+          arch: x64
+        - os: windows-2025
+          cxxstd: 20
+          arch: x64
+
+    runs-on: ${{ matrix.ci.os }}
+    steps:
+
+    - name: 'Check Out'
+      uses: actions/checkout@v4
+
+    - name: Retrieve build cache
+      id: restore-cache
+      uses: actions/cache/restore@v4
+      with:
+        path: .ccache
+        key: msvc-ninja-${{ matrix.ci.os }}-${{ matrix.ci.cxxstd }}-${{ matrix.ci.arch }}-${{ github.ref_name }}-${{ github.run_id }}
+        restore-keys: msvc-ninja-${{ matrix.ci.os }}-${{ matrix.ci.cxxstd }}-${{ matrix.ci.arch }}
+
+    - name: 'Setup'
+      run: choco install ccache ninja
+
+    - name: Activate MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: ${{ matrix.ci.arch }}
+
+    - name: 'Build'
+      env:
+        CCACHE_DIR: ${{ github.workspace }}\.ccache
+      shell: cmd
+      run: |
+        md build
+        cd build
+        cmake --version
+        cmake ^
+          -G Ninja ^
+          -D CMAKE_BUILD_TYPE=Release ^
+          -D CMAKE_CXX_STANDARD=${{ matrix.ci.cxxstd }} ^
+          -D BUILD_SHARED_LIBS=ON ^
+          -D USE_CCACHE=ON ^
+          ..
+        IF %ERRORLEVEL% NEQ 0 exit /B 1
+        cmake --build . --config Release -j 4
+        IF %ERRORLEVEL% NEQ 0 exit /B 1
+        ccache --show-stats --verbose
+
+    - name: Save build cache
+      uses: actions/cache/save@v4
+      with:
+        path: .ccache
+        key: ${{ steps.restore-cache.outputs.cache-primary-key }}
+
+    - name: 'Test'
+      working-directory: build
+      run: ctest --output-on-failure -C Release
+
+  macos:
+    name: 'macOS clang'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - xcode: 15.4
+          cxxstd: 20
+          build_type: Release
+          runs_on: macos-14
+        - xcode: 16.4
+          cxxstd: 23
+          build_type: ASAN
+          runs_on: macos-15
+
+    runs-on: ${{ matrix.runs_on }}
+    steps:
+
+    - name: 'Setup'
+      run: brew install ccache
+
+    - name: 'Install'
+      env:
+        XCODE_APP: /Applications/XCode_${{ matrix.xcode }}.app
+      run: |
+        set -e
+        uname -a
+        sudo xcode-select -switch ${XCODE_APP}
+        which clang++
+        clang++ --version
+
+    - name: 'Check Out'
+      uses: actions/checkout@v4
+
+    - name: Retrieve build cache
+      id: restore-cache
+      uses: actions/cache/restore@v4
+      with:
+        path: .ccache
+        key: ${{ runner.os }}-${{ matrix.xcode }}-${{ matrix.build_type}}-${{ matrix.cxxstd }}-${{ github.ref_name }}-${{ github.run_id }}
+        restore-keys: ${{ runner.os }}-${{ matrix.xcode }}-${{ matrix.build_type}}-${{ matrix.cxxstd }}
+
+    - name: 'Build'
+      run: |
+        set -e
+        mkdir build
+        cd build
+        cmake --version
+        cmake \
+          -D CMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          -D CMAKE_CXX_STANDARD=${{ matrix.cxxstd }} \
+          -D USE_CCACHE=ON \
+          ..
+        cmake --build . --config ${{ matrix.build_type }} -j 4
+        ccache --show-stats
+
+    - name: Save build cache
+      uses: actions/cache/save@v4
+      with:
+        path: .ccache
+        key: ${{ steps.restore-cache.outputs.cache-primary-key }}
+
+    - name: 'Test'
+      working-directory: ./build
+      run: ctest -V --output-on-failure -C ${{ matrix.build_type }}
+
+
+  code-quality:
+    name: Code quality checks
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install
+      run: |
+        set -e
+        sudo -E apt-get update
+        sudo -E apt-get -yq --no-install-suggests --no-install-recommends install cppcheck
+        python3 -m pip install --disable-pip-version-check --user codespell
+
+    - name: 'Check Out'
+      uses: actions/checkout@v4
+
+    - name: 'cppcheck'
+      run: ./tools/cppcheck.sh
+
+    - name: codespell
+      run: codespell
+      # false-positives can be added to tools/codespell.ignore
+
+  cmake-subproject:
+    name: 'CMake Subproject'
+    runs-on: ubuntu-latest
+    steps:
+    - name: 'Install'
+      run: |
+        set -e
+        uname -a
+        sudo -E apt-get update
+        sudo -E apt-get autopurge -y needrestart
+        sudo -E apt-get -yq --no-install-suggests --no-install-recommends install make python3-pip g++
+        python3 -m pip install --disable-pip-version-check --user cmake==3.15.*
+        echo "$(python3 -m site --user-base)/bin" >> $GITHUB_PATH
+
+    - name: 'Check Out'
+      uses: actions/checkout@v4
+      with:
+        path: geos
+
+    - name: 'CMake Superbuild'
+      run: |
+        set -e
+        cp geos/tests/superbuild.CMakeLists.txt ./CMakeLists.txt
+        cp geos/examples/capi_read.c .
+        cmake --version
+        cmake -S . -B build
+        cmake --build build -j $(nproc)
+        build/capi_read
+        test ! -f build/geos/bin/test_geos_unit || { echo "Error: GEOS tests were built" 1>&2 ; exit 1; }

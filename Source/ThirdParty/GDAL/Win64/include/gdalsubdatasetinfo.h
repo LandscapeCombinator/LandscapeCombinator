@@ -7,23 +7,7 @@
  email                : elpaso@itopen.it
  ***************************************************************************
  *                                                                         *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * SPDX-License-Identifier: MIT
  *                                                                         *
  ***************************************************************************/
 #ifndef GDALSUBDATASETINFO_H
@@ -49,7 +33,7 @@ struct CPL_DLL GDALSubdatasetInfo
      */
     GDALSubdatasetInfo(const std::string &fileName);
 
-    virtual ~GDALSubdatasetInfo() = default;
+    virtual ~GDALSubdatasetInfo();
 
     /**
  * @brief Returns the unquoted and unescaped path component of the complete file descriptor
@@ -98,9 +82,9 @@ struct CPL_DLL GDALSubdatasetInfo
 
     //! The original unparsed complete file name passed to the constructor (e.g. GPKG:/path/to/file.gpkg:layer_name)
     std::string m_fileName;
-    //! The unmodified path component of the file name (e.g. "\"C:\path\to\file.gpkg\"", "/path/to/file.gpkg")
+    //! The unmodified path component of the file name (e.g. "\"C:\\path\\to\\file.gpkg\"", "/path/to/file.gpkg")
     std::string m_pathComponent;
-    //! The unquoted and unescaped path component of the file name (e.g. "C:\path\to\file.gpkg", "/path/to/file.gpkg")
+    //! The unquoted and unescaped path component of the file name (e.g. "C:\\path\\to\\file.gpkg", "/path/to/file.gpkg")
     std::string m_cleanedPathComponent;
     //! The subdataset component (e.g. layer_name)
     std::string m_subdatasetComponent;

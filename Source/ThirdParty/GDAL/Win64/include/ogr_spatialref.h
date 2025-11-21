@@ -1,5 +1,4 @@
 /******************************************************************************
- * $Id$
  *
  * Project:  OpenGIS Simple Features Reference Implementation
  * Purpose:  Classes for manipulating spatial reference systems in a
@@ -10,23 +9,7 @@
  * Copyright (c) 1999,  Les Technologies SoftMap Inc.
  * Copyright (c) 2008-2013, Even Rouault <even dot rouault at spatialys.com>
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * SPDX-License-Identifier: MIT
  ****************************************************************************/
 
 #ifndef OGR_SPATIALREF_H_INCLUDED
@@ -193,6 +176,8 @@ class CPL_DLL OGRSpatialReference
 
     OGRSpatialReference &operator=(const OGRSpatialReference &);
     OGRSpatialReference &operator=(OGRSpatialReference &&);
+
+    OGRSpatialReference &AssignAndSetThreadSafe(const OGRSpatialReference &);
 
     int Reference();
     int Dereference();
@@ -405,6 +390,8 @@ class CPL_DLL OGRSpatialReference
     int IsSame(const OGRSpatialReference *,
                const char *const *papszOptions) const;
 
+    const char *GetCelestialBodyName() const;
+
     void Clear();
     OGRErr SetLocalCS(const char *);
     OGRErr SetProjCS(const char *);
@@ -545,7 +532,7 @@ class CPL_DLL OGRSpatialReference
     /** Interrupted Goode Homolosine */
     OGRErr SetIGH();
 
-    /** Gall Stereograpic */
+    /** Gall Stereographic */
     OGRErr SetGS(double dfCentralMeridian, double dfFalseEasting,
                  double dfFalseNorthing);
 
@@ -688,7 +675,7 @@ class CPL_DLL OGRSpatialReference
     OGRErr SetUTM(int nZone, int bNorth = TRUE);
     int GetUTMZone(int *pbNorth = nullptr) const;
 
-    /** Wagner I -- VII */
+    /** Wagner I \-- VII */
     OGRErr SetWagner(int nVariation, double dfCenterLat, double dfFalseEasting,
                      double dfFalseNorthing);
 
@@ -739,7 +726,6 @@ class CPL_DLL OGRSpatialReference
     static OGRSpatialReference *GetWGS84SRS();
 
     /** Convert a OGRSpatialReference* to a OGRSpatialReferenceH.
-     * @since GDAL 2.3
      */
     static inline OGRSpatialReferenceH ToHandle(OGRSpatialReference *poSRS)
     {
@@ -747,7 +733,6 @@ class CPL_DLL OGRSpatialReference
     }
 
     /** Convert a OGRSpatialReferenceH to a OGRSpatialReference*.
-     * @since GDAL 2.3
      */
     static inline OGRSpatialReference *FromHandle(OGRSpatialReferenceH hSRS)
     {
@@ -786,9 +771,7 @@ struct CPL_DLL OGRSpatialReferenceReleaser
 class CPL_DLL OGRCoordinateTransformation
 {
   public:
-    virtual ~OGRCoordinateTransformation()
-    {
-    }
+    virtual ~OGRCoordinateTransformation();
 
     static void DestroyCT(OGRCoordinateTransformation *poCT);
 
@@ -828,8 +811,10 @@ class CPL_DLL OGRCoordinateTransformation
      * @param pabSuccess array of per-point flags set to TRUE if that point
      * transforms, or FALSE if it does not. Might be NULL.
      *
-     * @return TRUE if a transformation could be found (but not all points may
-     * have necessarily succeed to transform), otherwise FALSE.
+     * @return TRUE on success, or FALSE if some or all points fail to
+     * transform. When FALSE is returned the pabSuccess[] array indicates which
+     * points succeeded or failed to transform. When TRUE is returned, all
+     * values in pabSuccess[] are set to true.
      */
     int Transform(size_t nCount, double *x, double *y, double *z = nullptr,
                   int *pabSuccess = nullptr);
@@ -850,8 +835,13 @@ class CPL_DLL OGRCoordinateTransformation
      * @param pabSuccess array of per-point flags set to TRUE if that point
      * transforms, or FALSE if it does not. Might be NULL.
      *
-     * @return TRUE if a transformation could be found (but not all points may
-     * have necessarily succeed to transform), otherwise FALSE.
+     * @return TRUE on success, or FALSE if some or all points fail to
+     * transform. When FALSE is returned the pabSuccess[] array indicates which
+     * points succeeded or failed to transform. When TRUE is returned, all
+     * values in pabSuccess[] are set to true.
+     * Caution: prior to GDAL 3.11, TRUE could be returned if a
+     * transformation could be found but not all points may
+     * have necessarily succeed to transform.
      */
     virtual int Transform(size_t nCount, double *x, double *y, double *z,
                           double *t, int *pabSuccess) = 0;
@@ -872,8 +862,13 @@ class CPL_DLL OGRCoordinateTransformation
      * @param panErrorCodes Output array of nCount value that will be set to 0
      * for success, or a non-zero value for failure. Refer to PROJ 8 public
      * error codes. Might be NULL
-     * @return TRUE if a transformation could be found (but not all points may
-     * have necessarily succeed to transform), otherwise FALSE.
+     * @return TRUE on success, or FALSE if some or all points fail to
+     * transform. When FALSE is returned the panErrorCodes[] array indicates
+     * which points succeeded or failed to transform. When TRUE is returned, all
+     * values in panErrorCodes[] are set to zero.
+     * Caution: prior to GDAL 3.11, TRUE could be returned if a
+     * transformation could be found but not all points may
+     * have necessarily succeed to transform.
      * @since GDAL 3.3, and PROJ 8 to be able to use PROJ public error codes
      */
     virtual int TransformWithErrorCodes(size_t nCount, double *x, double *y,
@@ -938,7 +933,6 @@ class CPL_DLL OGRCoordinateTransformation
 
     /** Convert a OGRCoordinateTransformation* to a
      * OGRCoordinateTransformationH.
-     * @since GDAL 2.3
      */
     static inline OGRCoordinateTransformationH
     ToHandle(OGRCoordinateTransformation *poCT)
@@ -948,7 +942,6 @@ class CPL_DLL OGRCoordinateTransformation
 
     /** Convert a OGRCoordinateTransformationH to a
      * OGRCoordinateTransformation*.
-     * @since GDAL 2.3
      */
     static inline OGRCoordinateTransformation *
     FromHandle(OGRCoordinateTransformationH hCT)
@@ -971,6 +964,17 @@ class CPL_DLL OGRCoordinateTransformation
      * @since GDAL 3.3
      */
     virtual OGRCoordinateTransformation *GetInverse() const = 0;
+
+  protected:
+    /*! @cond Doxygen_Suppress */
+    OGRCoordinateTransformation() = default;
+    OGRCoordinateTransformation(const OGRCoordinateTransformation &) = default;
+    OGRCoordinateTransformation &
+    operator=(const OGRCoordinateTransformation &) = default;
+    OGRCoordinateTransformation(OGRCoordinateTransformation &&) = default;
+    OGRCoordinateTransformation &
+    operator=(OGRCoordinateTransformation &&) = default;
+    /*! @endcond */
 };
 
 OGRCoordinateTransformation CPL_DLL *

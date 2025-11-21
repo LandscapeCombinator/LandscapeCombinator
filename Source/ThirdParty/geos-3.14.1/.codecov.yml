@@ -1,0 +1,8 @@
+coverage:
+  precision: 2
+
+ignore:
+  - "tests/unit/tut"
+  - "tests/xmltester/tinyxml2"
+
+comment: off
