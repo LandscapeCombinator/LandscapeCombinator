@@ -1,5 +1,4 @@
 /* This is a generated file from gdal_version.h.in. DO NOT MODIFY !!!! */
-/* $Id$ */
 
 /* -------------------------------------------------------------------- */
 /*      GDAL Version Information.                                       */
@@ -7,8 +6,8 @@
 
 #ifndef GDAL_VERSION_MAJOR
 #  define GDAL_VERSION_MAJOR    3
-#  define GDAL_VERSION_MINOR    9
-#  define GDAL_VERSION_REV      2
+#  define GDAL_VERSION_MINOR    12
+#  define GDAL_VERSION_REV      0
 #  define GDAL_VERSION_BUILD    0
 #endif
 
@@ -25,9 +24,14 @@
 
 #if !defined(DO_NOT_DEFINE_GDAL_DATE_NAME)
 #ifndef GDAL_RELEASE_DATE
-#  define GDAL_RELEASE_DATE     20240813
+#  define GDAL_RELEASE_DATE     20251103
 #endif
 #ifndef GDAL_RELEASE_NAME
-#  define GDAL_RELEASE_NAME     "3.9.2"
+#  define GDAL_RELEASE_NAME     "3.12.0"
 #endif
+
+#ifndef GDAL_RELEASE_NICKNAME
+#define GDAL_RELEASE_NICKNAME   "Chicoutimi"
+#endif
+
 #endif

@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Schema for OGR_SCHEMA open option",
+  "oneOf": [
+    {
+      "$ref": "#/definitions/dataset"
+    }
+  ],
+  "definitions": {
+    "schemaType": {
+      "enum": [
+        "Patch",
+        "Full"
+      ]
+    },
+    "dataset": {
+      "type": "object",
+      "properties": {
+        "layers": {
+          "type": "array",
+          "description": "The list of layers contained in the schema",
+          "items": {
+            "$ref": "#/definitions/layer"
+          }
+        }
+      },
+      "required": [
+        "layers"
+      ],
+      "additionalProperties": false
+    },
+    "layer": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The name of the layer. Can be '*' to apply to any layer.",
+          "type": "string"
+        },
+        "schemaType": {
+          "description": "The type of schema operation: patch or full",
+          "$ref": "#/definitions/schemaType"
+        },
+        "fields": {
+          "description": "The list of field definitions",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/field"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "fields"
+      ],
+      "additionalProperties": false
+    },
+    "field": {
+      "description": "The field definition",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "srcType": {
+          "$ref": "#/definitions/fieldType"
+        },
+        "srcSubType": {
+          "$ref": "#/definitions/fieldSubType"
+        },
+        "type": {
+          "$ref": "#/definitions/fieldType"
+        },
+        "subType": {
+          "$ref": "#/definitions/fieldSubType"
+        },
+        "width": {
+          "type": "integer"
+        },
+        "precision": {
+          "type": "integer"
+        },
+        "newName": {
+          "description": "The new name of the field",
+          "type": "string"
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "name"
+          ]
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "srcType"
+              ]
+            },
+            {
+              "required": [
+                "srcSubType"
+              ]
+            }
+          ]
+        }
+      ],
+      "additionalProperties": false
+    },
+    "fieldType": {
+      "enum": [
+        "Integer",
+        "Integer64",
+        "Real",
+        "String",
+        "Binary",
+        "IntegerList",
+        "Integer64List",
+        "RealList",
+        "StringList",
+        "Date",
+        "Time",
+        "DateTime"
+      ]
+    },
+    "fieldSubType": {
+      "enum": [
+        "None",
+        "Boolean",
+        "Int16",
+        "Float32",
+        "JSON",
+        "UUID"
+      ]
+    }
+  }
+}

@@ -10,7 +10,7 @@
 #endif
 
 /* --prefix directory for GDAL install */
-#define GDAL_PREFIX "C:/Users/edif/miniconda3/envs/gdal-3.9.3/Library"
+#define GDAL_PREFIX "C:/Users/edif/miniconda3/Library"
 
 /* The size of `int', as computed by sizeof. */
 #define SIZEOF_INT 4
@@ -24,6 +24,12 @@
 /* The size of `size_t', as computed by sizeof. */
 #define SIZEOF_SIZE_T 8
 
+/* Whether `std::float16_t` is available (and working). */
+/* #undef HAVE_STD_FLOAT16_T */
+
+/* Whether `_Float16' is supported. */
+/* #undef HAVE__FLOAT16 */
+
 /* Define to 1, if you have LARGEFILE64_SOURCE */
 /* #undef VSI_NEED_LARGEFILE64_SOURCE */
 
@@ -33,18 +39,12 @@
 /* Define to 1 if GCC atomic builtins are available */
 /* #undef HAVE_GCC_ATOMIC_BUILTINS */
 
-/* Define to 1 if GCC bswap builtins are available */
-/* #undef HAVE_GCC_BSWAP */
-
 /* Define to 1 if your processor stores words with the most significant byte
    first (like Motorola and SPARC, unlike Intel and VAX). */
 /* #undef WORDS_BIGENDIAN */
 
 /* Define to name of 64bit stat structure */
 #define VSI_STAT64_T __stat64
-
-/* Define to 1 if you have the `std::isnan' function. */
-#define HAVE_STD_IS_NAN 1
 
 
 #ifdef GDAL_COMPILATION
@@ -82,14 +82,14 @@
 /* Define to 1 if you have the `RLIMIT_AS' constant. */
 /* #undef HAVE_RLIMIT_AS */
 
+/* Define to 1 if you have the `dl_iterate_phdr' function. */
+/* #undef HAVE_DL_ITERATE_PHDR */
+
 /* Define to 1 if you have the <direct.h> header file. */
 #define HAVE_DIRECT_H 1
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #define HAVE_DLFCN_H 1
-
-/* Define to 1 if you have the <fcntl.h> header file. */
-#define HAVE_FCNTL_H 1
 
 /* Define to 1 if you have the `getcwd' function. */
 #define HAVE_GETCWD 1
@@ -103,9 +103,6 @@
 /* Define to 1 if you have the <locale.h> header file. */
 #define HAVE_LOCALE_H 1
 
-/* Define to 1 if you have the <sys/stat.h> header file. */
-/* #undef HAVE_SYS_STAT_H */
-
 /* Define to 1 if you have the <sys/types.h> header file. */
 #define HAVE_SYS_TYPES_H 1
 
@@ -117,9 +114,6 @@
 
 /* Define to 1 if you have the `vsnprintf' function. */
 #define HAVE_VSNPRINTF 1
-
-/* Define to 1 if you have the `readlink' function. */
-/* #undef HAVE_READLINK */
 
 /* Define to 1 if you have the `posix_spawnp' function. */
 /* #undef HAVE_POSIX_SPAWNP */
@@ -141,9 +135,6 @@
 
 /* Define to 1 if you have the `statvfs64' function. */
 /* #undef HAVE_STATVFS64 */
-
-/* Define to 1 if you have the `lstat' function. */
-/* #undef HAVE_LSTAT */
 
 /* For .cpp files, define as const if the declaration of iconv() needs const. */
 #define ICONV_CPP_CONST 
@@ -199,7 +190,7 @@
 /* #undef CPL_DISABLE_DLL */
 
 /* Define to 1 if you have the <atlbase.h> header file. */
-/* #undef HAVE_ATLBASE_H */
+#define HAVE_ATLBASE_H 1
 
 /* Define to 1 if you have the `ctime_r' function. */
 /* #undef HAVE_CTIME_R */
