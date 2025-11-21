@@ -16,48 +16,43 @@ bool HMCrop::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 {
 	OutputCRS = InputCRS;
 
-	if (InputFiles.Num() != 1)
+	if (Coordinates == FVector4d::Zero())
 	{
-		LCReporter::ShowError(
-			LOCTEXT("HMCrop::Fetch", "Image Downloader Error: The AdaptResolution and CropCoordinates options are not available for sources that are made of multiple images.")
-		);
-		return false;
+		OutputFiles.Append(InputFiles);
+		return true;
 	}
 
-	double South = Coordinates[2];
-	double West = Coordinates[0];
-	double North = Coordinates[3];
-	double East = Coordinates[1];
+	double BoundingSouth = Coordinates[2];
+	double BoundingWest = Coordinates[0];
+	double BoundingNorth = Coordinates[3];
+	double BoundingEast = Coordinates[1];
 
 	for (int32 i = 0; i < InputFiles.Num(); i++)
 	{
 		FString InputFile = InputFiles[i];
 		FString CroppedFile = FPaths::Combine(OutputDir, FPaths::GetBaseFilename(InputFile) + ".tif");
+	
+		FVector4d FileCoordinates;
+		if (!GDALInterface::GetCoordinates(FileCoordinates, InputFile)) return false;
+
+		double South = FMath::Max(FileCoordinates[2], BoundingSouth);
+		double West = FMath::Max(FileCoordinates[0], BoundingWest);
+		double North = FMath::Min(FileCoordinates[3], BoundingNorth);
+		double East = FMath::Min(FileCoordinates[1], BoundingEast);
+
 		OutputFiles.Add(CroppedFile);
-
+	
 		TArray<FString> Args;
-		Args.Add("-s_srs");
-		Args.Add(InputCRS);
-		Args.Add("-t_srs");
+		Args.Add("-projwin_srs");
 		Args.Add(InputCRS);
 
-		if (Coordinates != FVector4d::Zero())
-		{
-			Args.Add("-te");
-			Args.Add(FString::SanitizeFloat(West));
-			Args.Add(FString::SanitizeFloat(South));
-			Args.Add(FString::SanitizeFloat(East));
-			Args.Add(FString::SanitizeFloat(North));
-		}
+		Args.Add("-projwin");
+		Args.Add(FString::SanitizeFloat(West));
+		Args.Add(FString::SanitizeFloat(North));
+		Args.Add(FString::SanitizeFloat(East));
+		Args.Add(FString::SanitizeFloat(South));
 
-		if (Pixels != FIntPoint::ZeroValue)
-		{
-			Args.Add("-ts");
-			Args.Add(FString::FromInt(Pixels[0]));
-			Args.Add(FString::FromInt(Pixels[1]));
-		}
-
-		if (!GDALInterface::Warp(InputFile, CroppedFile, Args)) return false;
+		if (!GDALInterface::Translate(InputFile, CroppedFile, Args)) return false;
 	}
 
 	return true;

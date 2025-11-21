@@ -28,6 +28,8 @@
 #include "ImageDownloader/Transformers/HMReproject.h"
 #include "ImageDownloader/Transformers/HMEnsureOneBand.h"
 #include "ImageDownloader/Transformers/HMCrop.h"
+#include "ImageDownloader/Transformers/HMResolution.h"
+#include "ImageDownloader/Transformers/HMPercentResolution.h"
 #include "ImageDownloader/Transformers/HMToPNG.h"
 #include "ImageDownloader/Transformers/HMMerge.h"
 #include "ImageDownloader/Transformers/HMReadCRS.h"
@@ -410,102 +412,57 @@ HMFetcher* UImageDownloader::CreateFetcher(
 		Result = Result->AndThen(new HMDebugFetcher("Merge", new HMMerge(Name)));
 	}
 
-	if (bAdaptResolution || bCropCoordinates)
+#if WITH_EDITOR
+	if (bAdaptResolution)
 	{
 		FIntPoint ImageSize(0, 0);
-
-#if WITH_EDITOR
-		if (bAdaptResolution)
+		if (!IsValid(TargetLandscape))
 		{
-			if (!TargetLandscape)
-			{
-				LCReporter::ShowError(
-					LOCTEXT("UImageDownloader::CreateFetcher::NoLandscape", "Please select a target landscape if you want to resize the image.")
-				);
-				return nullptr;
-			}
-
-			ImageSize.X = TargetLandscape->ComputeComponentCounts().X * TargetLandscape->ComponentSizeQuads + 1;
-			ImageSize.Y = TargetLandscape->ComputeComponentCounts().Y * TargetLandscape->ComponentSizeQuads + 1;
-		}
-#else
-		if (bAdaptResolution)
-		{
-			UE_LOG(LogImageDownloader, Error, TEXT("Adapt Resolution is only supported in editor mode"));
+			LCReporter::ShowError(
+				LOCTEXT("UImageDownloader::CreateFetcher::NoLandscape", "Please select a target landscape if you want to resize the image.")
+			);
 			return nullptr;
 		}
 
+		ImageSize.X = TargetLandscape->ComputeComponentCounts().X * TargetLandscape->ComponentSizeQuads + 1;
+		ImageSize.Y = TargetLandscape->ComputeComponentCounts().Y * TargetLandscape->ComponentSizeQuads + 1;
+
+		Result = Result->AndThen(new HMDebugFetcher("AdaptImage", new HMResolution(Name, ImageSize)));
+	}
+#else
+	if (bAdaptResolution)
+	{
+		UE_LOG(LogImageDownloader, Error, TEXT("Adapt Resolution is only supported in editor mode"));
+		return nullptr;
+	}
+
 #endif
 
+	if (bCropCoordinates)
+	{
 		FVector4d Coordinates(0, 0, 0, 0);
-		if (bCropCoordinates)
+		if (bCropFollowingParametersSelection)
 		{
-			if (bCropFollowingParametersSelection)
+			if (!AllowsParametersSelection())
 			{
-				if (!AllowsParametersSelection())
-				{
-					LCReporter::ShowError(
-						LOCTEXT("UImageDownloader::CreateFetcher::NoParameterSelection", "Crop Following Parameters Selection option is only available for WMS and XYZ tiles")
-					);
-					return nullptr;
-				}
-				
-				if (ParametersSelection == EParametersSelection::FromBoundingActor)
-				{
-
-					if (!IsValid(ParametersBoundingActor))
-					{
-						LCReporter::ShowError(
-							LOCTEXT("UImageDownloader::CreateFetcher::InvalidBoundingActor", "Invalid Bounding Actor in parameters selection")
-						);
-						return nullptr;
-					}
-
-					if (!LandscapeUtils::GetActorCRSBounds(ParametersBoundingActor, Coordinates))
-					{
-						LCReporter::ShowError(FText::Format(
-							LOCTEXT("UImageDownloader::CreateFetcher::NoCoordinates", "Could not compute bounding coordinates of Actor {0}"),
-							FText::FromString(CroppingActor->GetActorNameOrLabel())
-						));
-						return nullptr;
-					}
-				}
-				else if (ParametersSelection == EParametersSelection::FromEPSG4326Box)
-				{
-					FVector4d InCoordinates;
-					InCoordinates[0] = MinLong;
-					InCoordinates[1] = MaxLong;
-					InCoordinates[2] = MinLat;
-					InCoordinates[3] = MaxLat;
-
-					if (!GDALInterface::ConvertCoordinates(InCoordinates, Coordinates, "EPSG:4326", GlobalCoordinates->CRS)) return nullptr;
-				}
-				else if (ParametersSelection == EParametersSelection::FromEPSG4326Coordinates)
-				{
-					FVector4d InCoordinates = GetCoordinatesFromSize(Longitude, Latitude, RealWorldWidth, RealWorldHeight);
-
-					if (!GDALInterface::ConvertCoordinates(InCoordinates, Coordinates, "EPSG:4326", GlobalCoordinates->CRS)) return nullptr;
-				}
-				else
-				{
-					LCReporter::ShowError(
-						LOCTEXT("UImageDownloader::CreateFetcher::ManualParametersSelection", "Manual parameters selection cannot be used for cropping")
-					);
-					return nullptr;
-				}
-
+				LCReporter::ShowError(
+					LOCTEXT("UImageDownloader::CreateFetcher::NoParameterSelection", "Crop Following Parameters Selection option is only available for WMS and XYZ tiles")
+				);
+				return nullptr;
 			}
-			else
+			
+			if (ParametersSelection == EParametersSelection::FromBoundingActor)
 			{
-				if (!IsValid(CroppingActor))
+
+				if (!IsValid(ParametersBoundingActor))
 				{
 					LCReporter::ShowError(
-						LOCTEXT("UImageDownloader::CreateFetcher::NoActor", "Please select a Cropping Actor to crop the output image.")
+						LOCTEXT("UImageDownloader::CreateFetcher::InvalidBoundingActor", "Invalid Bounding Actor in parameters selection")
 					);
 					return nullptr;
 				}
 
-				if (!LandscapeUtils::GetActorCRSBounds(CroppingActor, Coordinates))
+				if (!LandscapeUtils::GetActorCRSBounds(ParametersBoundingActor, Coordinates))
 				{
 					LCReporter::ShowError(FText::Format(
 						LOCTEXT("UImageDownloader::CreateFetcher::NoCoordinates", "Could not compute bounding coordinates of Actor {0}"),
@@ -514,10 +471,54 @@ HMFetcher* UImageDownloader::CreateFetcher(
 					return nullptr;
 				}
 			}
-		}
+			else if (ParametersSelection == EParametersSelection::FromEPSG4326Box)
+			{
+				FVector4d InCoordinates;
+				InCoordinates[0] = MinLong;
+				InCoordinates[1] = MaxLong;
+				InCoordinates[2] = MinLat;
+				InCoordinates[3] = MaxLat;
 
-		Result = Result->AndThen(new HMDebugFetcher("AdaptImage", new HMCrop(Name, Coordinates, ImageSize)));
+				if (!GDALInterface::ConvertCoordinates(InCoordinates, Coordinates, "EPSG:4326", GlobalCoordinates->CRS)) return nullptr;
+			}
+			else if (ParametersSelection == EParametersSelection::FromEPSG4326Coordinates)
+			{
+				FVector4d InCoordinates = GetCoordinatesFromSize(Longitude, Latitude, RealWorldWidth, RealWorldHeight);
+
+				if (!GDALInterface::ConvertCoordinates(InCoordinates, Coordinates, "EPSG:4326", GlobalCoordinates->CRS)) return nullptr;
+			}
+			else
+			{
+				LCReporter::ShowError(
+					LOCTEXT("UImageDownloader::CreateFetcher::ManualParametersSelection", "Manual parameters selection cannot be used for cropping")
+				);
+				return nullptr;
+			}
+
+		}
+		else
+		{
+			if (!IsValid(CroppingActor))
+			{
+				LCReporter::ShowError(
+					LOCTEXT("UImageDownloader::CreateFetcher::NoActor", "Please select a Cropping Actor to crop the output image.")
+				);
+				return nullptr;
+			}
+
+			if (!LandscapeUtils::GetActorCRSBounds(CroppingActor, Coordinates))
+			{
+				LCReporter::ShowError(FText::Format(
+					LOCTEXT("UImageDownloader::CreateFetcher::NoCoordinates", "Could not compute bounding coordinates of Actor {0}"),
+					FText::FromString(CroppingActor->GetActorNameOrLabel())
+				));
+				return nullptr;
+			}
+		}
+		
+		Result = Result->AndThen(new HMDebugFetcher("Crop", new HMCrop(Name, Coordinates)));
 	}
+
 
 	if (RunBeforePNG)
 	{
@@ -536,7 +537,7 @@ HMFetcher* UImageDownloader::CreateFetcher(
 
 	if (bScaleResolution)
 	{
-		Result = Result->AndThen(new HMDebugFetcher("Resolution", new HMResolution(Name, PrecisionPercent)));
+		Result = Result->AndThen(new HMDebugFetcher("PercentResolution", new HMPercentResolution(Name, PrecisionPercent)));
 	}
 
 	return Result;

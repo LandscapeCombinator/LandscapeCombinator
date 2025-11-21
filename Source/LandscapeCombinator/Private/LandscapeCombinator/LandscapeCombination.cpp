@@ -8,6 +8,7 @@
 
 #if WITH_EDITOR
 #include "FileHelpers.h"
+#include "Selection.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
@@ -67,7 +68,16 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 
 #if WITH_EDITOR
 		Concurrency::RunOnGameThreadAndWait([this](){
-			if (GEditor) GEditor->SelectActor(this, true, true);
+			if (GEditor)
+			{
+				if (USelection *Selection = GEditor->GetSelectedActors())
+				{
+					Selection->DeselectAll();
+					Selection->Select(this);
+				}
+				
+				GEditor->SelectActor(this, true, true);
+			}
 			return true;
 		});
 #endif
@@ -141,7 +151,7 @@ bool ALandscapeCombination::Cleanup_Implementation(bool bSkipPrompt)
 			if (IsValid(Object)) ObjectsString += Object->GetName() + "\n";
 		}
 
-		if (!ObjectsString.IsEmpty())
+		if (!ObjectsString.Replace(TEXT("\n"), TEXT("")).Replace(TEXT("  "), TEXT("")).IsEmpty())
 		{
 			if (!LCReporter::ShowMessage(
 				FText::Format(
