@@ -586,9 +586,11 @@ bool GDALInterface::Translate(FString SourceFile, FString TargetFile, TArray<FSt
 
 	if (!Options)
 	{
+		FString Error = FString(CPLGetLastErrorMsg());
 		LCReporter::ShowError(FText::Format(
-			LOCTEXT("ConvertParseOptionsError", "Internal GDAL error while parsing GDALTranslate options for file {0}."),
-			FText::FromString(SourceFile)
+			LOCTEXT("ConvertParseOptionsError", "Internal GDAL error while parsing GDALTranslate options for file {0}.\n{1}"),
+			FText::FromString(SourceFile),
+			FText::FromString(Error)
 		));
 		GDALClose(SourceDataset);
 		return false;
@@ -610,7 +612,7 @@ bool GDALInterface::Translate(FString SourceFile, FString TargetFile, TArray<FSt
 		UE_LOG(LogGDALInterface, Error, TEXT("Error while translating: %s to %s:\n%s"), *SourceFile, *TargetFile, *Error);
 		LCReporter::ShowError(FText::Format(
 			LOCTEXT("ConvertGDALTranslateError",
-				"Internal GDALTranslate error while converting dataset from file {0} to PNG.\nIt is possible that the source image is not a heightmap.\n{1}"),
+				"Internal GDALTranslate error on file {0}.\n{1}"),
 			FText::FromString(SourceFile),
 			FText::FromString(Error)
 		));

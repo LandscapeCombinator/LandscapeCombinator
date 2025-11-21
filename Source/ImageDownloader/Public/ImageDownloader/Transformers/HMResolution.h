@@ -6,21 +6,24 @@
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
-class HMResolution : public HMFetcher
+class IMAGEDOWNLOADER_API HMResolution : public HMFetcher
 {
 public:
-	HMResolution(FString Name0, int PrecisionPercent0) : Name(Name0), PrecisionPercent(PrecisionPercent0) {};
-	
+	HMResolution(FString Name0, FIntPoint Pixels0) :
+		Name(Name0),
+		Pixels(Pixels0)
+	{};
+
 	FString GetOutputDir() override
 	{
-		return FPaths::Combine(ImageDownloaderDir, Name + "-Resolution" + FString::FromInt(PrecisionPercent));
+		return FPaths::Combine(ImageDownloaderDir, Name + "-Resolution");
 	}
 
 	bool OnFetch(FString InputCRS, TArray<FString> InputFiles) override;
 
-protected:
+private:
 	FString Name;
-	int PrecisionPercent;
+	FIntPoint Pixels;
 };
 
 #undef LOCTEXT_NAMESPACE

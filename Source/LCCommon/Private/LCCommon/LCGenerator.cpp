@@ -181,17 +181,20 @@ bool ILCGenerator::DeleteGeneratedObjects_GameThread(bool bSkipPrompt)
 			}
 		}
 
-		if (!LCReporter::ShowMessage(
-			FText::Format(
-				LOCTEXT("ILCGenerator::DeleteGeneratedObjects",
-					"The following objects will be deleted:\n{0}\nContinue?"),
-				FText::FromString(ObjectsString)
-			),
-			"SuppressConfirmCleanup",
-			LOCTEXT("ConfirmCleanup", "Confirm Cleanup")
-		))
+		if (!ObjectsString.Replace(TEXT("\n"), TEXT("")).Replace(TEXT("  "), TEXT("")).IsEmpty())
 		{
-			return false;
+			if (!LCReporter::ShowMessage(
+				FText::Format(
+					LOCTEXT("ILCGenerator::DeleteGeneratedObjects",
+						"The following objects will be deleted:\n{0}\nContinue?"),
+					FText::FromString(ObjectsString)
+				),
+				"SuppressConfirmCleanup",
+				LOCTEXT("ConfirmCleanup", "Confirm Cleanup")
+			))
+			{
+				return false;
+			}
 		}
 	}
 
