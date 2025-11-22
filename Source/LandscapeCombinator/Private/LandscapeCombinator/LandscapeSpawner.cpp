@@ -386,18 +386,18 @@ bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 			if (!IsValid(GlobalCoordinates))
 			{
 				ALevelCoordinates *LevelCoordinates = this->GetWorld()->SpawnActor<ALevelCoordinates>();
-				TObjectPtr<UGlobalCoordinates> NewGlobalCoordinates = LevelCoordinates->GlobalCoordinates;
+				GlobalCoordinates = LevelCoordinates->GlobalCoordinates;
 
-				NewGlobalCoordinates->CRS = FilesCRS;
-				NewGlobalCoordinates->CmPerLongUnit = CmPerPixel;
-				NewGlobalCoordinates->CmPerLatUnit = -CmPerPixel;
+				GlobalCoordinates->CRS = FilesCRS;
+				GlobalCoordinates->CmPerLongUnit = CmPerPixel;
+				GlobalCoordinates->CmPerLatUnit = -CmPerPixel;
 
 				double MinCoordWidth = (*Coordinates)[0];
 				double MaxCoordWidth = (*Coordinates)[1];
 				double MinCoordHeight = (*Coordinates)[2];
 				double MaxCoordHeight = (*Coordinates)[3];
-				NewGlobalCoordinates->WorldOriginLong = (MinCoordWidth + MaxCoordWidth) / 2;
-				NewGlobalCoordinates->WorldOriginLat = (MinCoordHeight + MaxCoordHeight) / 2;
+				GlobalCoordinates->WorldOriginLong = (MinCoordWidth + MaxCoordWidth) / 2;
+				GlobalCoordinates->WorldOriginLat = (MinCoordHeight + MaxCoordHeight) / 2;
 			}
 
 			ULandscapeController *LandscapeController = NewObject<ULandscapeController>(SpawnedLandscape->GetRootComponent());
@@ -506,8 +506,8 @@ bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 
 			if (!Concurrency::RunOnGameThreadAndWait([&]() {
 				DecalDownloader->Modify();
-				DecalDownloader->ParametersSelection = EParametersSelection::FromBoundingActor;
-				DecalDownloader->ParametersBoundingActor = SpawnedLandscape.Get();
+				DecalDownloader->ParametersSelection.ParametersSelectionMethod = EParametersSelectionMethod::FromBoundingActor;
+				DecalDownloader->ParametersSelection.ParametersBoundingActor = SpawnedLandscape.Get();
 
 				if (DecalCreation == EDecalCreation::Mapbox)
 				{

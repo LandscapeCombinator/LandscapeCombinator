@@ -50,8 +50,6 @@ public:
 	)
 	double WorldOriginLat = 0;
 	
-
-
 	/* This function is slow. If you need to call it many times, make a single OGRCoordinateTransformation
 	 * with `GetCRSTransformer`and use this instead. */
 	bool GetUnrealCoordinatesFromCRS(double Longitude, double Latitude, FString FromCRS, FVector2D &XY);
@@ -66,4 +64,6 @@ public:
 	bool GetCRSCoordinatesFromUnrealLocations(FVector4d Locations, FString ToCRS, FVector4d& OutCoordinates);
 	bool GetCRSCoordinatesFromFBox(FBox Box, FString ToCRS, FVector4d& OutCoordinates);
 	bool GetCRSCoordinatesFromOriginExtent(FVector Origin, FVector Extent, FString ToCRS, FVector4d& OutCoordinates);
+
+	static FVector4d GetCoordinatesFromSize(double Longitude, double Latitude, double Width, double Height);
 };

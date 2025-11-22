@@ -67,7 +67,7 @@ bool UImageDownloader::ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY,
 		XYZ_MinY = MinY;
 		XYZ_MaxY = MaxY;
 		XYZ_Zoom = Zoom;
-		ParametersSelection = EParametersSelection::Manual;
+		ParametersSelection.ParametersSelectionMethod = EParametersSelectionMethod::Manual;
 		return true;
 	}
 	else
@@ -368,15 +368,6 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(bool bIsUserInitiated, FString
 	}
 }
 
-FVector4d GetCoordinatesFromSize(double Longitude, double Latitude, double Width, double Height)
-{
-	double LatitudeRadians = FMath::DegreesToRadians(Latitude);
-	double ScaleFactor = FMath::Max(FMath::Cos(LatitudeRadians), 0.1);
-	double LongDiff = Width / 40000000 * 360 / 2;
-	double LatDiff  = Height * ScaleFactor / 40000000 * 360 / 2;
-	return FVector4d(Longitude - LongDiff, Longitude + LongDiff, Latitude - LatDiff, Latitude + LatDiff);
-}
-
 HMFetcher* UImageDownloader::CreateFetcher(
 	bool bIsUserInitiated, FString Name, bool bEnsureOneBand, bool bScaleAltitude,
 	bool bConvertToPNG, bool bConvertFirstOnly, bool bAddMissingTiles,
@@ -440,85 +431,20 @@ HMFetcher* UImageDownloader::CreateFetcher(
 
 	if (bCropCoordinates)
 	{
-		FVector4d Coordinates(0, 0, 0, 0);
-		if (bCropFollowingParametersSelection)
+		if (!IsValid(GlobalCoordinates))
 		{
-			if (!AllowsParametersSelection())
+			if ((AllowsParametersSelection() && bCropFollowingParametersSelection && ParametersSelection.ParametersSelectionMethod == EParametersSelectionMethod::FromBoundingActor) ||
+				!AllowsParametersSelection() || !bCropFollowingParametersSelection)
 			{
 				LCReporter::ShowError(
-					LOCTEXT("UImageDownloader::CreateFetcher::NoParameterSelection", "Crop Following Parameters Selection option is only available for WMS and XYZ tiles")
+					LOCTEXT("UImageDownloader::CreateFetcher::CropActor", "Bounding actor cannot be used to crop coordinates if there is no Level Coordinates.")
 				);
-				return nullptr;
-			}
-			
-			if (ParametersSelection == EParametersSelection::FromBoundingActor)
-			{
-
-				if (!IsValid(ParametersBoundingActor))
-				{
-					LCReporter::ShowError(
-						LOCTEXT("UImageDownloader::CreateFetcher::InvalidBoundingActor", "Invalid Bounding Actor in parameters selection")
-					);
-					return nullptr;
-				}
-
-				if (!LandscapeUtils::GetActorCRSBounds(ParametersBoundingActor, Coordinates))
-				{
-					LCReporter::ShowError(FText::Format(
-						LOCTEXT("UImageDownloader::CreateFetcher::NoCoordinates", "Could not compute bounding coordinates of Actor {0}"),
-						FText::FromString(CroppingActor->GetActorNameOrLabel())
-					));
-					return nullptr;
-				}
-			}
-			else if (ParametersSelection == EParametersSelection::FromEPSG4326Box)
-			{
-				FVector4d InCoordinates;
-				InCoordinates[0] = MinLong;
-				InCoordinates[1] = MaxLong;
-				InCoordinates[2] = MinLat;
-				InCoordinates[3] = MaxLat;
-
-				if (!GDALInterface::ConvertCoordinates(InCoordinates, Coordinates, "EPSG:4326", GlobalCoordinates->CRS)) return nullptr;
-			}
-			else if (ParametersSelection == EParametersSelection::FromEPSG4326Coordinates)
-			{
-				FVector4d InCoordinates = GetCoordinatesFromSize(Longitude, Latitude, RealWorldWidth, RealWorldHeight);
-
-				if (!GDALInterface::ConvertCoordinates(InCoordinates, Coordinates, "EPSG:4326", GlobalCoordinates->CRS)) return nullptr;
-			}
-			else
-			{
-				LCReporter::ShowError(
-					LOCTEXT("UImageDownloader::CreateFetcher::ManualParametersSelection", "Manual parameters selection cannot be used for cropping")
-				);
-				return nullptr;
-			}
-
-		}
-		else
-		{
-			if (!IsValid(CroppingActor))
-			{
-				LCReporter::ShowError(
-					LOCTEXT("UImageDownloader::CreateFetcher::NoActor", "Please select a Cropping Actor to crop the output image.")
-				);
-				return nullptr;
-			}
-
-			if (!LandscapeUtils::GetActorCRSBounds(CroppingActor, Coordinates))
-			{
-				LCReporter::ShowError(FText::Format(
-					LOCTEXT("UImageDownloader::CreateFetcher::NoCoordinates", "Could not compute bounding coordinates of Actor {0}"),
-					FText::FromString(CroppingActor->GetActorNameOrLabel())
-				));
 				return nullptr;
 			}
 		}
-		
-		Result = Result->AndThen(new HMDebugFetcher("Crop", new HMCrop(Name, Coordinates)));
+
+		Result = Result->AndThen(new HMDebugFetcher("Crop", new HMCrop(Name, AllowsParametersSelection() && bCropFollowingParametersSelection, ParametersSelection, CroppingActor)));
 	}
-
 
 	if (RunBeforePNG)
 	{
@@ -678,7 +604,7 @@ void UImageDownloader::AutoSetResolution()
 
 bool UImageDownloader::SetSourceParametersBool(bool bDialog)
 {
-	if (ParametersSelection == EParametersSelection::Manual) return true;
+	if (ParametersSelection.ParametersSelectionMethod == EParametersSelectionMethod::Manual) return true;
 
 	if (!AllowsParametersSelection())
 	{
@@ -691,15 +617,15 @@ bool UImageDownloader::SetSourceParametersBool(bool bDialog)
 		return false;
 	}
 
-	if (ParametersSelection == EParametersSelection::FromBoundingActor)
+	if (ParametersSelection.ParametersSelectionMethod == EParametersSelectionMethod::FromBoundingActor)
 	{
 		return SetSourceParametersFromActor(bDialog);
 	}
-	else if (ParametersSelection == EParametersSelection::FromEPSG4326Box)
+	else if (ParametersSelection.ParametersSelectionMethod == EParametersSelectionMethod::FromEPSG4326Box)
 	{
 		return SetSourceParametersFromEPSG4326Box(bDialog);
 	}
-	else if (ParametersSelection == EParametersSelection::FromEPSG4326Coordinates)
+	else if (ParametersSelection.ParametersSelectionMethod == EParametersSelectionMethod::FromEPSG4326Coordinates)
 	{
 		return SetSourceParametersFromEPSG4326Coordinates(bDialog);
 	}
@@ -714,11 +640,11 @@ bool UImageDownloader::SetSourceParametersBool(bool bDialog)
 
 bool UImageDownloader::SetSourceParametersFromEPSG4326Coordinates(bool bDialog)
 {
-	FVector4d Coordinates = GetCoordinatesFromSize(Longitude, Latitude, RealWorldWidth, RealWorldHeight);
-	MinLong = Coordinates[0];
-	MaxLong = Coordinates[1];
-	MinLat = Coordinates[2];
-	MaxLat = Coordinates[3];
+	FVector4d Coordinates = UGlobalCoordinates::GetCoordinatesFromSize(ParametersSelection.Longitude, ParametersSelection.Latitude, ParametersSelection.RealWorldWidth, ParametersSelection.RealWorldHeight);
+	ParametersSelection.MinLong = Coordinates[0];
+	ParametersSelection.MaxLong = Coordinates[1];
+	ParametersSelection.MinLat = Coordinates[2];
+	ParametersSelection.MaxLat = Coordinates[3];
 	return SetSourceParametersFromEPSG4326Box(bDialog);
 }
 
@@ -727,10 +653,10 @@ bool UImageDownloader::SetSourceParametersFromEPSG4326Box(bool bDialog)
 	if (ImageSourceKind == EImageSourceKind::Napoli)
 	{
 		FVector4d InCoordinates, OutCoordinates;
-		InCoordinates[0] = MinLong;
-		InCoordinates[1] = MaxLong;
-		InCoordinates[2] = MinLat;
-		InCoordinates[3] = MaxLat;
+		InCoordinates[0] = ParametersSelection.MinLong;
+		InCoordinates[1] = ParametersSelection.MaxLong;
+		InCoordinates[2] = ParametersSelection.MinLat;
+		InCoordinates[3] = ParametersSelection.MaxLat;
 
 		if (!GDALInterface::ConvertCoordinates(InCoordinates, OutCoordinates, "EPSG:4326", "EPSG:32633")) return false;
 
@@ -744,10 +670,10 @@ bool UImageDownloader::SetSourceParametersFromEPSG4326Box(bool bDialog)
 	else if (IsWMS())
 	{
 		FVector4d InCoordinates, OutCoordinates;
-		InCoordinates[0] = MinLong;
-		InCoordinates[1] = MaxLong;
-		InCoordinates[2] = MinLat;
-		InCoordinates[3] = MaxLat;
+		InCoordinates[0] = ParametersSelection.MinLong;
+		InCoordinates[1] = ParametersSelection.MaxLong;
+		InCoordinates[2] = ParametersSelection.MinLat;
+		InCoordinates[3] = ParametersSelection.MaxLat;
 
 		if (!GDALInterface::ConvertCoordinates(InCoordinates, OutCoordinates, "EPSG:4326", WMS_CRS)) return false;
 
@@ -760,11 +686,11 @@ bool UImageDownloader::SetSourceParametersFromEPSG4326Box(bool bDialog)
 	}
 	else if (IsXYZ() && bGeoreferenceSlippyTiles)
 	{
-		double MinLatRad = FMath::DegreesToRadians(MinLat);
-		double MaxLatRad = FMath::DegreesToRadians(MaxLat);
+		double MinLatRad = FMath::DegreesToRadians(ParametersSelection.MinLat);
+		double MaxLatRad = FMath::DegreesToRadians(ParametersSelection.MaxLat);
 		double n = 1 << XYZ_Zoom;
-		XYZ_MinX = (MinLong + 180) / 360 * n;
-		XYZ_MaxX = (MaxLong + 180) / 360 * n;
+		XYZ_MinX = (ParametersSelection.MinLong + 180) / 360 * n;
+		XYZ_MaxX = (ParametersSelection.MaxLong + 180) / 360 * n;
 		
 		XYZ_MinY = (1.0 - asinh(FMath::Tan(MaxLatRad)) / UE_PI) / 2.0 * n;
 		XYZ_MaxY = (1.0 - asinh(FMath::Tan(MinLatRad)) / UE_PI) / 2.0 * n;
@@ -782,7 +708,7 @@ bool UImageDownloader::SetSourceParametersFromActor(bool bDialog)
 {
 	FVector4d Coordinates;
 
-	if (!IsValid(ParametersBoundingActor))
+	if (!IsValid(ParametersSelection.ParametersBoundingActor))
 	{
 		if (bDialog)
 		{
@@ -791,7 +717,7 @@ bool UImageDownloader::SetSourceParametersFromActor(bool bDialog)
 		return false;
 	}
 
-	UE_LOG(LogImageDownloader, Log, TEXT("Set Source Parameters From Actor %s"), *ParametersBoundingActor->GetActorNameOrLabel());
+	UE_LOG(LogImageDownloader, Log, TEXT("Set Source Parameters From Actor %s"), *ParametersSelection.ParametersBoundingActor->GetActorNameOrLabel());
 
 	FString SourceCRS = "";
 	
@@ -814,19 +740,19 @@ bool UImageDownloader::SetSourceParametersFromActor(bool bDialog)
 		{
 			LCReporter::ShowError(FText::Format(
 				LOCTEXT("UImageDownloader::SetSourceParameters::1", "Please make sure that the CRS is not empty."),
-				FText::FromString(ParametersBoundingActor->GetActorNameOrLabel())
+				FText::FromString(ParametersSelection.ParametersBoundingActor->GetActorNameOrLabel())
 			));
 		}
 		return false;
 	}
 
-	if (!LandscapeUtils::GetActorCRSBounds(ParametersBoundingActor, SourceCRS, Coordinates))
+	if (!LandscapeUtils::GetActorCRSBounds(ParametersSelection.ParametersBoundingActor, SourceCRS, Coordinates))
 	{
 		if (bDialog)
 		{
 			LCReporter::ShowError(FText::Format(
 				LOCTEXT("UImageDownloader::SetSourceParameters::2", "Could not read coordinates from Actor {0}."),
-				FText::FromString(ParametersBoundingActor->GetActorNameOrLabel())
+				FText::FromString(ParametersSelection.ParametersBoundingActor->GetActorNameOrLabel())
 			));
 		}
 		return false;
@@ -897,11 +823,11 @@ void UImageDownloader::PostEditChangeProperty(FPropertyChangedEvent& Event)
 		SetSourceParametersBool(false);
 	}
 	else if (
-		PropertyName == GET_MEMBER_NAME_CHECKED(UImageDownloader, ParametersBoundingActor) ||
-		PropertyName == GET_MEMBER_NAME_CHECKED(UImageDownloader, MinLong) ||
-		PropertyName == GET_MEMBER_NAME_CHECKED(UImageDownloader, MaxLong) ||
-		PropertyName == GET_MEMBER_NAME_CHECKED(UImageDownloader, MinLat) ||
-		PropertyName == GET_MEMBER_NAME_CHECKED(UImageDownloader, MaxLat)
+		PropertyName == GET_MEMBER_NAME_CHECKED(UImageDownloader, ParametersSelection.ParametersBoundingActor) ||
+		PropertyName == GET_MEMBER_NAME_CHECKED(UImageDownloader, ParametersSelection.MinLong) ||
+		PropertyName == GET_MEMBER_NAME_CHECKED(UImageDownloader, ParametersSelection.MaxLong) ||
+		PropertyName == GET_MEMBER_NAME_CHECKED(UImageDownloader, ParametersSelection.MinLat) ||
+		PropertyName == GET_MEMBER_NAME_CHECKED(UImageDownloader, ParametersSelection.MaxLat)
 	)
 	{
 		SetSourceParametersBool(true);

@@ -788,6 +788,7 @@ bool LandscapeUtils::ExtendLandscape(ALandscape *LandscapeToExtend, FString Heig
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("ExtendLandscape::ExtendLandscape");
 
 #if ENGINE_MAJOR_VERSION < 5 || (ENGINE_MAJOR_VERSION <= 5 && ENGINE_MINOR_VERSION < 6)
+	LCReporter::ShowError(LOCTEXT("LandscapeUtils::ExtendLandscape", "Landscape Extension is only supported on Unreal Engine 5.6 and up."));
 	return false;
 
 #else
