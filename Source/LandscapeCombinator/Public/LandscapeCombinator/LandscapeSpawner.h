@@ -275,7 +275,7 @@ public:
 	FIntPoint ComponentCount;
 	
 	UPROPERTY(
-		VisibleAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner",
+		DuplicateTransient, VisibleAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner",
 		meta = (DisplayPriority = "10", ShowOnlyInnerProperties)
 	)
 	TObjectPtr<UImageDownloader> HeightmapDownloader = nullptr;

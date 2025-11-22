@@ -4,6 +4,7 @@
 
 #include "ImageDownloader/WMSProvider.h"
 #include "ImageDownloader/HMFetcher.h"
+#include "ImageDownloader/ParametersSelection.h"
 #include "ConsoleHelpers/ExternalTool.h"
 #include "Coordinates/LevelCoordinates.h"
 
@@ -53,15 +54,6 @@ enum class EImageSourceKind : uint8
 	URL
 };
 
-UENUM(BlueprintType)
-enum class EParametersSelection: uint8
-{
-	Manual,
-	FromEPSG4326Box,
-	FromEPSG4326Coordinates,
-	FromBoundingActor,
-};
-
 UCLASS()
 class IMAGEDOWNLOADER_API UImageDownloader : public UActorComponent
 {
@@ -97,93 +89,7 @@ public:
 			EditConditionHides, DisplayPriority = "-15"
 		)
 	)
-	/* Whether to enter coordinates manually or using a bounding actor. */
-	EParametersSelection ParametersSelection = EParametersSelection::Manual;
-	
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Source",
-		meta = (
-			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromBoundingActor",
-			EditConditionHides, DisplayPriority = "-10"
-		)
-	)
-	/* Select a Location Volume (or any other actor) that will be used to compute the WMS coordinates or XYZ tiles.
-	   You can click the "Set Source Parameters From Actor" button to force refresh after you move the actor */
-	TObjectPtr<AActor> ParametersBoundingActor = nullptr;
-	
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Source",
-		meta = (
-			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromEPSG4326Box",
-			EditConditionHides, DisplayPriority = "-8"
-		)
-	)
-	double MinLong = 0;
-	
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Source",
-		meta = (
-			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromEPSG4326Box",
-			EditConditionHides, DisplayPriority = "-7"
-		)
-	)
-	double MaxLong = 0;
-	
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Source",
-		meta = (
-			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromEPSG4326Box",
-			EditConditionHides, DisplayPriority = "-6"
-		)
-	)
-	double MinLat = 0;
-	
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Source",
-		meta = (
-			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromEPSG4326Box",
-			EditConditionHides, DisplayPriority = "-5"
-		)
-	)
-	double MaxLat = 0;
-	
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Source",
-		meta = (
-			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromEPSG4326Coordinates",
-			EditConditionHides, DisplayPriority = "-8"
-		)
-	)
-	double Longitude = 0;
-	
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Source",
-		meta = (
-			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromEPSG4326Coordinates",
-			EditConditionHides, DisplayPriority = "-7"
-		)
-	)
-	double Latitude = 0;
-	
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Source",
-		meta = (
-			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromEPSG4326Coordinates",
-			EditConditionHides, DisplayPriority = "-6"
-		)
-	)
-	// Approximate real-world size in meters
-	double RealWorldWidth = 200;
-	
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Source",
-		meta = (
-			EditCondition = "AllowsParametersSelection() && ParametersSelection == EParametersSelection::FromEPSG4326Coordinates",
-			EditConditionHides, DisplayPriority = "-5"
-		)
-	)
-	// Approximate real-world size in meters
-	double RealWorldHeight = 200;
+	FParametersSelection ParametersSelection;
 
 	/*******
 	 * XYZ *
@@ -246,25 +152,25 @@ public:
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
-		meta = (EditCondition = "IsXYZ() && ParametersSelection == EParametersSelection::Manual", EditConditionHides, DisplayPriority = "10")
+		meta = (EditCondition = "IsXYZ() && ManualParametersSelection()", EditConditionHides, DisplayPriority = "10")
 	)
 	int XYZ_MinX;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
-		meta = (EditCondition = "IsXYZ() && ParametersSelection == EParametersSelection::Manual", EditConditionHides, DisplayPriority = "11")
+		meta = (EditCondition = "IsXYZ() && ManualParametersSelection()", EditConditionHides, DisplayPriority = "11")
 	)
 	int XYZ_MaxX;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
-		meta = (EditCondition = "IsXYZ() && ParametersSelection == EParametersSelection::Manual", EditConditionHides, DisplayPriority = "12")
+		meta = (EditCondition = "IsXYZ() && ManualParametersSelection()", EditConditionHides, DisplayPriority = "12")
 	)
 	int XYZ_MinY;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
-		meta = (EditCondition = "IsXYZ() && ParametersSelection == EParametersSelection::Manual", EditConditionHides, DisplayPriority = "13")
+		meta = (EditCondition = "IsXYZ() && ManualParametersSelection()", EditConditionHides, DisplayPriority = "13")
 	)
 	int XYZ_MaxY;
 
@@ -387,7 +293,7 @@ public:
 	UPROPERTY(
 		VisibleAnywhere, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS() && ParametersSelection == EParametersSelection::Manual",
+			EditCondition = "IsWMS() && ManualParametersSelection()",
 			EditConditionHides, DisplayPriority = "12"
 		)
 	)
@@ -396,7 +302,7 @@ public:
 	UPROPERTY(
 		VisibleAnywhere, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS() && ParametersSelection == EParametersSelection::Manual",
+			EditCondition = "IsWMS() && ManualParametersSelection()",
 			EditConditionHides, DisplayPriority = "13"
 		)
 	)
@@ -405,7 +311,7 @@ public:
 	UPROPERTY(
 		VisibleAnywhere, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS() && ParametersSelection == EParametersSelection::Manual",
+			EditCondition = "IsWMS() && ManualParametersSelection()",
 			EditConditionHides, DisplayPriority = "14"
 		)
 	)
@@ -414,7 +320,7 @@ public:
 	UPROPERTY(
 		VisibleAnywhere, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS() && ParametersSelection == EParametersSelection::Manual",
+			EditCondition = "IsWMS() && ManualParametersSelection()",
 			EditConditionHides, DisplayPriority = "15"
 		)
 	)
@@ -423,7 +329,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS() && ParametersSelection == EParametersSelection::Manual",
+			EditCondition = "IsWMS() && ManualParametersSelection()",
 			EditConditionHides, DisplayPriority = "20"
 		)
 	)
@@ -433,7 +339,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS() && ParametersSelection == EParametersSelection::Manual",
+			EditCondition = "IsWMS() && ManualParametersSelection()",
 			EditConditionHides, DisplayPriority = "21"
 		)
 	)
@@ -443,7 +349,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS() && ParametersSelection == EParametersSelection::Manual",
+			EditCondition = "IsWMS() && ManualParametersSelection()",
 			EditConditionHides, DisplayPriority = "22"
 		)
 	)
@@ -453,7 +359,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS() && ParametersSelection == EParametersSelection::Manual",
+			EditCondition = "IsWMS() && ManualParametersSelection()",
 			EditConditionHides, DisplayPriority = "23"
 		)
 	)
@@ -548,7 +454,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "ImageSourceKind == EImageSourceKind::Napoli && ParametersSelection == EParametersSelection::Manual",
+			EditCondition = "ImageSourceKind == EImageSourceKind::Napoli && ManualParametersSelection()",
 			EditConditionHides, DisplayPriority = "20"
 		)
 	)
@@ -558,7 +464,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "ImageSourceKind == EImageSourceKind::Napoli && ParametersSelection == EParametersSelection::Manual",
+			EditCondition = "ImageSourceKind == EImageSourceKind::Napoli && ManualParametersSelection()",
 			EditConditionHides, DisplayPriority = "21"
 		)
 	)
@@ -568,7 +474,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "ImageSourceKind == EImageSourceKind::Napoli && ParametersSelection == EParametersSelection::Manual",
+			EditCondition = "ImageSourceKind == EImageSourceKind::Napoli && ManualParametersSelection()",
 			EditConditionHides, DisplayPriority = "22"
 		)
 	)
@@ -578,7 +484,7 @@ public:
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "ImageSourceKind == EImageSourceKind::Napoli && ParametersSelection == EParametersSelection::Manual",
+			EditCondition = "ImageSourceKind == EImageSourceKind::Napoli && ManualParametersSelection()",
 			EditConditionHides, DisplayPriority = "23"
 		)
 	)
@@ -880,13 +786,13 @@ public:
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "CropCoordinates",
-		meta = (EditCondition = "bCropCoordinates", EditConditionHides, DisplayPriority = "2")
+		meta = (EditCondition = "bCropCoordinates && AllowsParametersSelection()", EditConditionHides, DisplayPriority = "2")
 	)
 	bool bCropFollowingParametersSelection = true;
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "CropCoordinates",
-		meta = (EditCondition = "bCropCoordinates && !bCropFollowingParametersSelection", EditConditionHides, DisplayPriority = "3")
+		meta = (EditCondition = "bCropCoordinates && (!AllowsParametersSelection() || !bCropFollowingParametersSelection)", EditConditionHides, DisplayPriority = "3")
 	)
 	TObjectPtr<AActor> CroppingActor;
 	
@@ -948,6 +854,9 @@ public:
 
 	UFUNCTION()
 	bool IsWMS();
+
+	UFUNCTION()
+	bool ManualParametersSelection() { return ParametersSelection.ParametersSelectionMethod == EParametersSelectionMethod::Manual; }
 
 	UFUNCTION()
 	bool IsXYZ();

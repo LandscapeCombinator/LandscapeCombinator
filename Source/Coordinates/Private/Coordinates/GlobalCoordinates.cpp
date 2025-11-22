@@ -123,4 +123,13 @@ bool UGlobalCoordinates::GetCRSCoordinatesFromOriginExtent(FVector Origin, FVect
 	return GetCRSCoordinatesFromUnrealLocations(Locations, ToCRS, OutCoordinates);
 }
 
+FVector4d UGlobalCoordinates::GetCoordinatesFromSize(double Longitude, double Latitude, double Width, double Height)
+{
+	double LatitudeRadians = FMath::DegreesToRadians(Latitude);
+	double ScaleFactor = FMath::Max(FMath::Cos(LatitudeRadians), 0.1);
+	double LongDiff = Width / 40000000 * 360 / 2;
+	double LatDiff  = Height * ScaleFactor / 40000000 * 360 / 2;
+	return FVector4d(Longitude - LongDiff, Longitude + LongDiff, Latitude - LatDiff, Latitude + LatDiff);
+}
+
 #undef LOCTEXT_NAMESPACE
