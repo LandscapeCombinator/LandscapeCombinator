@@ -432,6 +432,8 @@ bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 	else if (SpawnMethod == ESpawnMethod::ExtendExistingLandscape)
 	{
 		if (!Concurrency::RunOnGameThreadAndWait([&]() {
+			ALandscape *LandscapeToExtend = Cast<ALandscape>(LandscapeToExtendSelection.GetActor(GetWorld()));
+			if (!IsValid(LandscapeToExtend)) return false;
 			return LandscapeUtils::ExtendLandscape(LandscapeToExtend, Files);
 		}))
 			return false;
