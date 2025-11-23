@@ -425,7 +425,9 @@ bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 	if (SpawnMethod == ESpawnMethod::CreateFreshLandscapeIncrementally)
 	{
 		if (!Concurrency::RunOnGameThreadAndWait([&]() {
-			return LandscapeUtils::ExtendLandscape(OutLandscape, Files);
+			bool bExtendLandscapeSuccess = LandscapeUtils::ExtendLandscape(OutLandscape, Files);
+			SpawnedLandscape = OutLandscape;
+			return bExtendLandscapeSuccess;
 		}))
 			return false;
 	}
@@ -434,6 +436,8 @@ bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 		if (!Concurrency::RunOnGameThreadAndWait([&]() {
 			ALandscape *LandscapeToExtend = Cast<ALandscape>(LandscapeToExtendSelection.GetActor(GetWorld()));
 			if (!IsValid(LandscapeToExtend)) return false;
+
+			SpawnedLandscape = LandscapeToExtend;
 			return LandscapeUtils::ExtendLandscape(LandscapeToExtend, Files);
 		}))
 			return false;
