@@ -110,7 +110,7 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "General",
 		meta = (EditCondition = "SpawnMethod == ESpawnMethod::ExtendExistingLandscape", EditConditionHides, DisplayPriority = "-50")
 	)
-	TObjectPtr<ALandscape> LandscapeToExtend = nullptr;
+	FActorSelection LandscapeToExtendSelection;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "General",
