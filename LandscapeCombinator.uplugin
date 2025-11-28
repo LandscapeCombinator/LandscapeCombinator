@@ -1,7 +1,7 @@
 {
 	"FileVersion": 3,
 	"Version": 6,
-	"VersionName": "0.6",
+	"VersionName": "0.8.0",
 	"EngineVersion": "5.7",
 	"FriendlyName": "LandscapeCombinator",
 	"Category": "Other",
