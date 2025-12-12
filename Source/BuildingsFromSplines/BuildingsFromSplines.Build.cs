@@ -34,7 +34,8 @@ public class BuildingsFromSplines : ModuleRules
 				"OSMUserData",
 				"LCCommon",
 				"ConcurrencyHelpers",
-				"StraightSkeletonWrapper"
+				"StraightSkeletonWrapper",
+				"LandscapeUtils"
 			}
 		);
 
