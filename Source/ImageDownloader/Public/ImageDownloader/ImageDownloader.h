@@ -757,7 +757,7 @@ public:
 	 **********************/
 
 	UPROPERTY(
-		EditAnywhere, Category = "AdaptToLandscape",
+		EditAnywhere, BlueprintReadWrite, Category = "AdaptToLandscape",
 		meta = (DisplayPriority = "1")
 	)
 	/* Check this if you want to resize the image to match the TargetLandscape's resolution. */
@@ -775,7 +775,7 @@ public:
 	 ****************/
 
 	UPROPERTY(
-		EditAnywhere, Category = "CropCoordinates",
+		EditAnywhere, BlueprintReadWrite, Category = "CropCoordinates",
 		meta = (DisplayPriority = "1")
 	)
 	/**
@@ -815,7 +815,7 @@ public:
 	)
 	void SetLargestPossibleCoordinates();
 
-	/* Click this to set the WMS coordinates from a Location Volume or any other actor*/
+	/* Click this to set the WMS coordinates from a Cube or any other actor*/
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "ImageDownloader",
 		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "5")
 	)
