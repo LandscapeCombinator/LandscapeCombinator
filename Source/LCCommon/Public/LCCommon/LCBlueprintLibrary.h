@@ -5,6 +5,7 @@
 #include "GameFramework/Pawn.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "GameFramework/Actor.h"
+#include "Components/SplineComponent.h"
 #include "LCBlueprintLibrary.generated.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
@@ -36,7 +37,7 @@ public:
 	static bool GetEditorViewClientPosition(FVector &OutPosition);
 
 	UFUNCTION(BlueprintCallable, Category="LandscapeCombinator")
-	static bool GetFirstPlayerPosition(FVector &OutPosition);
+	static bool GetFirstPlayerPosition(const UWorld *World, FVector &OutPosition);
 
 	template<class T>
 	static int GetRandomIndex(const TArray<T> &WeightedElements)
@@ -60,8 +61,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="LandscapeCombinator")
 	static TArray<AActor*> FindActors(UWorld *World, FName Tag);
 
-	UFUNCTION(BlueprintCallable, Category="LandscapeCombinator")
-	static TArray<USplineComponent*> FindSplineComponents(UWorld *World, bool bIsUserInitiated, FName Tag, FName ComponentTag);
+	static TSet<TObjectPtr<USplineComponent>> FindSplineComponents(UWorld *World, bool bIsUserInitiated, FName Tag, FName ComponentTag);
 
 #if WITH_EDITOR
 

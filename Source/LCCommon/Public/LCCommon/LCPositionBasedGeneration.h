@@ -49,21 +49,22 @@ struct LCCOMMON_API FTile
 UCLASS(BlueprintType)
 class LCCOMMON_API ULCPositionBasedGeneration : public UActorComponent
 {
-    GENERATED_BODY()
+	GENERATED_BODY()
 
 public:
-    UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta=(DisplayPriority=1))
-    bool bEnablePositionBasedGeneration = false;
+	UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta=(DisplayPriority=1))
+	bool bEnablePositionBasedGeneration = false;
 
-    UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta=(DisplayPriority=4))
-    int ZoomLevel = 14;
+	UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta=(DisplayPriority=4))
+	int ZoomLevel = 14;
 
-    UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta=(DisplayPriority=5))
-    // Distance 0 means 1 tile, Distance 1 means 3x3=9 tiles, Distance 2 means 5x5=25 tiles, etc.
-    int GenerateAllTilesAtDistance = 1;
+	UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta=(DisplayPriority=5))
+	// Distance 0 means 1 tile, Distance 1 means 3x3=9 tiles, Distance 2 means 5x5=25 tiles, etc.
+	int GenerateAllTilesAtDistance = 1;
 
-    TSet<FTile> GeneratedTiles;
+	UPROPERTY(DuplicateTransient)
+	TSet<FTile> GeneratedTiles;
 
-    UFUNCTION(CallInEditor, BlueprintCallable, Category = "PositionBasedGeneration")
-    void ClearGeneratedTilesCache();
+	UFUNCTION(CallInEditor, BlueprintCallable, Category = "PositionBasedGeneration")
+	void ClearGeneratedTilesCache();
 };

@@ -12,7 +12,8 @@
 
 void ULCContinuousGeneration::StartContinuousGeneration()
 {
-	if (AActor *Owner = GetOwner())
+	AActor *Owner = GetOwner();
+	if (IsValid(Owner) && IsValid(GetWorld()))
 	{
 		auto Generate = [this, Owner]()
 		{
@@ -27,10 +28,11 @@ void ULCContinuousGeneration::StartContinuousGeneration()
 				UE_LOG(LogLCCommon, Log, TEXT("Continuous Generation Calling Generate"));
 				Generator->GenerateFromGameThread(FName(), false, [this](bool bSuccess) {
 					bIsCurrentlyGenerating = false;
-					if (!bSuccess) StopContinuousGeneration();
+					if (!bSuccess && bStopOnError) StopContinuousGeneration();
 				});
 			}
 		};
+
 		UE_LOG(LogLCCommon, Log, TEXT("Starting Continuous Generation Timer (generate every %f seconds)"), ContinuousGenerationSeconds);
 
 		GetWorld()->GetTimerManager().SetTimer(ContinuousGenerationTimer, Generate, ContinuousGenerationSeconds, true, 0);
@@ -40,7 +42,7 @@ void ULCContinuousGeneration::StartContinuousGeneration()
 		LCReporter::ShowError(
 			LOCTEXT(
 				"NoOwner" ,
-				"Position Based Generation needs an owner to start continuous generation"
+				"Position Based Generation cannot start: Invalid Owner or World"
 			)
 		);
 	}
@@ -48,7 +50,10 @@ void ULCContinuousGeneration::StartContinuousGeneration()
 
 void ULCContinuousGeneration::StopContinuousGeneration()
 {
-	GetWorld()->GetTimerManager().ClearTimer(ContinuousGenerationTimer);
+	Concurrency::RunOnGameThread([this]() {
+		if (IsValid(GetWorld()))
+			GetWorld()->GetTimerManager().ClearTimer(ContinuousGenerationTimer);
+	});
 }
 
 void ULCContinuousGeneration::BeginPlay()

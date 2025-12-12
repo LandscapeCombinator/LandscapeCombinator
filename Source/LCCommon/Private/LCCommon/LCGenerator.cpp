@@ -21,15 +21,15 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 		return false;
 	}
 
-	AActor *Self = Cast<AActor>(this);
-	if (!Self) return false;
+	Self = Cast<AActor>(this);
+	if (!IsValid(Self)) return false;
 
 	ULCPositionBasedGeneration* PositionBasedGeneration = Cast<ULCPositionBasedGeneration>(Self->GetComponentByClass(ULCPositionBasedGeneration::StaticClass()));
 	if (IsValid(PositionBasedGeneration) && PositionBasedGeneration->bEnablePositionBasedGeneration)
 	{
 		bool bFoundPosition = false;
 		FVector Position(0, 0, 0);
-		if (!ULCBlueprintLibrary::GetFirstPlayerPosition(Position) &&
+		if (!ULCBlueprintLibrary::GetFirstPlayerPosition(Self->GetWorld(), Position) &&
 			!ULCBlueprintLibrary::GetEditorViewClientPosition(Position))
 		{
 			LCReporter::ShowError(LOCTEXT("NoPosition", "Could not get the first player position"));
@@ -103,20 +103,22 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 			UE_LOG(LogLCCommon, Log, TEXT("The following tiles are missing, generating them one by one now:"))
 			for (FTile& Tile : MissingTiles)
 			{
-				UE_LOG(LogLCCommon, Log, TEXT("Missing tile (%d, %d, %d)"), Tile.Zoom, Tile.X, Tile.Y);
+				UE_LOG(LogLCCommon, Log, TEXT("Missing Tile (%d, %d, %d)"), Tile.Zoom, Tile.X, Tile.Y);
 			}
 
 			for (FTile& Tile : MissingTiles)
 			{
-				UE_LOG(LogLCCommon, Log, TEXT("Generating tile (%d, %d, %d)"), Tile.Zoom, Tile.X, Tile.Y);
+				UE_LOG(LogLCCommon, Log, TEXT("Generating Tile (%d, %d, %d)"), Tile.Zoom, Tile.X, Tile.Y);
 				if (!ConfigureForTiles(Tile.Zoom, Tile.X, Tile.X, Tile.Y, Tile.Y)) return false;
 
 				if (OnGenerate(SpawnedActorsPath, bIsUserInitiated))
 				{
+					UE_LOG(LogLCCommon, Log, TEXT("Finished Generating Tile (%d, %d, %d)"), Tile.Zoom, Tile.X, Tile.Y);
 					PositionBasedGeneration->GeneratedTiles.Add(Tile);
 				}
 				else
 				{
+					UE_LOG(LogLCCommon, Error, TEXT("Faield to generating Tile (%d, %d, %d)"), Tile.Zoom, Tile.X, Tile.Y);
 					GenerationFinished(false);
 					return false;
 				}
@@ -154,7 +156,7 @@ bool ILCGenerator::DeleteGeneratedObjects(bool bSkipPrompt)
 
 bool ILCGenerator::DeleteGeneratedObjects_GameThread(bool bSkipPrompt)
 {
-	AActor* Self = Cast<AActor>(this);
+	Self = Cast<AActor>(this);
 	if (!IsValid(Self)) return false;
 	Self->Modify();
 
