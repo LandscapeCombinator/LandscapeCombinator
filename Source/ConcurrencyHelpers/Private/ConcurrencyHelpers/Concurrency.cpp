@@ -56,8 +56,12 @@ void Concurrency::RunOnGameThread(TFunction<void()> Action)
 		Action();
 		return;
 	}
-	
-	AsyncTask(ENamedThreads::GameThread, [Action]() { Action(); });
+
+	#if UE_VERSION_OLDER_THAN(5, 6, 0)
+		Async(EAsyncExecution::TaskGraphMainThread, [Action = MoveTemp(Action)]() { Action(); });
+	#else
+		Async(EAsyncExecution::TaskGraphMainTick, [Action = MoveTemp(Action)]() { Action(); });
+	#endif
 }
 
 bool Concurrency::RunOnThreadAndWait(bool bRunOnGameThread, TFunction<bool()> Action)
@@ -91,7 +95,6 @@ bool Concurrency::RunOnThreadAndWait(bool bRunOnGameThread, TFunction<bool()> Ac
 #if UE_VERSION_OLDER_THAN(5, 6, 0)
 		Async(EAsyncExecution::TaskGraphMainThread, [Action = MoveTemp(Action), &bSuccess, SyncEvent]()
 #else
-		// AsyncTask(ENamedThreads::GameThread, [Action = MoveTemp(Action), &bSuccess, SyncEvent]()
 		Async(EAsyncExecution::TaskGraphMainTick, [Action = MoveTemp(Action), &bSuccess, SyncEvent]()
 #endif
 		{
