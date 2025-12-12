@@ -177,13 +177,7 @@ ADecalActor* UDecalCoordinates::CreateDecal(UWorld* World, FString Path)
 
 ADecalActor* UDecalCoordinates::CreateDecal(UWorld *World, FString Path, FVector4d &OutCoordinates)
 {
-	if (!IsValid(World))
-	{
-		LCReporter::ShowError(
-			LOCTEXT("UDecalCoordinates::CreateDecal::InvalidWorld", "Invalid World.")
-		);
-		return nullptr;
-	}
+	if (!IsValid(World)) return nullptr;
 
 	ADecalActor* DecalActor = nullptr;
 	UDecalCoordinates *DecalCoordinates = nullptr;
