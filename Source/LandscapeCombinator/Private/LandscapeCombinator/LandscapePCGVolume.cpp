@@ -13,12 +13,8 @@
 
 void ALandscapePCGVolume::SetPositionAndBounds()
 {
-	ALandscape *Landscape = Cast<ALandscape>(LandscapeSelection.GetActor(GetWorld()));
-	if (!IsValid(Landscape))
-	{
-		UE_LOG(LogLandscapeCombinator, Error, TEXT("Could not find landscape actor."));
-		return;
-	}
+	ALandscape *Landscape = Cast<ALandscape>(LandscapeSelection.GetActor(GetWorld(), false));
+	if (!IsValid(Landscape)) return; // silently return when tag is invalid
 
 	FVector2D MinMaxX, MinMaxY, MinMaxZ;
 	if (!LandscapeUtils::GetLandscapeBounds(Landscape, MinMaxX, MinMaxY, MinMaxZ))
