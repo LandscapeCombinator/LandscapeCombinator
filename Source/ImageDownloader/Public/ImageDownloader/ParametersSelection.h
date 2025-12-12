@@ -34,7 +34,7 @@ struct FParametersSelection
 			EditConditionHides, DisplayPriority = "1"
 		)
 	)
-	/* Select a Location Volume (or any other actor) that will be used to compute the WMS coordinates or XYZ tiles.
+	/* Select a Cube (or any other actor) that will be used to compute the WMS coordinates or XYZ tiles.
 	   You can click the "Set Source Parameters From Actor" button to force refresh after you move the actor */
 	TObjectPtr<AActor> ParametersBoundingActor = nullptr;
 	
