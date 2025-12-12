@@ -87,9 +87,9 @@ bool ULCBlueprintLibrary::GetEditorViewClientPosition(FVector &OutPosition)
 #endif
 }
 
-bool ULCBlueprintLibrary::GetFirstPlayerPosition(FVector &OutPosition)
+bool ULCBlueprintLibrary::GetFirstPlayerPosition(const UWorld *World, FVector &OutPosition)
 {
-	if (APlayerController* PlayerController = UGameplayStatics::GetPlayerController(GWorld, 0))
+	if (APlayerController* PlayerController = UGameplayStatics::GetPlayerController(World, 0))
 	{
 		if (APawn* Pawn = PlayerController->GetPawn())
 		{
@@ -106,6 +106,7 @@ TArray<AActor*> ULCBlueprintLibrary::FindActors(UWorld *World, FName Tag)
 	check(IsInGameThread());
 
 	TArray<AActor*> Actors;
+	if (!IsValid(World)) return Actors;
 
 	if (Tag.IsNone()) UGameplayStatics::GetAllActorsOfClass(World, AActor::StaticClass(), Actors);
 	else UGameplayStatics::GetAllActorsWithTag(World, Tag, Actors);
@@ -113,11 +114,11 @@ TArray<AActor*> ULCBlueprintLibrary::FindActors(UWorld *World, FName Tag)
 	return Actors;
 }
 
-TArray<USplineComponent*> ULCBlueprintLibrary::FindSplineComponents(UWorld *World, bool bIsUserInitiated, FName Tag, FName ComponentTag)
+TSet<TObjectPtr<USplineComponent>> ULCBlueprintLibrary::FindSplineComponents(UWorld *World, bool bIsUserInitiated, FName Tag, FName ComponentTag)
 {
 	check(IsInGameThread());
 
-	TArray<USplineComponent*> Result;
+	TSet<TObjectPtr<USplineComponent>> Result;
 
 	bool bFound = false;
 	

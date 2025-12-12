@@ -11,15 +11,9 @@
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
 
-AActor* FActorSelection::GetActor(const UWorld* World)
+AActor* FActorSelection::GetActor(const UWorld* World, bool bShowDialog) const
 {
-	if (!IsValid(World))
-	{
-		LCReporter::ShowError(
-			LOCTEXT("ActorSelection::GetActor::InvalidWorld", "InvalidWorld")
-		);
-		return nullptr;
-	}
+	if (!IsValid(World)) return nullptr;
 
 	switch (ActorSelectionMode)
 	{
@@ -27,9 +21,12 @@ AActor* FActorSelection::GetActor(const UWorld* World)
 		{
 			if (!Actor.IsValid())
 			{
-				LCReporter::ShowError(
-					LOCTEXT("ActorSelection::GetActor", "Landscape Combinator Actor Selection: Please select a valid actor")
-				);
+				if (bShowDialog)
+				{
+					LCReporter::ShowError(
+						LOCTEXT("ActorSelection::GetActor", "Landscape Combinator Actor Selection: Please select a valid actor")
+					);
+				}
 				return nullptr;
 			};
 			return Actor.Get();
@@ -42,10 +39,13 @@ AActor* FActorSelection::GetActor(const UWorld* World)
 
 			if (Actors.IsEmpty())
 			{
-				LCReporter::ShowError(FText::Format(
-					LOCTEXT("ActorSelection::GetActor", "Landscape Combinator Actor Selection: Could not find actor with tag {0}"),
-					FText::FromName(ActorTag)
-				));
+				if (bShowDialog)
+				{
+					LCReporter::ShowError(FText::Format(
+						LOCTEXT("ActorSelection::GetActor", "Landscape Combinator Actor Selection: Could not find actor with tag {0}"),
+						FText::FromName(ActorTag)
+					));
+				}
 				return nullptr;
 			}
 			else
@@ -59,15 +59,9 @@ AActor* FActorSelection::GetActor(const UWorld* World)
 	}
 }
 
-TArray<AActor*> FActorSelection::GetAllActors(const UWorld* World)
+TArray<AActor*> FActorSelection::GetAllActors(const UWorld* World, bool bShowDialog) const
 {
-	if (!IsValid(World))
-	{
-		LCReporter::ShowError(
-			LOCTEXT("ActorSelection::GetAllActors::InvalidWorld", "InvalidWorld")
-		);
-		return {};
-	}
+	if (!IsValid(World)) return {};
 
 	switch (ActorSelectionMode)
 	{
@@ -75,9 +69,12 @@ TArray<AActor*> FActorSelection::GetAllActors(const UWorld* World)
 		{
 			if (!Actor.IsValid())
 			{
-				LCReporter::ShowError(
-					LOCTEXT("ActorSelection::GetAllActors", "Landscape Combinator Actor Selection: Please select a valid actor")
-				);
+				if (bShowDialog)
+				{
+					LCReporter::ShowError(
+						LOCTEXT("ActorSelection::GetAllActors", "Landscape Combinator Actor Selection: Please select a valid actor")
+					);
+				}
 				return {};
 			};
 			return { Actor.Get() };
@@ -90,10 +87,13 @@ TArray<AActor*> FActorSelection::GetAllActors(const UWorld* World)
 
 			if (Actors.IsEmpty())
 			{
-				LCReporter::ShowError(FText::Format(
-					LOCTEXT("ActorSelection::GetAllActors", "Landscape Combinator Actor Selection: Could not find actor with tag {0}"),
-					FText::FromName(ActorTag)
-				));
+				if (bShowDialog)
+				{
+					LCReporter::ShowError(FText::Format(
+						LOCTEXT("ActorSelection::GetAllActors", "Landscape Combinator Actor Selection: Could not find actor with tag {0}"),
+						FText::FromName(ActorTag)
+					));
+				}
 				return {};
 			}
 			else

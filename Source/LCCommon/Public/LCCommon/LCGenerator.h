@@ -8,6 +8,7 @@
 #include "Delegates/Delegate.h"
 #include "Kismet/BlueprintAsyncActionBase.h"
 #include "Async/Async.h"
+#include "ConcurrencyHelpers/Concurrency.h"
 
 #if WITH_EDITOR
 #include "Subsystems/EditorActorSubsystem.h"
@@ -70,23 +71,27 @@ public:
 #endif
 
 protected:
+	AActor *Self;
+
 	void GenerationFinished(bool bSuccess)
 	{
-		if (AActor *Self = Cast<AActor>(this))
-		{
-			if (bSuccess)
+		Concurrency::RunOnGameThread([this, bSuccess]() {
+			if (IsValid(Self))
 			{
-				UE_LOG(LogLCCommon, Log, TEXT("Generation for %s finished successfully"), *Cast<AActor>(this)->GetActorNameOrLabel())
+				if (bSuccess)
+				{
+					UE_LOG(LogLCCommon, Log, TEXT("Generation for %s finished successfully"), *Self->GetActorNameOrLabel())
+				}
+				else
+				{
+					UE_LOG(LogLCCommon, Error, TEXT("Generation for %s failed"), *Self->GetActorNameOrLabel())
+				}
 			}
 			else
 			{
-				UE_LOG(LogLCCommon, Error, TEXT("Generation for %s failed"), *Cast<AActor>(this)->GetActorNameOrLabel())
+				UE_LOG(LogLCCommon, Error, TEXT("ILCGenerator::GenerationFinished, calling actor became invalid (success: %d)"), bSuccess);
 			}
-		}
-		else
-		{
-			UE_LOG(LogLCCommon, Error, TEXT("ILCGenerator::GenerationFinished called on an non-actor class (success: %d)"), bSuccess);
-		}
+		});
 	}
 
 };

@@ -17,6 +17,9 @@ public:
     UPROPERTY(EditAnywhere, Category = "ContinuousGeneration", meta=(DisplayPriority=101))
     bool bStartContinuousGenerationOnBeginPlay = false;
 
+    UPROPERTY(EditAnywhere, Category = "ContinuousGeneration", meta=(DisplayPriority=102))
+    bool bStopOnError = true;
+
     UFUNCTION(CallInEditor, BlueprintCallable, Category = "ContinuousGeneration")
     void StartContinuousGeneration();
 

@@ -33,7 +33,7 @@ struct LCCOMMON_API FActorSelection
 	)
 	FName ActorTag;
 
-	AActor* GetActor(const UWorld *World);
+	AActor* GetActor(const UWorld *World, bool bShowDialog = true) const;
 
-	TArray<AActor*> GetAllActors(const UWorld *World);
+	TArray<AActor*> GetAllActors(const UWorld *World, bool bShowDialog = true) const;
 };
