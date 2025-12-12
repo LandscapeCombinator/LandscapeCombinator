@@ -1022,7 +1022,7 @@ void GDALInterface::AddPointList(OGRLineString* LineString, TArray<FPointList> &
 	PointLists.Add(NewList);
 }
 
-TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset)
+TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset, TSet<FString> &AlreadyHandledFeatures)
 {
 	TArray<FPointList> PointLists;
 	
@@ -1032,34 +1032,37 @@ TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset)
 	int NumFeatures = 0;
 	while (Feature)
 	{
-		NumFeatures += 1;
+		if (AddFeature(AlreadyHandledFeatures, Feature))
+		{
+			NumFeatures += 1;
 
-		TMap<FString, FString> Fields = FieldsFromFeature(Feature);
+			TMap<FString, FString> Fields = FieldsFromFeature(Feature);
 
-		OGRGeometry* Geometry = Feature->GetGeometryRef();
-		if (!Geometry) continue;
+			OGRGeometry* Geometry = Feature->GetGeometryRef();
+			if (!Geometry) continue;
 
-		OGRwkbGeometryType GeometryType = wkbFlatten(Geometry->getGeometryType());
-			
-		if (GeometryType == wkbMultiPolygon)
-		{
-			AddPointLists(Geometry->toMultiPolygon(), PointLists, Fields);
-		}
-		else if (GeometryType == wkbPolygon)
-		{
-			AddPointLists(Geometry->toPolygon(), PointLists, Fields);
-		}
-		else if (GeometryType == wkbLineString)
-		{
-			AddPointList(Geometry->toLineString(), PointLists, Fields);
-		}
-		else if (GeometryType == wkbPoint)
-		{
-			// ignoring lone point
-		}
-		else
-		{
-			UE_LOG(LogGDALInterface, Warning, TEXT("Found an unsupported feature %d"), wkbFlatten(Geometry->getGeometryType()));
+			OGRwkbGeometryType GeometryType = wkbFlatten(Geometry->getGeometryType());
+
+			if (GeometryType == wkbMultiPolygon)
+			{
+				AddPointLists(Geometry->toMultiPolygon(), PointLists, Fields);
+			}
+			else if (GeometryType == wkbPolygon)
+			{
+				AddPointLists(Geometry->toPolygon(), PointLists, Fields);
+			}
+			else if (GeometryType == wkbLineString)
+			{
+				AddPointList(Geometry->toLineString(), PointLists, Fields);
+			}
+			else if (GeometryType == wkbPoint)
+			{
+				// ignoring lone point
+			}
+			else
+			{
+				UE_LOG(LogGDALInterface, Warning, TEXT("Found an unsupported feature %d"), wkbFlatten(Geometry->getGeometryType()));
+			}
 		}
 		OGRFeature::DestroyFeature(Feature);
 		Feature = Dataset->GetNextFeature(&Layer, nullptr, nullptr, nullptr);
@@ -1101,11 +1104,13 @@ GDALDataset* GDALInterface::LoadGDALVectorDatasetFromQuery(FString Query, bool b
 
 	if (!Download::SynchronousFromURL(Query.Replace(TEXT(" "), TEXT("+")), XmlFilePath, bIsUserInitiated))
 	{
-		
-		LCReporter::ShowError(FText::Format(
-			LOCTEXT("GetSpatialReferenceError", "Unable to get the result for the Overpass query: {0}."),
-			FText::FromString(Query)
-		));
+		if (bIsUserInitiated)
+		{
+			LCReporter::ShowError(FText::Format(
+				LOCTEXT("GetSpatialReferenceError", "Unable to get the result for the Overpass query: {0}."),
+				FText::FromString(Query)
+			));
+		}
 		return nullptr;
 	}
 	
@@ -1315,6 +1320,30 @@ bool GDALInterface::WriteHeightmapDataToTIF(const FString& File, int32 SizeX, in
 	}
 	
 	GDALClose(TIFDataset);
+	return true;
+}
+
+
+bool GDALInterface::AddFeature(TSet<FString> &AlreadyHandledFeatures, OGRFeature *Feature)
+{
+	if (!Feature) return false;
+	TMap<FString, FString> Fields = GDALInterface::FieldsFromFeature(Feature);
+	FString *OSMId = Fields.Find("osm_id");
+	FString *OSMWayId = Fields.Find("osm_way_id");
+
+	if (OSMId && !OSMId->IsEmpty() && AlreadyHandledFeatures.Contains(FString("osm_id:") + *OSMId)) return false;
+	if (OSMWayId && !OSMWayId->IsEmpty()  && AlreadyHandledFeatures.Contains(FString("osm_way_id:") + *OSMWayId)) return false;
+
+	if (OSMId && !OSMId->IsEmpty())
+	{
+		AlreadyHandledFeatures.Add(FString("osm_id:") + *OSMId);
+	}
+
+	if (OSMWayId && !OSMWayId->IsEmpty())
+	{
+		AlreadyHandledFeatures.Add(FString("osm_way_id:") + *OSMWayId);
+	}
+
 	return true;
 }
 

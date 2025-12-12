@@ -60,7 +60,7 @@ public:
 	static bool ReadHeightmapFromFile(FString File, int& OutWidth, int& OutHeight, TArray<float>& OutHeightmap);
 
 	static TMap<FString, FString> FieldsFromFeature(OGRFeature* Feature);
-	static TArray<FPointList> GetPointLists(GDALDataset *Dataset);
+	static TArray<FPointList> GetPointLists(GDALDataset *Dataset, TSet<FString> &AlreadyHandledFeatures);
 	static void AddPointList(OGRLineString* LineString, TArray<FPointList> &PointLists, TMap<FString, FString> &Fields);
 	static void AddPointLists(OGRPolygon* Polygon, TArray<FPointList> &PointLists, TMap<FString, FString> &Fields);
 	static void AddPointLists(OGRMultiPolygon* MultiPolygon, TArray<FPointList> &PointLists, TMap<FString, FString> &Fields);
@@ -74,6 +74,9 @@ public:
 	static bool ExportMesh(const FDynamicMesh3 &Mesh, const FString &File);
 	static bool ExportPolygons(const TArray<TArray<FVector>> &PointLists, const FString &File);
 	static bool WriteHeightmapDataToTIF(const FString& File, int32 SizeX, int32 SizeY, uint16* HeightmapData);
+
+	// returns false if feature was already there, and true otherwise
+	static bool AddFeature(TSet<FString> &AlreadyHandledFeatures, OGRFeature *Feature);
 };
 
 #undef LOCTEXT_NAMESPACE
