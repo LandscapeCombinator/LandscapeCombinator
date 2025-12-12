@@ -30,6 +30,7 @@
 #include "Polygon2.h"
 #include "Algo/Reverse.h"
 #include "Styling/AppStyle.h"
+#include "Subsystems/PCGSubsystem.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
@@ -175,7 +176,7 @@ bool ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 	GDALDataset* Dataset = LoadGDALDataset(bIsUserInitiated);
 	if (!Dataset) return false;
 
-	TArray<FPointList> PointLists = GDALInterface::GetPointLists(Dataset);
+	TArray<FPointList> PointLists = GDALInterface::GetPointLists(Dataset, AlreadyHandledFeatures);
 	GDALClose(Dataset);
 
 	if (bIsUserInitiated && PointLists.IsEmpty())
@@ -212,13 +213,33 @@ bool ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 	if (bUseLandscapeSplines)
 	{
 		return Concurrency::RunOnGameThreadAndWait([&]() {
-			return GenerateLandscapeSplines(bIsUserInitiated, Landscape, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
+			if (GenerateLandscapeSplines(bIsUserInitiated, Landscape, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists))
+			{
+				if (bFlushPCGCacheAfterImport)
+					if (UPCGSubsystem* PCGSubsystem = UPCGSubsystem::GetSubsystemForCurrentWorld())
+						PCGSubsystem->FlushCache();
+				return true;
+			}
+			else
+			{
+				return false;
+			}
 		});
 	}
 	else
 	{
 		return Concurrency::RunOnGameThreadAndWait([&]() {
-			return GenerateRegularSplines(bIsUserInitiated, SpawnedActorsPathOverride, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
+			if (GenerateRegularSplines(bIsUserInitiated, SpawnedActorsPathOverride, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists))
+			{
+				if (bFlushPCGCacheAfterImport)
+					if (UPCGSubsystem* PCGSubsystem = UPCGSubsystem::GetSubsystemForCurrentWorld())
+						PCGSubsystem->FlushCache();
+				return true;
+			}
+			else
+			{
+				return false;
+			}
 		});
 	}
 #else
@@ -229,7 +250,17 @@ bool ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 		return false;
 	}
 	return Concurrency::RunOnGameThreadAndWait([&]() {
-		return GenerateRegularSplines(bIsUserInitiated, SpawnedActorsPathOverride, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
+		if (GenerateRegularSplines(bIsUserInitiated, SpawnedActorsPathOverride, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists))
+		{
+			if (bFlushPCGCacheAfterImport)
+				if (UPCGSubsystem* PCGSubsystem = UPCGSubsystem::GetSubsystemForCurrentWorld())
+					PCGSubsystem->FlushCache();
+			return true;
+		}
+		else
+		{
+			return false;
+		}
 	});
 
 
@@ -424,8 +455,7 @@ bool ASplineImporter::AddRegularSpline(
 	int ExpectedNumPoints = NumPoints;
 	if (bIsLoop) ExpectedNumPoints--;  // don't add last point in case the spline is a closed loop
 
-	TArray<FVector> SplinePoints;
-	TArray<FVector2D> SplinePoints2D;
+	TArray<FVector2D> UE2DPoints;
 	for (int i = 0; i < ExpectedNumPoints; i++)
 	{
 		OGRPoint Point = PointList.Points[i];
@@ -436,17 +466,78 @@ bool ASplineImporter::AddRegularSpline(
 		double y = 0;
 
 		if (!GetUECoordinates(Longitude, Latitude, OGRTransform, GlobalCoordinates, x, y)) return false;
+		
+		UE2DPoints.Add({ x, y });
+	}
 
-		double z = 0;
-		if (LandscapeUtils::GetZ(World, CollisionQueryParams, x, y, z, bDebugLineTraces))
+	if (bResamplePointsAtDistance)
+	{
+		if (ResampleDistance <= 0)
 		{
-			FVector Location = FVector(x, y, z) + SplinePointsOffset;
+			LCReporter::ShowError(LOCTEXT("ResampleDistance", "Resample Distance must be positive."));
+			return false;
+		}
+
+		TObjectPtr<USplineComponent> TemporarySpline = NewObject<USplineComponent>();
+		TemporarySpline->ClearSplinePoints();
+		for (auto &UE2DPoint: UE2DPoints)
+		{
+			TemporarySpline->AddSplinePoint( { UE2DPoint.X, UE2DPoint.Y, 0 }, ESplineCoordinateSpace::World, false);
+		}
+		TemporarySpline->UpdateSpline();
+
+		float SplineLength = TemporarySpline->GetSplineLength();
+		UE2DPoints.Empty(SplineLength / ResampleDistance + 1);
+
+		float CurrentDistance = 0;
+
+		if (bExactDistance)
+		{
+			while (CurrentDistance <= SplineLength)
+			{
+				FVector V = TemporarySpline->GetLocationAtDistanceAlongSpline(CurrentDistance, ESplineCoordinateSpace::World);
+				UE2DPoints.Add({ V.X, V.Y });
+				CurrentDistance += ResampleDistance;
+			}
+
+			// if the last sampled pointed is not at the end of the spline, add one point
+			if (CurrentDistance - ResampleDistance < SplineLength)
+			{
+				FVector V = TemporarySpline->GetLocationAtDistanceAlongSpline(SplineLength, ESplineCoordinateSpace::World);
+				UE2DPoints.Add({ V.X, V.Y });
+			}
+		}
+		else
+		{
+			int n = FMath::FloorToInt(SplineLength / ResampleDistance) + 2;
+			float Interval = SplineLength / (n - 1);
+			for (int i = 0; i < n; i++)
+			{
+				FVector V = TemporarySpline->GetLocationAtDistanceAlongSpline(i * Interval, ESplineCoordinateSpace::World);
+				UE2DPoints.Add({ V.X, V.Y });
+			}
+		}
+
+		TemporarySpline->MarkAsGarbage();
+	}
+
+
+
+	TArray<FVector> SplinePoints;
+	TArray<FVector2D> SplinePoints2D;
+
+	for (auto &UE2DPoint: UE2DPoints)
+	{
+		double z = 0;
+		if (LandscapeUtils::GetZ(World, CollisionQueryParams, UE2DPoint.X, UE2DPoint.Y, z, bDebugLineTraces))
+		{
+			FVector Location = FVector(UE2DPoint.X, UE2DPoint.Y, z) + SplinePointsOffset;
 			SplinePoints.Add(Location);
 			SplinePoints2D.Add( { Location.X, Location.Y });
 		}
 		else
 		{
-			UE_LOG(LogSplineImporter, Warning, TEXT("No collision for point %f, %f"), x, y);
+			UE_LOG(LogSplineImporter, Warning, TEXT("No collision for point %f, %f"), UE2DPoint.X, UE2DPoint.Y);
 		}
 	}
 
@@ -557,6 +648,7 @@ bool ASplineImporter::Cleanup_Implementation(bool bSkipPrompt)
 	if (DeleteGeneratedObjects(bSkipPrompt))
 	{
 		SplineOwners.Empty();
+		AlreadyHandledFeatures.Empty();
 		return true;
 	}
 	else

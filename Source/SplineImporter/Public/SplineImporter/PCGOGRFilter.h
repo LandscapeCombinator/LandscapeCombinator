@@ -6,10 +6,16 @@
 #include "CoreMinimal.h"
 #include "PCGPin.h"
 #include "PCGSettings.h"
+#include "PCGContext.h"
 
 #include "GDALInterface/GDALInterface.h"
 
 #include "PCGOGRFilter.generated.h"
+
+struct FPCGOGRFilterContext : public FPCGContext
+{
+	TObjectPtr<UGlobalCoordinates> GlobalCoordinates;
+};
 
 UCLASS(BlueprintType, ClassGroup = (Procedural))
 class SPLINEIMPORTER_API UPCGOGRFilterSettings : public UPCGSettings
@@ -31,19 +37,22 @@ protected:
 	//~End UPCGSettings interface
 
 public:
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = Settings,
-		meta = (DisplayPriority = "0", PCG_Overridable)
-	)
-	FName GeometryTag;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PCG_Overridable))
+	TObjectPtr<AOGRGeometry> GeometryActor;
 };
 
 #if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4)
-class FPCGOGRFilterElement : public IPCGElement
+class FPCGOGRFilterElement : public IPCGElementWithCustomContext<FPCGOGRFilterContext>
 #else
 class FPCGOGRFilterElement : public FSimplePCGElement
 #endif
 {
 protected:
+	virtual bool PrepareDataInternal(FPCGContext* Context) const override;
 	virtual bool ExecuteInternal(FPCGContext* Context) const override;
+
+	virtual bool CanExecuteOnlyOnMainThread(FPCGContext* Context) const
+	{
+		return Context && Context->CurrentPhase == EPCGExecutionPhase::PrepareData;
+	}
 };

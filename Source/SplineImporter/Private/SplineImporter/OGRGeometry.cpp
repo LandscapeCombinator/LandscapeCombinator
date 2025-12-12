@@ -3,6 +3,7 @@
 #include "SplineImporter/OGRGeometry.h"
 #include "LCCommon/LCBlueprintLibrary.h"
 #include "ConcurrencyHelpers/LCReporter.h"
+#include "Subsystems/PCGSubsystem.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(OGRGeometry)
 
@@ -53,13 +54,17 @@ bool AOGRGeometry::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIniti
 	GDALDataset* Dataset = LoadGDALDataset(bIsUserInitiated);
 	if (!Dataset)
 	{
-		LCReporter::ShowError(LOCTEXT("AOGRGeometry::OnGenerate::NoDataset", "Could not load dataset for OGR Geometry."));
+		if (bIsUserInitiated) LCReporter::ShowError(LOCTEXT("AOGRGeometry::OnGenerate::NoDataset", "Could not load dataset for OGR Geometry."));
 		return false;
 	}
 
 	UE_LOG(LogSplineImporter, Log, TEXT("Got a valid dataset to extract geometries, continuing..."));
 
-	Geometry = OGRGeometryFactory::createGeometry(OGRwkbGeometryType::wkbMultiPolygon);
+	if (bClearGeometryBeforeImporting || !Geometry)
+	{
+		Geometry = OGRGeometryFactory::createGeometry(OGRwkbGeometryType::wkbMultiPolygon);
+	}
+
 	if (!Geometry)
 	{
 		LCReporter::ShowError(LOCTEXT("AOGRGeometry::OnGenerate::NoGeometry", "Internal error while creating geometry, please try again."));
@@ -77,6 +82,9 @@ bool AOGRGeometry::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIniti
 		for (auto& Feature : Layer)
 		{
 			if (!Feature) continue;
+
+			if (!GDALInterface::AddFeature(AlreadyHandledFeatures, Feature.get())) continue;
+
 			OGRGeometry* NewGeometry = Feature->GetGeometryRef();
 			if (!NewGeometry) continue;
 
@@ -92,11 +100,14 @@ bool AOGRGeometry::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIniti
 			{
 				Geometry = NewUnion;
 				NumGeometries++;
+				Concurrency::RunOnGameThread([](){
+					if (UPCGSubsystem* PCGSubsystem = UPCGSubsystem::GetSubsystemForCurrentWorld()) PCGSubsystem->FlushCache();
+				});
 			}
 			else
 			{
 				UE_LOG(LogSplineImporter, Warning, TEXT("Error: %s"), *FString(CPLGetLastErrorMsg()));
-				UE_LOG(LogSplineImporter, Warning, TEXT("There was an error while taking union of geometries in OGR, we'll still skip a geometry"))
+				UE_LOG(LogSplineImporter, Warning, TEXT("There was an error while taking union of geometries in OGR, we'll skip a geometry"))
 			}
 		}
 	}

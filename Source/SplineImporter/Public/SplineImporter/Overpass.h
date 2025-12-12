@@ -7,5 +7,5 @@
 class SPLINEIMPORTER_API Overpass
 {
 public:
-	static FString QueryFromShortQuery(double South, double West, double North, double East, FString ShortQuery);
+	static FString QueryFromShortQuery(FString OverpassServer, double South, double West, double North, double East, FString ShortQuery);
 };
