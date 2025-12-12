@@ -7,6 +7,7 @@
 #include "LandscapeStreamingProxy.h"
 #include "DynamicMesh/DynamicMesh3.h"
 #include "Coordinates/GlobalCoordinates.h"
+#include "LCCommon/ActorSelection.h"
 
 using namespace UE::Geometry;
 
@@ -20,6 +21,7 @@ public:
 	static TArray<ALandscapeStreamingProxy*> GetLandscapeStreamingProxies(ALandscape *Landscape);
 	static bool CustomCollisionQueryParams(AActor* Actor, FCollisionQueryParams &CollisionQueryParams);
 	static bool CustomCollisionQueryParams(TArray<AActor*> CollidingActors, FCollisionQueryParams &CollisionQueryParams);
+	static bool CustomCollisionQueryParams(const UWorld *World, const FActorSelection &ActorSelection, FCollisionQueryParams &CollisionQueryParams);
 
 	static bool GetZ(UWorld* World, FCollisionQueryParams CollisionQueryParams, double x, double y, double &OutZ, bool bDrawDebugLine = false);
 	static bool GetZ(AActor* Actor, double x, double y, double &OutZ, bool bDrawDebugLine = false);

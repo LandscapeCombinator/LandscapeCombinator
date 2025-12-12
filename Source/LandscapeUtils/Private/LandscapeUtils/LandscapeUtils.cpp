@@ -182,6 +182,8 @@ bool LandscapeUtils::CustomCollisionQueryParams(TArray<AActor*> CollidingActors,
 	TSet<AActor*> CollidingActorsSet = TSet<AActor*>(CollidingActors);
 	for (auto &CollidingActor: CollidingActors)
 	{
+		if (!IsValid(CollidingActor)) continue;
+
 		if (ALandscape *Landscape = Cast<ALandscape>(CollidingActor))
 		{
 			TArray<ALandscapeStreamingProxy*> LandscapeStreamingProxies = GetLandscapeStreamingProxies(Landscape);
@@ -196,11 +198,7 @@ bool LandscapeUtils::CustomCollisionQueryParams(TArray<AActor*> CollidingActors,
 		if (IsValid(World)) break;
 	}
 
-	if (!IsValid(World))
-	{
-		LCReporter::ShowError(LOCTEXT("InvalidWorld", "Invalid world for custom collision query"));
-		return false;
-	}
+	if (!IsValid(World)) return false;
 	
 	TArray<AActor*> Actors;
 	UGameplayStatics::GetAllActorsOfClass(World, AActor::StaticClass(), Actors);
@@ -215,6 +213,11 @@ bool LandscapeUtils::CustomCollisionQueryParams(TArray<AActor*> CollidingActors,
 	}
 
 	return true;
+}
+
+bool LandscapeUtils::CustomCollisionQueryParams(const UWorld *World, const FActorSelection &ActorSelection, FCollisionQueryParams &CollisionQueryParams)
+{
+	return CustomCollisionQueryParams(ActorSelection.GetAllActors(World), CollisionQueryParams);
 }
 
 bool LandscapeUtils::GetZ(UWorld* World, FCollisionQueryParams CollisionQueryParams, double x, double y, double &OutZ, bool bDrawDebugLine)

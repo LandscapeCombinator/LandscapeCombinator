@@ -33,7 +33,8 @@ public class LandscapeUtils : ModuleRules
 
 				// Landscape Combinator Dependencies
 				"ConcurrencyHelpers",
-				"GDALInterface"
+				"GDALInterface",
+				"LCCommon"
 			}
 		);
 
