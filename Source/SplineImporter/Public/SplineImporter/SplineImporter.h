@@ -74,6 +74,33 @@ public:
 		meta = (DisplayPriority = "1001")
 	)
 	FActorSelection ActorsOrLandscapesToPlaceSplinesSelection;
+	
+	/* Tag to apply to the Spline Owners which are created. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+		meta = (DisplayPriority = "1005")
+	)
+	FName SplinesTag;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+		meta = (EditCondition = "!bUseLandscapeSplines", EditConditionHides, DisplayPriority = "2000")
+	)
+	// When true, will resample the imported splines at a given internal
+	bool bResamplePointsAtDistance = false;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+		meta = (EditCondition = "!bUseLandscapeSplines && bResamplePointsAtDistance", EditConditionHides, DisplayPriority = "2001")
+	)
+	// in cm
+	double ResampleDistance = 1500;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+		meta = (EditCondition = "!bUseLandscapeSplines && bResamplePointsAtDistance", EditConditionHides, DisplayPriority = "2002")
+	)
+	// Sample points spaced exactly by the resample distance. If this is false, then the distance can be less, depending on the lengths of the splines.
+	bool bExactDistance = false;
 
 	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
 		meta = (DisplayPriority = "1002")
@@ -88,19 +115,12 @@ public:
 		meta = (EditCondition = "bUseLandscapeSplines", EditConditionHides, DisplayPriority = "1004")
 	)
 	double LandscapeSplinesStraightness = 1;
-
 	
 	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
 		meta = (EditCondition = "!bUseLandscapeSplines", EditConditionHides, DisplayPriority = "1005")
 	)
 	/* Whether to put the created spline components in a single Spline Collection actor, or use one Spline Collection per actor, or use a custom actor. */
 	ESplineOwnerKind SplineOwnerKind = ESplineOwnerKind::SingleSplineCollection;
-	
-	/* Tag to apply to the Spline Owners which are created. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
-		meta = (DisplayPriority = "1005")
-	)
-	FName SplinesTag;
 
 	/* Tag to apply to the Spline Components which are created. */
 	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
@@ -137,6 +157,11 @@ public:
 		meta = (EditCondition = "bSkip2DColinearVertices", EditConditionHides, DisplayPriority = "1302")
 	)
 	double ColinearityAngleThreshold = 1;
+
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+		meta = (DisplayPriority = "1400")
+	)
+	bool bFlushPCGCacheAfterImport = false;
 
 	bool OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated) override;
 	

@@ -21,6 +21,7 @@
 #include "Metadata/Accessors/PCGAttributeAccessorHelpers.h"
 #include "Metadata/Accessors/PCGCustomAccessor.h"
 #include "Engine/World.h"
+#include "HAL/ThreadManager.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PCGOGRFilter)
 
@@ -31,11 +32,26 @@ FPCGElementPtr UPCGOGRFilterSettings::CreateElement() const
 	return MakeShared<FPCGOGRFilterElement>();
 }
 
+bool FPCGOGRFilterElement::PrepareDataInternal(FPCGContext* Context) const
+{
+	TRACE_CPUPROFILER_EVENT_SCOPE(FPCGOGRFilterElement::PrepareDataInternal);
+	FPCGOGRFilterContext* ThisContext = static_cast<FPCGOGRFilterContext*>(Context);
+
+	if (ThisContext && !IsValid(ThisContext->GlobalCoordinates))
+	{
+		if (UWorld* World = Context->ExecutionSource.IsValid() ? Context->ExecutionSource->GetExecutionState().GetWorld() : nullptr)
+		{
+			ThisContext->GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World, false);
+		}
+	}
+
+	return true;
+}
 
 // adapted from Unreal Engine 5.2 PCGDensityFilter.cpp
 bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 {
-	TRACE_CPUPROFILER_EVENT_SCOPE(FPCGOGRFilterElement::Execute);
+	TRACE_CPUPROFILER_EVENT_SCOPE(FPCGOGRFilterElement::ExecuteInternal);
 
 	const UPCGOGRFilterSettings* Settings = Context->GetInputSettings<UPCGOGRFilterSettings>();
 	check(Settings);
@@ -48,7 +64,7 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 
 	TArray<FPCGTaggedData>& Outputs = Context->OutputData.TaggedData;
 
-	if (Settings->GeometryTag.IsNone())
+	if (!IsValid(Settings->GeometryActor))
 	{
 		Outputs = Inputs;
 		return true;
@@ -66,61 +82,26 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 		return true;
 	}
 
-	UWorld* World = PCGComponent->GetWorld();
-
-	if (!IsValid(World))
+	FPCGOGRFilterContext* ThisContext = static_cast<FPCGOGRFilterContext*>(Context);
+	if (!ThisContext)
 	{
-		PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("NoWorld", "Invalid World."));
+		PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("InvalidContext", "Internal Error: Invalid FPCGOGRFilterContext."));
 		return true;
 	}
 
-	TArray<AActor*> Geometries;
-	Concurrency::RunOnGameThreadAndWait([World, Settings, &Geometries]{
-		UGameplayStatics::GetAllActorsOfClassWithTag(World, AOGRGeometry::StaticClass(), Settings->GeometryTag, Geometries);
-		return true;
-	});
-
-	if (Geometries.Num() == 0)
-	{
-		PCGE_LOG_C(
-			Error, GraphAndLog, Context,
-			FText::Format(
-				LOCTEXT("NoGeometry", "Found no OGRGeometry actor with tag {0}."),
-				FText::FromName(Settings->GeometryTag)
-			)
-		);
-		return true;
-	}
-
-	AOGRGeometry *GeometryActor = Cast<AOGRGeometry>(Geometries[0]);
-
-	if (!IsValid(GeometryActor))
-	{
-		PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("NoGeometryActor", "Unable to get find OGR Geometry Actor."));
-		return true;
-	}
-
-	OGRGeometry *Geometry = GeometryActor->Geometry;
-
+	OGRGeometry *Geometry = Settings->GeometryActor->Geometry;
 	if (!Geometry)
 	{
-		PCGE_LOG_C(Error, GraphAndLog, Context,
+		PCGE_LOG_C(Warning, GraphAndLog, Context,
 			FText::Format(
 				LOCTEXT("NoGeometry", "Unable to get OGR Geometry. Please make sure the OGRGeometry actor {0} is valid and initialized"),
-				FText::FromString(GeometryActor->GetActorNameOrLabel())
+				FText::FromString(Settings->GeometryActor->GetActorNameOrLabel())
 			)
 		);
 		return true;
 	}
 
-	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World);
-	if (!IsValid(GlobalCoordinates))
-	{
-		PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("NoGlobalCoordinates", "No Global Coordinates"));
-		return true;
-	}
-
-	OGRCoordinateTransformation *CoordinateTransformation = GDALInterface::MakeTransform(GlobalCoordinates->CRS, "EPSG:4326");
+	OGRCoordinateTransformation *CoordinateTransformation = GDALInterface::MakeTransform(ThisContext->GlobalCoordinates->CRS, "EPSG:4326");
 
 	for (const FPCGTaggedData& Input : Context->InputData.GetInputsByPin(PCGPinConstants::DefaultInputLabel))
 	{
@@ -166,16 +147,16 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 			const FVector2D& Location = { Location0.X, Location0.Y };
 			FVector2D Coordinates4326;
 
-			if (!GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(Location, CoordinateTransformation, Coordinates4326))
+			if (!ThisContext->GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(Location, CoordinateTransformation, Coordinates4326))
 			{
 				PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("NoData", "Internal error, unable to convert coordinates, make sure that your LevelCoordinates actor has correct values"));
 				return true;
 			}
 			OGRPoint Point4326(Coordinates4326[0], Coordinates4326[1]);
-
 			PCGPointToPoint.Add(Location0, Coordinates4326);
 			AllPoints->addGeometry(&Point4326);
 		}
+		UE_LOG(LogSplineImporter, Log, TEXT("Created All Points Geometry"));
 		
 		if (!AllPoints)
 		{
@@ -184,9 +165,19 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 		}
 		OGRGeometry *Intersection = AllPoints->Intersection(Geometry);
 		
-		if (!Intersection || wkbFlatten(Intersection->getGeometryType()) != wkbMultiPoint)
+		if (!Intersection)
 		{
 			PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("IntersectionNullPointer", "Couldn't compute intersection"));
+			return true;
+		}
+
+		if (wkbFlatten(Intersection->getGeometryType()) != wkbMultiPoint)
+		{
+			if (!Intersection->IsEmpty() && wkbFlatten(Intersection->getGeometryType()) != wkbPoint)
+			{
+				PCGE_LOG_C(Error, GraphAndLog, Context, FText::Format(LOCTEXT("IntersectionNullPointer", "Unexpected error: Intersection is not a multi-point geometry ({0})"), { wkbFlatten(Intersection->getGeometryType()) }));
+			}
+			UE_LOG(LogSplineImporter, Log, TEXT("Empty Intersection"));
 			return true;
 		}
 
@@ -197,6 +188,7 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 			PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("IntersectionNotPoints", "Couldn't compute intersection as a set of points"));
 			return true;
 		}
+		UE_LOG(LogSplineImporter, Log, TEXT("Valid Intersection Points with %d geometries"), IntersectionPoints->getNumGeometries());
 		
 		for (int i = 0, n = IntersectionPoints->getNumGeometries(); i < n; ++i)
 		{
@@ -212,7 +204,7 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 
 		
 		FPCGAsync::AsyncPointProcessing(Context, PCGPoints.Num(), FilteredPoints,
-			[InsideLocations, PCGPointToPoint, PCGPoints, World](int32 Index, FPCGPoint &OutPoint)
+			[InsideLocations, PCGPointToPoint, PCGPoints](int32 Index, FPCGPoint &OutPoint)
 			{
 				const FPCGPoint& PCGPoint = PCGPoints[Index];
 				const FVector& Location = PCGPoint.Transform.GetLocation();

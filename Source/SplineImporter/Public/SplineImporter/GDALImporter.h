@@ -72,6 +72,16 @@ public:
 	)
 	EVectorSource Source = EVectorSource::OSM_Roads;
 
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+		meta = (EditCondition = "IsOverpass()", EditConditionHides, DisplayPriority = "-9")
+	)
+	/**
+	 * Choose an Overpass API server from https://wiki.openstreetmap.org/wiki/Overpass_API#Public_Overpass_API_instances
+	 * (while respecting their limitations)
+	 */
+	FString OverpassServer = "https://overpass-api.de/api/interpreter";
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
 		meta = (EditCondition = "Source == EVectorSource::LocalFile", EditConditionHides, DisplayPriority = "-1")
 	)
@@ -143,12 +153,17 @@ public:
 	
 	UFUNCTION()
 	bool IsOverpassPreset();
+	
+	UFUNCTION()
+	bool IsOverpass();
 
 #if WITH_EDITOR
 	virtual AActor* Duplicate(FName FromName, FName ToName) { return nullptr; };
 #endif
 
 protected:
+	UPROPERTY(DuplicateTransient)
+	TSet<FString> AlreadyHandledFeatures;
 
 #if WITH_EDITOR
 	void PostEditChangeProperty(struct FPropertyChangedEvent&);

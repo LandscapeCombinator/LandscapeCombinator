@@ -22,6 +22,11 @@ public:
 	)
 	FName AreaTag;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+		meta = (DisplayPriority = "6")
+	)
+	bool bClearGeometryBeforeImporting = true;
+
 	OGRGeometry *Geometry = nullptr;
 
 	bool OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated) override;
@@ -29,6 +34,7 @@ public:
 	virtual bool Cleanup_Implementation(bool bSkipPrompt) override {
 		Modify();
 		Geometry = nullptr;
+		AlreadyHandledFeatures.Empty();
 		return true;
 	}
 

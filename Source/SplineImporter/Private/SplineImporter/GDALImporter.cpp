@@ -58,6 +58,13 @@ bool AGDALImporter::IsOverpassPreset()
 		Source == EVectorSource::OSM_Grass;
 }
 
+bool AGDALImporter::IsOverpass()
+{
+	return IsOverpassPreset() ||
+		Source == EVectorSource::OverpassQuery ||
+		Source == EVectorSource::OverpassShortQuery;
+}
+
 GDALDataset* AGDALImporter::LoadGDALDatasetFromShortQuery(FString ShortQuery, bool bIsUserInitiated)
 {
 	UE_LOG(LogSplineImporter, Log, TEXT("Loading Dataset with Short Overpass Query: '%s'"), *ShortQuery);
@@ -103,7 +110,7 @@ GDALDataset* AGDALImporter::LoadGDALDatasetFromShortQuery(FString ShortQuery, bo
 		const double West = Coordinates[0];
 		const double North = Coordinates[3];
 		const double East = Coordinates[1];
-		return GDALInterface::LoadGDALVectorDatasetFromQuery(Overpass::QueryFromShortQuery(South, West, North, East, ShortQuery), bIsUserInitiated);
+		return GDALInterface::LoadGDALVectorDatasetFromQuery(Overpass::QueryFromShortQuery(OverpassServer, South, West, North, East, ShortQuery), bIsUserInitiated);
 	}
 	else if (BoundingMethod == EBoundingMethod::TileNumbers)
 	{
@@ -115,7 +122,7 @@ GDALDataset* AGDALImporter::LoadGDALDatasetFromShortQuery(FString ShortQuery, bo
 		const double North = FMath::RadiansToDegrees(NorthRad);
 		const double South = FMath::RadiansToDegrees(SouthRad);
 
-		return GDALInterface::LoadGDALVectorDatasetFromQuery(Overpass::QueryFromShortQuery(South, West, North, East, ShortQuery), bIsUserInitiated);
+		return GDALInterface::LoadGDALVectorDatasetFromQuery(Overpass::QueryFromShortQuery(OverpassServer, South, West, North, East, ShortQuery), bIsUserInitiated);
 	}
 	else
 	{
@@ -130,7 +137,7 @@ GDALDataset* AGDALImporter::LoadGDALDataset(bool bIsUserInitiated)
 	else if (Source == EVectorSource::OverpassQuery)
 	{
 		return GDALInterface::LoadGDALVectorDatasetFromQuery(
-			FString("https://overpass-api.de/api/interpreter?data=") + OverpassQuery,
+			OverpassServer + "?data=" + OverpassQuery,
 			bIsUserInitiated
 		);
 	}
