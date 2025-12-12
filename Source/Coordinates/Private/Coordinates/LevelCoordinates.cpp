@@ -28,10 +28,14 @@ TObjectPtr<UGlobalCoordinates> ALevelCoordinates::GetGlobalCoordinates(UWorld* W
 {
 	TArray<AActor*> LevelCoordinatesCandidates0;
 
-	Concurrency::RunOnGameThreadAndWait([World, &LevelCoordinatesCandidates0]() {
+	if (!Concurrency::RunOnGameThreadAndWait([World, &LevelCoordinatesCandidates0]() {
+		if (!IsValid(World)) return false;
 		UGameplayStatics::GetAllActorsOfClass(World, ALevelCoordinates::StaticClass(), LevelCoordinatesCandidates0);
 		return true;
-	});
+	}))
+	{
+		return nullptr;
+	}
 
 	TArray<AActor*> LevelCoordinatesCandidates = LevelCoordinatesCandidates0.FilterByPredicate([](AActor* Actor) { return IsValid(Actor) &&!Actor->IsHidden(); });
 
