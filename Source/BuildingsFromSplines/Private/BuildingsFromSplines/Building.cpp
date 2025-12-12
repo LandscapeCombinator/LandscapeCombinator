@@ -1559,6 +1559,18 @@ bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)
 
 	SetReceivesDecals();
 
+	if (BCfg->bEnableComplexCollision)
+	{
+		DynamicMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		DynamicMeshComponent->SetCollisionProfileName("BlockAll");
+		DynamicMeshComponent->bEnableComplexCollision = true;
+		DynamicMeshComponent->SetComplexAsSimpleCollisionEnabled(true);
+	}
+	else
+	{
+		DynamicMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+
 	return true;
 }
 
@@ -1831,8 +1843,10 @@ void ABuilding::AppendBuildingStructure(UDynamicMesh* TargetMesh)
 		AppendBuildingWithoutInside(TargetMesh);
 	}
 
-	for (int i = 0; i < BCfg->MaterialsArray.Num(); i++)
-		DynamicMeshComponent->SetMaterial(i, BCfg->MaterialsArray[i]);
+	Concurrency::RunOnGameThread([this]() {
+		for (int i = 0; i < BCfg->MaterialsArray.Num(); i++)
+			DynamicMeshComponent->SetMaterial(i, BCfg->MaterialsArray[i]);
+	});
 }
 
 bool ABuilding::AppendBuilding(UDynamicMesh* TargetMesh, FName SpawnedActorsPathOverride)
@@ -1903,7 +1917,7 @@ bool ABuilding::AppendBuilding(UDynamicMesh* TargetMesh, FName SpawnedActorsPath
 		BaseClockwiseSplineComponent->ClearSplinePoints();
 
 	#if WITH_EDITOR
-		GEditor->NoteSelectionChange();
+		if (GEditor) GEditor->NoteSelectionChange();
 	#endif
 
 		return true;

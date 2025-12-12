@@ -458,7 +458,13 @@ public:
 	)
 	bool bAutoGenerateXAtlasMeshUVs = false;
 
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
+		meta = (DisplayPriority = "1004")
+	)
+	bool bEnableComplexCollision = false;
 
+	
 	/** Materials */
 
 	UPROPERTY(

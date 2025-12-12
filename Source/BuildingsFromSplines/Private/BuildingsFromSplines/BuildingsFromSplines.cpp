@@ -38,10 +38,7 @@ ABuildingsFromSplines::ABuildingsFromSplines()
 
 bool ABuildingsFromSplines::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated)
 {
-	return Concurrency::RunOnGameThreadAndWait([this, SpawnedActorsPathOverride, bIsUserInitiated]()
-	{
-		return GenerateBuildings(SpawnedActorsPathOverride, bIsUserInitiated);
-	});
+	return GenerateBuildings(SpawnedActorsPathOverride, bIsUserInitiated);
 }
 
 bool ABuildingsFromSplines::Cleanup_Implementation(bool bSkipPrompt)
@@ -64,15 +61,6 @@ bool ABuildingsFromSplines::GenerateBuildings(FName SpawnedActorsPathOverride, b
 {
 	Modify();
 
-	if (!IsInGameThread())
-	{
-		LCReporter::ShowError(
-			LOCTEXT("NotInGameThread", "BuildingsFromSplines: GenerateBuildings must be called on the game thread.")
-		);
-
-		return false;
-	}
-
 	if (BuildingConfigurations.IsEmpty())
 	{
 		LCReporter::ShowError(
@@ -86,11 +74,21 @@ bool ABuildingsFromSplines::GenerateBuildings(FName SpawnedActorsPathOverride, b
 		if (!Execute_Cleanup(this, !bIsUserInitiated)) return false;
 	}
 
-	TArray<USplineComponent*> SplineComponents = ULCBlueprintLibrary::FindSplineComponents(GetWorld(), bIsUserInitiated, SplinesTag, SplineComponentsTag);
+	TSet<TObjectPtr<USplineComponent>> SplineComponents;
+	
+	if (!Concurrency::RunOnGameThreadAndWait([&]() {
+		if (!IsValid(GetWorld())) return false;
+		SplineComponents = ULCBlueprintLibrary::FindSplineComponents(GetWorld(), bIsUserInitiated, SplinesTag, SplineComponentsTag);
+		return true;
+	}))
+		return false; // fail silently because the world has ended
+
+	if (!IsValid(GetWorld())) return false; // fail silently because the world has ended
+	
 	const int NumComponents = SplineComponents.Num();
 	UE_LOG(LogBuildingsFromSplines, Log, TEXT("Found %d spline components to create buildings"), NumComponents);
 
-	for (USplineComponent* SplineComponent : SplineComponents)
+	for (TObjectPtr<USplineComponent> SplineComponent : SplineComponents)
 	{
 		if (bSkipExistingBuildings && ProcessedSplines.Contains(SplineComponent)) continue;
 
@@ -102,7 +100,9 @@ bool ABuildingsFromSplines::GenerateBuildings(FName SpawnedActorsPathOverride, b
 
 
 #if WITH_EDITOR
-	if (GEditor) GEditor->NoteSelectionChange(); // to avoid folders being in rename mode
+	Concurrency::RunOnGameThread([]() {
+		if (GEditor) GEditor->NoteSelectionChange(); // to avoid folders being in rename mode
+	});
 #endif
 
 	return true;
@@ -148,8 +148,9 @@ bool ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent, 
 
 	ABuilding* Building = nullptr;
 	
-	bool bSuccess = Concurrency::RunOnGameThreadAndWait([this, &Building, &Location, &RotatorForLargestSegment, &SpawnedActorsPathOverride, NumPoints, SplineComponent]() -> bool
+	return Concurrency::RunOnGameThreadAndWait([this, &Building, &Location, &RotatorForLargestSegment, &SpawnedActorsPathOverride, NumPoints, SplineComponent]() -> bool
 	{
+		if (!IsValid(this) || !IsValid(GetWorld())) return false; // fail silently, the game has probably ended
 		Building = GetWorld()->SpawnActor<ABuilding>(Location, RotatorForLargestSegment);
 		if (!IsValid(Building))
 		{
@@ -186,11 +187,8 @@ bool ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent, 
 #if WITH_EDITOR
 		Building->SetIsSpatiallyLoaded(bBuildingsSpatiallyLoaded);
 #endif
-		return true;
+		return Building->GenerateBuilding_Internal(SpawnedActorsPathOverride);
 	});
-
-	if (bSuccess) return Building->GenerateBuilding_Internal(SpawnedActorsPathOverride);
-	else return false;
 }
 
 #if WITH_EDITOR

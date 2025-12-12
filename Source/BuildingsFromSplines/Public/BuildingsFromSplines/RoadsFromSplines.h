@@ -4,6 +4,7 @@
 
 #include "BuildingsFromSplines/LogBuildingsFromSplines.h"
 #include "LCCommon/LCGenerator.h"
+#include "LCCommon/ActorSelection.h"
 #include "ConcurrencyHelpers/LCReporter.h"
 
 #include "Components/SplineComponent.h" 
@@ -77,6 +78,22 @@ public:
 	)
 	FName SplineComponentsTag;
 
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines",
+		meta = (DisplayPriority = "-2")
+	)
+	int DebugToDelete = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines",
+		meta = (DisplayPriority = "0")
+	)
+	bool bAdaptSplineMeshRollToLandscape = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines",
+		meta = (EditCondition="bAdaptSplineMeshRollToLandscape", EditConditionHides, DisplayPriority = "1")
+	)
+	FActorSelection LandscapeSelection;
+
 	UFUNCTION(BlueprintCallable, Category = "RoadsFromSplines",
 		meta = (DisplayPriority = "100")
 	)
@@ -108,18 +125,15 @@ public:
 	virtual AActor* Duplicate(FName FromName, FName ToName) override;
 #endif
 
-	// UFUNCTION(BlueprintImplementableEvent, Category = "RoadsFromSplines", meta = (DisplayPriority = "102"))
-	// UMaterialInterface* GetMaterialOverride(USplineComponent *SplineComponent);
-
 	UFUNCTION(CallInEditor, BlueprintImplementableEvent, Category = "RoadsFromSplines", meta = (DisplayPriority = "102"))
 	void OnSplineMeshCreated(USplineComponent *FromSplineComponent, USplineMeshComponent *SplineMeshCreated);
-
-	// UFUNCTION(BlueprintImplementableEvent, Category = "RoadsFromSplines", meta = (DisplayPriority = "102"))
-	// int GetResult();
 
 protected:
 	UPROPERTY(DuplicateTransient)
 	TArray<TObjectPtr<USplineMeshComponent>> SplineMeshComponents;
+
+	UPROPERTY(DuplicateTransient)
+	TSet<TObjectPtr<USplineComponent>> AlreadyHandledSplines;
 };
 
 #undef LOCTEXT_NAMESPACE

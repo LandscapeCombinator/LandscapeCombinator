@@ -23,48 +23,6 @@
 
 UBuildingConfiguration::UBuildingConfiguration()
 {
-	// Materials.Add(Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, *FString("/Script/Engine.MaterialInstanceConstant'/LandscapeCombinator/Materials/MI_Flat_White.MI_Flat_White'"))));
-	// Materials.Add(Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, *FString("/Script/Engine.MaterialInstanceConstant'/LandscapeCombinator/Materials/MI_Flat_Wall.MI_Flat_Wall'"))));
-	// Materials.Add(Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), nullptr, *FString("/Script/Engine.MaterialInstanceConstant'/LandscapeCombinator/Materials/MI_Flat_Floor.MI_Flat_Floor'"))));
-
-	// FLevelDescription LevelDescription;
-	// LevelDescription.LevelHeight = 300.0;
-	// LevelDescription.FloorThickness = 20.0;
-	// LevelDescription.FloorMaterialIndex = 0;
-	// LevelDescription.UnderFloorMaterialIndex = 0;
-	// LevelDescription.bResetWallSegmentsOnCorners = true;
-
-	// FWallSegment WallSegment;
-	// WallSegment.WallSegmentKind = EWallSegmentKind::Wall;
-	// WallSegment.bAutoExpand = true;
-	// WallSegment.SegmentLength = 500.0;
-
-	// FWallSegment HoleSegment;
-	// HoleSegment.WallSegmentKind = EWallSegmentKind::Hole;
-	// FAttachment Attachment;
-
-	// FWeightedObject Window;
-	// Window.Object = Cast<UStaticMesh>(StaticLoadObject(UStaticMesh::StaticClass(), nullptr, *FString("/Script/Engine.StaticMesh'/LandscapeCombinator/Meshes/SM_Window.SM_Window'")));
-	// Attachment.MeshSelection.Add(Window);
-	// Attachment.Offset = FVector(0.0, 0.0, 100.0);
-	// Attachment.OverrideWidth = 100.0;
-	// Attachment.OverrideHeight = 100.0;
-	// HoleSegment.Attachments.Add(Attachment);
-
-	// LevelDescription.WallSegments.Add(WallSegment);
-	// LevelDescription.WallSegments.Add(HoleSegment);
-	// LevelDescription.WallSegments.Add(WallSegment);
-
-	// FLoop SegmentsLoop;
-	// SegmentsLoop.StartIndex = 0;
-	// SegmentsLoop.EndIndex = 1;
-	// LevelDescription.WallSegmentLoops.Add(SegmentsLoop);
-	// Levels.Add(LevelDescription);
-
-	// FLoop LevelLoop;
-	// LevelLoop.StartIndex = 0;
-	// LevelLoop.EndIndex = 0;
-	// LevelLoops.Add(LevelLoop);
 }
 
 int UBuildingConfiguration::ResolveMaterial(FString ExprStr)
