@@ -119,7 +119,7 @@ public:
 		if (ImageDownloader) ImageDownloader->SetLargestPossibleCoordinates();
 	}
 
-	/* Click this to set the WMS coordinates from a Location Volume or any other actor*/
+	/* Click this to set the WMS coordinates from a Cube or any other actor */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeTexturer",
 		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "15")
 	)

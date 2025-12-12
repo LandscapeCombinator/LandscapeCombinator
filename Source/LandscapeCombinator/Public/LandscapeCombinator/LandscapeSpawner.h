@@ -350,7 +350,7 @@ public:
 		if (HeightmapDownloader) HeightmapDownloader->SetLargestPossibleCoordinates();
 	}
 
-	/* Click this to set the WMS coordinates from a Location Volume or any other actor*/
+	/* Click this to set the WMS coordinates from a Cube or any other actor */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeSpawner",
 		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "6")
 	)

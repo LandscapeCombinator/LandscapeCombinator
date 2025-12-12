@@ -46,7 +46,7 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 		});
 #endif
 		
-		if (!Generator->Implements<ULCGenerator>())
+		if (!Generator.IsValid() || !Generator->Implements<ULCGenerator>())
 		{
 			LCReporter::ShowError(
 				FText::Format(
@@ -68,15 +68,13 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 
 #if WITH_EDITOR
 		Concurrency::RunOnGameThreadAndWait([this](){
-			if (GEditor)
+			if (GEditor && IsValid(this))
 			{
 				if (USelection *Selection = GEditor->GetSelectedActors())
 				{
 					Selection->DeselectAll();
 					Selection->Select(this);
 				}
-				
-				GEditor->SelectActor(this, true, true);
 			}
 			return true;
 		});
@@ -116,15 +114,17 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 	}
 	Times.Sort([](const TPair<AActor*, double> &A, const TPair<AActor*, double> &B) { return A.Value < B.Value; });
 
-	for (auto &[Actor, Time] : Times)
-	{
-		if (IsValid(Actor))
+	return Concurrency::RunOnGameThreadAndWait([&] {
+		for (auto &[Actor, Time] : Times)
 		{
-			const FString GeneratorName = Actor->GetActorNameOrLabel();
-			UE_LOG(LogLandscapeCombinator, Log, TEXT("Total generation time for %s: %f seconds"), *GeneratorName, Time);
+			if (IsValid(Actor))
+			{
+				const FString GeneratorName = Actor->GetActorNameOrLabel();
+				UE_LOG(LogLandscapeCombinator, Log, TEXT("Total generation time for %s: %f seconds"), *GeneratorName, Time);
+			}
 		}
-	}
-	return true;
+		return true;
+	});
 }
 
 bool ALandscapeCombination::Cleanup_Implementation(bool bSkipPrompt)

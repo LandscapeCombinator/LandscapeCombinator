@@ -815,7 +815,7 @@ public:
 	)
 	void SetLargestPossibleCoordinates();
 
-	/* Click this to set the WMS coordinates from a Cube or any other actor*/
+	/* Click this to set the WMS coordinates from a Cube or any other actor */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "ImageDownloader",
 		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "5")
 	)
