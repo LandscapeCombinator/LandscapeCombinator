@@ -15,6 +15,11 @@
 #include "Misc/EngineVersionComparison.h"
 #include "Misc/MessageDialog.h"
 #include "HAL/ThreadManager.h"
+#include "Widgets/SWindow.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Framework/Application/SlateApplication.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 

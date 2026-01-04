@@ -14,6 +14,7 @@
 #include "Misc/ScopedSlowTask.h"
 #include "Misc/EngineVersionComparison.h"
 #include "Engine/World.h"
+#include "Framework/Docking/TabManager.h"
 
 #if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 6)
 #include "LandscapeEditLayer.h"
