@@ -5,6 +5,7 @@
 #include "DetailWidgetRow.h"
 #include "Widgets/Images/SThrobber.h"
 #include "PropertyHandle.h"
+#include "Widgets/Layout/SBox.h"
 #include "IPropertyTypeCustomization.h"
 
 TSharedRef<IPropertyTypeCustomization> FGeneratorWrapperCustomization::MakeInstance()

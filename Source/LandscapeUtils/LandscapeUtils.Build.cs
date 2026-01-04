@@ -15,7 +15,8 @@ public class LandscapeUtils : ModuleRules
 			new string[]
 			{
 				"Core",
-				"Coordinates"
+				"Coordinates",
+				"LCCommon"
 			}
 		);
 
@@ -33,8 +34,7 @@ public class LandscapeUtils : ModuleRules
 
 				// Landscape Combinator Dependencies
 				"ConcurrencyHelpers",
-				"GDALInterface",
-				"LCCommon"
+				"GDALInterface"
 			}
 		);
 
