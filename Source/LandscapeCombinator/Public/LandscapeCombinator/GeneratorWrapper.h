@@ -3,7 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
+
+#if WITH_EDITOR
 #include "DetailWidgetRow.h"
+#endif
+
 #include "GeneratorWrapper.generated.h"
 
 UENUM(BlueprintType)
