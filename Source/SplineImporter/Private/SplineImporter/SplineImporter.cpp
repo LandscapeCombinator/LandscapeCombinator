@@ -30,7 +30,10 @@
 #include "Polygon2.h"
 #include "Algo/Reverse.h"
 #include "Styling/AppStyle.h"
+
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
 #include "Subsystems/PCGSubsystem.h"
+#endif
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
@@ -215,9 +218,11 @@ bool ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 		return Concurrency::RunOnGameThreadAndWait([&]() {
 			if (GenerateLandscapeSplines(bIsUserInitiated, Landscape, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists))
 			{
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
 				if (bFlushPCGCacheAfterImport)
 					if (UPCGSubsystem* PCGSubsystem = UPCGSubsystem::GetSubsystemForCurrentWorld())
 						PCGSubsystem->FlushCache();
+#endif
 				return true;
 			}
 			else
@@ -231,9 +236,11 @@ bool ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 		return Concurrency::RunOnGameThreadAndWait([&]() {
 			if (GenerateRegularSplines(bIsUserInitiated, SpawnedActorsPathOverride, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists))
 			{
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
 				if (bFlushPCGCacheAfterImport)
 					if (UPCGSubsystem* PCGSubsystem = UPCGSubsystem::GetSubsystemForCurrentWorld())
 						PCGSubsystem->FlushCache();
+#endif
 				return true;
 			}
 			else
@@ -252,9 +259,11 @@ bool ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 	return Concurrency::RunOnGameThreadAndWait([&]() {
 		if (GenerateRegularSplines(bIsUserInitiated, SpawnedActorsPathOverride, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists))
 		{
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
 			if (bFlushPCGCacheAfterImport)
 				if (UPCGSubsystem* PCGSubsystem = UPCGSubsystem::GetSubsystemForCurrentWorld())
 					PCGSubsystem->FlushCache();
+#endif
 			return true;
 		}
 		else
