@@ -3,7 +3,10 @@
 #include "SplineImporter/OGRGeometry.h"
 #include "LCCommon/LCBlueprintLibrary.h"
 #include "ConcurrencyHelpers/LCReporter.h"
+
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
 #include "Subsystems/PCGSubsystem.h"
+#endif
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(OGRGeometry)
 
@@ -100,9 +103,11 @@ bool AOGRGeometry::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIniti
 			{
 				Geometry = NewUnion;
 				NumGeometries++;
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
 				Concurrency::RunOnGameThread([](){
 					if (UPCGSubsystem* PCGSubsystem = UPCGSubsystem::GetSubsystemForCurrentWorld()) PCGSubsystem->FlushCache();
 				});
+#endif
 			}
 			else
 			{
