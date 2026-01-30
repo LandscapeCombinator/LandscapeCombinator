@@ -444,7 +444,7 @@ bool FWMSProvider::CreateURL(
 	if (XIsLong)
 	{
 		URL = FString::Format(
-			TEXT("{0}LAYERS={1}&FORMAT={2}&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&CRS={3}&STYLES=&BBOX={4},{5},{6},{7}&WIDTH={8}&HEIGHT={9}"),
+			TEXT("{0}LAYERS={1}&FORMAT={2}&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&CRS={3}&srs={3}&STYLES=&BBOX={4},{5},{6},{7}&WIDTH={8}&HEIGHT={9}"),
 			{
 				GetMapURL, Name, ImageFormat, CRS,
 				MinLong, MinLat, MaxLong, MaxLat,
@@ -455,7 +455,7 @@ bool FWMSProvider::CreateURL(
 	else
 	{
 		URL = FString::Format(
-			TEXT("{0}LAYERS={1}&FORMAT={2}&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&CRS={3}&STYLES=&BBOX={4},{5},{6},{7}&WIDTH={8}&HEIGHT={9}"),
+			TEXT("{0}LAYERS={1}&FORMAT={2}&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&CRS={3}&srs={3}&STYLES=&BBOX={4},{5},{6},{7}&WIDTH={8}&HEIGHT={9}"),
 			{
 				GetMapURL, Name, ImageFormat, CRS,
 				MinLat, MinLong, MaxLat, MaxLong,
