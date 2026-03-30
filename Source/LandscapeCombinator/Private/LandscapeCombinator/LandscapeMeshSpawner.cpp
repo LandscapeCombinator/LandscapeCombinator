@@ -85,7 +85,17 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 		return false;
 	}
 
-	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false);
+	UWorld *World = GetWorld();
+	if (!IsValid(World))
+	{
+		LCReporter::ShowError(
+			LOCTEXT("ALandscapeMeshSpawner::OnGenerate", "Invalid World in LandscapeMeshSpawner")
+		);
+
+		return false;
+	}
+
+	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World, false);
 	if (IsValid(GlobalCoordinates))
 	{
 		if (bIsUserInitiated && !LCReporter::ShowMessage(
@@ -103,7 +113,7 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 		}
 	}
 
-	FString Name = GetWorld()->GetName() + "-" + LandscapeMeshLabel;
+	FString Name = World->GetName() + "-" + LandscapeMeshLabel;
 	HMFetcher* Fetcher = HeightmapDownloader->CreateFetcher(bIsUserInitiated, Name, true, false, false, false, false, nullptr, GlobalCoordinates);
 
 	if (!Fetcher)
@@ -138,6 +148,7 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 		if (ULCBlueprintLibrary::GetCmPerPixelForCRS(FilesCRS, CmPerPixel))
 		{
 			bool bThreadSuccess = Concurrency::RunOnGameThreadAndWait([&]() {
+				if (!IsValid(this)) return false;
 				UWorld *World = GetWorld();
 				if (!IsValid(World)) return false;
 				ALevelCoordinates *LevelCoordinates = World->SpawnActor<ALevelCoordinates>();
@@ -206,7 +217,7 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 
 		if (bReuseExistingMesh)
 		{
-			if (!IsValid(ReusedLandscapeMesh)) ReusedLandscapeMesh = Cast<ALandscapeMesh>(ExistingLandscapeMesh.GetActor(GetWorld()));
+			if (!IsValid(ReusedLandscapeMesh)) ReusedLandscapeMesh = Cast<ALandscapeMesh>(ExistingLandscapeMesh.GetActor(World));
 
 			if (!IsValid(ReusedLandscapeMesh))
 			{
@@ -225,7 +236,10 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 			ALandscapeMesh *LandscapeMesh = nullptr;
 			bool bThreadSuccess = Concurrency::RunOnGameThreadAndWait([this, &LandscapeMesh, ThisFileCoordinates, GlobalCoordinates, OutputFile, SpawnedActorsPathOverride]()
 			{
-				LandscapeMesh = GetWorld()->SpawnActor<ALandscapeMesh>();
+				if (!this) return false;
+				UWorld *World = GetWorld();
+				if (!IsValid(World)) return false;
+				LandscapeMesh = World->SpawnActor<ALandscapeMesh>();
 				if (!IsValid(LandscapeMesh)) return false;
 
 				SpawnedLandscapeMeshes.Add(LandscapeMesh);

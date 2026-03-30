@@ -29,7 +29,7 @@ bool UDecalCoordinates::PlaceDecal()
 bool UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 {
 	ADecalActor *DecalActor = Cast<ADecalActor>(GetOwner());
-	if (!DecalActor)
+	if (!IsValid(DecalActor))
 	{
 		LCReporter::ShowError(
 			LOCTEXT("UDecalCoordinates::PlaceDecal", "UDecalCoordinates must be placed on a Decal Actor.")
@@ -46,10 +46,10 @@ bool UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 		return false;
 	}
 	
-	UWorld* World = this->GetWorld();
+	UWorld* World = GetWorld();
 
 	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World, true);
-	if (!GlobalCoordinates) return false;
+	if (!IsValid(GlobalCoordinates)) return false;
 
 	FString ReprojectedImage = FPaths::GetPath(PathToGeoreferencedImage) / (FPaths::GetBaseFilename(PathToGeoreferencedImage) + "-reprojected.tif");
 	
@@ -90,6 +90,8 @@ bool UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 	
 	Concurrency::RunOnGameThreadAndWait([this, &M_GeoDecal, &MI_GeoDecal, DecalActor, Bottom, Top, Right, Left, X, Y, Z]()
 	{
+		if (!IsValid(DecalActor)) return false;
+
 		DecalActor->GetDecal()->DecalSize = FVector(10000000, (Bottom - Top) / 2, (Right - Left) / 2);
 		DecalActor->SetActorRotation(FRotator(-90, 0, 0));
 		DecalActor->SetActorLocation(FVector(X, Y, Z));
