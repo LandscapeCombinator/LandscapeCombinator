@@ -20,14 +20,20 @@
 
 #define LOCTEXT_NAMESPACE "FCoordinatesModule"
 
-bool UDecalCoordinates::PlaceDecal()
+bool UDecalCoordinates::PlaceDecal(UMaterial *Material)
 {
 	FVector4d Unused;
-	return PlaceDecal(Unused);
+	return PlaceDecal(Material, Unused);
 }
 
-bool UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
+bool UDecalCoordinates::PlaceDecal(UMaterial *Material, FVector4d &OutCoordinates)
 {
+	if (!IsValid(Material))
+	{
+		LCReporter::ShowError(LOCTEXT("UDecalCoordinates::PlaceDecal", "Invalid Material."));
+		return false;
+	}
+
 	ADecalActor *DecalActor = Cast<ADecalActor>(GetOwner());
 	if (!IsValid(DecalActor))
 	{
@@ -85,32 +91,21 @@ bool UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 	double Y = (Top + Bottom) / 2;
 	double Z = DecalActor->GetActorLocation().Z;
 
-	UMaterial *M_GeoDecal = nullptr;
 	UMaterialInstanceDynamic *MI_GeoDecal = nullptr;
 	
-	Concurrency::RunOnGameThreadAndWait([this, &M_GeoDecal, &MI_GeoDecal, DecalActor, Bottom, Top, Right, Left, X, Y, Z]()
+	Concurrency::RunOnGameThreadAndWait([this, Material, &MI_GeoDecal, DecalActor, Bottom, Top, Right, Left, X, Y, Z]()
 	{
 		if (!IsValid(DecalActor)) return false;
 
 		DecalActor->GetDecal()->DecalSize = FVector(10000000, (Bottom - Top) / 2, (Right - Left) / 2);
 		DecalActor->SetActorRotation(FRotator(-90, 0, 0));
 		DecalActor->SetActorLocation(FVector(X, Y, Z));
-		M_GeoDecal = 
-			Cast<UMaterial>(
-				StaticLoadObject(
-					UMaterial::StaticClass(),
-					nullptr,
-					*FString("/Script/Engine.Material'/LandscapeCombinator/Materials/M_GeoDecal.M_GeoDecal'")
-				)
-			);
-
-		if (!IsValid(M_GeoDecal)) return false;
 		
-		MI_GeoDecal = UMaterialInstanceDynamic::Create(M_GeoDecal, this);
+		MI_GeoDecal = UMaterialInstanceDynamic::Create(Material, this);
 		return true;
 	});
 
-	if (!IsValid(M_GeoDecal) || !IsValid(MI_GeoDecal))
+	if (!IsValid(MI_GeoDecal))
 	{
 		LCReporter::ShowError(
 			LOCTEXT("UDecalCoordinates::PlaceDecal::M_GeoDecal", "Coordinates Internal Error: Could not find material M_GeoDecal.")
@@ -148,13 +143,13 @@ bool UDecalCoordinates::PlaceDecal(FVector4d &OutCoordinates)
 	return true;
 }
 
-TArray<ADecalActor*> UDecalCoordinates::CreateDecals(UWorld *World, TArray<FString> Paths)
+TArray<ADecalActor*> UDecalCoordinates::CreateDecals(UWorld *World, UMaterial *Material, TArray<FString> Paths)
 {
 	TArray<ADecalActor*> DecalActors;
 	bool bFailed = false;
 	for (auto &Path : Paths)
 	{
-		TObjectPtr<ADecalActor> DecalActor = UDecalCoordinates::CreateDecal(World, Path);
+		TObjectPtr<ADecalActor> DecalActor = UDecalCoordinates::CreateDecal(World, Material, Path);
 		if (IsValid(DecalActor))
 		{
 			DecalActors.Add(DecalActor);
@@ -171,13 +166,13 @@ TArray<ADecalActor*> UDecalCoordinates::CreateDecals(UWorld *World, TArray<FStri
 	return DecalActors;
 }
 
-ADecalActor* UDecalCoordinates::CreateDecal(UWorld* World, FString Path)
+ADecalActor* UDecalCoordinates::CreateDecal(UWorld* World, UMaterial *Material, FString Path)
 {
 	FVector4d UnusedCoordinates;
-	return CreateDecal(World, Path, UnusedCoordinates);
+	return CreateDecal(World, Material, Path, UnusedCoordinates);
 }
 
-ADecalActor* UDecalCoordinates::CreateDecal(UWorld *World, FString Path, FVector4d &OutCoordinates)
+ADecalActor* UDecalCoordinates::CreateDecal(UWorld *World, UMaterial *Material, FString Path, FVector4d &OutCoordinates)
 {
 	if (!IsValid(World)) return nullptr;
 
@@ -210,7 +205,7 @@ ADecalActor* UDecalCoordinates::CreateDecal(UWorld *World, FString Path, FVector
 		return nullptr;
 	}
 
-	if (DecalCoordinates->PlaceDecal(OutCoordinates))
+	if (DecalCoordinates->PlaceDecal(Material, OutCoordinates))
 	{
 		return DecalActor;
 	}

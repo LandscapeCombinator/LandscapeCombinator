@@ -217,7 +217,10 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 
 		if (bReuseExistingMesh)
 		{
-			if (!IsValid(ReusedLandscapeMesh)) ReusedLandscapeMesh = Cast<ALandscapeMesh>(ExistingLandscapeMesh.GetActor(World));
+			Concurrency::RunOnGameThreadAndWait([&ReusedLandscapeMesh, World, this]() {
+				if (!IsValid(ReusedLandscapeMesh)) ReusedLandscapeMesh = Cast<ALandscapeMesh>(ExistingLandscapeMesh.GetActor(World));
+				return true;
+			});
 
 			if (!IsValid(ReusedLandscapeMesh))
 			{

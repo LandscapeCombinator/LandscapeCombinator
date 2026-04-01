@@ -190,6 +190,20 @@ public:
 	)
 	EDecalCreation DecalCreation = EDecalCreation::None;
 
+	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Decals",
+		meta = (EditCondition = "DecalCreation != EDecalCreation::None", EditConditionHides, DisplayPriority = "-9")
+	)
+	TObjectPtr<UMaterial> DecalMaterial =
+		Cast<UMaterial>(
+			StaticLoadObject(
+				UMaterial::StaticClass(),
+				nullptr,
+				*FString("/Script/Engine.Material'/LandscapeCombinator/Materials/M_GeoDecal.M_GeoDecal'")
+			)
+		);
+
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Decals",
 		meta = (EditCondition = "DecalCreation != EDecalCreation::None", EditConditionHides, DisplayPriority = "-5")

@@ -39,10 +39,23 @@ public:
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer",
-		meta = (DisplayPriority = "0")
+		meta = (DisplayPriority = "-1")
 	)
 	/* Folder used to spawn the actors. This setting is unused when generating from a combination or from blueprints. */
 	FName SpawnedActorsPath;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer",
+		meta = (DisplayPriority = "0")
+	)
+	TObjectPtr<UMaterial> DecalMaterial =
+		Cast<UMaterial>(
+			StaticLoadObject(
+				UMaterial::StaticClass(),
+				nullptr,
+				*FString("/Script/Engine.Material'/LandscapeCombinator/Materials/M_GeoDecal.M_GeoDecal'")
+			)
+		);
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer",

@@ -545,7 +545,7 @@ bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 			TArray<FString> DownloadedImages;
 			FString ImagesCRS;
 			if (!DecalDownloader->DownloadImages(bIsUserInitiated, false, GlobalCoordinates, DownloadedImages, ImagesCRS)) return false;
-			TArray<ADecalActor*> NewDecals = UDecalCoordinates::CreateDecals(this->GetWorld(), DownloadedImages);
+			TArray<ADecalActor*> NewDecals = UDecalCoordinates::CreateDecals(GetWorld(), DecalMaterial, DownloadedImages);
 			DecalActors.Append(NewDecals);
 
 #if WITH_EDITOR

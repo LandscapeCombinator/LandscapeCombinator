@@ -25,16 +25,16 @@ public:
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "DecalCoordinates",
 		meta = (DisplayPriority = "5")
 	)
-	bool PlaceDecal();
+	bool PlaceDecal(UMaterial *Material);
 
-	bool PlaceDecal(FVector4d &OutCoordinates);
+	bool PlaceDecal(UMaterial *Material, FVector4d &OutCoordinates);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DecalCoordinates|Internal")
 	TObjectPtr<UTexture2D> Texture;
 
-	static ADecalActor* CreateDecal(UWorld *World, FString Path);
-	static TArray<ADecalActor*> CreateDecals(UWorld *World, TArray<FString> Paths);
-	static ADecalActor* CreateDecal(UWorld *World, FString Path, FVector4d &OutCoordinates);
+	static ADecalActor* CreateDecal(UWorld *World, UMaterial *Material, FString Path);
+	static TArray<ADecalActor*> CreateDecals(UWorld *World, UMaterial *Material, TArray<FString> Paths);
+	static ADecalActor* CreateDecal(UWorld *World, UMaterial *Material, FString Path, FVector4d &OutCoordinates);
 };
 
 #undef LOCTEXT_NAMESPACE

@@ -13,6 +13,8 @@
 
 AActor* FActorSelection::GetActor(const UWorld* World, bool bShowDialog) const
 {
+	check(IsInGameThread())
+
 	if (!IsValid(World)) return nullptr;
 
 	switch (ActorSelectionMode)

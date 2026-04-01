@@ -192,7 +192,18 @@ void ALevelCoordinates::CreateWorldMap()
 void ALevelCoordinates::CreateWorldMapFromFile(FString Path)
 {
 	FVector4d Coordinates;
-	UDecalCoordinates::CreateDecal(this->GetWorld(), Path, Coordinates);
+	UDecalCoordinates::CreateDecal(
+		GetWorld(),
+		Cast<UMaterial>(
+			StaticLoadObject(
+				UMaterial::StaticClass(),
+				nullptr,
+				*FString("/Script/Engine.Material'/LandscapeCombinator/Materials/M_GeoDecal.M_GeoDecal'")
+			)
+		),
+		Path,
+		Coordinates
+	);
 	
 	AStaticMeshActor* PlaneActor = GetWorld()->SpawnActor<AStaticMeshActor>();
 #if WITH_EDITOR
