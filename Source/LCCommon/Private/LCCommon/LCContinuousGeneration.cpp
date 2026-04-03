@@ -50,9 +50,11 @@ void ULCContinuousGeneration::StartContinuousGeneration()
 
 void ULCContinuousGeneration::StopContinuousGeneration()
 {
-	Concurrency::RunOnGameThread([this]() {
-		if (IsValid(GetWorld()))
+	Concurrency::RunOnGameThreadAndWait([this]() {
+		if (this && IsValid(GetWorld()))
 			GetWorld()->GetTimerManager().ClearTimer(ContinuousGenerationTimer);
+		
+		return true;
 	});
 }
 
