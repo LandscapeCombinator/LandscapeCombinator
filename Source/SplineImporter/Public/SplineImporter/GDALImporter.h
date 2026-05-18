@@ -102,37 +102,39 @@ public:
 	)
 	FString OverpassShortQueryPreset;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter", meta = (DisplayPriority = "10"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+		meta = (EditCondition = "NeedsBoundingMethod()", EditConditionHides, DisplayPriority = "10")
+	)
 	EBoundingMethod BoundingMethod = EBoundingMethod::BoundingActor;
 
 	/* Use a volume, a landscape, or another rectangular actor to specify the area on which you want to import vector data. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
-		meta = (EditCondition = "BoundingMethod == EBoundingMethod::BoundingActor", EditConditionHides, DisplayPriority = "11")
+		meta = (EditCondition = "NeedsBoundingMethod() && BoundingMethod == EBoundingMethod::BoundingActor", EditConditionHides, DisplayPriority = "11")
 	)
 	FActorSelection BoundingActorSelection;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
-		meta = (EditCondition = "BoundingMethod == EBoundingMethod::TileNumbers", EditConditionHides, DisplayPriority = "11")
+		meta = (EditCondition = "NeedsBoundingMethod() && BoundingMethod == EBoundingMethod::TileNumbers", EditConditionHides, DisplayPriority = "11")
 	)
 	int BoundingZoneZoom = 14;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
-		meta = (EditCondition = "BoundingMethod == EBoundingMethod::TileNumbers", EditConditionHides, DisplayPriority = "12")
+		meta = (EditCondition = "NeedsBoundingMethod() && BoundingMethod == EBoundingMethod::TileNumbers", EditConditionHides, DisplayPriority = "12")
 	)
 	int BoundingZoneMinX = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
-		meta = (EditCondition = "BoundingMethod == EBoundingMethod::TileNumbers", EditConditionHides, DisplayPriority = "13")
+		meta = (EditCondition = "NeedsBoundingMethod() && BoundingMethod == EBoundingMethod::TileNumbers", EditConditionHides, DisplayPriority = "13")
 	)
 	int BoundingZoneMaxX = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
-		meta = (EditCondition = "BoundingMethod == EBoundingMethod::TileNumbers", EditConditionHides, DisplayPriority = "14")
+		meta = (EditCondition = "NeedsBoundingMethod() && BoundingMethod == EBoundingMethod::TileNumbers", EditConditionHides, DisplayPriority = "14")
 	)
 	int BoundingZoneMinY = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
-		meta = (EditCondition = "BoundingMethod == EBoundingMethod::TileNumbers", EditConditionHides, DisplayPriority = "15")
+		meta = (EditCondition = "NeedsBoundingMethod() && BoundingMethod == EBoundingMethod::TileNumbers", EditConditionHides, DisplayPriority = "15")
 	)
 	int BoundingZoneMaxY = 0;
 
@@ -155,7 +157,10 @@ public:
 	bool IsOverpassPreset();
 	
 	UFUNCTION()
-	bool IsOverpass();
+	bool IsOverpass(); 
+	
+	UFUNCTION()
+	bool NeedsBoundingMethod() { return Source == EVectorSource::OverpassShortQuery || IsOverpassPreset(); }
 
 #if WITH_EDITOR
 	virtual AActor* Duplicate(FName FromName, FName ToName) { return nullptr; };

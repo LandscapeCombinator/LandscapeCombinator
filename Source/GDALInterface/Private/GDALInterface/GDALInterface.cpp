@@ -1022,6 +1022,17 @@ void GDALInterface::AddPointList(OGRLineString* LineString, TArray<FPointList> &
 	PointLists.Add(NewList);
 }
 
+void GDALInterface::AddPointLists(OGRMultiLineString* MultiLineString, TArray<FPointList> &PointLists, TMap<FString, FString> &Fields)
+{
+	for (OGRGeometry* Geometry : MultiLineString)
+	{
+		if (OGRLineString* LineString = Geometry->toLineString())
+		{
+			AddPointList(LineString, PointLists, Fields);
+		}
+	}
+}
+
 TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset, TSet<FString> &AlreadyHandledFeatures)
 {
 	TArray<FPointList> PointLists;
@@ -1058,6 +1069,10 @@ TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset, TSet<FStri
 			else if (GeometryType == wkbPoint)
 			{
 				// ignoring lone point
+			}
+			else if (GeometryType == wkbMultiLineString)
+			{
+				AddPointLists(Geometry->toMultiLineString(), PointLists, Fields);
 			}
 			else
 			{
