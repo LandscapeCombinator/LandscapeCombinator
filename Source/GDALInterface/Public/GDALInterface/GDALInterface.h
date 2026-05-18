@@ -62,6 +62,7 @@ public:
 	static TMap<FString, FString> FieldsFromFeature(OGRFeature* Feature);
 	static TArray<FPointList> GetPointLists(GDALDataset *Dataset, TSet<FString> &AlreadyHandledFeatures);
 	static void AddPointList(OGRLineString* LineString, TArray<FPointList> &PointLists, TMap<FString, FString> &Fields);
+	static void AddPointLists(OGRMultiLineString* MultiLineString, TArray<FPointList> &PointLists, TMap<FString, FString> &Fields);
 	static void AddPointLists(OGRPolygon* Polygon, TArray<FPointList> &PointLists, TMap<FString, FString> &Fields);
 	static void AddPointLists(OGRMultiPolygon* MultiPolygon, TArray<FPointList> &PointLists, TMap<FString, FString> &Fields);
 	
