@@ -8,7 +8,7 @@
 #include "LCCommon/Expression.h"
 #include "ConcurrencyHelpers/Concurrency.h"
 #include "ConcurrencyHelpers/LCReporter.h"
-#include "StraightSkeletonWrapper/StraightSkeletonWrapper.h"
+#include "StraightSkeletonWrapper/StraightSkeletonFunctionLibrary.h"
 
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
@@ -1063,7 +1063,7 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 
 		FStraightSkeleton StraightSkeleton;
 
-		if (StraightSkeletonWrapper::ComputeStraightSkeleton(OuterRoofVertices, StraightSkeleton))
+		if (UStraightSkeletonFunctionLibrary::ComputeStraightSkeleton(OuterRoofVertices, StraightSkeleton))
 		{
 			// this map contains the vertices that need to be moved to transform a hip roof into a gable roof
 			// (we move the vertices that are part of triangular faces)

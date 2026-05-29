@@ -1,11 +1,11 @@
-#include "StraightSkeletonWrapper.h"
+#include "StraightSkeletonFunctionLibrary.h"
 // #include "../ThirdParty/StraightSkeleton/StraightSkeleton/Vector2d.h"
 #include "../ThirdParty/StraightSkeleton/StraightSkeleton/SkeletonBuilder.h"
 // #include "StraightSkeletonBuilder.h"
 #include <vector>
 #include <map>
 
-bool StraightSkeletonWrapper::ComputeStraightSkeleton(const TArray<FVector2D>& Polygon, FStraightSkeleton& OutSkeleton)
+bool UStraightSkeletonFunctionLibrary::ComputeStraightSkeleton(const TArray<FVector2D>& Polygon, FStraightSkeleton& OutSkeleton)
 {
     std::vector<Vector2d> RawPolygon;
     for (const FVector2D& V : Polygon)
