@@ -15,6 +15,7 @@ public class StraightSkeletonWrapper : ModuleRules
 			new string[]
 			{
 				"Core",
+				"Engine",
 
 				// Third-Party Dependencies
 				"StraightSkeleton"
