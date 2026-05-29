@@ -26,42 +26,41 @@ ALevelCoordinates::ALevelCoordinates()
 
 TObjectPtr<UGlobalCoordinates> ALevelCoordinates::GetGlobalCoordinates(UWorld* World, bool bShowDialog)
 {
-	TArray<AActor*> LevelCoordinatesCandidates0;
+    TArray<TWeakObjectPtr<AActor>> LevelCoordinatesCandidates0;
 
-	if (!Concurrency::RunOnGameThreadAndWait([World, &LevelCoordinatesCandidates0]() {
-		if (!IsValid(World)) return false;
-		UGameplayStatics::GetAllActorsOfClass(World, ALevelCoordinates::StaticClass(), LevelCoordinatesCandidates0);
-		return true;
-	}))
-	{
-		return nullptr;
-	}
+    if (!Concurrency::RunOnGameThreadAndWait([World, &LevelCoordinatesCandidates0]()
+    {
+        if (!IsValid(World)) return false;
 
-	TArray<AActor*> LevelCoordinatesCandidates = LevelCoordinatesCandidates0.FilterByPredicate([](AActor* Actor) { return IsValid(Actor) &&!Actor->IsHidden(); });
+        TArray<AActor*> All;
+        UGameplayStatics::GetAllActorsOfClass(World, ALevelCoordinates::StaticClass(), All);
 
-	if (LevelCoordinatesCandidates.Num() == 0)
-	{
-		if (bShowDialog)
-		{
-			LCReporter::ShowError(
-				LOCTEXT("NoLevelCoordinates", "Please add a visible (not Hidden in Game) LevelCoordinates actor to your level .")
-			);
-		}
-		return nullptr;
-	}
+        for (AActor* Actor : All)
+        {
+            if (IsValid(Actor) && !Actor->IsHidden())
+                LevelCoordinatesCandidates0.Add(Actor);
+        }
+        return true;
+    }))
+    {
+        return nullptr;
+    }
 
-	if (LevelCoordinatesCandidates.Num() > 1)
-	{
-		if (bShowDialog)
-		{
-			LCReporter::ShowError(
-				LOCTEXT("MoreThanOneLevelCoordinates", "You must have only one visible (not Hidden in Game) LevelCoordinates actor in your level.")
-			);
-		}
-		return nullptr;
-	}
+    TArray<TWeakObjectPtr<AActor>> LevelCoordinatesCandidates = LevelCoordinatesCandidates0
+        .FilterByPredicate([](const TWeakObjectPtr<AActor>& Actor) { return Actor.IsValid(); });
 
-	return Cast<ALevelCoordinates>(LevelCoordinatesCandidates[0])->GlobalCoordinates;
+    if (LevelCoordinatesCandidates.Num() == 0)
+    {
+        if (bShowDialog) LCReporter::ShowError(LOCTEXT("NoLevelCoordinates", "..."));
+        return nullptr;
+    }
+    if (LevelCoordinatesCandidates.Num() > 1)
+    {
+        if (bShowDialog) LCReporter::ShowError(LOCTEXT("MoreThanOneLevelCoordinates", "..."));
+        return nullptr;
+    }
+
+    return Cast<ALevelCoordinates>(LevelCoordinatesCandidates[0].Get())->GlobalCoordinates;
 }
 
 
