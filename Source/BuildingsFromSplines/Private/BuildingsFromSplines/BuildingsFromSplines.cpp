@@ -115,6 +115,8 @@ void ABuildingsFromSplines::ClearBuildings()
 
 bool ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent, FName SpawnedActorsPathOverride, bool bIsUserInitiated)
 {
+	TWeakObjectPtr<ABuildingsFromSplines> WeakThis(this);
+
 	int NumPoints = SplineComponent->GetNumberOfSplinePoints();
 	if (NumPoints <= 1)
 	{
@@ -148,10 +150,10 @@ bool ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent, 
 
 	ABuilding* Building = nullptr;
 	
-	return Concurrency::RunOnGameThreadAndWait([this, &Building, &Location, &RotatorForLargestSegment, &SpawnedActorsPathOverride, NumPoints, SplineComponent]() -> bool
+	return Concurrency::RunOnGameThreadAndWait([WeakThis, &Building, &Location, &RotatorForLargestSegment, &SpawnedActorsPathOverride, NumPoints, SplineComponent]() -> bool
 	{
-		if (!IsValid(this) || !IsValid(GetWorld())) return false; // fail silently, the game has probably ended
-		Building = GetWorld()->SpawnActor<ABuilding>(Location, RotatorForLargestSegment);
+		if (!WeakThis.IsValid() || !IsValid(WeakThis->GetWorld())) return false; // fail silently, the game has probably ended
+		Building = WeakThis->GetWorld()->SpawnActor<ABuilding>(Location, RotatorForLargestSegment);
 		if (!IsValid(Building))
 		{
 			LCReporter::ShowError(
@@ -161,11 +163,11 @@ bool ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent, 
 		}
 
 #if WITH_EDITOR
-		ULCBlueprintLibrary::SetFolderPath2(Building, SpawnedActorsPathOverride, SpawnedActorsPath);
+		ULCBlueprintLibrary::SetFolderPath2(Building, SpawnedActorsPathOverride, WeakThis->SpawnedActorsPath);
 #endif
 
-		Buildings.Add(Building);
-        Building->BCfg = FWeightedBuildingConfiguration::GetRandomBuildingConfiguration(BuildingConfigurations);
+		WeakThis->Buildings.Add(Building);
+        Building->BCfg = FWeightedBuildingConfiguration::GetRandomBuildingConfiguration(WeakThis->BuildingConfigurations);
 
 		Building->SplineComponent->ClearSplinePoints();
 		for (int i = 0; i < NumPoints; i++)
@@ -185,7 +187,7 @@ bool ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent, 
 		}
 
 #if WITH_EDITOR
-		Building->SetIsSpatiallyLoaded(bBuildingsSpatiallyLoaded);
+		Building->SetIsSpatiallyLoaded(WeakThis->bBuildingsSpatiallyLoaded);
 #endif
 		return Building->GenerateBuilding_Internal(SpawnedActorsPathOverride);
 	});

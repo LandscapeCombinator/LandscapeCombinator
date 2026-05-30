@@ -22,7 +22,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 	}
 
 	Self = Cast<AActor>(this);
-	if (!IsValid(Self)) return false;
+	if (!Self.IsValid()) return false;
 
 	ULCPositionBasedGeneration* PositionBasedGeneration = Cast<ULCPositionBasedGeneration>(Self->GetComponentByClass(ULCPositionBasedGeneration::StaticClass()));
 	if (IsValid(PositionBasedGeneration) && PositionBasedGeneration->bEnablePositionBasedGeneration)
@@ -157,7 +157,7 @@ bool ILCGenerator::DeleteGeneratedObjects(bool bSkipPrompt)
 bool ILCGenerator::DeleteGeneratedObjects_GameThread(bool bSkipPrompt)
 {
 	Self = Cast<AActor>(this);
-	if (!IsValid(Self)) return false;
+	if (!Self.IsValid()) return false;
 	Self->Modify();
 
 	ULCPositionBasedGeneration *PositionBasedGeneration = Self->FindComponentByClass<ULCPositionBasedGeneration>();

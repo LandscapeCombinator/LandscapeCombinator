@@ -18,6 +18,7 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("Starting Combination with %d Generators"), Generators.Num());
 
 	Modify();
+	TWeakObjectPtr<ALandscapeCombination> WeakThis(this);
 
 	for (auto &GeneratorWrapper: Generators)
 		GeneratorWrapper.GeneratorStatus = EGeneratorStatus::Idle;
@@ -39,7 +40,7 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 		GeneratorWrapper.GeneratorStatus = EGeneratorStatus::Generating;
 
 #if WITH_EDITOR
-		Concurrency::RunOnGameThreadAndWait([this](){
+		Concurrency::RunOnGameThreadAndWait([]() {
 			FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 			PropertyModule.NotifyCustomizationModuleChanged();
 			return true;
@@ -67,14 +68,12 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 		GeneratorWrapper.GeneratorStatus = bGeneratorSuccess ? EGeneratorStatus::Success : EGeneratorStatus::Error;
 
 #if WITH_EDITOR
-		Concurrency::RunOnGameThreadAndWait([this](){
-			if (GEditor && IsValid(this))
+		Concurrency::RunOnGameThreadAndWait([WeakThis](){
+			if (!GEditor || !WeakThis.IsValid()) return true;
+			if (USelection* Selection = GEditor->GetSelectedActors())
 			{
-				if (USelection *Selection = GEditor->GetSelectedActors())
-				{
-					Selection->DeselectAll();
-					Selection->Select(this);
-				}
+				Selection->DeselectAll();
+				Selection->Select(WeakThis.Get());
 			}
 			return true;
 		});

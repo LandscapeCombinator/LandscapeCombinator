@@ -71,20 +71,21 @@ public:
 #endif
 
 protected:
-	AActor *Self;
+	TWeakObjectPtr<AActor> Self;
 
 	void GenerationFinished(bool bSuccess)
 	{
-		Concurrency::RunOnGameThread([this, bSuccess]() {
-			if (IsValid(Self))
+        TWeakObjectPtr<AActor> WeakSelf = Self;
+		Concurrency::RunOnGameThread([this, WeakSelf, bSuccess]() {
+			if (WeakSelf.IsValid())
 			{
 				if (bSuccess)
 				{
-					UE_LOG(LogLCCommon, Log, TEXT("Generation for %s finished successfully"), *Self->GetActorNameOrLabel())
+					UE_LOG(LogLCCommon, Log, TEXT("Generation for %s finished successfully"), *WeakSelf->GetActorNameOrLabel())
 				}
 				else
 				{
-					UE_LOG(LogLCCommon, Error, TEXT("Generation for %s failed"), *Self->GetActorNameOrLabel())
+					UE_LOG(LogLCCommon, Error, TEXT("Generation for %s failed"), *WeakSelf->GetActorNameOrLabel())
 				}
 			}
 			else
