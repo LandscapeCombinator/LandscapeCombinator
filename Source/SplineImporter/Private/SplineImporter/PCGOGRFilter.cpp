@@ -35,14 +35,27 @@ FPCGElementPtr UPCGOGRFilterSettings::CreateElement() const
 bool FPCGOGRFilterElement::PrepareDataInternal(FPCGContext* Context) const
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE(FPCGOGRFilterElement::PrepareDataInternal);
+
 	FPCGOGRFilterContext* ThisContext = static_cast<FPCGOGRFilterContext*>(Context);
 
 	if (ThisContext && !IsValid(ThisContext->GlobalCoordinates))
 	{
-		if (UWorld* World = Context->ExecutionSource.IsValid() ? Context->ExecutionSource->GetExecutionState().GetWorld() : nullptr)
+		UWorld* World = nullptr;
+
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 5)
+		if (Context && Context->ExecutionSource.IsValid())
 		{
-			ThisContext->GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World, false);
+			World = Context->ExecutionSource->GetExecutionState().GetWorld();
 		}
+
+#else
+		if (Context && Context->SourceComponent.IsValid())
+		{
+			World = Context->SourceComponent->GetWorld();
+		}
+#endif
+
+		if (IsValid(World)) ThisContext->GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World, false);
 	}
 
 	return true;
