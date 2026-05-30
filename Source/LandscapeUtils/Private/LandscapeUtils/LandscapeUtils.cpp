@@ -114,8 +114,11 @@ bool LandscapeUtils::GetLandscapeMinMaxZ(ALandscape* Landscape, FVector2D& MinMa
 TArray<ALandscapeStreamingProxy*> LandscapeUtils::GetLandscapeStreamingProxies(ALandscape* Landscape)
 {
 	TArray<AActor*> LandscapeStreamingProxiesTemp;
-	Concurrency::RunOnGameThreadAndWait([&]() {
-		UGameplayStatics::GetAllActorsOfClass(Landscape->GetWorld(), ALandscapeStreamingProxy::StaticClass(), LandscapeStreamingProxiesTemp);
+	TWeakObjectPtr<ALandscape> WeakLandscape(Landscape);
+	
+	Concurrency::RunOnGameThreadAndWait([WeakLandscape, &LandscapeStreamingProxiesTemp]() {
+		if (!WeakLandscape.IsValid()) return true;
+		UGameplayStatics::GetAllActorsOfClass(WeakLandscape->GetWorld(), ALandscapeStreamingProxy::StaticClass(), LandscapeStreamingProxiesTemp);
 		return true;
 	});
 
@@ -172,32 +175,38 @@ bool LandscapeUtils::CustomCollisionQueryParams(AActor *Actor, FCollisionQueryPa
 }
 
 // Parameters to collide with these actors only, ignoring all other actors
-bool LandscapeUtils::CustomCollisionQueryParams(TArray<AActor*> CollidingActors, FCollisionQueryParams &CollisionQueryParams)
+bool LandscapeUtils::CustomCollisionQueryParams(const TArray<AActor*>& CollidingActors, FCollisionQueryParams& CollisionQueryParams)
 {
-	if (CollidingActors.IsEmpty() || !IsValid(CollidingActors[0]))
-	{
-		LCReporter::ShowError(LOCTEXT("InvalidCollidingActors", "Invalid colliding actors for custom collision query"));
-		return false;
-	}
+    if (CollidingActors.IsEmpty())
+    {
+        LCReporter::ShowError(LOCTEXT("InvalidCollidingActors", "Invalid colliding actors for custom collision query"));
+        return false;
+    }
 
-	TSet<AActor*> CollidingActorsSet = TSet<AActor*>(CollidingActors);
-	for (auto &CollidingActor: CollidingActors)
-	{
-		if (!IsValid(CollidingActor)) continue;
+    TSet<TWeakObjectPtr<AActor>> CollidingActorsSet;
+    for (AActor* Actor : CollidingActors)
+    {
+		if (!Actor || !Actor->IsValidLowLevelFast()) continue;
+        CollidingActorsSet.Add(Actor);
 
-		if (ALandscape *Landscape = Cast<ALandscape>(CollidingActor))
-		{
-			TArray<ALandscapeStreamingProxy*> LandscapeStreamingProxies = GetLandscapeStreamingProxies(Landscape);
-			for (auto &LandscapeStreamingProxy: LandscapeStreamingProxies) CollidingActorsSet.Add(LandscapeStreamingProxy);
-		}
-	}
+        if (ALandscape* Landscape = Cast<ALandscape>(Actor))
+        {
+            TArray<ALandscapeStreamingProxy*> LandscapeStreamingProxies = GetLandscapeStreamingProxies(Landscape);
+            for (ALandscapeStreamingProxy* Proxy : LandscapeStreamingProxies)
+            {
+                if (TWeakObjectPtr<AActor> WeakProxy(Proxy); WeakProxy.IsValid())
+                    CollidingActorsSet.Add(WeakProxy);
+            }
+        }
+    }
 
-	UWorld *World = nullptr;
-	for (auto &CollidingActor: CollidingActors)
-	{
-		World = CollidingActor->GetWorld();
-		if (IsValid(World)) break;
-	}
+    UWorld* World = nullptr;
+    for (const TWeakObjectPtr<AActor>& WeakActor : CollidingActorsSet)
+    {
+        if (!WeakActor.IsValid()) continue;
+        World = WeakActor->GetWorld();
+        if (IsValid(World)) break;
+    }
 
 	if (!IsValid(World)) return false;
 	

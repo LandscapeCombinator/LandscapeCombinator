@@ -24,16 +24,16 @@ ALevelCoordinates::ALevelCoordinates()
 	GlobalCoordinates = CreateDefaultSubobject<UGlobalCoordinates>(TEXT("Global Coordinates"));
 }
 
-TObjectPtr<UGlobalCoordinates> ALevelCoordinates::GetGlobalCoordinates(UWorld* World, bool bShowDialog)
+TObjectPtr<UGlobalCoordinates> ALevelCoordinates::GetGlobalCoordinates(TWeakObjectPtr<UWorld> World, bool bShowDialog)
 {
     TArray<TWeakObjectPtr<AActor>> LevelCoordinatesCandidates0;
 
     if (!Concurrency::RunOnGameThreadAndWait([World, &LevelCoordinatesCandidates0]()
     {
-        if (!IsValid(World)) return false;
+        if (!World.IsValid()) return false;
 
         TArray<AActor*> All;
-        UGameplayStatics::GetAllActorsOfClass(World, ALevelCoordinates::StaticClass(), All);
+        UGameplayStatics::GetAllActorsOfClass(World.Get(), ALevelCoordinates::StaticClass(), All);
 
         for (AActor* Actor : All)
         {

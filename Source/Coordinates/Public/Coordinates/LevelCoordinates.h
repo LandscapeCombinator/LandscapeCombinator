@@ -21,7 +21,7 @@ public:
 	UPROPERTY(VisibleAnywhere, Category = "LevelCoordinates")
 	TObjectPtr<UGlobalCoordinates> GlobalCoordinates;
 
-	static TObjectPtr<UGlobalCoordinates> GetGlobalCoordinates(UWorld *World, bool bShowDialog = true);
+	static TObjectPtr<UGlobalCoordinates> GetGlobalCoordinates(TWeakObjectPtr<UWorld> World, bool bShowDialog = true);
 	
 	static OGRCoordinateTransformation *GetCRSTransformer(UWorld *World, FString CRS);
 	static bool GetUnrealCoordinatesFromCRS(UWorld *World, double Longitude, double Latitude, FString CRS, FVector2D &OutXY);
