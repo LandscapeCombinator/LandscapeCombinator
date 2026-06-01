@@ -1571,6 +1571,11 @@ bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)
 		DynamicMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 
+	if (BCfg->bAttemptToPushOutOfCollision)
+	{
+		ULCBlueprintLibrary::PushOutOfCollision(this, BCfg->PushMaxSteps, BCfg->PushStepSize);
+	}
+
 	return true;
 }
 

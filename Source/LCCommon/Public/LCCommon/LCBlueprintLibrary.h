@@ -63,6 +63,8 @@ public:
 
 	static TSet<TObjectPtr<USplineComponent>> FindSplineComponents(UWorld *World, bool bIsUserInitiated, FName Tag, FName ComponentTag);
 
+	static void PushOutOfCollision(TWeakObjectPtr<AActor> Actor, int MaxSteps, double StepSize);
+
 #if WITH_EDITOR
 
 	UFUNCTION(BlueprintCallable, Category="LandscapeCombinator")

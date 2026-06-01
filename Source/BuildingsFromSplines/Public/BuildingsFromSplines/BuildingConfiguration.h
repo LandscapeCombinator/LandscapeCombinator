@@ -587,6 +587,29 @@ public:
 	FString GableMaterialExpr;
 
 	
+	/** Push out of collision */
+	
+	/* Will attempt to push the building in 8 horizontal directions for a number of steps to prevent collisions. */
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|PushOutOfCollision",
+		meta = (DisplayPriority = "0")
+	)
+	bool bAttemptToPushOutOfCollision = true;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|PushOutOfCollision",
+		meta = (EditCondition = "bAttemptToPushOutOfCollision", EditConditionHides, DisplayPriority = "1")
+	)
+	int PushMaxSteps = 10;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|PushOutOfCollision",
+		meta = (EditCondition = "bAttemptToPushOutOfCollision", EditConditionHides, DisplayPriority = "2")
+	)
+	int PushStepSize = 200;
+
+
+	
 	/** Conversions to Static Mesh or Volume */
 	
 	/* Convert to static mesh after the building is generated. */

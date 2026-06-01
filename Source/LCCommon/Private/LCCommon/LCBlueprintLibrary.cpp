@@ -6,6 +6,7 @@
 #include "EngineUtils.h"
 #include "Kismet/GameplayStatics.h"
 #include "Components/SplineComponent.h"
+#include "Engine/OverlapResult.h"
 
 #if WITH_EDITOR
 #include "EditorViewportClient.h"
@@ -148,6 +149,57 @@ TSet<TObjectPtr<USplineComponent>> ULCBlueprintLibrary::FindSplineComponents(UWo
 	
 	return Result;
 }
+
+void ULCBlueprintLibrary::PushOutOfCollision(TWeakObjectPtr<AActor> Actor, int MaxSteps, double StepSize)
+{
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("PushOutOfCollision");
+	check(IsInGameThread());
+
+	if (!Actor.IsValid()) return;
+
+	UWorld* World = Actor->GetWorld();
+	if (!IsValid(World)) return;
+
+	USceneComponent* RootComponent = Actor->GetRootComponent();
+	if (IsValid(RootComponent)) RootComponent->SetMobility(EComponentMobility::Movable);
+
+	const FVector ActorLocation = Actor->GetActorLocation();
+	FVector Origin;
+	FVector HalfExtent;
+	Actor->GetActorBounds(/* bOnlyCollidingComponents */ false, Origin, HalfExtent);
+
+	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(PushOutOfCollision), /* bTraceComplex */ true, /* Ignore Actor */ Actor.Get());
+
+	TArray<AActor*> TaggedActors;
+	UGameplayStatics::GetAllActorsWithTag(World, FName("no-push-collision"), TaggedActors);
+	QueryParams.AddIgnoredActors(TaggedActors);
+
+	FHitResult Hit;
+	const FCollisionShape Shape = FCollisionShape::MakeBox(HalfExtent);
+	if (!World->OverlapAnyTestByChannel(ActorLocation, FQuat::Identity, ECC_Visibility, FCollisionShape::MakeBox(HalfExtent), QueryParams)) return;
+
+	static const FVector2D Directions[] =
+	{
+		{ 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 },
+		{ 0.7071f,  0.7071f }, { 0.7071f, -0.7071f },
+		{ -0.7071f, 0.7071f }, { -0.7071f, -0.7071f }
+	};
+
+	for (auto &D2 : Directions)
+	{
+		const FVector Dir(D2.X, D2.Y, 0);
+		for (int Step = 1; Step <= MaxSteps; Step++)
+		{
+			const FVector Candidate = ActorLocation + Dir * (StepSize * Step);
+			if (!World->OverlapAnyTestByChannel(Candidate, FQuat::Identity, ECC_Visibility, FCollisionShape::MakeBox(HalfExtent), QueryParams))
+			{
+				Actor->SetActorLocation(Candidate);
+				return;
+			}
+		}
+	}
+}
+
 
 #if WITH_EDITOR
 
