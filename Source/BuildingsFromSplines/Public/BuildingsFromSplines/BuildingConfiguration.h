@@ -370,13 +370,25 @@ public:
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
-		meta = (DisplayPriority = "19")
+		meta = (DisplayPriority = "15")
 	)
 	/**
 	  * If true (this takes precedence over NumFloors or UseRandomNumFloors) and if the Asset User Data
-	  * contains a levels value, the number of floors is set to this value .
+	  * contains a levels value, the number of floors is set to this value.
 	  * If it contains a height value, the number of floors is set to the height in meters divided by 3 meters. */
 	bool bAutoComputeNumFloors = true;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
+		meta = (EditCondition = "bAutoComputeNumFloors", EditConditionHides, DisplayPriority = "16")
+	)
+	FString LevelsTag = "building_levels";
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
+		meta = (EditCondition = "bAutoComputeNumFloors", EditConditionHides, DisplayPriority = "17")
+	)
+	FString HeightTag = "height";
 
 	/* Random number of floors */
 	UPROPERTY(

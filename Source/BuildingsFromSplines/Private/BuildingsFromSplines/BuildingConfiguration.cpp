@@ -49,9 +49,9 @@ bool UBuildingConfiguration::AutoComputeNumFloors(UOSMUserData *BuildingOSMUserD
 	if (!bAutoComputeNumFloors) return false;
 	if (!IsValid(BuildingOSMUserData)) return false;
 	
-	if (BuildingOSMUserData->Fields.Contains("building_levels"))
+	if (BuildingOSMUserData->Fields.Contains(LevelsTag))
 	{
-		FString LevelsString = BuildingOSMUserData->Fields["building_levels"];
+		FString LevelsString = BuildingOSMUserData->Fields[LevelsTag];
 		int NumLevels = FCString::Atoi(*LevelsString);
 		if (NumLevels > 0)
 		{
@@ -66,9 +66,9 @@ bool UBuildingConfiguration::AutoComputeNumFloors(UOSMUserData *BuildingOSMUserD
 		}
 	}
 
-	if (BuildingOSMUserData->Fields.Contains("height"))
+	if (BuildingOSMUserData->Fields.Contains(HeightTag))
 	{
-		FString HeightString = BuildingOSMUserData->Fields["height"];
+		FString HeightString = BuildingOSMUserData->Fields[HeightTag];
 		double Height = FCString::Atod(*HeightString);
 		if (Height > 0)
 		{
