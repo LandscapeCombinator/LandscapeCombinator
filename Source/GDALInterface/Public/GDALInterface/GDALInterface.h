@@ -60,8 +60,9 @@ public:
 	static bool ReadHeightmapFromFile(FString File, int& OutWidth, int& OutHeight, TArray<float>& OutHeightmap);
 
 	static TMap<FString, FString> FieldsFromFeature(OGRFeature* Feature);
-	static TArray<FPointList> GetPointLists(GDALDataset *Dataset, TSet<FString> &AlreadyHandledFeatures);
+	static TArray<FPointList> GetPointLists(GDALDataset *Dataset, TSet<FString> &AlreadyHandledFeatures, bool bAddSinglePoints = false);
 	static void AddPointList(OGRLineString* LineString, TArray<FPointList> &PointLists, TMap<FString, FString> &Fields);
+	static void AddPointList(OGRPoint* Point, TArray<FPointList> &PointLists, TMap<FString, FString> &Fields);
 	static void AddPointLists(OGRMultiLineString* MultiLineString, TArray<FPointList> &PointLists, TMap<FString, FString> &Fields);
 	static void AddPointLists(OGRPolygon* Polygon, TArray<FPointList> &PointLists, TMap<FString, FString> &Fields);
 	static void AddPointLists(OGRMultiPolygon* MultiPolygon, TArray<FPointList> &PointLists, TMap<FString, FString> &Fields);

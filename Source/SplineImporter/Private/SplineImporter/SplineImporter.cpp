@@ -179,7 +179,7 @@ bool ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 	GDALDataset* Dataset = LoadGDALDataset(bIsUserInitiated);
 	if (!Dataset) return false;
 
-	TArray<FPointList> PointLists = GDALInterface::GetPointLists(Dataset, AlreadyHandledFeatures);
+	TArray<FPointList> PointLists = GDALInterface::GetPointLists(Dataset, AlreadyHandledFeatures, bAddSinglePoints);
 	GDALClose(Dataset);
 
 	if (bIsUserInitiated && PointLists.IsEmpty())
@@ -420,7 +420,7 @@ bool ASplineImporter::AddRegularSpline(
 
 	OGRPoint First = PointList.Points[0];
 	OGRPoint Last = PointList.Points.Last();
-	const bool bIsLoop = (First == Last);
+	const bool bIsLoop = NumPoints > 1 && First == Last;
 			
 	USplineComponent *SplineComponent = nullptr;
 	if (ASplineCollection* SplineCollection = Cast<ASplineCollection>(SplineOwner))
