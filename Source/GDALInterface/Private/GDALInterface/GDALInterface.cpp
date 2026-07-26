@@ -955,7 +955,7 @@ TMap<FString, FString> GDALInterface::FieldsFromFeature(OGRFeature* Feature)
 	for (int i = 0; i < n; i++)
 	{
 		FString Key = FString(Feature->GetFieldDefnRef(i)->GetNameRef());
-		FString Value = FString(Feature->GetFieldAsString(i));
+		FString Value = FString(UTF8_TO_TCHAR(Feature->GetFieldAsString(i)));
 		Result.Add(Key, Value);
 	}
 
@@ -1022,6 +1022,14 @@ void GDALInterface::AddPointList(OGRLineString* LineString, TArray<FPointList> &
 	PointLists.Add(NewList);
 }
 
+void GDALInterface::AddPointList(OGRPoint* Point, TArray<FPointList> &PointLists, TMap<FString, FString> &Fields)
+{
+	FPointList NewList;
+	NewList.Fields = Fields;
+	NewList.Points.Add(*Point);
+	PointLists.Add(NewList);
+}
+
 void GDALInterface::AddPointLists(OGRMultiLineString* MultiLineString, TArray<FPointList> &PointLists, TMap<FString, FString> &Fields)
 {
 	for (OGRGeometry* Geometry : MultiLineString)
@@ -1033,10 +1041,10 @@ void GDALInterface::AddPointLists(OGRMultiLineString* MultiLineString, TArray<FP
 	}
 }
 
-TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset, TSet<FString> &AlreadyHandledFeatures)
+TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset, TSet<FString> &AlreadyHandledFeatures, bool bAddSinglePoints)
 {
 	TArray<FPointList> PointLists;
-	
+
 	OGRFeature *Feature;
 	OGRLayer *Layer;
 	Feature = Dataset->GetNextFeature(&Layer, nullptr, nullptr, nullptr);
@@ -1068,7 +1076,10 @@ TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset, TSet<FStri
 			}
 			else if (GeometryType == wkbPoint)
 			{
-				// ignoring lone point
+				if (bAddSinglePoints)
+				{
+					AddPointList(Geometry->toPoint(), PointLists, Fields);
+				}
 			}
 			else if (GeometryType == wkbMultiLineString)
 			{
@@ -1082,7 +1093,7 @@ TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset, TSet<FStri
 		OGRFeature::DestroyFeature(Feature);
 		Feature = Dataset->GetNextFeature(&Layer, nullptr, nullptr, nullptr);
 	}
-	
+
 	UE_LOG(LogGDALInterface, Log, TEXT("Explored %d features"), NumFeatures);
 	UE_LOG(LogGDALInterface, Log, TEXT("Found %d lists of points"), PointLists.Num());
 

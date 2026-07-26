@@ -152,6 +152,12 @@ public:
 	)
 	bool bSkip2DColinearVertices = false;
 
+	/* When true, point geometries will be added as single-point lists. */
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+		meta = (DisplayPriority = "1303")
+	)
+	bool bAddSinglePoints = false;
+
 	/* The angle in ° under which two vectors are considered colinear, so that we can skip a vertex. */
 	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
 		meta = (EditCondition = "bSkip2DColinearVertices", EditConditionHides, DisplayPriority = "1302")
