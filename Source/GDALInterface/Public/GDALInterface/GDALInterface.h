@@ -9,6 +9,7 @@
 #include "gdal.h"
 #include "gdal_priv.h"
 #include "gdal_utils.h"
+#include "cpl_vsi.h"
 #include <ogr_api.h>
 #include <ogrsf_frmts.h>
 #pragma warning(default: 4668)
@@ -45,8 +46,8 @@ public:
 	static bool ConvertCoordinates(FVector4d& OriginalCoordinates, bool bCrop, FVector4d& NewCoordinates, OGRSpatialReference InRs, OGRSpatialReference OutRs);
 	static bool GetPixels(FIntPoint &Pixels, FString File);
 	static bool GetMinMax(FVector2D &MinMax, TArray<FString> Files);
-	static bool ConvertToPNG(FString SourceFile, FString TargetFile, int MinAltitude, int MaxAltitude, int PrecisionPercent = 100);
-	static bool ConvertToPNG(FString SourceFile, FString TargetFile);
+	static bool ConvertToPNG(FString SourceFile, FString TargetFile, int MinAltitude, int MaxAltitude, int PrecisionPercent, bool bHideNoDataFlag);
+	static bool ConvertToPNG(FString SourceFile, FString TargetFile, bool bHideNoDataFlag);
 	static bool ChangeResolution(FString SourceFile, FString TargetFile, int PrecisionPercent);
 	static bool Translate(FString SourceFile, FString TargetFile, TArray<FString> Args);
 	static bool Warp(FString SourceFile, FString TargetFile, FString InCRS, FString OutCRS, bool bCrop, int NoData);

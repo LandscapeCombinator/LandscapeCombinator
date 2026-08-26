@@ -520,34 +520,83 @@ FString GDALInterface::GetColorInterpretation(const FString &File)
 	return FString(ColorInterpName);
 }
 
-bool GDALInterface::ConvertToPNG(FString SourceFile, FString TargetFile, int MinAltitude, int MaxAltitude, int PrecisionPercent)
+bool GDALInterface::ConvertToPNG(FString SourceFile, FString TargetFile, int MinAltitude, int MaxAltitude, int PrecisionPercent, bool bHideNoDataFlag)
 {
-	TArray<FString> Args;
-	Args.Add("-scale");
-	Args.Add(FString::SanitizeFloat(MinAltitude));
-	Args.Add(FString::SanitizeFloat(MaxAltitude));
-	Args.Add("0");
-	Args.Add("65535");
-	Args.Add("-outsize");
-	Args.Add(FString::Format(TEXT("{0}%"), { PrecisionPercent }));
-	Args.Add(FString::Format(TEXT("{0}%"), { PrecisionPercent }));
-	Args.Add("-ot");
-	Args.Add("UInt16");
-	Args.Add("-of");
-	Args.Add("PNG");
+    FString InputFile = SourceFile;
+    FString RamVirtualFile = TEXT("/vsimem/temp_strip_nodata.vrt");
+    
+    // 1. Optionally create a RAM-only Virtual Dataset (VRT) that hides the NoData flag
+    if (bHideNoDataFlag)
+    {
+        TArray<FString> VrtArgs;
+        VrtArgs.Add("-of");
+        VrtArgs.Add("VRT");
+        VrtArgs.Add("-a_nodata");
+        VrtArgs.Add("none");
 
-	return Translate(SourceFile, TargetFile, Args);
+        if (!Translate(SourceFile, RamVirtualFile, VrtArgs)) return false;
+        
+        InputFile = RamVirtualFile;
+    }
+
+    // 2. Perform the actual scaling
+    TArray<FString> Args;
+    Args.Add("-scale");
+    Args.Add(FString::SanitizeFloat(MinAltitude));
+    Args.Add(FString::SanitizeFloat(MaxAltitude));
+    Args.Add("0");
+    Args.Add("65535");
+    Args.Add("-outsize");
+    Args.Add(FString::Format(TEXT("{0}%"), { PrecisionPercent }));
+    Args.Add(FString::Format(TEXT("{0}%"), { PrecisionPercent }));
+    Args.Add("-ot");
+    Args.Add("UInt16");
+    Args.Add("-of");
+    Args.Add("PNG");
+
+    bool bResult = Translate(InputFile, TargetFile, Args);
+
+    // 3. Clean up RAM file if it was created
+    if (bHideNoDataFlag)
+    {
+        VSIUnlink(TCHAR_TO_UTF8(*RamVirtualFile));
+    }
+
+    return bResult;
 }
 
-bool GDALInterface::ConvertToPNG(FString SourceFile, FString TargetFile)
+bool GDALInterface::ConvertToPNG(FString SourceFile, FString TargetFile, bool bHideNoDataFlag)
 {
-	TArray<FString> Args;
-	Args.Add("-ot");
-	Args.Add("UInt16");
-	Args.Add("-of");
-	Args.Add("PNG");
+    FString InputFile = SourceFile;
+    FString RamVirtualFile = TEXT("/vsimem/temp_strip_nodata.vrt");
+    
+    if (bHideNoDataFlag)
+    {
+        TArray<FString> VrtArgs;
+        VrtArgs.Add("-of");
+        VrtArgs.Add("VRT");
+        VrtArgs.Add("-a_nodata");
+        VrtArgs.Add("none");
 
-	return Translate(SourceFile, TargetFile, Args);
+        if (!Translate(SourceFile, RamVirtualFile, VrtArgs)) return false;
+        
+        InputFile = RamVirtualFile;
+    }
+
+    TArray<FString> Args;
+    Args.Add("-ot");
+    Args.Add("UInt16");
+    Args.Add("-of");
+    Args.Add("PNG");
+
+    bool bResult = Translate(InputFile, TargetFile, Args);
+
+    if (bHideNoDataFlag)
+    {
+        VSIUnlink(TCHAR_TO_UTF8(*RamVirtualFile));
+    }
+
+    return bResult;
 }
 
 bool GDALInterface::ChangeResolution(FString SourceFile, FString TargetFile, int PrecisionPercent)

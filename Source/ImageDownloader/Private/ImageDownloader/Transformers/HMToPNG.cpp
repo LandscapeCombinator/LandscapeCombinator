@@ -30,17 +30,11 @@ bool HMToPNG::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 
 		if (bScaleAltitude)
 		{
-			if (!GDALInterface::ConvertToPNG(InputFile, PNGFile, MinAltitude - 100, MaxAltitude + 100))
-			{
-				return false;
-			}
+			if (!GDALInterface::ConvertToPNG(InputFile, PNGFile, MinAltitude - 100, MaxAltitude + 100, 100, bHideNoDataFlag)) return false;
 		}
 		else
 		{
-			if (!GDALInterface::ConvertToPNG(InputFile, PNGFile, 0, 255))
-			{
-				return false;
-			}
+			if (!GDALInterface::ConvertToPNG(InputFile, PNGFile, 0, 255, 100, bHideNoDataFlag)) return false;
 		}
 	}
 

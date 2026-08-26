@@ -85,7 +85,7 @@ public:
 		}
 
 		UE_LOG(LogTemp, Log, TEXT("Actively waiting for all %d tasks to complete"), NumberOfTasks);
-		while (*FinishedTasks < NumberOfTasks) FPlatformProcess::Sleep(0.05);
+		while (*FinishedTasks < NumberOfTasks) FPlatformProcess::Sleep(0.05f);
 		UE_LOG(LogTemp, Log, TEXT("Finished waiting"));
 
 		bool bSuccess = *SuccessfulTasks == *FinishedTasks;

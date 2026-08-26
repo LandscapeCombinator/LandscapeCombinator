@@ -698,9 +698,16 @@ public:
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Remap",
+		meta = (DisplayPriority = "2")
+	)
+	/** Remove NoData flag from downloaded images */
+	bool bHideNoDataFlag = true;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Remap",
 		meta = (
 			EditCondition = "bRemap",
-			EditConditionHides, DisplayPriority = "2"
+			EditConditionHides, DisplayPriority = "3"
 		)
 	)
 	float OriginalValue = -99999;
@@ -709,7 +716,7 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "Remap",
 		meta = (
 			EditCondition = "bRemap",
-			EditConditionHides, DisplayPriority = "3"
+			EditConditionHides, DisplayPriority = "4"
 		)
 	)
 	float TransformedValue = -10;
