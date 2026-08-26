@@ -453,7 +453,7 @@ HMFetcher* UImageDownloader::CreateFetcher(
 	
 	if (bConvertToPNG)
 	{
-		Result = Result->AndThen(new HMDebugFetcher("ToPNG", new HMToPNG(Name, bScaleAltitude, bConvertFirstOnly)));
+		Result = Result->AndThen(new HMDebugFetcher("ToPNG", new HMToPNG(Name, bScaleAltitude, bHideNoDataFlag, bConvertFirstOnly)));
 	}
 
 	if (bAddMissingTiles)

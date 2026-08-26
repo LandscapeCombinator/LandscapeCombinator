@@ -9,9 +9,10 @@
 class HMToPNG : public HMFetcher
 {
 public:
-	HMToPNG(FString Name0, bool bScaleAltitude0, bool bConvertOnlyFirst0) :
+	HMToPNG(FString Name0, bool bScaleAltitude0, bool bHideNoDataFlag0, bool bConvertOnlyFirst0) :
 		Name(Name0),
 		bScaleAltitude(bScaleAltitude0),
+		bHideNoDataFlag(bHideNoDataFlag0),
 		bConvertOnlyFirst(bConvertOnlyFirst0)
 	{		
 	};	
@@ -26,6 +27,7 @@ public:
 protected:
 	FString Name;
 	bool bScaleAltitude;
+	bool bHideNoDataFlag;
 	bool bConvertOnlyFirst;
 };
 
