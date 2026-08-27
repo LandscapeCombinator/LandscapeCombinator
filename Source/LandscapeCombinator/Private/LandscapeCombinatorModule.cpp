@@ -33,7 +33,7 @@ IMPLEMENT_MODULE(FLandscapeCombinatorModule, LandscapeCombinator)
 void FLandscapeCombinatorModule::StartupModule()
 {
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("LandscapeCombinator StartupModule"));
-	UE_LOG(LogLandscapeCombinator, Warning,
+	UE_LOG(LogLandscapeCombinator, Log,
 		TEXT("Setting geometry.DynamicMesh.MaxComplexCollisionTriCount to 2147483647 to make sure "
 			 "that collisions for dynamic meshes are correctly generated."));
 	IConsoleVariable* CVar_MaxComplexCollisionTriCount = IConsoleManager::Get().FindConsoleVariable(TEXT("geometry.DynamicMesh.MaxComplexCollisionTriCount"));
