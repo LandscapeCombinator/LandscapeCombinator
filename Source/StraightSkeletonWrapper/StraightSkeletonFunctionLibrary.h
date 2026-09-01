@@ -10,13 +10,13 @@ struct FSkeletonEdgeResult
 {
     GENERATED_BODY()
 
-    UPROPERTY(BlueprintReadWrite)
+    UPROPERTY(BlueprintReadWrite, Category = "Skeleton Edge Result")
     TArray<FVector2D> Polygon;
 
-    UPROPERTY(BlueprintReadWrite)
+    UPROPERTY(BlueprintReadWrite, Category = "Skeleton Edge Result")
     FVector2D Begin = FVector2D();
 
-    UPROPERTY(BlueprintReadWrite)
+    UPROPERTY(BlueprintReadWrite, Category = "Skeleton Edge Result")
     FVector2D End = FVector2D();
 };
 
@@ -25,10 +25,10 @@ struct FStraightSkeleton
 {
     GENERATED_BODY()
 
-    UPROPERTY(BlueprintReadWrite)
+    UPROPERTY(BlueprintReadWrite, Category = "Straight Skeleton")
     TArray<FSkeletonEdgeResult> Edges;
 
-    UPROPERTY(BlueprintReadWrite)
+    UPROPERTY(BlueprintReadWrite, Category = "Straight Skeleton")
     TMap<FVector2D, float> Distances;
 };
 
