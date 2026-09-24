@@ -17,7 +17,11 @@ public:
     UPROPERTY(EditAnywhere, Category = "ContinuousGeneration", meta=(DisplayPriority=101))
     bool bStartContinuousGenerationOnBeginPlay = false;
 
+    // delay to let the world start, start continuous generation after n seconds
     UPROPERTY(EditAnywhere, Category = "ContinuousGeneration", meta=(DisplayPriority=102))
+    double StartupDelay = 2;
+
+    UPROPERTY(EditAnywhere, Category = "ContinuousGeneration", meta=(DisplayPriority=103))
     bool bStopOnError = true;
 
     UFUNCTION(CallInEditor, BlueprintCallable, Category = "ContinuousGeneration")
@@ -32,5 +36,5 @@ protected:
 
     bool bIsCurrentlyGenerating = false;
     FTimerHandle ContinuousGenerationTimer;
-
+    FTimerHandle StartupDelayTimer;
 };
