@@ -13,13 +13,13 @@
 
 void ALandscapePCGVolume::SetPositionAndBounds()
 {
-	ALandscape *Landscape = Cast<ALandscape>(LandscapeSelection.GetActor(GetWorld(), false));
-	if (!IsValid(Landscape)) return; // silently return when tag is invalid
+	AActor *TargetActor = LandscapeSelection.GetActor(GetWorld(), false);
+	if (!IsValid(TargetActor)) return; // silently return when tag is invalid
 
 	FVector2D MinMaxX, MinMaxY, MinMaxZ;
-	if (!LandscapeUtils::GetLandscapeBounds(Landscape, MinMaxX, MinMaxY, MinMaxZ))
+	if (!LandscapeUtils::GetActorBounds(TargetActor, MinMaxX, MinMaxY, MinMaxZ))
 	{
-		UE_LOG(LogLandscapeCombinator, Error, TEXT("Could not compute bounds of landscape actor %s."), *Landscape->GetActorNameOrLabel());
+		UE_LOG(LogLandscapeCombinator, Error, TEXT("Could not compute bounds of actor %s."), *TargetActor->GetActorNameOrLabel());
 		return;
 	}
 
@@ -27,6 +27,12 @@ void ALandscapePCGVolume::SetPositionAndBounds()
 	Bounds = FVector((MinMaxX[1] - MinMaxX[0]) / 2, (MinMaxY[1] - MinMaxY[0]) / 2, 10000000);
 	SetActorLocation(Position);
 	SetActorScale3D(Bounds / 100);
+}
+
+void ALandscapePCGVolume::SetHugeBounds()
+{
+	SetActorLocation(FVector::ZeroVector);
+	SetActorScale3D(FVector(HALF_WORLD_MAX / 200.0)); // half-extent ~ HALF_WORLD_MAX / 2, centered on the origin
 }
 
 bool ALandscapePCGVolume::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated)
