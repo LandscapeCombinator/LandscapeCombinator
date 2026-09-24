@@ -45,6 +45,7 @@ public class LandscapeCombinator : ModuleRules
 				"Landscape",
 				"PCG",
 				"ApplicationCore",
+				"UMG",
 
 				// Landscape Combinator dependencies
 				"Coordinates",
@@ -70,6 +71,7 @@ public class LandscapeCombinator : ModuleRules
 					"PropertyEditor",
 					"UnrealEd",
 					"UMGEditor",
+					"LevelEditor",
 					"ToolMenus",
 					"Blutility",
 					"Slate",

@@ -2,6 +2,7 @@
 
 #include "LandscapeCombinatorModule.h"
 #include "ConcurrencyHelpers/LCReporter.h"
+#include "LandscapeCombinator/GeneratorsStatusOverlayManager.h"
 
 #if WITH_EDITOR
 
@@ -14,13 +15,19 @@
 #include "LandscapeCombinator/LandscapeMeshCustomization.h"
 #include "LandscapeCombinator/LogLandscapeCombinator.h"
 #include "LandscapeCombinator/GeneratorWrapper.h"
-
+#include "LandscapeCombinator/GeneratorsStatus.h"
 
 #include "PropertyEditorDelegates.h"
 #include "PropertyEditorModule.h"
-#include "EditorUtilitySubsystem.h"
-#include "EditorUtilityWidgetBlueprint.h"
 #include "ToolMenus.h"
+
+#include "GameDelegates.h"
+#include "Editor.h"
+#include "LevelEditor.h"
+#include "SLevelViewport.h"
+#include "Blueprint/UserWidget.h"
+#include "Engine/AssetManager.h"
+#include "Engine/AssetManagerTypes.h"
 
 #endif
 
@@ -28,16 +35,14 @@ IMPLEMENT_MODULE(FLandscapeCombinatorModule, LandscapeCombinator)
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
-#if WITH_EDITOR
-
 void FLandscapeCombinatorModule::StartupModule()
 {
-	UE_LOG(LogLandscapeCombinator, Log, TEXT("LandscapeCombinator StartupModule"));
-	UE_LOG(LogLandscapeCombinator, Log,
-		TEXT("Setting geometry.DynamicMesh.MaxComplexCollisionTriCount to 2147483647 to make sure "
-			 "that collisions for dynamic meshes are correctly generated."));
 	IConsoleVariable* CVar_MaxComplexCollisionTriCount = IConsoleManager::Get().FindConsoleVariable(TEXT("geometry.DynamicMesh.MaxComplexCollisionTriCount"));
 	if (CVar_MaxComplexCollisionTriCount) CVar_MaxComplexCollisionTriCount->Set(2147483647);
+
+#if WITH_EDITOR
+
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("LandscapeCombinator StartupModule"));
 
 	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 	PropertyModule.RegisterCustomClassLayout(ALandscapeMesh::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FLandscapeMeshCustomization::MakeInstance));
@@ -50,7 +55,7 @@ void FLandscapeCombinatorModule::StartupModule()
 	FLandscapeCombinatorStyle::ReloadTextures();
 
 	FLandscapeCombinatorCommands::Register();
-	
+
 	PluginCommands = MakeShareable(new FUICommandList);
 
 	PluginCommands->MapAction(
@@ -59,12 +64,25 @@ void FLandscapeCombinatorModule::StartupModule()
 		FCanExecuteAction());
 
 	UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateRaw(this, &FLandscapeCombinatorModule::RegisterMenus));
+
+	BeginPIEHandle = FEditorDelegates::PostPIEStarted.AddRaw(this, &FLandscapeCombinatorModule::OnPIEStateChanged);
+	EndPIEHandle   = FEditorDelegates::EndPIE.AddRaw(this, &FLandscapeCombinatorModule::OnPIEStateChanged);
+
+	ModifyCookDelegateHandle = FGameDelegates::Get().GetModifyCookDelegate().AddRaw(this, &FLandscapeCombinatorModule::GetPackagesToAlwaysCook);
+
+#endif
 }
 
 void FLandscapeCombinatorModule::ShutdownModule()
 {
-	// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
-	// we call this function before unloading the module.
+#if WITH_EDITOR
+
+	FEditorDelegates::PostPIEStarted.Remove(BeginPIEHandle);
+	FEditorDelegates::EndPIE.Remove(EndPIEHandle);
+
+	FGameDelegates::Get().GetModifyCookDelegate().Remove(ModifyCookDelegateHandle);
+
+	HideGeneratorStatusOverlay();
 
 	UToolMenus::UnRegisterStartupCallback(this);
 
@@ -73,26 +91,78 @@ void FLandscapeCombinatorModule::ShutdownModule()
 	FLandscapeCombinatorStyle::Shutdown();
 
 	FLandscapeCombinatorCommands::Unregister();
+
+#endif
 }
+
+#if WITH_EDITOR
 
 void FLandscapeCombinatorModule::PluginButtonClicked()
 {
-	LCReporter::ShowError(
-		LOCTEXT(
-			"WidgetDisabled",
-			"This widget has been disabled for now. Please use Landscape Combination actors directly as in the L_LandscapeCombinatorExamples map."
-		)
-	);
-	return;
+	ToggleGeneratorStatusOverlay();
+}
 
-	// const FString WidgetPath = TEXT("/Script/Blutility.EditorUtilityWidgetBlueprint'/LandscapeCombinator/UI/LandscapeCombinator.LandscapeCombinator'");
-	
-	// UEditorUtilitySubsystem* EditorUtilitySubsystem = GEditor->GetEditorSubsystem<UEditorUtilitySubsystem>();
-	// UEditorUtilityWidgetBlueprint* WidgetBlueprint = LoadObject<UEditorUtilityWidgetBlueprint>(nullptr, *WidgetPath);
-	// if (EditorUtilitySubsystem && WidgetBlueprint)
-	// {
-	// 	EditorUtilitySubsystem->SpawnAndRegisterTab(WidgetBlueprint);
-	// }
+void FLandscapeCombinatorModule::GetPackagesToAlwaysCook(TConstArrayView<const ITargetPlatform*> TargetPlatforms, TArray<FName>& OutPackagesToCook, TArray<FName>& OutPackagesToNeverCook)
+{
+	OutPackagesToCook.AddUnique(TEXT("/LandscapeCombinator/UI/W_GeneratorsStatus"));
+}
+
+void FLandscapeCombinatorModule::ToggleGeneratorStatusOverlay()
+{
+	if (bGeneratorStatusOverlayVisible) HideGeneratorStatusOverlay();
+	else ShowGeneratorStatusOverlay();
+}
+
+void FLandscapeCombinatorModule::ShowGeneratorStatusOverlay()
+{
+	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
+	TSharedPtr<SLevelViewport> ActiveViewport = LevelEditorModule.GetFirstActiveLevelViewport();
+	if (!ActiveViewport.IsValid())
+	{
+		UE_LOG(LogLandscapeCombinator, Error, TEXT("No active level viewport to attach the generator status overlay to."));
+		return;
+	}
+
+	UUserWidget* OverlayWidget = FGeneratorsStatusOverlayManager::CreateOverlayWidget(GEditor->GetEditorWorldContext().World());
+	if (!OverlayWidget)
+	{
+		LCReporter::ShowError(LOCTEXT("MissingOverlayWidget", "Could not load the generator status overlay widget."));
+		return;
+	}
+
+	ActiveViewport->AddOverlayWidget(OverlayWidget->TakeWidget());
+	GeneratorStatusOverlayInstance = OverlayWidget;
+	GeneratorStatusOverlayViewport = ActiveViewport;
+	bGeneratorStatusOverlayVisible = true;
+}
+
+void FLandscapeCombinatorModule::HideGeneratorStatusOverlay()
+{
+	TSharedPtr<SLevelViewport> Viewport = GeneratorStatusOverlayViewport.Pin();
+	UUserWidget* OverlayWidget = GeneratorStatusOverlayInstance.Get();
+
+	if (Viewport.IsValid() && OverlayWidget)
+	{
+		Viewport->RemoveOverlayWidget(OverlayWidget->TakeWidget());
+	}
+
+	GeneratorStatusOverlayInstance.Reset();
+	GeneratorStatusOverlayViewport.Reset();
+	bGeneratorStatusOverlayVisible = false;
+}
+
+void FLandscapeCombinatorModule::OnPIEStateChanged(bool bIsSimulating)
+{
+	if (!bGeneratorStatusOverlayVisible) return;
+
+	UGeneratorsStatus* Status = Cast<UGeneratorsStatus>(GeneratorStatusOverlayInstance.Get());
+	if (!IsValid(Status)) return;
+
+	TWeakObjectPtr<UGeneratorsStatus> WeakStatus = Status;
+	GEditor->GetTimerManager()->SetTimerForNextTick([WeakStatus]()
+	{
+		if (IsValid(WeakStatus.Get())) WeakStatus.Get()->RefreshGeneratorsList();
+	});
 }
 
 void FLandscapeCombinatorModule::RegisterMenus()
@@ -112,4 +182,4 @@ void FLandscapeCombinatorModule::RegisterMenus()
 
 #endif
 
-#undef LOCTEXT_NAMESPACE 
+#undef LOCTEXT_NAMESPACE

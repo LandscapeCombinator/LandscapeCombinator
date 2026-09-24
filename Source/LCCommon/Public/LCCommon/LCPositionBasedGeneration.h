@@ -62,8 +62,18 @@ public:
 	// Distance 0 means 1 tile, Distance 1 means 3x3=9 tiles, Distance 2 means 5x5=25 tiles, etc.
 	int GenerateAllTilesAtDistance = 1;
 
-	UPROPERTY(DuplicateTransient)
+    UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta=(DisplayPriority=6))
+    bool bShowGenerationState = true;
+
+    UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta=(DisplayPriority=7))
+	// group the first group of tiles as a single rectangle
+    bool bGroupFirstTiles = true;
+
+	UPROPERTY()
 	TSet<FTile> GeneratedTiles;
+
+	UPROPERTY(Transient)
+    TSet<FTile> PendingTiles;
 
 	UFUNCTION(CallInEditor, BlueprintCallable, Category = "PositionBasedGeneration")
 	void ClearGeneratedTilesCache();
