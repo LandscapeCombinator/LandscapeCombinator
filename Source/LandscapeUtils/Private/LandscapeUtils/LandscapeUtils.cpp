@@ -111,27 +111,51 @@ bool LandscapeUtils::GetLandscapeMinMaxZ(ALandscape* Landscape, FVector2D& MinMa
 	return GetLandscapeBounds(Landscape, UnusedMinMaxX, UnusedMinMaxY, MinMaxZ);
 }
 
-TArray<ALandscapeStreamingProxy*> LandscapeUtils::GetLandscapeStreamingProxies(ALandscape* Landscape)
+bool LandscapeUtils::GetActorBounds(AActor *Actor, FVector2D &MinMaxX, FVector2D &MinMaxY, FVector2D &MinMaxZ)
 {
-	TArray<AActor*> LandscapeStreamingProxiesTemp;
-	TWeakObjectPtr<ALandscape> WeakLandscape(Landscape);
-	
-	Concurrency::RunOnGameThreadAndWait([WeakLandscape, &LandscapeStreamingProxiesTemp]() {
-		if (!WeakLandscape.IsValid()) return true;
-		UGameplayStatics::GetAllActorsOfClass(WeakLandscape->GetWorld(), ALandscapeStreamingProxy::StaticClass(), LandscapeStreamingProxiesTemp);
-		return true;
-	});
-
-	TArray<ALandscapeStreamingProxy*> LandscapeStreamingProxies;
-
-	for (auto& LandscapeStreamingProxy0 : LandscapeStreamingProxiesTemp)
+	if (!IsValid(Actor))
 	{
-		ALandscapeStreamingProxy* LandscapeStreamingProxy = Cast<ALandscapeStreamingProxy>(LandscapeStreamingProxy0);
-		if (LandscapeStreamingProxy->GetLandscapeActor() == Landscape)
-			LandscapeStreamingProxies.Add(LandscapeStreamingProxy);
+		LCReporter::ShowError(LOCTEXT("LandscapeUtils::GetActorBounds::0", "Invalid Actor"));
+		return false;
 	}
 
-	return LandscapeStreamingProxies;
+	if (ALandscape *Landscape = Cast<ALandscape>(Actor))
+	{
+		return GetLandscapeBounds(Landscape, MinMaxX, MinMaxY, MinMaxZ);
+	}
+
+	FVector Origin, Extent;
+	Actor->GetActorBounds(false, Origin, Extent, true);
+
+	MinMaxX[0] = Origin.X - Extent.X; MinMaxX[1] = Origin.X + Extent.X;
+	MinMaxY[0] = Origin.Y - Extent.Y; MinMaxY[1] = Origin.Y + Extent.Y;
+	MinMaxZ[0] = Origin.Z - Extent.Z; MinMaxZ[1] = Origin.Z + Extent.Z;
+	return true;
+}
+
+TArray<ALandscapeStreamingProxy*> LandscapeUtils::GetLandscapeStreamingProxies(ALandscape* Landscape)
+{
+    TArray<AActor*> LandscapeStreamingProxiesTemp;
+    TWeakObjectPtr<ALandscape> WeakLandscape(Landscape);
+
+    Concurrency::RunOnGameThreadAndWait([WeakLandscape, &LandscapeStreamingProxiesTemp]() {
+        if (!WeakLandscape.IsValid()) return true;
+        UGameplayStatics::GetAllActorsOfClass(WeakLandscape->GetWorld(), ALandscapeStreamingProxy::StaticClass(), LandscapeStreamingProxiesTemp);
+        return true;
+    });
+
+    TArray<ALandscapeStreamingProxy*> LandscapeStreamingProxies;
+
+    for (auto& LandscapeStreamingProxy0 : LandscapeStreamingProxiesTemp)
+    {
+        ALandscapeStreamingProxy* LandscapeStreamingProxy = Cast<ALandscapeStreamingProxy>(LandscapeStreamingProxy0);
+        ALandscape* OwningLandscape = IsValid(LandscapeStreamingProxy) ? LandscapeStreamingProxy->GetLandscapeActor() : nullptr;
+
+        if (OwningLandscape == Landscape)
+            LandscapeStreamingProxies.Add(LandscapeStreamingProxy);
+    }
+
+    return LandscapeStreamingProxies;
 }
 
 // Parameters to collide with this actor only, ignoring all other actors
@@ -147,6 +171,7 @@ bool LandscapeUtils::CustomCollisionQueryParams(AActor *Actor, FCollisionQueryPa
 	TArray<AActor*> Actors;
 	UGameplayStatics::GetAllActorsOfClass(World, AActor::StaticClass(), Actors);
 	CollisionQueryParams = FCollisionQueryParams();
+	CollisionQueryParams.bTraceComplex = true;
 
 	if (Actor->IsA<ALandscape>())
 	{
@@ -177,6 +202,8 @@ bool LandscapeUtils::CustomCollisionQueryParams(AActor *Actor, FCollisionQueryPa
 // Parameters to collide with these actors only, ignoring all other actors
 bool LandscapeUtils::CustomCollisionQueryParams(const TArray<AActor*>& CollidingActors, FCollisionQueryParams& CollisionQueryParams)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR(__FUNCTION__);
+
     if (CollidingActors.IsEmpty())
     {
         LCReporter::ShowError(LOCTEXT("InvalidCollidingActors", "Invalid colliding actors for custom collision query"));
@@ -213,6 +240,7 @@ bool LandscapeUtils::CustomCollisionQueryParams(const TArray<AActor*>& Colliding
 	TArray<AActor*> Actors;
 	UGameplayStatics::GetAllActorsOfClass(World, AActor::StaticClass(), Actors);
 	CollisionQueryParams = FCollisionQueryParams();
+	CollisionQueryParams.bTraceComplex = true;
 
 	for (auto &SomeActor : Actors)
 	{
