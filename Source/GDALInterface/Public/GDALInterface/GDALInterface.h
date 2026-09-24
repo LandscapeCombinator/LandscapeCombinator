@@ -9,6 +9,7 @@
 #include "gdal.h"
 #include "gdal_priv.h"
 #include "gdal_utils.h"
+#include "gdal_alg.h"
 #include "cpl_vsi.h"
 #include <ogr_api.h>
 #include <ogrsf_frmts.h>
@@ -80,6 +81,8 @@ public:
 
 	// returns false if feature was already there, and true otherwise
 	static bool AddFeature(TSet<FString> &AlreadyHandledFeatures, OGRFeature *Feature);
+
+	static bool RasterizeGeometry(OGRGeometry* Geometry, int Resolution, TArray<FColor>& OutColors, int& OutWidth, int& OutHeight, FColor BurnColor);
 };
 
 #undef LOCTEXT_NAMESPACE
