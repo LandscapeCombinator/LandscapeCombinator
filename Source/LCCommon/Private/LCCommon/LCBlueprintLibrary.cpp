@@ -7,6 +7,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Components/SplineComponent.h"
 #include "Engine/OverlapResult.h"
+#include "DrawDebugHelpers.h" 
 
 #if WITH_EDITOR
 #include "EditorViewportClient.h"
@@ -150,56 +151,80 @@ TSet<TObjectPtr<USplineComponent>> ULCBlueprintLibrary::FindSplineComponents(UWo
 	return Result;
 }
 
-void ULCBlueprintLibrary::PushOutOfCollision(TWeakObjectPtr<AActor> Actor, int MaxSteps, double StepSize)
+bool ULCBlueprintLibrary::FindPushOffset(TWeakObjectPtr<AActor> Actor, UPrimitiveComponent* TestComponent, FName RequiredPusherTag, int MaxSteps, double StepSize, FVector& OutOffset, bool bShowDebug)
 {
-	TRACE_CPUPROFILER_EVENT_SCOPE_STR("PushOutOfCollision");
-	check(IsInGameThread());
+    TRACE_CPUPROFILER_EVENT_SCOPE_STR("FindPushOffset");
+    check(IsInGameThread());
 
-	if (!Actor.IsValid()) return;
+    if (!Actor.IsValid() || !IsValid(TestComponent)) return false;
+    UWorld* World = Actor->GetWorld();
+    if (!IsValid(World)) return false;
 
-	UWorld* World = Actor->GetWorld();
-	if (!IsValid(World)) return;
+    const FVector Origin = TestComponent->GetComponentLocation();
+    const FQuat Rotation = TestComponent->GetComponentQuat();
 
-	USceneComponent* RootComponent = Actor->GetRootComponent();
-	if (IsValid(RootComponent)) RootComponent->SetMobility(EComponentMobility::Movable);
+    if (TestComponent->GetCollisionEnabled() == ECollisionEnabled::NoCollision)
+        TestComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 
-	const FVector ActorLocation = Actor->GetActorLocation();
-	FVector Origin;
-	FVector HalfExtent;
-	Actor->GetActorBounds(/* bOnlyCollidingComponents */ false, Origin, HalfExtent);
+    FComponentQueryParams QueryParams(SCENE_QUERY_STAT(FindPushOffset), Actor.Get());
+    QueryParams.bTraceComplex = false;
 
-	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(PushOutOfCollision), /* bTraceComplex */ true, /* Ignore Actor */ Actor.Get());
+    const FBoxSphereBounds LocalBounds = TestComponent->CalcBounds(FTransform::Identity);
+	FVector ShapeExtent = LocalBounds.BoxExtent;
+	ShapeExtent.Z *= 10; // make the box very tall to avoid buildings going above roads and missing collision
+	FCollisionShape Shape = FCollisionShape::MakeBox(ShapeExtent);
+    auto DrawShape = [&](const FVector& Loc, const FColor& Color)
+    {
+        if (!bShowDebug) return;
+        const FVector BoxCenter = Loc + Rotation.RotateVector(LocalBounds.Origin);
+        DrawDebugBox(World, BoxCenter, LocalBounds.BoxExtent, Rotation, Color, false, 5.f, 0, 10.f);
+    };
 
-	TArray<AActor*> TaggedActors;
-	UGameplayStatics::GetAllActorsWithTag(World, FName("no-push-collision"), TaggedActors);
-	QueryParams.AddIgnoredActors(TaggedActors);
+    auto HasOverlap = [&](const FVector& TestLocation) -> bool
+    {
+        TArray<FOverlapResult> Overlaps;
+		World->OverlapMultiByChannel(Overlaps, TestLocation + Rotation.RotateVector(LocalBounds.Origin), Rotation, ECC_Visibility, Shape, QueryParams);
 
-	FHitResult Hit;
-	const FCollisionShape Shape = FCollisionShape::MakeBox(HalfExtent);
-	if (!World->OverlapAnyTestByChannel(ActorLocation, FQuat::Identity, ECC_Visibility, FCollisionShape::MakeBox(HalfExtent), QueryParams)) return;
+        if (RequiredPusherTag.IsNone())
+            return Overlaps.Num() > 0;
 
-	static const FVector2D Directions[] =
-	{
-		{ 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 },
-		{ 0.7071f,  0.7071f }, { 0.7071f, -0.7071f },
-		{ -0.7071f, 0.7071f }, { -0.7071f, -0.7071f }
-	};
+        for (const FOverlapResult& O : Overlaps)
+            if (AActor* OwnerActor = O.GetActor())
+                if (OwnerActor->ActorHasTag(RequiredPusherTag))
+                    return true;
+        return false;
+    };
 
-	for (auto &D2 : Directions)
-	{
-		const FVector Dir(D2.X, D2.Y, 0);
-		for (int Step = 1; Step <= MaxSteps; Step++)
-		{
-			const FVector Candidate = ActorLocation + Dir * (StepSize * Step);
-			if (!World->OverlapAnyTestByChannel(Candidate, FQuat::Identity, ECC_Visibility, FCollisionShape::MakeBox(HalfExtent), QueryParams))
-			{
-				Actor->SetActorLocation(Candidate);
-				return;
-			}
-		}
-	}
+    const bool bInitialOverlap = HasOverlap(Origin);
+    DrawShape(Origin, bInitialOverlap ? FColor::Red : FColor::Green);
+    if (!bInitialOverlap) return false;
+
+    static const FVector2D Directions[] =
+    {
+        { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 },
+        { 0.7071f,  0.7071f }, { 0.7071f, -0.7071f },
+        { -0.7071f, 0.7071f }, { -0.7071f, -0.7071f }
+    };
+
+    for (const FVector2D& D2 : Directions)
+    {
+        const FVector Dir(D2.X, D2.Y, 0);
+        for (int Step = 1; Step <= MaxSteps; Step++)
+        {
+            const FVector Candidate = Origin + Dir * (StepSize * Step);
+            const bool bCandidateOverlap = HasOverlap(Candidate);
+            DrawShape(Candidate, bCandidateOverlap ? FColor::Red : FColor::Green);
+
+            if (!bCandidateOverlap)
+            {
+                OutOffset = Dir * (StepSize * Step);
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
-
 
 #if WITH_EDITOR
 

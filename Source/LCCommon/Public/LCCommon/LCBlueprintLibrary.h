@@ -63,7 +63,7 @@ public:
 
 	static TSet<TObjectPtr<USplineComponent>> FindSplineComponents(UWorld *World, bool bIsUserInitiated, FName Tag, FName ComponentTag);
 
-	static void PushOutOfCollision(TWeakObjectPtr<AActor> Actor, int MaxSteps, double StepSize);
+	static bool FindPushOffset(TWeakObjectPtr<AActor> Actor, UPrimitiveComponent* TestComponent, FName RequiredPusherTag, int MaxSteps, double StepSize, FVector& OutOffset, bool bShowDebug);
 
 #if WITH_EDITOR
 
