@@ -41,27 +41,31 @@ bool HMWMS::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 
 	if (bWMSSingleTile || (NumTilesX <= 1 && NumTilesY <= 1))
 	{
-		// Single tile download
-		double Width = FMath::Min(WMS_MaxTileWidth, (WMS_MaxLong - WMS_MinLong) * WMS_ResolutionPixelsPerUnit);
-		double Height = FMath::Min(WMS_MaxTileHeight, (WMS_MaxLat - WMS_MinLat) * WMS_ResolutionPixelsPerUnit);
+		double IdealWidth = (WMS_MaxLong - WMS_MinLong) * WMS_ResolutionPixelsPerUnit;
+		double IdealHeight = (WMS_MaxLat - WMS_MinLat) * WMS_ResolutionPixelsPerUnit;
+
+		double Width = FMath::Min(WMS_MaxTileWidth, IdealWidth);
+		double Height = FMath::Min(WMS_MaxTileHeight, IdealHeight);
+
+		bool bResolutionWasCapped = (IdealWidth > WMS_MaxTileWidth) || (IdealHeight > WMS_MaxTileHeight);
 
 		double ActualResolution = FMath::Min(Width / (WMS_MaxLong - WMS_MinLong), Height / (WMS_MaxLat - WMS_MinLat));
-		if (bIsUserInitiated && ActualResolution < WMS_ResolutionPixelsPerUnit && !LCReporter::ShowMessage(
-				FText::Format(
-					LOCTEXT(
-						"LowResolutionMessage",
-						"Cannot download a single tile with a resolution of {0} pixels per unit because maximum tile size is {1}x{2} pixels.\n"
-						"Continue with a lower resolution ({3} pixels per unit)?"
-					),
-					FText::AsNumber(WMS_ResolutionPixelsPerUnit),
-					FText::AsNumber(WMS_MaxTileWidth),
-					FText::AsNumber(WMS_MaxTileHeight),
-					FText::AsNumber(ActualResolution)
+
+		if (bIsUserInitiated && bResolutionWasCapped && !LCReporter::ShowMessage(
+			FText::Format(
+				LOCTEXT(
+					"LowResolutionMessage",
+					"Cannot download a single tile with a resolution of {0} pixels per unit because maximum tile size is {1}x{2} pixels.\n"
+					"Continue with a lower resolution ({3} pixels per unit)?"
 				),
-				"SuppressedLowResolution",
-				LOCTEXT("LowResolutionTitle", "Cannot download tiles at given resolution")
-			)
-		)
+				FText::AsNumber(WMS_ResolutionPixelsPerUnit),
+				FText::AsNumber(WMS_MaxTileWidth),
+				FText::AsNumber(WMS_MaxTileHeight),
+				FText::AsNumber(ActualResolution)
+			),
+			"SuppressedLowResolution",
+			LOCTEXT("LowResolutionTitle", "Cannot download tiles at given resolution")
+		))
 		{
 			return false;
 		}
