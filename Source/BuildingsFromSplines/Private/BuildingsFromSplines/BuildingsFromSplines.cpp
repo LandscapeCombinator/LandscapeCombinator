@@ -98,13 +98,6 @@ bool ABuildingsFromSplines::GenerateBuildings(FName SpawnedActorsPathOverride, b
 			return false;
 	}
 
-
-#if WITH_EDITOR
-	Concurrency::RunOnGameThread([]() {
-		if (GEditor) GEditor->NoteSelectionChange(); // to avoid folders being in rename mode
-	});
-#endif
-
 	return true;
 }
 
@@ -150,7 +143,7 @@ bool ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent, 
 
 	ABuilding* Building = nullptr;
 	
-	return Concurrency::RunOnGameThreadAndWait([WeakThis, &Building, &Location, &RotatorForLargestSegment, &SpawnedActorsPathOverride, NumPoints, SplineComponent]() -> bool
+	return Concurrency::RunOnGameThreadThrottledAndWait([WeakThis, &Building, &Location, &RotatorForLargestSegment, &SpawnedActorsPathOverride, NumPoints, SplineComponent]() -> bool
 	{
 		if (!WeakThis.IsValid() || !IsValid(WeakThis->GetWorld())) return false; // fail silently, the game has probably ended
 		Building = WeakThis->GetWorld()->SpawnActor<ABuilding>(Location, RotatorForLargestSegment);
