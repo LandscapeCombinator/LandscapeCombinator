@@ -8,7 +8,6 @@
 #include "ConcurrencyHelpers/LCReporter.h"
 #include "ConsoleHelpers/ExternalTool.h"
 #include "LCCommon/LCGenerator.h"
-#include "LCCommon/ActorSelection.h"
 #include "LandscapeMesh.h"
 
 #include "GenericPlatform/GenericPlatformMisc.h"
@@ -91,21 +90,21 @@ public:
 	bool bDeleteExistingMeshesBeforeSpawningMeshes = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner", meta = (DisplayPriority = "13"))
-	bool bReuseExistingMesh = false;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
-		meta = (EditCondition = "bReuseExistingMesh", EditConditionHides, DisplayPriority = "14")
-	)
 	int HeightmapPriority = 0;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
-		meta = (EditCondition = "bReuseExistingMesh", EditConditionHides, DisplayPriority = "14")
-	)
-	FActorSelection ExistingLandscapeMesh;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner", meta = (DisplayPriority = "14"))
+	/* How each grid quad is split into two triangles. */
+	EGridSplitDirection GridSplitDirection = EGridSplitDirection::Checkerboard;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
-		meta = (EditCondition = "!bReuseExistingMesh", EditConditionHides, DisplayPriority = "20")
-	)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner", meta = (DisplayPriority = "16"))
+	/* in cm */
+	double ApronWidth = 10000.0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner", meta = (DisplayPriority = "17"))
+	/* in cm */
+	double ApronDepth = 10000.0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner", meta = (DisplayPriority = "20"))
 	/* Tag to add on the spawned landscape meshes. */
 	FName SpawnedLandscapeMeshesTag;
 
