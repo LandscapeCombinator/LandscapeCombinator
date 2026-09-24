@@ -57,7 +57,6 @@ UImageDownloader::UImageDownloader()
 	PreprocessingTool = CreateDefaultSubobject<UExternalTool>(TEXT("Preprocessing Tool"));
 }
 
-
 bool UImageDownloader::ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY)
 {
 	if (IsXYZ())
@@ -70,8 +69,51 @@ bool UImageDownloader::ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY,
 		ParametersSelection.ParametersSelectionMethod = EParametersSelectionMethod::Manual;
 		return true;
 	}
+	else if (IsWMS())
+	{
+		double MinLong3857, MaxLat3857, MaxLong3857, MinLat3857;
+		GDALInterface::XYZTileToEPSG3857(MinX, MinY, Zoom, MinLong3857, MaxLat3857);
+		GDALInterface::XYZTileToEPSG3857(MaxX + 1, MaxY + 1, Zoom, MaxLong3857, MinLat3857);
+
+		FVector4d Coordinates3857(MinLong3857, MaxLong3857, MinLat3857, MaxLat3857);
+		FVector4d CoordinatesWMS;
+
+		if (!GDALInterface::ConvertCoordinates(Coordinates3857, /*bCrop=*/false, CoordinatesWMS, "EPSG:3857", WMS_CRS))
+		{
+			LCReporter::ShowError(
+				FText::Format(
+					NSLOCTEXT("FImageDownloaderModule", "ConfigureForTilesWMSConvertFailed",
+						"Failed to convert tile coordinates from EPSG:3857 to the WMS layer's CRS ('{0}'). "
+						"Please check that the layer's CRS is valid."
+					),
+					FText::FromString(WMS_CRS)
+				)
+			);
+			return false;
+		}
+
+		WMS_MinLong = CoordinatesWMS[0];
+		WMS_MaxLong = CoordinatesWMS[1];
+		WMS_MinLat  = CoordinatesWMS[2];
+		WMS_MaxLat  = CoordinatesWMS[3];
+
+		ParametersSelection.ParametersSelectionMethod = EParametersSelectionMethod::Manual;
+		return true;
+	}
 	else
 	{
+		FString SourceName = StaticEnum<EImageSourceKind>()->GetDisplayNameTextByValue((int64)ImageSourceKind).ToString();
+
+		LCReporter::ShowError(
+			FText::Format(
+				NSLOCTEXT("FImageDownloaderModule", "ConfigureForTilesNotSupported",
+					"Position Based Generation requires an XYZ or WMS based image source, but the current source is '{0}'.\n"
+					"Either disable Position Based Generation, or change the Image Source Kind."
+				),
+				FText::FromString(SourceName)
+			)
+		);
+
 		return false;
 	}
 }
@@ -189,7 +231,7 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(bool bIsUserInitiated, FString
 					return nullptr;
 				}
 
-				AutoSetResolution();
+				if (bAutoSetResolution) AutoSetResolution();
 
 				HMFetcher *WMSFetcher = new HMWMS(
 					WMS_Provider, bEnableWMSParallelDownload,
