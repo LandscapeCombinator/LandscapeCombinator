@@ -114,7 +114,7 @@ public:
 	FActorSelection BoundingActorSelection;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
-		meta = (EditCondition = "NeedsBoundingMethod() && BoundingMethod == EBoundingMethod::TileNumbers", EditConditionHides, DisplayPriority = "11")
+		meta = (EditCondition = "NeedsBoundingMethod() && BoundingMethod == EBoundingMethod::TileNumbers", EditConditionHides, DisplayPriority = "12")
 	)
 	int BoundingZoneZoom = 14;
 
@@ -144,6 +144,12 @@ public:
 	)
 	/* Folder used to spawn the actors. This setting is unused when generating from a combination. */
 	FName SpawnedActorsPath;
+
+	/* If true, flushes the global PCG cache once after a successful import. */
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+		meta = (DisplayPriority = "1400")
+	)
+	bool bFlushPCGCacheAfterImport = false;
 
 	UFUNCTION(CallInEditor, Category = "GDALImporter")
 	void Import() {
@@ -178,6 +184,8 @@ protected:
 	GDALDataset* LoadGDALDatasetFromShortQuery(FString ShortQuery, bool bIsUserInitiated);
 
 	virtual void SetOverpassShortQuery();
+	
+	void FlushPCGCacheIfNeeded();
 };
 
 #undef LOCTEXT_NAMESPACE

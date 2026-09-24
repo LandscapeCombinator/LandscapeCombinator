@@ -26,6 +26,10 @@
 #include "ObjectEditorUtils.h"
 #include "Misc/MessageDialog.h"
 
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
+#include "Subsystems/PCGSubsystem.h"
+#endif
+
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
 AGDALImporter::AGDALImporter()
@@ -155,6 +159,18 @@ GDALDataset* AGDALImporter::LoadGDALDataset(bool bIsUserInitiated)
 		check(false);
 		return nullptr;
 	}
+}
+
+void AGDALImporter::FlushPCGCacheIfNeeded()
+{
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
+	if (!bFlushPCGCacheAfterImport) return;
+
+	Concurrency::RunOnGameThreadThrottled([]() {
+		if (UPCGSubsystem* PCGSubsystem = UPCGSubsystem::GetSubsystemForCurrentWorld())
+			PCGSubsystem->FlushCache();
+	});
+#endif
 }
 
 #if WITH_EDITOR

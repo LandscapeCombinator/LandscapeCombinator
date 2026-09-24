@@ -31,19 +31,43 @@
 #include "Algo/Reverse.h"
 #include "Styling/AppStyle.h"
 
-#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
-#include "Subsystems/PCGSubsystem.h"
-#endif
-
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
 using namespace UE::Geometry;
+
+namespace
+{
+	void SetChordLengthTangents(USplineComponent* Spline, bool bLoop)
+	{
+		TArray<FInterpCurvePoint<FVector>>& Points = Spline->SplineCurves.Position.Points;
+		const int32 N = Points.Num();
+		if (N < 2) return;
+
+		auto P = [&](int32 i) -> FVector
+		{
+			return Points[bLoop ? (i % N + N) % N : FMath::Clamp(i, 0, N - 1)].OutVal;
+		};
+
+		for (int32 i = 0; i < N; ++i)
+		{
+			FVector In  = (bLoop || i > 0)     ? P(i) - P(i - 1) : P(i + 1) - P(i);
+			FVector Out = (bLoop || i < N - 1) ? P(i + 1) - P(i) : P(i) - P(i - 1);
+
+			FVector Dir = (In.GetSafeNormal() + Out.GetSafeNormal()).GetSafeNormal();
+			if (Dir.IsZero()) Dir = Out.GetSafeNormal();
+
+			Points[i].InterpMode    = CIM_CurveBreak;
+			Points[i].ArriveTangent = Dir * In.Size();
+			Points[i].LeaveTangent  = Dir * Out.Size();
+		}
+	}
+}
 
 void ASplineImporter::SetOverpassShortQuery()
 {
 	if (Source == EVectorSource::OSM_Roads)
 	{
-		OverpassShortQuery = "way[\"highway\"][\"highway\"!~\"path\"][\"highway\"!~\"track\"];";
+		OverpassShortQuery = "way[\"highway\"][\"highway\"!~\"path\"][\"highway\"!~\"track\"][\"highway\"!~\"footway\"][\"service\"!~\"driveway\"];";
 	}
 	else if (Source == EVectorSource::OSM_Buildings)
 	{
@@ -215,14 +239,10 @@ bool ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 #if WITH_EDITOR
 	if (bUseLandscapeSplines)
 	{
-		return Concurrency::RunOnGameThreadAndWait([&]() {
+		return Concurrency::RunOnGameThreadThrottledAndWait([&]() {
 			if (GenerateLandscapeSplines(bIsUserInitiated, Landscape, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists))
 			{
-#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
-				if (bFlushPCGCacheAfterImport)
-					if (UPCGSubsystem* PCGSubsystem = UPCGSubsystem::GetSubsystemForCurrentWorld())
-						PCGSubsystem->FlushCache();
-#endif
+				FlushPCGCacheIfNeeded();
 				return true;
 			}
 			else
@@ -233,14 +253,10 @@ bool ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 	}
 	else
 	{
-		return Concurrency::RunOnGameThreadAndWait([&]() {
+		return Concurrency::RunOnGameThreadThrottledAndWait([&]() {
 			if (GenerateRegularSplines(bIsUserInitiated, SpawnedActorsPathOverride, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists))
 			{
-#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
-				if (bFlushPCGCacheAfterImport)
-					if (UPCGSubsystem* PCGSubsystem = UPCGSubsystem::GetSubsystemForCurrentWorld())
-						PCGSubsystem->FlushCache();
-#endif
+				FlushPCGCacheIfNeeded();
 				return true;
 			}
 			else
@@ -256,14 +272,10 @@ bool ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 		UE_LOG(LogSplineImporter, Error, TEXT("Cannot create landscape splines at runtime"));
 		return false;
 	}
-	return Concurrency::RunOnGameThreadAndWait([&]() {
+	return Concurrency::RunOnGameThreadThrottledAndWait([&]() {
 		if (GenerateRegularSplines(bIsUserInitiated, SpawnedActorsPathOverride, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists))
 		{
-#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
-			if (bFlushPCGCacheAfterImport)
-				if (UPCGSubsystem* PCGSubsystem = UPCGSubsystem::GetSubsystemForCurrentWorld())
-					PCGSubsystem->FlushCache();
-#endif
+			FlushPCGCacheIfNeeded();
 			return true;
 		}
 		else
@@ -271,7 +283,6 @@ bool ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 			return false;
 		}
 	});
-
 
 #endif
 }
@@ -493,7 +504,9 @@ bool ASplineImporter::AddRegularSpline(
 		{
 			TemporarySpline->AddSplinePoint( { UE2DPoint.X, UE2DPoint.Y, 0 }, ESplineCoordinateSpace::World, false);
 		}
+
 		TemporarySpline->UpdateSpline();
+		SetChordLengthTangents(TemporarySpline, bIsLoop);
 
 		float SplineLength = TemporarySpline->GetSplineLength();
 		UE2DPoints.Empty(SplineLength / ResampleDistance + 1);
@@ -603,17 +616,20 @@ bool ASplineImporter::AddRegularSpline(
 		}
 	}
 
-	for (auto &SplinePoint : SplinePoints) SplineComponent->AddSplinePoint(SplinePoint, ESplineCoordinateSpace::World, false);
+	for (auto& SplinePoint : SplinePoints) SplineComponent->AddSplinePoint(SplinePoint, ESplineCoordinateSpace::World, false);
 
-	SplineComponent->SetClosedLoop(bIsLoop);
+	SplineComponent->SetClosedLoop(bIsLoop, false);
 
 	if (Source == EVectorSource::OSM_Buildings)
 	{
-		auto &Points = SplineComponent->SplineCurves.Position.Points;
-		for (FInterpCurvePoint<FVector> &Point : SplineComponent->SplineCurves.Position.Points)
+		for (FInterpCurvePoint<FVector>& Point : SplineComponent->SplineCurves.Position.Points)
 		{
 			Point.InterpMode = CIM_Linear;
 		}
+	}
+	else
+	{
+		SetChordLengthTangents(SplineComponent, bIsLoop);
 	}
 
 	SplineComponent->UpdateSpline();
