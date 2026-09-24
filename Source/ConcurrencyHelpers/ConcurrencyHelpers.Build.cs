@@ -15,13 +15,14 @@ public class ConcurrencyHelpers : ModuleRules
 			new string[]
 			{
 				"Core",
+				"CoreUObject",
+				"DeveloperSettings"
 			}
 		);
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"CoreUObject",
 				"Engine",
 				"Slate",
 				"SlateCore",

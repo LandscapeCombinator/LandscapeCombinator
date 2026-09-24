@@ -5,24 +5,33 @@
 #include "LCReporter.h"
 #include "Templates/Function.h"
 #include "Async/Async.h"
+#include <atomic>
 
-#define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
+#define LOCTEXT_NAMESPACE "FConcurrencyHelpersModule"
 
 class CONCURRENCYHELPERS_API Concurrency
 {
 public:
 
+	static bool WaitForEvent(FEvent* SyncEvent);
+
 	template<typename T>
 	static void RunMany(TArray<T> Elements, TFunction<void( T Element, TFunction<void(bool)> )> Action, TFunction<void(bool)> OnComplete)
 	{
 		int32 NumberOfTasks = Elements.Num();
+		if (NumberOfTasks == 0)
+		{
+			if (OnComplete) OnComplete(true);
+			return;
+		}
+
 		std::atomic<int32> *SuccessfulTasks = new std::atomic<int>(0);
 		std::atomic<int32> *FinishedTasks = new std::atomic<int>(0);
 		UE_LOG(LogTemp, Log, TEXT("Starting %d tasks asynchronously"), NumberOfTasks);
 
 		TFunction<void(bool)> OnCompleteAction = [FinishedTasks, SuccessfulTasks, NumberOfTasks, OnComplete](bool bWasSuccessful) {
-			int FinishedTasksLocal = ++(*FinishedTasks);
 			if (bWasSuccessful) (*SuccessfulTasks)++;
+			int FinishedTasksLocal = ++(*FinishedTasks);
 
 			if (FinishedTasksLocal == NumberOfTasks)
 			{
@@ -35,11 +44,15 @@ public:
 
 		for (const T& Element : Elements)
 		{
-			Async(EAsyncExecution::Thread,
-				[Element, Action, OnCompleteAction]() {
-					Action(Element, OnCompleteAction);
+			// async and not the safe run async, so that we continue with "OnCompleteAction"
+			Async(EAsyncExecution::Thread, [Element, Action, OnCompleteAction]() {
+				if (IsEngineExitRequested())
+				{
+					OnCompleteAction(false);
+					return;
 				}
-			);
+				Action(Element, OnCompleteAction);
+			});
 		}
 
 		return;
@@ -66,67 +79,80 @@ public:
 		}
 
 		int32 NumberOfTasks = Elements.Num();
-		std::atomic<int32> *SuccessfulTasks = new std::atomic<int>(0);
-		std::atomic<int32> *FinishedTasks = new std::atomic<int>(0);
-		UE_LOG(LogTemp, Log, TEXT("Starting %d tasks in parallel"), NumberOfTasks);
+		if (NumberOfTasks == 0) return true;
 
-		OutResults.Empty(NumberOfTasks);
-		OutResults.SetNum(NumberOfTasks);
+		TSharedRef<TArray<A>> SharedElements = MakeShared<TArray<A>>(MoveTemp(Elements));
+		TSharedRef<TArray<B>> SharedResults  = MakeShared<TArray<B>>();
+		SharedResults->SetNum(NumberOfTasks);
+
+		TSharedRef<std::atomic<int32>> SuccessfulTasks = MakeShared<std::atomic<int32>>(0);
+		TSharedRef<std::atomic<int32>> RemainingTasks  = MakeShared<std::atomic<int32>>(NumberOfTasks);
+
+		FEvent* SyncEvent = FPlatformProcess::GetSynchEventFromPool(false);
+		if (!SyncEvent)
+		{
+			LCReporter::ShowError(
+				LOCTEXT("RunArrayAndWaitEvent", "Failed to create sync event for RunArrayAndWait.")
+			);
+			return false;
+		}
+
+		UE_LOG(LogTemp, Log, TEXT("Starting %d tasks in parallel"), NumberOfTasks);
 
 		for (int i = 0; i < NumberOfTasks; i++)
 		{
 			Async(EAsyncExecution::Thread,
-				[&Function, FinishedTasks, SuccessfulTasks, NumberOfTasks, &Elements, &OutResults, i]() {
+				[Function, SuccessfulTasks, RemainingTasks, SyncEvent, SharedElements, SharedResults, i]()
+				{
+					if (!IsEngineExitRequested() && Function((*SharedElements)[i], (*SharedResults)[i]))
+						(*SuccessfulTasks)++;
 
-					if (Function(Elements[i], OutResults[i])) (*SuccessfulTasks)++;
-					(*FinishedTasks)++;
+					if (--(*RemainingTasks) == 0)
+						SyncEvent->Trigger();
 				}
 			);
 		}
 
-		UE_LOG(LogTemp, Log, TEXT("Actively waiting for all %d tasks to complete"), NumberOfTasks);
-		while (*FinishedTasks < NumberOfTasks) FPlatformProcess::Sleep(0.05f);
-		UE_LOG(LogTemp, Log, TEXT("Finished waiting"));
+		bool bWaited = WaitForEvent(SyncEvent);
+		FPlatformProcess::ReturnSynchEventToPool(SyncEvent);
+		if (!bWaited) return false;
 
-		bool bSuccess = *SuccessfulTasks == *FinishedTasks;
-		delete SuccessfulTasks;
-		delete FinishedTasks;
-
-		return bSuccess;
+		OutResults = *SharedResults;
+		return *SuccessfulTasks == NumberOfTasks;
 	}
-
 	
 	template<typename T>
-	static void RunSuccessivelyFrom(const TArray<T> &Elements, int Index, TFunction<void(T Element, TFunction<void(bool)> OnCompleteOne)> Action, TFunction<void(bool)> OnCompleteAll)
+	static void RunSuccessivelyFrom(TSharedRef<TArray<T>> Elements, int Index, TFunction<void(T Element, TFunction<void(bool)> OnCompleteOne)> Action, TFunction<void(bool)> OnCompleteAll)
 	{
-		if (Index >= Elements.Num())
+		if (Index >= Elements->Num())
 		{
 			if (OnCompleteAll) OnCompleteAll(true);
 			return;
 		}
 
-		Action(Elements[Index], [Elements, OnCompleteAll, Index, Action](bool bSuccess)
+		Action((*Elements)[Index], [Elements, OnCompleteAll, Index, Action](bool bSuccess)
 		{
-			if (!bSuccess)
-			{
-				if (OnCompleteAll) OnCompleteAll(false);
-				return;
-			}
+			if (!bSuccess) { if (OnCompleteAll) OnCompleteAll(false); return; }
 
-			RunSuccessivelyFrom(Elements, Index + 1, Action, OnCompleteAll);
+			Concurrency::RunAsync([Elements, OnCompleteAll, Index, Action]()
+			{
+				RunSuccessivelyFrom(Elements, Index + 1, Action, OnCompleteAll);
+			});
 		});
 	}
-	
+
 	template<typename T>
 	static void RunSuccessively(const TArray<T> &Elements, TFunction<void(T Element, TFunction<void(bool)> OnCompleteOne)> Action, TFunction<void(bool)> OnCompleteAll)
 	{
-		RunSuccessivelyFrom(Elements, 0, Action, OnCompleteAll);
+		RunSuccessivelyFrom(MakeShared<TArray<T>>(Elements), 0, Action, OnCompleteAll);
 	}
 
 	static void RunAsync(TFunction<void()> Action);
 	static void RunMany(int n, TFunction<void( int i, TFunction<void(bool)> )> Action, TFunction<void(bool)> OnComplete);
 	static bool RunManyAndWait(bool bEnableParallelDownload, int n, TFunction<bool( int i )> Action);
 	static void RunOnGameThread(TFunction<void()> Action);
+	static void RunOnGameThreadThrottled(TFunction<void()> Action);
+	static bool RunOnGameThreadThrottledAndWait(TFunction<bool()> Action);
 
 	static bool RunOnThreadAndWait(bool bRunOnGameThread, TFunction<bool()> Action);
 	static bool RunOnGameThreadAndWait(TFunction<bool()> Action);
