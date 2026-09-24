@@ -71,9 +71,24 @@ TArray<UObject*> ALandscapeSpawner::GetGeneratedObjects() const
 
 	for (auto &LandscapeStreamingProxy: SpawnedLandscapeStreamingProxies)
 	{
-		Result.Add(LandscapeStreamingProxy.LoadSynchronous());
+		ALandscapeStreamingProxy *LoadedProxy = LandscapeStreamingProxy.LoadSynchronous();
+		if (IsValid(LoadedProxy))
+		{
+			Result.Add(LoadedProxy);
+		}
+		else
+		{
+			UE_LOG(LogLandscapeCombinator, Warning,
+				TEXT("GetGeneratedObjects: Invalid LandscapeStreamingProxy soft pointer in spawner %s"),
+				*GetActorNameOrLabel()
+			);
+		}
 	}
-	Result.Add(SpawnedLandscape.LoadSynchronous());
+	ALandscape *LoadedLandscape = SpawnedLandscape.LoadSynchronous();
+	if (LoadedLandscape)
+		Result.Add(LoadedLandscape);
+	else
+		UE_LOG(LogLandscapeCombinator, Warning, TEXT("GetGeneratedObjects: SpawnedLandscape soft pointer is stale in spawner %s"), *GetActorNameOrLabel());
 
 	return Result;
 }
@@ -140,6 +155,8 @@ bool ALandscapeSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUser
 
 bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIsUserInitiated, TObjectPtr<ALandscape>& OutLandscape, TArray<ADecalActor*>& OutDecals)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR(__FUNCTION__);
+	
 	Modify();
 
 #if UE_VERSION_OLDER_THAN(5,6,0)
@@ -305,7 +322,7 @@ bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 
 	if (SpawnMethod == ESpawnMethod::CreateFreshLandscape || SpawnMethod == ESpawnMethod::CreateFreshLandscapeIncrementally)
 	{
-		if (!Concurrency::RunOnGameThreadAndWait([&]() {
+		if (!Concurrency::RunOnGameThreadThrottledAndWait([&]() {
 
 			TArray<FString> Files2;
 			if (SpawnMethod == ESpawnMethod::CreateFreshLandscapeIncrementally)
@@ -424,26 +441,54 @@ bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 
 	if (SpawnMethod == ESpawnMethod::CreateFreshLandscapeIncrementally)
 	{
-		if (!Concurrency::RunOnGameThreadAndWait([&]() {
+		if (!Concurrency::RunOnGameThreadThrottledAndWait([&]() {
 			bool bExtendLandscapeSuccess = LandscapeUtils::ExtendLandscape(OutLandscape, Files);
 			SpawnedLandscape = OutLandscape;
+
+			if (bExtendLandscapeSuccess)
+			{
+				SpawnedLandscapeStreamingProxies.Empty();
+				TArray<ALandscapeStreamingProxy*> FoundProxies = LandscapeUtils::GetLandscapeStreamingProxies(OutLandscape);
+				for (auto* Proxy : FoundProxies)
+				{
+					SpawnedLandscapeStreamingProxies.Add(Proxy);
+				}
+			}
+
 			return bExtendLandscapeSuccess;
 		}))
 			return false;
 	}
 	else if (SpawnMethod == ESpawnMethod::ExtendExistingLandscape)
 	{
-		if (!Concurrency::RunOnGameThreadAndWait([&]() {
+		if (!Concurrency::RunOnGameThreadThrottledAndWait([&]() {
 			ALandscape *LandscapeToExtend = Cast<ALandscape>(LandscapeToExtendSelection.GetActor(GetWorld()));
 			if (!IsValid(LandscapeToExtend)) return false;
 
 			SpawnedLandscape = LandscapeToExtend;
-			return LandscapeUtils::ExtendLandscape(LandscapeToExtend, Files);
+
+			TSet<ALandscapeStreamingProxy*> ProxiesBefore;
+			if (bCreateLandscapeStreamingProxies)
+			{
+				ProxiesBefore.Append(LandscapeUtils::GetLandscapeStreamingProxies(LandscapeToExtend));
+			}
+
+			bool bExtendSuccess = LandscapeUtils::ExtendLandscape(LandscapeToExtend, Files);
+			if (bExtendSuccess)
+			{
+				for (auto* Proxy : LandscapeUtils::GetLandscapeStreamingProxies(LandscapeToExtend))
+				{
+					if (!ProxiesBefore.Contains(Proxy))
+						SpawnedLandscapeStreamingProxies.Add(Proxy);
+				}
+			}
+
+			return bExtendSuccess;
 		}))
 			return false;
 	}
 
-	Concurrency::RunOnGameThreadAndWait([&]() {
+	Concurrency::RunOnGameThreadThrottledAndWait([&]() {
 		UBlendLandscape *SpawnedBlendLandscape = NewObject<UBlendLandscape>(SpawnedLandscape->GetRootComponent());
 
 		if (!IsValid(SpawnedBlendLandscape))
@@ -510,7 +555,7 @@ bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 				return false;
 			}
 
-			if (!Concurrency::RunOnGameThreadAndWait([&]() {
+			if (!Concurrency::RunOnGameThreadThrottledAndWait([&]() {
 				DecalDownloader->Modify();
 				DecalDownloader->ParametersSelection.ParametersSelectionMethod = EParametersSelectionMethod::FromBoundingActor;
 				DecalDownloader->ParametersSelection.ParametersBoundingActor = SpawnedLandscape.Get();
@@ -549,7 +594,7 @@ bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 			DecalActors.Append(NewDecals);
 
 #if WITH_EDITOR
-			Concurrency::RunOnGameThreadAndWait([this, &NewDecals, SpawnedActorsPathOverride]() {
+			Concurrency::RunOnGameThreadThrottledAndWait([this, &NewDecals, SpawnedActorsPathOverride]() {
 				for (auto &DecalActor : NewDecals)
 				{
 					if (IsValid(DecalActor) && IsValid(DecalActor->GetDecal()))
