@@ -129,10 +129,15 @@ bool FWMSProvider::LoadFromFile(TArray<FString> ExcludeCRS, TFunction<bool(FStri
 		if (Names.Contains(Name)) continue;
 		if (NameFilter && !NameFilter(Name)) continue;
 
-		FRegexPattern AbstractPattern(*FString::Format(TEXT("{0}</Title>\\s*(<Abstract>.*?</Abstract>|<Abstract/>)"), { TitleRegex }));
-		FRegexMatcher AbstractMatcher(AbstractPattern, CapabilitiesContent);
-		FRegexPattern CRSPattern(*FString::Format(TEXT("{0}</Title>(.*?)BoundingBox .RS=\"([^\"]+)\"([^/]+)/"), { TitleRegex }));
-		FRegexMatcher CRSMatcher(CRSPattern, CapabilitiesContent);
+		int32 LayerBlockStart = LayerMatcher.GetMatchEnding();
+		int32 NextLayerPos = CapabilitiesContent.Find(TEXT("<Layer"), ESearchCase::IgnoreCase, ESearchDir::FromStart, LayerBlockStart);
+		int32 LayerBlockEnd = (NextLayerPos == INDEX_NONE) ? CapabilitiesContent.Len() : NextLayerPos;
+		FString LayerBlock = CapabilitiesContent.Mid(LayerBlockStart, LayerBlockEnd - LayerBlockStart);
+
+		FRegexPattern AbstractPattern(TEXT("^\\s*(<Abstract>.*?</Abstract>|<Abstract/>)"));
+		FRegexMatcher AbstractMatcher(AbstractPattern, LayerBlock);
+		FRegexPattern CRSPattern(TEXT("^(.*?)BoundingBox .RS=\"([^\"]+)\"([^/]+)/"));
+		FRegexMatcher CRSMatcher(CRSPattern, LayerBlock);
 
 		bool bHasAbstract = AbstractMatcher.FindNext();
 		FString Abstract = bHasAbstract ? AbstractMatcher.GetCaptureGroup(1) : Title;
@@ -210,7 +215,7 @@ bool FWMSProvider::LoadFromFile(TArray<FString> ExcludeCRS, TFunction<bool(FStri
 		// if (LayerParams.Contains("queryable=\"0\"")) continue;
 
 		Names.Add(Name);
-		Titles.Add(Title);
+		Titles.Add(FString::Printf(TEXT("%s (%s)"), *Title, *Name));
 		Abstracts.Add(Abstract);
 		CRSs.Add(LastCRS);
 		MinXs.Add(LastMinX);
