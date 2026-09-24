@@ -35,6 +35,11 @@ public:
 	static ADecalActor* CreateDecal(UWorld *World, UMaterial *Material, FString Path);
 	static TArray<ADecalActor*> CreateDecals(UWorld *World, UMaterial *Material, TArray<FString> Paths);
 	static ADecalActor* CreateDecal(UWorld *World, UMaterial *Material, FString Path, FVector4d &OutCoordinates);
+
+	static UMaterialInstanceDynamic* SetDecalTextureFromColors(
+		UDecalComponent* Decal, UMaterialInterface* Material,
+		int Width, int Height, TArray<FColor>& Colors, UObject* Outer, FString TextureName
+	);
 };
 
 #undef LOCTEXT_NAMESPACE
