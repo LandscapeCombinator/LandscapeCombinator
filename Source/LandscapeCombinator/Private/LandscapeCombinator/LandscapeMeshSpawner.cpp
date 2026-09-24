@@ -69,6 +69,8 @@ AActor *ALandscapeMeshSpawner::Duplicate(FName FromName, FName ToName)
 
 bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR(__FUNCTION__);
+
 	Modify();
 
 	if (bDeleteExistingMeshesBeforeSpawningMeshes)
@@ -94,6 +96,8 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 
 		return false;
 	}
+
+	TWeakObjectPtr<ALandscapeMeshSpawner> WeakThis(this);
 
 	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World, false);
 	if (IsValid(GlobalCoordinates))
@@ -132,11 +136,12 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 
 	TArray<FString> Files;
 	FString FilesCRS;
-	bool bSuccess = Fetcher->Fetch("", TArray<FString>());
-	if (bSuccess)
 	{
-		Files = Fetcher->OutputFiles;
-		FilesCRS = Fetcher->OutputCRS;
+		if (Fetcher->Fetch("", TArray<FString>()))
+		{
+			Files = Fetcher->OutputFiles;
+			FilesCRS = Fetcher->OutputCRS;
+		}
 	}
 
 	delete Fetcher;
@@ -147,22 +152,21 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 	{
 		if (ULCBlueprintLibrary::GetCmPerPixelForCRS(FilesCRS, CmPerPixel))
 		{
-			bool bThreadSuccess = Concurrency::RunOnGameThreadAndWait([&]() {
-				if (!IsValid(this)) return false;
-				UWorld *World = GetWorld();
-				if (!IsValid(World)) return false;
+			bool bThreadSuccess = Concurrency::RunOnGameThreadThrottledAndWait([WeakThis, &GlobalCoordinates, &Files, FilesCRS, CmPerPixel]() {
+				if (!WeakThis.IsValid() || !IsValid(WeakThis->GetWorld())) return false;
+				UWorld *World = WeakThis->GetWorld();
 				ALevelCoordinates *LevelCoordinates = World->SpawnActor<ALevelCoordinates>();
 				if (!IsValid(LevelCoordinates)) return false;
 				GlobalCoordinates = LevelCoordinates->GlobalCoordinates;
 				if (!IsValid(GlobalCoordinates)) return false;
-		
+
 				FVector4d Coordinates = FVector4d();
 				if (!GDALInterface::GetCoordinates(Coordinates, Files)) return false;
-		
+
 				GlobalCoordinates->CRS = FilesCRS;
 				GlobalCoordinates->CmPerLongUnit = CmPerPixel;
 				GlobalCoordinates->CmPerLatUnit = -CmPerPixel;
-		
+
 				double MinCoordWidth = Coordinates[0];
 				double MaxCoordWidth = Coordinates[1];
 				double MinCoordHeight = Coordinates[2];
@@ -209,83 +213,55 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 		return false;
 	}
 
-	ALandscapeMesh *ReusedLandscapeMesh = nullptr;
 	for (auto &OutputFile : Files)
 	{
 		FVector4d ThisFileCoordinates = FVector4d();
-		if (!GDALInterface::GetCoordinates(ThisFileCoordinates, OutputFile)) return false;
-
-		if (bReuseExistingMesh)
 		{
-			Concurrency::RunOnGameThreadAndWait([&ReusedLandscapeMesh, World, this]() {
-				if (!IsValid(ReusedLandscapeMesh)) ReusedLandscapeMesh = Cast<ALandscapeMesh>(ExistingLandscapeMesh.GetActor(World));
-				return true;
-			});
-
-			if (!IsValid(ReusedLandscapeMesh))
-			{
-				LCReporter::ShowError(
-					LOCTEXT(
-						"ALandscapeMeshSpawner::OnGenerate::ExistingLandscapeMesh",
-						"ExistingLandscapeMesh must point to a valid LandscapeMesh"
-					)
-				);
-				return false;
-			}
-			if (!ReusedLandscapeMesh->AddHeightmap(HeightmapPriority, ThisFileCoordinates, GlobalCoordinates, OutputFile)) return false;
+			if (!GDALInterface::GetCoordinates(ThisFileCoordinates, OutputFile)) return false;
 		}
-		else
-		{
-			ALandscapeMesh *LandscapeMesh = nullptr;
-			bool bThreadSuccess = Concurrency::RunOnGameThreadAndWait([this, &LandscapeMesh, ThisFileCoordinates, GlobalCoordinates, OutputFile, SpawnedActorsPathOverride]()
-			{
-				if (!this) return false;
-				UWorld *World = GetWorld();
-				if (!IsValid(World)) return false;
-				LandscapeMesh = World->SpawnActor<ALandscapeMesh>();
-				if (!IsValid(LandscapeMesh)) return false;
 
-				SpawnedLandscapeMeshes.Add(LandscapeMesh);
+		ALandscapeMesh *LandscapeMesh = nullptr;
+		bool bThreadSuccess = Concurrency::RunOnGameThreadThrottledAndWait([WeakThis, &LandscapeMesh, ThisFileCoordinates, GlobalCoordinates, OutputFile, SpawnedActorsPathOverride]()
+		{
+			if (!WeakThis.IsValid() || !IsValid(WeakThis->GetWorld())) return false;
+			UWorld *World = WeakThis->GetWorld();
+			LandscapeMesh = World->SpawnActor<ALandscapeMesh>();
+			if (!IsValid(LandscapeMesh)) return false;
+
+			WeakThis->SpawnedLandscapeMeshes.Add(LandscapeMesh);
 
 #if WITH_EDITOR
-				if (!LandscapeMeshLabel.IsEmpty())
-					LandscapeMesh->SetActorLabel(LandscapeMeshLabel);
-				ULCBlueprintLibrary::SetFolderPath2(LandscapeMesh, SpawnedActorsPathOverride, SpawnedActorsPath);
+			if (!WeakThis->LandscapeMeshLabel.IsEmpty())
+				LandscapeMesh->SetActorLabel(WeakThis->LandscapeMeshLabel);
+			ULCBlueprintLibrary::SetFolderPath2(LandscapeMesh, SpawnedActorsPathOverride, WeakThis->SpawnedActorsPath);
 #endif
 
-				if (!SpawnedLandscapeMeshesTag.IsNone()) LandscapeMesh->Tags.Add(SpawnedLandscapeMeshesTag);
-				if (!LandscapeMesh->AddHeightmap(0, ThisFileCoordinates, GlobalCoordinates, OutputFile)) return false;
-				LandscapeMesh->MeshComponent->SetMaterial(0, LandscapeMaterial);
-				return LandscapeMesh->RegenerateMesh(SplitNormalsAngle);
-			});
+			if (!WeakThis->SpawnedLandscapeMeshesTag.IsNone()) LandscapeMesh->Tags.Add(WeakThis->SpawnedLandscapeMeshesTag);
+			if (!LandscapeMesh->AddHeightmap(WeakThis->HeightmapPriority, ThisFileCoordinates, GlobalCoordinates, OutputFile)) return false;
+			LandscapeMesh->MeshComponent->SetMaterial(0, WeakThis->LandscapeMaterial);
+			return true;
+		});
 
 
-			if (!IsValid(LandscapeMesh))
-			{
-				LCReporter::ShowError(
-					LOCTEXT(
-						"ALandscapeMeshSpawner::OnGenerate::CouldNotSpawnLandscapeMesh",
-						"Could not spawn LandscapeMesh"
-					)
-				);
+		if (!IsValid(LandscapeMesh))
+		{
+			LCReporter::ShowError(
+				LOCTEXT(
+					"ALandscapeMeshSpawner::OnGenerate::CouldNotSpawnLandscapeMesh",
+					"Could not spawn LandscapeMesh"
+				)
+			);
 
-				return false;
-			}
-
-			if (!bThreadSuccess) return false;
+			return false;
 		}
+
+		if (!bThreadSuccess) return false;
+
+		if (!LandscapeMesh->RegenerateMesh(SplitNormalsAngle, GridSplitDirection, ApronWidth, ApronDepth)) return false;
+		ALandscapeMesh::RegisterAndCutLowerPriority(LandscapeMesh, SplitNormalsAngle, GridSplitDirection, ApronWidth, ApronDepth);
 	}
 
-	// here ReusedLandscapeMesh is necessarily non null because it has been set in the (non-empty) for loop
-	return Concurrency::RunOnGameThreadAndWait([&](){
-		if (bReuseExistingMesh)
-		{
-			ReusedLandscapeMesh->RegenerateMesh(SplitNormalsAngle);
-			ReusedLandscapeMesh->MeshComponent->SetMaterial(0, LandscapeMaterial);
-		}
-
-		return true;
-	});
+	return true;
 }
 
 #undef LOCTEXT_NAMESPACE

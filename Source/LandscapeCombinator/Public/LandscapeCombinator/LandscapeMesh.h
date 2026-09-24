@@ -4,31 +4,29 @@
 
 #include "Coordinates/GlobalCoordinates.h"
 #include "Components/DynamicMeshComponent.h"
-#include "Polygon2.h"
+#include "HAL/ThreadSafeCounter64.h"
+#include "HAL/CriticalSection.h"
 #include "LandscapeMesh.generated.h"
 
-using namespace UE::Geometry;
-
-USTRUCT(BlueprintType)
-struct FHeightmap
+UENUM(BlueprintType)
+enum class EGridSplitDirection : uint8
 {
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FHeightmap")
-	TSet<FVector> Points;
-
-	TPolygon2<double> Boundary;
-
-	void UpdateBoundary();
+	Forward,
+	Backward,
+	Checkerboard // diagonal alternates from quad to quad
 };
 
-USTRUCT(BlueprintType)
-struct FHeightmaps
+USTRUCT()
+struct FRegisteredHeightmap
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FHeightmaps")
-	TArray<FHeightmap> Heightmaps;
+	int Priority = 0;
+
+	// Axis-aligned bounding rectangle of the heightmap, in Unreal world space (Left, Right, Bottom, Top).
+	FVector4d Rect = FVector4d(0, 0, 0, 0);
+
+	TWeakObjectPtr<class ALandscapeMesh> Mesh;
 };
 
 UCLASS(BlueprintType)
@@ -45,12 +43,45 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LandscapeMesh")
 	TObjectPtr<UDynamicMeshComponent> MeshComponent;
 
-	UPROPERTY(BlueprintReadWrite, Transient, Category = "LandscapeMesh")
-	TMap<int, FHeightmaps> PriorityToHeightmaps;
+	// The heightmap's points, in Unreal world space, stored row-major (Width x Height),
+	UPROPERTY()
+	TArray<FVector> Points;
+
+	UPROPERTY()
+	int Width = 0;
+
+	UPROPERTY()
+	int Height = 0;
+
+	UPROPERTY()
+	int Priority = 0;
+
+	// Axis-aligned bounding rectangle of this heightmap, in Unreal world space (Left, Right, Bottom, Top).
+	UPROPERTY()
+	FVector4d Rect = FVector4d(0, 0, 0, 0);
 
 	bool AddHeightmap(int Priority, FVector4d Coordinates, UGlobalCoordinates* GlobalCoordinates, FString File);
 
 	UFUNCTION(BlueprintCallable, Category = "LandscapeMesh")
-	bool RegenerateMesh(double SplitNormalsAngle);
+	bool RegenerateMesh(double SplitNormalsAngle, EGridSplitDirection SplitDirection, double ApronWidth = 0.0, double ApronDepth = 0.0);
 
+	static void RegisterAndCutLowerPriority(ALandscapeMesh* Mesh, double SplitNormalsAngle, EGridSplitDirection SplitDirection, double ApronWidth = 0.0, double ApronDepth = 0.0);
+
+	static void Unregister(ALandscapeMesh* Mesh);
+
+protected:
+	virtual void Destroyed() override;
+	virtual void BeginPlay() override;
+	virtual void PostRegisterAllComponents() override;
+
+	bool CookCollisionFromCurrentMesh();
+	bool bHasCookedCollisionThisSession = false;
+
+	FCriticalSection CookLock;
+	FThreadSafeCounter64 MeshGenerationCounter;
+
+	static bool IsPointCoveredByHigherOrEqualPriority(const FVector2D& Point, int Priority, ALandscapeMesh* Self);
+
+	static FCriticalSection RegistryLock;
+	static TArray<FRegisteredHeightmap> GRegisteredHeightmaps;
 };
