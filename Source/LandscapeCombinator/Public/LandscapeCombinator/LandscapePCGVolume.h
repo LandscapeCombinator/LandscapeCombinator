@@ -50,6 +50,10 @@ public:
 	UFUNCTION(CallInEditor, BlueprintCallable, Category = "LandscapePCGVolume")
 	void SetPositionAndBounds();
 
+	UFUNCTION(CallInEditor, BlueprintCallable, Category = "LandscapePCGVolume")
+	// for runtime generation
+	void SetHugeBounds();
+
 	virtual bool OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated) override;
 
 	virtual bool Cleanup_Implementation(bool bSkipPrompt) override;
