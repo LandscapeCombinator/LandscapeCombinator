@@ -20,6 +20,26 @@
 
 #define LOCTEXT_NAMESPACE "FCoordinatesModule"
 
+UMaterialInstanceDynamic* UDecalCoordinates::SetDecalTextureFromColors(
+    UDecalComponent* Decal, UMaterialInterface* Material,
+    int Width, int Height, TArray<FColor>& Colors, UObject* Outer, FString TextureName)
+{
+    UMaterialInstanceDynamic* MID = nullptr;
+    Concurrency::RunOnGameThreadThrottledAndWait([&]() {
+        FCreateTexture2DParameters Params;
+        Params.bUseAlpha = true;
+        Params.CompressionSettings = TC_EditorIcon; // preserves alpha exactly
+
+        UTexture2D* Texture = FImageUtils::CreateTexture2D(
+            Width, Height, Colors, Outer, TextureName, RF_Public | RF_Transactional, Params);
+        MID = UMaterialInstanceDynamic::Create(Material, Outer);
+        MID->SetTextureParameterValue(FName("Texture"), Texture);
+        Decal->SetDecalMaterial(MID);
+        return true;
+    });
+    return MID;
+}
+
 bool UDecalCoordinates::PlaceDecal(UMaterial *Material)
 {
 	FVector4d Unused;
@@ -90,10 +110,8 @@ bool UDecalCoordinates::PlaceDecal(UMaterial *Material, FVector4d &OutCoordinate
 	double X = (Left + Right) / 2;
 	double Y = (Top + Bottom) / 2;
 	double Z = DecalActor->GetActorLocation().Z;
-
-	UMaterialInstanceDynamic *MI_GeoDecal = nullptr;
 	
-	Concurrency::RunOnGameThreadAndWait([this, Material, &MI_GeoDecal, DecalActor, Bottom, Top, Right, Left, X, Y, Z]()
+	Concurrency::RunOnGameThreadThrottledAndWait([this, Material, DecalActor, Bottom, Top, Right, Left, X, Y, Z]()
 	{
 		if (!IsValid(DecalActor)) return false;
 
@@ -101,17 +119,8 @@ bool UDecalCoordinates::PlaceDecal(UMaterial *Material, FVector4d &OutCoordinate
 		DecalActor->SetActorRotation(FRotator(-90, 0, 0));
 		DecalActor->SetActorLocation(FVector(X, Y, Z));
 		
-		MI_GeoDecal = UMaterialInstanceDynamic::Create(Material, this);
 		return true;
 	});
-
-	if (!IsValid(MI_GeoDecal))
-	{
-		LCReporter::ShowError(
-			LOCTEXT("UDecalCoordinates::PlaceDecal::M_GeoDecal", "Coordinates Internal Error: Could not find material M_GeoDecal.")
-		);
-		return false;
-	}
 
 	int Width, Height;
 	TArray<FColor> Colors;
@@ -127,18 +136,7 @@ bool UDecalCoordinates::PlaceDecal(UMaterial *Material, FVector4d &OutCoordinate
 		return false;
 	}
 
-	Concurrency::RunOnGameThreadAndWait([&Width, &Height, &Colors, this, MI_GeoDecal, DecalActor]() {
-		Texture = FImageUtils::CreateTexture2D(
-			Width, Height, Colors,
-			this, FString("T_GeoDecal_") + DecalActor->GetActorNameOrLabel(),
-			RF_Public | RF_Transactional,
-			FCreateTexture2DParameters()
-		);
-
-		MI_GeoDecal->SetTextureParameterValue(FName("Texture"), Texture);
-		DecalActor->SetDecalMaterial(MI_GeoDecal);
-		return true;
-	});
+	SetDecalTextureFromColors(DecalActor->GetDecal(), Material, Width, Height, Colors, this, FString("T_GeoDecal_") + DecalActor->GetActorNameOrLabel());
 
 	return true;
 }
@@ -179,7 +177,7 @@ ADecalActor* UDecalCoordinates::CreateDecal(UWorld *World, UMaterial *Material, 
 	ADecalActor* DecalActor = nullptr;
 	UDecalCoordinates *DecalCoordinates = nullptr;
 	
-	Concurrency::RunOnGameThreadAndWait([&DecalActor, &DecalCoordinates, World, Path]{
+	Concurrency::RunOnGameThreadThrottledAndWait([&DecalActor, &DecalCoordinates, World, Path]{
 		DecalActor = World->SpawnActor<ADecalActor>();
 		if (!IsValid(DecalActor)) return false;
 		FString BaseName = FPaths::GetBaseFilename(Path);
@@ -211,9 +209,8 @@ ADecalActor* UDecalCoordinates::CreateDecal(UWorld *World, UMaterial *Material, 
 	}
 	else
 	{
-		Concurrency::RunOnGameThreadAndWait([&DecalActor]{
+		Concurrency::RunOnGameThread([&DecalActor]{
 			DecalActor->Destroy();
-			return true;
 		});
 		return nullptr;
 	}
