@@ -164,11 +164,6 @@ public:
 	)
 	double ColinearityAngleThreshold = 1;
 
-	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
-		meta = (DisplayPriority = "1400")
-	)
-	bool bFlushPCGCacheAfterImport = false;
-
 	bool OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated) override;
 	
 	UPROPERTY(
