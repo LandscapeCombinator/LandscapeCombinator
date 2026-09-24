@@ -341,12 +341,18 @@ bool GDALInterface::Transform2(OGRCoordinateTransformation* CoordinateTransforma
 
 bool GDALInterface::ConvertCoordinates(double *Longitude, double *Latitude, FString InCRS, FString OutCRS)
 {
-	return Transform(MakeTransform(InCRS, OutCRS), Longitude, Latitude);
+	OGRCoordinateTransformation* CoordinateTransformation = MakeTransform(InCRS, OutCRS);
+	bool bSuccess = Transform(CoordinateTransformation, Longitude, Latitude);
+	OGRCoordinateTransformation::DestroyCT(CoordinateTransformation);
+	return bSuccess;
 }
 
 bool GDALInterface::ConvertCoordinates2(double *xs, double *ys, FString InCRS, FString OutCRS)
 {
-	return Transform2(MakeTransform(InCRS, OutCRS), xs, ys);
+	OGRCoordinateTransformation* CoordinateTransformation = MakeTransform(InCRS, OutCRS);
+	bool bSuccess = Transform2(CoordinateTransformation, xs, ys);
+	OGRCoordinateTransformation::DestroyCT(CoordinateTransformation);
+	return bSuccess;
 }
 
 bool GDALInterface::ConvertCoordinates(FVector4d& OriginalCoordinates, bool bCrop, FVector4d& NewCoordinates, FString InCRS, FString OutCRS)
@@ -367,12 +373,18 @@ bool GDALInterface::ConvertCoordinates(FVector4d& OriginalCoordinates, FVector4d
 	double ys[2] = { MaxCoordHeight, MinCoordHeight };
 
 	OGRSpatialReference InRs, OutRs;
-	if (!SetCRSFromUserInput(InRs, InCRS) || !SetCRSFromUserInput(OutRs, OutCRS) || !OGRCreateCoordinateTransformation(&InRs, &OutRs)->Transform(2, xs, ys)) {
+	if (!SetCRSFromUserInput(InRs, InCRS) || !SetCRSFromUserInput(OutRs, OutCRS)) return false;
+
+	OGRCoordinateTransformation* CoordinateTransformation = OGRCreateCoordinateTransformation(&InRs, &OutRs);
+	if (!CoordinateTransformation || !CoordinateTransformation->Transform(2, xs, ys))
+	{
 		LCReporter::ShowError(
 			LOCTEXT("GDALInterface::ConvertCoordinates", "Internal error while transforming coordinates.")
 		);
+		OGRCoordinateTransformation::DestroyCT(CoordinateTransformation);
 		return false;
 	}
+	OGRCoordinateTransformation::DestroyCT(CoordinateTransformation);
 
 	Coordinates[0] = xs[0];
 	Coordinates[1] = xs[1];
@@ -386,16 +398,19 @@ bool GDALInterface::ConvertCoordinates(FVector4d& OriginalCoordinates, bool bCro
 	double MinCoordWidth = OriginalCoordinates[0];
 	double MaxCoordWidth = OriginalCoordinates[1];
 	double MinCoordHeight = OriginalCoordinates[2];
-	double MaxCoordHeight = OriginalCoordinates [3];
+	double MaxCoordHeight = OriginalCoordinates[3];
 
 	double xs[4] = { MinCoordWidth,  MinCoordWidth,  MaxCoordWidth,  MaxCoordWidth };
 	double ys[4] = { MinCoordHeight, MaxCoordHeight, MaxCoordHeight, MinCoordHeight };
 
-	if (!OGRCreateCoordinateTransformation(&InRs, &OutRs)->Transform(4, xs, ys))
+	OGRCoordinateTransformation* CoordinateTransformation = OGRCreateCoordinateTransformation(&InRs, &OutRs);
+	if (!CoordinateTransformation || !CoordinateTransformation->Transform(4, xs, ys))
 	{
 		LCReporter::ShowError(LOCTEXT("GDALInterface::ConvertCoordinates", "Internal error while transforming coordinates."));
+		OGRCoordinateTransformation::DestroyCT(CoordinateTransformation);
 		return false;
 	}
+	OGRCoordinateTransformation::DestroyCT(CoordinateTransformation);
 
 	if (bCrop)
 	{
@@ -770,6 +785,8 @@ bool GDALInterface::ReadHeightmapFromFile(FString File, int& OutWidth, int& OutH
 			OutHeightmap[k] = Buffer[k];
 		}
 	}
+
+	UE_LOG(LogGDALInterface, Log, TEXT("Finished reading heightmap from image %s of size %d x %d"), *File, OutWidth, OutHeight);
 
 	delete[] Buffer;
 
@@ -1398,7 +1415,6 @@ bool GDALInterface::WriteHeightmapDataToTIF(const FString& File, int32 SizeX, in
 	return true;
 }
 
-
 bool GDALInterface::AddFeature(TSet<FString> &AlreadyHandledFeatures, OGRFeature *Feature)
 {
 	if (!Feature) return false;
@@ -1420,6 +1436,47 @@ bool GDALInterface::AddFeature(TSet<FString> &AlreadyHandledFeatures, OGRFeature
 	}
 
 	return true;
+}
+
+bool GDALInterface::RasterizeGeometry(OGRGeometry* Geometry, int Resolution, TArray<FColor>& OutColors, int& OutWidth, int& OutHeight, FColor BurnColor)
+{
+    if (!Geometry) return false;
+
+    OGREnvelope Envelope;
+    Geometry->getEnvelope(&Envelope);
+    double SizeX = Envelope.MaxX - Envelope.MinX;
+    double SizeY = Envelope.MaxY - Envelope.MinY;
+    if (SizeX <= 0 || SizeY <= 0) return false;
+
+    double Ratio = SizeX / SizeY;
+    OutWidth  = Ratio >= 1 ? Resolution : FMath::Max(1, FMath::RoundToInt(Resolution * Ratio));
+    OutHeight = Ratio >= 1 ? FMath::Max(1, FMath::RoundToInt(Resolution / Ratio)) : Resolution;
+
+    GDALDataset* Mem = GetGDALDriverManager()->GetDriverByName("MEM")->Create("", OutWidth, OutHeight, 1, GDT_Byte, nullptr);
+    if (!Mem) return false;
+
+    double GeoTransform[6] = { Envelope.MinX, SizeX / OutWidth, 0, Envelope.MaxY, 0, -SizeY / OutHeight };
+    Mem->SetGeoTransform(GeoTransform);
+
+    int Band = 1;
+    OGRGeometryH Handle = OGRGeometry::ToHandle(Geometry);
+    double Burn = 255;
+    char** Opts = CSLSetNameValue(nullptr, "ALL_TOUCHED", "TRUE");
+
+    CPLErr Err = GDALRasterizeGeometries(Mem, 1, &Band, 1, &Handle, nullptr, nullptr, &Burn, Opts, nullptr, nullptr);
+    CSLDestroy(Opts);
+    if (Err != CE_None) { GDALClose(Mem); return false; }
+
+    TArray<uint8> Mask;
+    Mask.SetNumUninitialized(OutWidth * OutHeight);
+    Mem->GetRasterBand(1)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, Mask.GetData(), OutWidth, OutHeight, GDT_Byte, 0, 0);
+    GDALClose(Mem);
+
+    OutColors.SetNumUninitialized(Mask.Num());
+    for (int i = 0; i < Mask.Num(); i++)
+        OutColors[i] = Mask[i] > 0 ? BurnColor : FColor(0, 0, 0, 0);
+
+    return true;
 }
 
 
