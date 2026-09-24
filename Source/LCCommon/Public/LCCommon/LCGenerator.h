@@ -21,6 +21,14 @@
 
 #include "LCGenerator.generated.h"
 
+UENUM(BlueprintType, meta = (ScriptName = "LCGeneratorStatus"))
+enum class EGeneratorStatus : uint8
+{
+	Idle,
+	Generating,
+	Error,
+	Success
+};
 
 UINTERFACE(Blueprintable)
 class LCCOMMON_API ULCGenerator : public UInterface
@@ -70,7 +78,12 @@ public:
 	}
 #endif
 
+	EGeneratorStatus GetGeneratorStatus() const { return CurrentStatus; }
+	void SetGeneratorStatus(EGeneratorStatus NewStatus) { CurrentStatus = NewStatus; }
+	void ResetGeneratorStatus() { CurrentStatus = EGeneratorStatus::Idle; }
+
 protected:
+	EGeneratorStatus CurrentStatus = EGeneratorStatus::Idle;
 	TWeakObjectPtr<AActor> Self;
 
 	void GenerationFinished(bool bSuccess)

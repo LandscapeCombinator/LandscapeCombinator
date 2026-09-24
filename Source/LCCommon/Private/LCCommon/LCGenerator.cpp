@@ -24,6 +24,8 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 	Self = Cast<AActor>(this);
 	if (!Self.IsValid()) return false;
 
+	CurrentStatus = EGeneratorStatus::Generating;
+
 	ULCPositionBasedGeneration* PositionBasedGeneration = Cast<ULCPositionBasedGeneration>(Self->GetComponentByClass(ULCPositionBasedGeneration::StaticClass()));
 	if (IsValid(PositionBasedGeneration) && PositionBasedGeneration->bEnablePositionBasedGeneration)
 	{
@@ -33,6 +35,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 			!ULCBlueprintLibrary::GetEditorViewClientPosition(Position))
 		{
 			LCReporter::ShowError(LOCTEXT("NoPosition", "Could not get the first player position"));
+			CurrentStatus = EGeneratorStatus::Error;
 			return false;
 		}
 
@@ -45,10 +48,15 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 		if (!IsValid(GlobalCoordinates))
 		{
 			LCReporter::ShowError(LOCTEXT("NoGlobalCoordinates", "You must add a Level Coordinates actor before using Position Based Generation"));
+			CurrentStatus = EGeneratorStatus::Error;
 			return false;
 		}
 
-		if (!GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(Location2D, "EPSG:4326", Coordinates)) return false;
+		if (!GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(Location2D, "EPSG:4326", Coordinates))
+		{
+			CurrentStatus = EGeneratorStatus::Error;
+			return false;
+		}
 
 		double n = 1 << Zoom;
 		double LatRad = FMath::DegreesToRadians(Coordinates.Y);
@@ -75,10 +83,39 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 			}
 		}
 
-		// if all tiles are missing, we regenerate the whole rectangle
-		if (MissingTiles.Num() == (MaxX - MinX + 1) * (MaxY - MinY + 1))
+		TWeakObjectPtr<ULCPositionBasedGeneration> WeakPBGForPending = PositionBasedGeneration;
+		TArray<FTile> PendingSnapshot = MissingTiles;
+		Concurrency::RunOnGameThreadAndWait([WeakPBGForPending, PendingSnapshot]() {
+			if (!WeakPBGForPending.IsValid()) return false;
+			WeakPBGForPending->PendingTiles = TSet<FTile>(PendingSnapshot);
+			return true;
+		});
+
+		TWeakObjectPtr<AActor> WeakSelf = Self;
+		TWeakObjectPtr<ULCPositionBasedGeneration> WeakPBG = PositionBasedGeneration;
+		auto MarkTilesGenerated = [WeakSelf, WeakPBG](const TArray<FTile>& Tiles) -> bool
 		{
-			if (!ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY)) return false;
+			return Concurrency::RunOnGameThreadAndWait([WeakSelf, WeakPBG, Tiles]() {
+				if (!WeakSelf.IsValid() || !WeakPBG.IsValid()) return false;
+				WeakSelf->Modify();
+				WeakPBG->Modify();
+				WeakPBG->GeneratedTiles.Append(Tiles);
+				for (const FTile& Tile : Tiles)
+				{
+					WeakPBG->PendingTiles.Remove(Tile);
+				}
+				return true;
+			});
+		};
+
+		// if all tiles are missing, we regenerate the whole rectangle
+		if (WeakPBG->bGroupFirstTiles && MissingTiles.Num() == (MaxX - MinX + 1) * (MaxY - MinY + 1))
+		{
+			if (!ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY))
+			{
+				CurrentStatus = EGeneratorStatus::Error;
+				return false;
+			}
 			UE_LOG(LogLCCommon, Log,
 				TEXT("All tiles from (%d, %d, %d) to (%d, %d, %d) are missing, generating them now"),
 				Zoom, MinX, MinY,
@@ -87,12 +124,17 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 
 			if (OnGenerate(SpawnedActorsPath, bIsUserInitiated))
 			{
-				PositionBasedGeneration->GeneratedTiles.Append(MissingTiles);
+				if (!MarkTilesGenerated(MissingTiles))
+				{
+					UE_LOG(LogLCCommon, Warning, TEXT("Generated tiles, but failed to persist GeneratedTiles cache (actor/component no longer valid)."));
+				}
+				CurrentStatus = EGeneratorStatus::Success;
 				GenerationFinished(true);
 				return true;
 			}
 			else
 			{
+				CurrentStatus = EGeneratorStatus::Error;
 				GenerationFinished(false);
 				return false;
 			}
@@ -109,21 +151,30 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 			for (FTile& Tile : MissingTiles)
 			{
 				UE_LOG(LogLCCommon, Log, TEXT("Generating Tile (%d, %d, %d)"), Tile.Zoom, Tile.X, Tile.Y);
-				if (!ConfigureForTiles(Tile.Zoom, Tile.X, Tile.X, Tile.Y, Tile.Y)) return false;
+				if (!ConfigureForTiles(Tile.Zoom, Tile.X, Tile.X, Tile.Y, Tile.Y))
+				{
+					CurrentStatus = EGeneratorStatus::Error;
+					return false;
+				}
 
 				if (OnGenerate(SpawnedActorsPath, bIsUserInitiated))
 				{
-					UE_LOG(LogLCCommon, Log, TEXT("Finished Generating Tile (%d, %d, %d)"), Tile.Zoom, Tile.X, Tile.Y);
-					PositionBasedGeneration->GeneratedTiles.Add(Tile);
+					UE_LOG(LogLCCommon, Log, TEXT("Finished generating Tile (%d, %d, %d)"), Tile.Zoom, Tile.X, Tile.Y);
+					if (!MarkTilesGenerated({ Tile }))
+					{
+						UE_LOG(LogLCCommon, Warning, TEXT("Generated Tile (%d, %d, %d), but failed to persist it to the cache."), Tile.Zoom, Tile.X, Tile.Y);
+					}
 				}
 				else
 				{
-					UE_LOG(LogLCCommon, Error, TEXT("Faield to generating Tile (%d, %d, %d)"), Tile.Zoom, Tile.X, Tile.Y);
+					UE_LOG(LogLCCommon, Error, TEXT("Failed to generate Tile (%d, %d, %d)"), Tile.Zoom, Tile.X, Tile.Y);
+					CurrentStatus = EGeneratorStatus::Error;
 					GenerationFinished(false);
 					return false;
 				}
 			}
 
+			CurrentStatus = EGeneratorStatus::Success;
 			GenerationFinished(true);
 			return true;
 		}
@@ -135,6 +186,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 				Zoom, MaxX, MaxY
 			);
 
+			CurrentStatus = EGeneratorStatus::Success;
 			GenerationFinished(true);
 			return true;
 		}
@@ -142,6 +194,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 	else
 	{
 		bool bSuccess = OnGenerate(SpawnedActorsPath, bIsUserInitiated);
+		CurrentStatus = bSuccess ? EGeneratorStatus::Success : EGeneratorStatus::Error;
 		GenerationFinished(bSuccess);
 		return bSuccess;
 	}
@@ -168,7 +221,11 @@ bool ILCGenerator::DeleteGeneratedObjects_GameThread(bool bSkipPrompt)
 
 	TArray<UObject*> GeneratedObjects = GetGeneratedObjects();
 
-	if (GeneratedObjects.Num() == 0) return true;
+	if (GeneratedObjects.Num() == 0)
+	{
+		CurrentStatus = EGeneratorStatus::Idle;
+		return true;
+	}
 
 	UE_LOG(LogLCCommon, Log, TEXT("There are %d object(s) to delete"), GeneratedObjects.Num());
 	if (!bSkipPrompt)
@@ -204,27 +261,35 @@ bool ILCGenerator::DeleteGeneratedObjects_GameThread(bool bSkipPrompt)
 	{
 		if (AActor *Actor = Cast<AActor>(Object))
 		{
-#if WITH_EDITOR
+			UE_LOG(LogLCCommon, Log, TEXT("DeleteGeneratedObjects_GameThread: destroying %s (%s)"),
+				*Actor->GetActorNameOrLabel(), *Actor->GetClass()->GetName());
+	#if WITH_EDITOR
 			UWorld *World = Actor->GetWorld();
 			FFolder Folder = Actor->GetFolder();
-#endif
-
-			Actor->Destroy();
-
-#if WITH_EDITOR
+	#endif
+			bool bDestroyed = Actor->Destroy();
+			UE_LOG(LogLCCommon, Log, TEXT("DeleteGeneratedObjects_GameThread: Destroy() returned %s for %s"),
+				bDestroyed ? TEXT("true") : TEXT("false"), *Actor->GetActorNameOrLabel());
+	#if WITH_EDITOR
 			if (World) ULCBlueprintLibrary::DeleteFolder(*World, Folder);
-#endif
+	#endif
 		}
 		else if (UActorComponent *Component = Cast<UActorComponent>(Object))
 		{
+			UE_LOG(LogLCCommon, Log, TEXT("DeleteGeneratedObjects_GameThread: destroying component %s"), *Component->GetName());
 			Component->DestroyComponent();
 		}
 		else if (IsValid(Object))
 		{
 			Object->MarkAsGarbage();
 		}
+		else
+		{
+			UE_LOG(LogLCCommon, Warning, TEXT("DeleteGeneratedObjects_GameThread: skipped a null/invalid entry in GeneratedObjects"));
+		}
 	}
-	GeneratedObjects.Empty();
+
+	CurrentStatus = EGeneratorStatus::Idle;
 	return true;
 }
 

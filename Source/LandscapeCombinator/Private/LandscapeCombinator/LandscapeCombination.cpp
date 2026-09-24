@@ -21,7 +21,12 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 	TWeakObjectPtr<ALandscapeCombination> WeakThis(this);
 
 	for (auto &GeneratorWrapper: Generators)
-		GeneratorWrapper.GeneratorStatus = EGeneratorStatus::Idle;
+	{
+		if (GeneratorWrapper.Generator.IsValid() && GeneratorWrapper.Generator->Implements<ULCGenerator>())
+		{
+			Cast<ILCGenerator>(GeneratorWrapper.Generator.Get())->ResetGeneratorStatus();
+		}
+	}
 
 	for (auto &GeneratorWrapper: Generators)
 	{
@@ -29,7 +34,6 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 		if (!Generator.IsValid())
 		{
 			LCReporter::ShowError(LOCTEXT("InvalidActor", "Invalid actor in combination"));
-			GeneratorWrapper.GeneratorStatus = EGeneratorStatus::Error;
 			return false;
 		}
 
@@ -37,10 +41,8 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 
 		if (!GeneratorWrapper.bIsEnabled) continue;
 
-		GeneratorWrapper.GeneratorStatus = EGeneratorStatus::Generating;
-
 #if WITH_EDITOR
-		Concurrency::RunOnGameThreadAndWait([]() {
+		Concurrency::RunOnGameThreadThrottledAndWait([]() {
 			FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 			PropertyModule.NotifyCustomizationModuleChanged();
 			return true;
@@ -55,7 +57,6 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 					FText::FromString(GeneratorName)
 				)
 			);
-			GeneratorWrapper.GeneratorStatus = EGeneratorStatus::Error;
 			return false;
 		}
 
@@ -65,19 +66,6 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 		FName Path = SpawnedActorsPathOverride.IsNone() ? FName() : FName(SpawnedActorsPathOverride.ToString() / GeneratorName);
 
 		bool bGeneratorSuccess = Cast<ILCGenerator>(Generator.Get())->Generate(Path, bIsUserInitiated);
-		GeneratorWrapper.GeneratorStatus = bGeneratorSuccess ? EGeneratorStatus::Success : EGeneratorStatus::Error;
-
-#if WITH_EDITOR
-		Concurrency::RunOnGameThreadAndWait([WeakThis](){
-			if (!GEditor || !WeakThis.IsValid()) return true;
-			if (USelection* Selection = GEditor->GetSelectedActors())
-			{
-				Selection->DeselectAll();
-				Selection->Select(WeakThis.Get());
-			}
-			return true;
-		});
-#endif
 
 		if (!bGeneratorSuccess) return false;
 
@@ -95,7 +83,10 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 				return FEditorFileUtils::SaveDirtyPackages( bPromptUserToSave, bSaveMapPackages, bSaveContentPackages, bFastSave, bNotifyNoPackagesSaved, bCanBeDeclined );
 			}))
 			{
-				GeneratorWrapper.GeneratorStatus = EGeneratorStatus::Error;
+				if (Generator.IsValid() && Generator->Implements<ULCGenerator>())
+				{
+					Cast<ILCGenerator>(Generator.Get())->SetGeneratorStatus(EGeneratorStatus::Error);
+				}
 				return false;
 			}
 		}
@@ -131,7 +122,12 @@ bool ALandscapeCombination::Cleanup_Implementation(bool bSkipPrompt)
 	Modify();
 
 	for (auto &GeneratorWrapper: Generators)
-		GeneratorWrapper.GeneratorStatus = EGeneratorStatus::Idle;
+	{
+		if (GeneratorWrapper.Generator.IsValid() && GeneratorWrapper.Generator->Implements<ULCGenerator>())
+		{
+			Cast<ILCGenerator>(GeneratorWrapper.Generator.Get())->ResetGeneratorStatus();
+		}
+	}
 
 	if (!bSkipPrompt)
 	{
