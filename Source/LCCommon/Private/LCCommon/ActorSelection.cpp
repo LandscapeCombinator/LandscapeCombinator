@@ -19,9 +19,11 @@ AActor* FActorSelection::GetActor(const UWorld* World, bool bShowDialog) const
 
 	switch (ActorSelectionMode)
 	{
+		
 		case EActorSelectionMode::Actor:
 		{
-			if (!Actor.IsValid())
+			AActor* ResolvedActor = Actor.IsValid() ? Actor.Get() : nullptr;
+			if (!IsValid(ResolvedActor))
 			{
 				if (bShowDialog)
 				{
@@ -63,6 +65,8 @@ AActor* FActorSelection::GetActor(const UWorld* World, bool bShowDialog) const
 
 TArray<AActor*> FActorSelection::GetAllActors(const UWorld* World, bool bShowDialog) const
 {
+	check(IsInGameThread())
+
 	if (!IsValid(World)) return {};
 
 	switch (ActorSelectionMode)
