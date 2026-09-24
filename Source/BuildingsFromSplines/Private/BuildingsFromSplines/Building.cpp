@@ -6,10 +6,13 @@
 #include "OSMUserData/OSMUserData.h"
 #include "LCCommon/LCBlueprintLibrary.h"
 #include "LCCommon/Expression.h"
+#include "LCCommon/ActorSelection.h"
 #include "ConcurrencyHelpers/Concurrency.h"
 #include "ConcurrencyHelpers/LCReporter.h"
 #include "StraightSkeletonWrapper/StraightSkeletonFunctionLibrary.h"
+#include "LandscapeUtils/LandscapeUtils.h"
 
+#include "Components/BrushComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "GeometryScript/MeshPrimitiveFunctions.h"
@@ -40,9 +43,6 @@
 #include "AssetUtils/CreateStaticMeshUtil.h"
 #include "Editor/EditorEngine.h"
 
-
-extern UNREALED_API class UEditorEngine* GEditor;
-
 #endif
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(Building)
@@ -64,6 +64,7 @@ ABuilding::ABuilding() : AActor()
 	DynamicMeshComponent->SetMobility(EComponentMobility::Static);
 	DynamicMeshComponent->SetupAttachment(RootComponent);
 	DynamicMeshComponent->SetNumMaterials(0);
+	DynamicMeshComponent->SetNotifyRigidBodyCollision(true);
 
 	SplineComponent = CreateDefaultSubobject<USplineComponent>(TEXT("SplineComponent"));
 	SplineComponent->SetMobility(EComponentMobility::Static);
@@ -86,6 +87,8 @@ ABuilding::ABuilding() : AActor()
 	BaseClockwiseSplineComponent->SetupAttachment(RootComponent);
 	BaseClockwiseSplineComponent->SetClosedLoop(true);
 	BaseClockwiseSplineComponent->ClearSplinePoints();
+
+	Tags.AddUnique("can-push-buildings");
 }
 
 bool ABuilding::Cleanup_Implementation(bool bSkipPrompt)
@@ -107,6 +110,9 @@ bool ABuilding::Cleanup_Implementation(bool bSkipPrompt)
 		DynamicMeshComponent->SetNumMaterials(0);
 		DynamicMeshComponent->GetDynamicMesh()->Reset();
 	}
+
+	if (IsValid(ScratchWallMesh))
+		ScratchWallMesh->Reset();
 
 	if (IsValid(BaseClockwiseSplineComponent))
 		BaseClockwiseSplineComponent->ClearSplinePoints();
@@ -423,31 +429,50 @@ void ABuilding::AppendAlongSpline(UDynamicMesh* TargetMesh, bool bInternalWall, 
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendAlongSpline");
 
 	if (Length <= 0) return;
-	
-	TArray<FVector2D> Polygon = MakePolygon(bInternalWall, BeginDistance, Length, Thickness);
 
-	/* Allocate and build WallMesh */
+	TArray<FVector2D> Polygon;
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendAlongSpline/MakePolygon");
+		Polygon = MakePolygon(bInternalWall, BeginDistance, Length, Thickness);
+	}
 
-	TObjectPtr<UDynamicMesh> WallMesh = NewObject<UDynamicMesh>(this);
+	/* Reuse ScratchWallMesh instead of allocating a new UDynamicMesh per wall piece */
 
-	UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSimpleExtrudePolygon(
-		WallMesh,
-		FGeometryScriptPrimitiveOptions(),
-		FTransform(FVector(0, 0, ZOffset)),
-		Polygon,
-		Height
-	);
-	
+	if (!IsValid(ScratchWallMesh))
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendAlongSpline/NewObject");
+		ScratchWallMesh = NewObject<UDynamicMesh>(this);
+	}
+	else
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendAlongSpline/ResetScratch");
+		ScratchWallMesh->Reset();
+	}
+
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendAlongSpline/AppendSimpleExtrudePolygon");
+		UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSimpleExtrudePolygon(
+			ScratchWallMesh,
+			FGeometryScriptPrimitiveOptions(),
+			FTransform(FVector(0, 0, ZOffset)),
+			Polygon,
+			Height
+		);
+	}
+
 	/* Remap the material ID */
 
-	UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(WallMesh, 0, MaterialID);
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendAlongSpline/RemapMaterialIDs");
+		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(ScratchWallMesh, 0, MaterialID);
+	}
 
+	/* Add ScratchWallMesh to our TargetMesh */
 
-	/* Add the WallMesh to our TargetMesh */
-
-	UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(TargetMesh, WallMesh, FTransform(), true);
-
-	WallMesh->MarkAsGarbage();
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendAlongSpline/AppendMesh");
+		UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(TargetMesh, ScratchWallMesh, FTransform(), true);
+	}
 }
 
 bool SetPolygroupMaterialID(UDynamicMesh *Mesh, int Index, int MaterialID)
@@ -503,11 +528,20 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 	UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSimpleExtrudePolygon(FloorMesh, FGeometryScriptPrimitiveOptions(), FTransform(), BaseVertices2D, 1);
 
 	{
-		TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendBuilding/AutoGenerateXAtlasMeshUVsFloors");
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendBuilding/FloorUVBoxProjection");
 
-		if (BCfg->bAutoGenerateXAtlasMeshUVsFloors)
+		if (BCfg->bAutoGenerateUVsFloors)
 		{
-			UGeometryScriptLibrary_MeshUVFunctions::AutoGenerateXAtlasMeshUVs(FloorMesh, 0, FGeometryScriptXAtlasOptions());
+			double MaxCoordinate = 0;
+			for (const FVector2D& P : BaseVertices2D)
+			{
+				MaxCoordinate = FMath::Max(MaxCoordinate, FMath::Abs(P.X));
+				MaxCoordinate = FMath::Max(MaxCoordinate, FMath::Abs(P.Y));
+			}
+			if (MaxCoordinate <= 0) MaxCoordinate = 100;
+
+			FTransform BoxTransform = FTransform(FRotator::ZeroRotator, FVector(), FVector(100, 100, 100));
+			UGeometryScriptLibrary_MeshUVFunctions::SetMeshUVsFromBoxProjection(FloorMesh, 0, BoxTransform, FGeometryScriptMeshSelection());
 		}
 	}
 
@@ -844,7 +878,7 @@ void ABuilding::AddSplineMesh(UStaticMesh* StaticMesh, double BeginDistance, dou
 
 bool ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh, bool bInternalWall, double ZOffset, int FloorIndex, ULevelDescription *LevelDescription)
 {
-	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendWallsWithHoles");
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendWallsWithHolesPerLevel");
 
 	if (!IsValid(LevelDescription))
 	{
@@ -868,6 +902,8 @@ bool ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh, bool bInternalWal
 		if (SplineComponent->IsClosedLoop()) NumIterations = NumSplinePoints;
 		else NumIterations = NumSplinePoints - 1;
 	}
+
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendWallsWithHolesPerLevel/SegmentLoop");
 
 	for (int i = 0; i < NumIterations; i++)
 	{
@@ -1513,6 +1549,9 @@ bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)
 	
 	LastFloorExternalWallThickness = 0;
 
+	if (IsValid(DynamicMeshComponent))
+	    DynamicMeshComponent->SetCustomPrimitiveDataFloat(0, FMath::FRand());
+
 	BCfg->MaterialNamesArray.Empty();
 	BCfg->MaterialsArray.Empty();
 	for (auto &[Name, Material]: BCfg->Materials)
@@ -1566,14 +1605,23 @@ bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)
 		DynamicMeshComponent->bEnableComplexCollision = true;
 		DynamicMeshComponent->SetComplexAsSimpleCollisionEnabled(true);
 	}
+	else if (BCfg->bAttemptToPushOutOfCollision)
+	{
+		DynamicMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+		DynamicMeshComponent->SetCollisionProfileName("OverlapAll");
+		DynamicMeshComponent->bEnableComplexCollision = true;
+		DynamicMeshComponent->SetComplexAsSimpleCollisionEnabled(true);
+	}
 	else
 	{
 		DynamicMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
+	DynamicMeshComponent->SetGenerateOverlapEvents(BCfg->bAttemptToPushOutOfCollision);
 
-	if (BCfg->bAttemptToPushOutOfCollision)
+	if (TryPushOutOfCollision())
 	{
-		ULCBlueprintLibrary::PushOutOfCollision(this, BCfg->PushMaxSteps, BCfg->PushStepSize);
+		bIsGenerating = false; // so that `GenerateBuilding_Internal` can continue
+		return GenerateBuilding_Internal(SpawnedActorsPathOverride);
 	}
 
 	return true;
@@ -1848,9 +1896,12 @@ void ABuilding::AppendBuildingStructure(UDynamicMesh* TargetMesh)
 		AppendBuildingWithoutInside(TargetMesh);
 	}
 
-	Concurrency::RunOnGameThread([this]() {
-		for (int i = 0; i < BCfg->MaterialsArray.Num(); i++)
-			DynamicMeshComponent->SetMaterial(i, BCfg->MaterialsArray[i]);
+	TWeakObjectPtr<ABuilding> WeakThis(this);
+	Concurrency::RunOnGameThreadThrottled([WeakThis]() {
+		if (!WeakThis.IsValid() || !IsValid(WeakThis->BCfg) || !IsValid(WeakThis->DynamicMeshComponent)) return;
+
+		for (int i = 0; i < WeakThis->BCfg->MaterialsArray.Num(); i++)
+			WeakThis->DynamicMeshComponent->SetMaterial(i, WeakThis->BCfg->MaterialsArray[i]);
 	});
 }
 
@@ -1921,12 +1972,75 @@ bool ABuilding::AppendBuilding(UDynamicMesh* TargetMesh, FName SpawnedActorsPath
 		AddAttachments();
 		BaseClockwiseSplineComponent->ClearSplinePoints();
 
-	#if WITH_EDITOR
-		if (GEditor) GEditor->NoteSelectionChange();
-	#endif
-
 		return true;
 	});
+}
+
+void ABuilding::PushActor(const FVector& Offset)
+{
+	RootComponent->SetMobility(EComponentMobility::Movable);
+	AddActorWorldOffset(Offset);
+	RootComponent->SetMobility(EComponentMobility::Static);
+
+	if (IsValid(BCfg) && BCfg->bReprojectSplineOnLandscapeAfterPush)
+		ReprojectSplineOnLandscape();
+}
+
+bool ABuilding::TryPushOutOfCollision()
+{
+	if (!IsValid(BCfg) || !BCfg->bAttemptToPushOutOfCollision) return false;
+
+	UPrimitiveComponent* TestComponent =
+		(Volume.IsValid() && IsValid(Volume->GetBrushComponent())) ? static_cast<UPrimitiveComponent*>(Volume->GetBrushComponent()) :
+		IsValid(StaticMeshComponent) ? static_cast<UPrimitiveComponent*>(StaticMeshComponent) :
+		static_cast<UPrimitiveComponent*>(DynamicMeshComponent);
+
+	if (!IsValid(TestComponent)) return false;
+
+	FVector PushOffset;
+	if (!ULCBlueprintLibrary::FindPushOffset(this, TestComponent, BCfg->PusherTag, BCfg->PushMaxSteps, BCfg->PushStepSize, PushOffset, BCfg->bShowPushDebug))
+		return false;
+
+	PushActor(PushOffset);
+	return true;
+}
+
+void ABuilding::ReprojectSplineOnLandscape()
+{
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("ReprojectSplineOnLandscape");
+
+	UWorld *World = GetWorld();
+	if (!IsValid(World) || !IsValid(SplineComponent) || !IsValid(BCfg)) return;
+
+	FCollisionQueryParams CollisionQueryParams;
+
+	if (!Concurrency::RunOnGameThreadAndWait([this, World, &CollisionQueryParams]() {
+		return LandscapeUtils::CustomCollisionQueryParams(World, BCfg->ReprojectionActorSelection, CollisionQueryParams);
+	}))
+		return;
+
+	const int NumPoints = SplineComponent->GetNumberOfSplinePoints();
+	for (int i = 0; i < NumPoints; i++)
+	{
+		FVector WorldLocation = SplineComponent->GetLocationAtSplinePoint(i, ESplineCoordinateSpace::World);
+
+		double NewZ;
+		if (LandscapeUtils::GetZ(World, CollisionQueryParams, WorldLocation.X, WorldLocation.Y, NewZ, false))
+		{
+			SplineComponent->SetLocationAtSplinePoint(
+				i,
+				FVector(WorldLocation.X, WorldLocation.Y, NewZ),
+				ESplineCoordinateSpace::World,
+				false
+			);
+		}
+		else
+		{
+			UE_LOG(LogBuildingsFromSplines, Warning, TEXT("ReprojectSplineOnLandscape: no collision found for spline point %d"), i);
+		}
+	}
+
+	SplineComponent->UpdateSpline();
 }
 
 #if WITH_EDITOR

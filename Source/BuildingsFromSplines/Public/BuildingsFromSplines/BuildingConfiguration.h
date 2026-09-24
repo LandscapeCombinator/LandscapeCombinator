@@ -10,6 +10,7 @@
 #include "ConcurrencyHelpers/LCReporter.h"
 #include "BuildingsFromSplines/LogBuildingsFromSplines.h"
 #include "LCCommon/LCBlueprintLibrary.h"
+#include "LCCommon/ActorSelection.h"
 
 #include "BuildingConfiguration.generated.h"
 
@@ -456,14 +457,14 @@ public:
 	)
 	int ExtraWallTop = 20;
 
-	/* Recompute UVs using AutoGenerateXAtlasMeshUVs for floors (slow operation). */
+	/* Compute UVs using box projection for floors */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
 		meta = (DisplayPriority = "1002")
 	)
-	bool bAutoGenerateXAtlasMeshUVsFloors = true;
+	bool bAutoGenerateUVsFloors = true;
 
-	/* Recompute UVs using AutoGenerateXAtlasMeshUVs for full building (slow operation). */
+	/* Recompute UVs using AutoGenerateXAtlasMeshUVs for full building (slow operation) */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
 		meta = (DisplayPriority = "1003")
@@ -620,6 +621,29 @@ public:
 	)
 	int PushStepSize = 200;
 
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|PushOutOfCollision",
+		meta = (EditCondition = "bAttemptToPushOutOfCollision", EditConditionHides, DisplayPriority = "3")
+	)
+	FName PusherTag = "can-push-buildings";
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|PushOutOfCollision",
+		meta = (EditCondition = "bAttemptToPushOutOfCollision", EditConditionHides, DisplayPriority = "4")
+	)
+	bool bShowPushDebug = false;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|PushOutOfCollision",
+		meta = (EditCondition = "bAttemptToPushOutOfCollision", EditConditionHides, DisplayPriority = "5")
+	)
+	bool bReprojectSplineOnLandscapeAfterPush = false;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Building|PushOutOfCollision",
+		meta = (EditCondition = "bAttemptToPushOutOfCollision && bReprojectSplineOnLandscapeAfterPush", EditConditionHides, DisplayPriority = "6")
+	)
+	FActorSelection ReprojectionActorSelection;
 
 	
 	/** Conversions to Static Mesh or Volume */

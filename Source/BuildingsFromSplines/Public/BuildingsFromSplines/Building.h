@@ -48,6 +48,10 @@ public:
 	UPROPERTY(VisibleAnywhere, Category = "Building")
 	TObjectPtr<UDynamicMeshComponent> DynamicMeshComponent;
 
+	// Scratch mesh reused across AppendAlongSpline calls for wall/hole pieces
+	UPROPERTY(Transient)
+	TObjectPtr<UDynamicMesh> ScratchWallMesh = nullptr;
+
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building",
 		meta = (DisplayPriority = "-1")
@@ -103,6 +107,9 @@ public:
 	UFUNCTION()
 	void SetReceivesDecals();
 
+	UFUNCTION(BlueprintCallable, Category = "Building")
+	bool TryPushOutOfCollision();
+
 protected:
 	double LastFloorExternalWallThickness = 0;
 	double LevelsHeightsSum = 0;
@@ -143,6 +150,9 @@ protected:
 	UPROPERTY(DuplicateTransient)
 	FString StaticMeshPath;
 
+	void ReprojectSplineOnLandscape();
+	void PushActor(const FVector& Offset);
+
 	// same as SplineComponent, but all points have the same Z coordinate as the lowest point,
 	// and there are subdivisions (depending on the WallSubdivions property of the BuildingConfiguration)
 	// and the points are clockwise (when seen from above in Unreal, which isn't the same as clockwise in TPolygon2
@@ -181,7 +191,6 @@ protected:
 	
 	bool AddAttachments();
 	bool AddAttachments(int FloorIndex, ULevelDescription* LevelDescription, double ZOffset);
-
 };
 
 #undef LOCTEXT_NAMESPACE
