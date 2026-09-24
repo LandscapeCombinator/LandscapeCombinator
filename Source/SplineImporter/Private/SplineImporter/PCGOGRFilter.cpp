@@ -61,7 +61,6 @@ bool FPCGOGRFilterElement::PrepareDataInternal(FPCGContext* Context) const
 	return true;
 }
 
-// adapted from Unreal Engine 5.2 PCGDensityFilter.cpp
 bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE(FPCGOGRFilterElement::ExecuteInternal);
@@ -79,7 +78,9 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 
 	if (!IsValid(Settings->GeometryActor))
 	{
-		Outputs = Inputs;
+		PCGE_LOG_C(Warning, GraphAndLog, Context,
+			LOCTEXT("NoGeometry", "Unable to get OGR Geometry. Please make sure the OGRGeometry actor is valid")
+		);
 		return true;
 	}
 
@@ -102,12 +103,16 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 		return true;
 	}
 
-	OGRGeometry *Geometry = Settings->GeometryActor->Geometry;
+	OGRGeometry *Geometry = Settings->GeometryActor->CloneGeometry();
+
+	ON_SCOPE_EXIT { 
+		if (Geometry) OGRGeometryFactory::destroyGeometry(Geometry); 
+	};
 	if (!Geometry)
 	{
 		PCGE_LOG_C(Warning, GraphAndLog, Context,
 			FText::Format(
-				LOCTEXT("NoGeometry", "Unable to get OGR Geometry. Please make sure the OGRGeometry actor {0} is valid and initialized"),
+				LOCTEXT("NoGeometry", "Unable to get OGR Geometry. Please make sure the OGRGeometry actor {0} is initialized"),
 				FText::FromString(Settings->GeometryActor->GetActorNameOrLabel())
 			)
 		);
@@ -149,8 +154,9 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 		if (!AllPoints)
 		{
 			PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("AllPointsNullPointer", "Couldn't create geometry"));
-			return true;
+			continue;
 		}
+		ON_SCOPE_EXIT { OGRGeometryFactory::destroyGeometry(AllPoints); };
 
 		UE_LOG(LogSplineImporter, Log, TEXT("Exploring %d PCG points"), PCGPoints.Num());
 		
@@ -183,6 +189,7 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 			PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("IntersectionNullPointer", "Couldn't compute intersection"));
 			return true;
 		}
+		ON_SCOPE_EXIT { OGRGeometryFactory::destroyGeometry(Intersection); };
 
 		if (wkbFlatten(Intersection->getGeometryType()) != wkbMultiPoint)
 		{
