@@ -12,50 +12,58 @@
 
 void ULCContinuousGeneration::StartContinuousGeneration()
 {
-	AActor *Owner = GetOwner();
-	if (IsValid(Owner) && IsValid(GetWorld()))
-	{
-		auto Generate = [this, Owner]()
-		{
-			if (ILCGenerator *Generator = Cast<ILCGenerator>(Owner))
-			{
-				if (bIsCurrentlyGenerating)
-				{
-					UE_LOG(LogLCCommon, Warning, TEXT("Skipping generation as it already in progress. Consider increasing the continuous generation delay."));
-					return;
-				}
-				bIsCurrentlyGenerating = true;
-				UE_LOG(LogLCCommon, Log, TEXT("Continuous Generation Calling Generate"));
-				Generator->GenerateFromGameThread(FName(), false, [this](bool bSuccess) {
-					bIsCurrentlyGenerating = false;
-					if (!bSuccess && bStopOnError) StopContinuousGeneration();
-				});
-			}
-		};
+    AActor *Owner = GetOwner();
+    if (IsValid(Owner) && IsValid(GetWorld()))
+    {
+        TWeakObjectPtr<ULCContinuousGeneration> WeakThis(this);
+        TWeakObjectPtr<AActor> WeakOwner(Owner);
 
-		UE_LOG(LogLCCommon, Log, TEXT("Starting Continuous Generation Timer (generate every %f seconds)"), ContinuousGenerationSeconds);
+        auto Generate = [WeakThis, WeakOwner]()
+        {
+            if (!WeakThis.IsValid() || !WeakOwner.IsValid()) return;
 
-		GetWorld()->GetTimerManager().SetTimer(ContinuousGenerationTimer, Generate, ContinuousGenerationSeconds, true, 0);
-	}
-	else
-	{
-		LCReporter::ShowError(
-			LOCTEXT(
-				"NoOwner" ,
-				"Position Based Generation cannot start: Invalid Owner or World"
-			)
-		);
-	}
+            if (ILCGenerator *Generator = Cast<ILCGenerator>(WeakOwner.Get()))
+            {
+                if (WeakThis->bIsCurrentlyGenerating)
+                {
+                    UE_LOG(LogLCCommon, Warning, TEXT("Skipping generation as it already in progress. Consider increasing the continuous generation delay."));
+                    return;
+                }
+                WeakThis->bIsCurrentlyGenerating = true;
+                UE_LOG(LogLCCommon, Log, TEXT("Continuous Generation Calling Generate"));
+                Generator->GenerateFromGameThread(FName(), false, [WeakThis](bool bSuccess) {
+                    if (!WeakThis.IsValid()) return;
+                    WeakThis->bIsCurrentlyGenerating = false;
+                    if (!bSuccess && WeakThis->bStopOnError) WeakThis->StopContinuousGeneration();
+                });
+            }
+        };
+
+        auto StartTimer = [WeakThis, Generate]()
+        {
+            if (!WeakThis.IsValid()) return;
+            UE_LOG(LogLCCommon, Log, TEXT("Starting Continuous Generation Timer (generate every %f seconds)"), WeakThis->ContinuousGenerationSeconds);
+            WeakThis->GetWorld()->GetTimerManager().SetTimer(WeakThis->ContinuousGenerationTimer, Generate, WeakThis->ContinuousGenerationSeconds, true, 0);
+        };
+
+        if (StartupDelay <= 0) StartTimer();
+        else GetWorld()->GetTimerManager().SetTimer(StartupDelayTimer, StartTimer, StartupDelay, false);
+    }
+    else
+    {
+        LCReporter::ShowError(
+            LOCTEXT("NoOwner", "Position Based Generation cannot start: Invalid Owner or World")
+        );
+    }
 }
 
 void ULCContinuousGeneration::StopContinuousGeneration()
 {
-	Concurrency::RunOnGameThreadAndWait([this]() {
-		if (this && IsValid(GetWorld()))
-			GetWorld()->GetTimerManager().ClearTimer(ContinuousGenerationTimer);
-		
-		return true;
-	});
+    TWeakObjectPtr<ULCContinuousGeneration> WeakThis(this);
+    Concurrency::RunOnGameThread([WeakThis]() {
+        if (WeakThis.IsValid() && IsValid(WeakThis->GetWorld()))
+            WeakThis->GetWorld()->GetTimerManager().ClearTimer(WeakThis->ContinuousGenerationTimer);
+    });
 }
 
 void ULCContinuousGeneration::BeginPlay()
