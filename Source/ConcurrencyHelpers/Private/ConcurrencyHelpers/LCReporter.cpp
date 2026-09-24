@@ -15,6 +15,8 @@
 
 void LCReporter::ShowError(const FText& Message, const FText& Title)
 {
+    UE_LOG(LogConcurrencyHelpers, Error, TEXT("%s: %s"), *Title.ToString(), *Message.ToString());
+
 	FMessageDialog::Open(
 		EAppMsgCategory::Error,
 		EAppMsgType::Ok,
@@ -28,6 +30,8 @@ bool LCReporter::ShowMessage(
 	bool bCancellable, const FSlateBrush* Image
 )
 {
+    UE_LOG(LogConcurrencyHelpers, Log, TEXT("%s: %s"), *Title.ToString(), *Message.ToString());
+
 #if WITH_EDITOR
 
 	return Concurrency::RunOnGameThreadAndWait([&]() {
