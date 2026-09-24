@@ -436,8 +436,8 @@ void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64
 						[
 							SNew(SProgressBar)
 								.Percent_Lambda([Downloaded, ExpectedSize, Request]() {
-								if (ExpectedSize) return *Downloaded / ExpectedSize;
-								return *Downloaded / MAX_int32;
+										if (ExpectedSize) return *Downloaded / ExpectedSize;
+										return *Downloaded / MAX_int32;
 									})
 								.RefreshRate(0.1)
 						]
@@ -448,10 +448,10 @@ void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64
 								[
 									SNew(SButton)
 										.OnClicked_Lambda([Window, Request]()->FReply {
-										Request->CancelRequest();
-										Window->RequestDestroyWindow();
-										return FReply::Handled();
-											})
+											Request->CancelRequest();
+											Window->RequestDestroyWindow();
+											return FReply::Handled();
+										})
 										[
 											SNew(STextBlock).Font(FFileDownloaderStyle::RegularFont()).Text(FText::FromString(" Cancel "))
 										]
@@ -475,7 +475,7 @@ void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64
 #endif
 	};
 
-	if (bProgress) Concurrency::RunOnGameThread(Action);
+	if (bProgress) Concurrency::RunOnGameThreadThrottled(Action);
 	else Action();
 }
 
