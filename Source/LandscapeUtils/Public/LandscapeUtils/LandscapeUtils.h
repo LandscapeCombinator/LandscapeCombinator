@@ -17,6 +17,7 @@ public:
 	static void MakeDataRelativeTo(int SizeX, int SizeY, uint16* Data, uint16* Base);
 	static bool GetLandscapeBounds(ALandscape *Landscape, TArray<ALandscapeStreamingProxy*> LandscapeStreamingProxies, FVector2D &MinMaxX, FVector2D &MinMaxY, FVector2D &MinMaxZ);
 	static bool GetLandscapeBounds(ALandscape *Landscape, FVector2D &MinMaxX, FVector2D &MinMaxY, FVector2D &MinMaxZ);
+	static bool GetActorBounds(AActor *Actor, FVector2D &MinMaxX, FVector2D &MinMaxY, FVector2D &MinMaxZ);
 	static bool GetLandscapeMinMaxZ(ALandscape *Landscape, FVector2D &MinMaxZ);
 	static TArray<ALandscapeStreamingProxy*> GetLandscapeStreamingProxies(ALandscape *Landscape);
 	static bool CustomCollisionQueryParams(AActor* Actor, FCollisionQueryParams &CollisionQueryParams);
