@@ -12,7 +12,7 @@ need coordinates in another EPSG.
 
 In the ``LevelCoordinates`` Details Panel, you can create a Decal with a World
 Map using the coordinate system (use "EPSG:4326" if you want the
-usual longitude/latitude coordinates). 
+usual longitude/latitude coordinates).
 
 You can add an ``ActorCoordinates`` component to an actor that you wish to place on a particular
 real-world location. Clicking the ``Move Actor`` button on this component will move the actor
@@ -22,3 +22,22 @@ If you are creating landscapes using a :ref:`LandscapeSpawner <landscape-spawner
 a ``LevelCoordinates`` actor will be created automatically for some well-known
 coordinate systems such as ``EPSG:4326``, ``EPSG:2056``, ``EPSG:2154``,
 ``CRS:84``.
+
+
+Level Coordinates Settings
+---------------------------
+
+.. include:: params/LevelCoordinates.inc
+
+
+Global Coordinates Settings
+----------------------------
+
+.. include:: params/GlobalCoordinates.inc
+
+
+Actor Coordinates Settings
+---------------------------
+
+.. include:: params/ActorCoordinates.inc
+

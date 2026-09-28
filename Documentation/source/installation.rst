@@ -1,7 +1,7 @@
 Installation
 ============
 
-#. Download the plugin from `Unreal Engine Marketplace <https://www.unrealengine.com/marketplace/en-US/product/landscape-combinator>`_.
+#. Download the plugin from the `Fab Marketplace <https://www.fab.com/listings/1c53e98e-c39f-4812-9abf-04600410ab57>`_.
    For personal projects, you may use the `GitHub sources <https://github.com/LandscapeCombinator/LandscapeCombinator>`_.
 
 #. Add the plugin to Unreal Engine.

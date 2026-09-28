@@ -9,6 +9,11 @@ if "%SPHINXBUILD%" == "" (
 )
 set SOURCEDIR=source
 set BUILDDIR=build
+set SCRIPTS=..\Scripts
+
+REM Generate documentation files from sources
+python %SCRIPTS%\generate_doc_from_headers.py
+python %SCRIPTS%\generate_credit_from_readme.py
 
 %SPHINXBUILD% >NUL 2>NUL
 if errorlevel 9009 (

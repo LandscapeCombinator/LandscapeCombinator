@@ -1,10 +1,10 @@
-﻿.. _landscape-spawner:
+.. _landscape-spawner:
 
-Create Landscapes with LandscapeSpawner
-=======================================
+Landscape Spawner
+==================
 
-LandscapeSpawner Overview
--------------------------
+Landscape Spawner Overview
+---------------------------
 
 #. Search for ``LandscapeSpawner`` in the Content Browser, and drag one in your landscape.
    You can have several ``LandscapeSpawner``'s in your level.
@@ -24,24 +24,25 @@ LandscapeSpawner Overview
 #. In the Details Panel of the ``LandscapeSpawner``, click on ``Spawn Landscape``.
 
 
+Landscape Spawner Settings
+---------------------------
 
-LandscapeSpawner Settings
--------------------------
+.. include:: params/LandscapeSpawner.inc
 
-* **ComponentsMethod**:
-  Select the method used to compute the components count when creating the
-  landscape. This can either be ``Manual``, or using a recommended landscape size
-  from Unreal Engine. You can also choose ``Auto``, which uses the same
-  method as in Landscape Mode.
 
-  If your heightmap data does not match the landscape components, you will get
-  flat data at the border. This can be prevented the ``Auto Without Border``
-  option, but note that this will also remove some data at the border of your
-  heightmaps to make them match the components.
+Position Based Generation Reference
+-----------------------------------
 
-* **Create Landscape Streaming Proxies (bool)**:
-  If you are using World Partition, check this option if you want to create landscape streaming proxies.
-  This is useful if you have a large landscape, but it might slow things down for small landscapes.
+.. include:: params/LCPositionBasedGeneration.inc
 
-* **ZScale (double)**:
-  ``ZScale = 1`` means that one altitude unit (usually meters) in your heightmaps corresponds to 100 Unreal units (cm by default) in Unreal Engine in the Z-axis.
+
+General Settings
+----------------
+
+.. include:: params/LCSettings.inc
+
+
+Concurrency Settings
+--------------------
+
+.. include:: params/ConcurrencySettings.inc

@@ -1,7 +1,7 @@
-﻿.. _image-downloader:
+.. _image-downloader:
 
 Image Downloader
-=================
+================
 
 The ``ImageDownloader`` component is used in:
 
@@ -21,7 +21,7 @@ WMS
 ~~~
 
 You can download images from any WMS server using the ``Generic WMS`` source.
-Enter the GetCapabilities URL of a WMS server, and then choose a layer. 
+Enter the GetCapabilities URL of a WMS server, and then choose a layer.
 Enter the ``MinLong (Left), MaxLong (Right), MinLat (Bottom), MaxLat (Top)``
 coordinates in the given coordinate system, as well as the width and height
 of the image you want to download. To find coordinates, you can use the
@@ -38,7 +38,7 @@ WMS server that would be good to have here, please let me know!
 * `SHOM <https://services.data.shom.fr/INSPIRE/wms/r?service=WMS&version=1.3.0&request=GetCapabilities>`_:
   Contains hillshade elevation models, but no heightmaps.
 * `USGS 3DEPElevation <https://elevation.nationalmap.gov/arcgis/services/3DEPElevation/ImageServer/WMSServer?request=GetCapabilities&service=WMS>`_:
-  Contains heigthmaps for the US.
+  Contains heightmaps for the US.
 * `USGS Imagery <https://basemap.nationalmap.gov/arcgis/services/USGSImageryOnly/MapServer/WMSServer?request=GetCapabilities&service=WMS>`_:
   Contains satellite imagery for the US.
 
@@ -82,7 +82,7 @@ Please :ref:`make sure<Installation>` that you have 7Z installed if you want to 
   Highest resolution, around 30 meters per pixel.
   In an ``ImageDownloader``, choose "Viewfinder Panoramas 1" and enter the comma-separated list of rectangles (e.g. L31, L32).
 * `Viewfinder Panoramas 3" <http://viewfinderpanoramas.org/Coverage%20map%20viewfinderpanoramas_org3.htm>`_:
-  Intermadiate resolution, around 90 meters per pixel.
+  Intermediate resolution, around 90 meters per pixel.
   In an ``ImageDownloader``, choose "Viewfinder Panoramas 3" and enter the comma-separated list of rectangles (e.g. L31, L32).
 * `Viewfinder Panoramas 15" <http://viewfinderpanoramas.org/Coverage%20map%20viewfinderpanoramas_org15.htm>`_:
   Lowest resolution, around 450 meters per pixel.
@@ -152,29 +152,19 @@ URL
 Enter an URL to a georeferenced heightmap, as well as the coordinate system.
 
 
-Preprocessing
--------------
+Image Downloader Settings
+--------------------------
 
-You can preprocess downloaded heightmaps using the following options.
-(These options are also available in the ``HeightmapModifier`` component that is attached to created landscapes).
-
-* **Preprocess (bool)**:
-  Check this option if you want to run an external binary to prepare the heightmaps right after fetching them.
-
-* **Command (FString)**:
-  Enter the name of the binary, which should be in your ``PATH``, and which will be used on your heightmap.
-  Your processing command must take exactly two arguments: the input file and the output file.
+.. include:: params/ImageDownloader.inc
 
 
-Resolution Scaling
-------------------
+Basic Image Downloader Settings
+---------------------------------
 
-* **Change Resolution (bool)**:
-  Check this option if you want to scale your heightmap resolution up or down using GDAL.
+.. include:: params/BasicImageDownloader.inc
 
-* **Precision Percent (int)**:
-  Depending on the sizes of your heightmaps, you can use a value under ``100%`` to make
-  importing the landscape faster. For heightmaps which are low resolution, you can use a value
-  above ``100%`` in order to have a better landscape grid size within Unreal Engine to be able
-  to paint or sculpt the landscape. Upscaling will however not add details that were not there
-  in the original heightmaps.
+
+Parameters Selection Settings
+--------------------------------
+
+.. include:: params/ParametersSelection.inc

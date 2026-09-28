@@ -1,9 +1,9 @@
-﻿Credit
+Credit
 ======
 
-Thanks to all these wonderful websites without which this plugin could not have been made!
-Please check each website license when using their data.
 
+Thanks to all these wonderful websites and software developers without which this plugin could not have been made!
+Please check each website license when using their data.
 
 Heightmap and Imagery Providers
 -------------------------------
@@ -18,9 +18,11 @@ Heightmap and Imagery Providers
 
 * `Litto 3D Guadeloupe <https://diffusion.shom.fr/litto3d-guad2016.html>`_
 
-* All the WMS and XYZ servers such as IGN, SHOM, USGS, OpenGeoData NRW, etc.
+* All the WMS servers such as IGN, SHOM, USGS, etc.
 
 * `Mapbox <https://www.mapbox.com/>`_
+
+* `MapTiler <https://www.maptiler.com/>`_
 
 
 Data for Splines and Procedural Foliage
@@ -34,7 +36,13 @@ Data for Splines and Procedural Foliage
 GDAL
 ----
 
-* `GDAL <https://gdal.org/>`_ for all heightmaps transformations.
+* `GDAL <https://gdal.org/>`_ for all heightmaps transformations (MIT License).
+
+
+GEOS
+----
+
+* `GEOS <https://libgeos.org/>`_ is a core GDAL dependency (LGPL License).
 
 
 EPSG
@@ -43,8 +51,7 @@ EPSG
 * `EPSG.io <https://epsg.io/map#srs=4326>`_ to obtain coordinates on a map.
 
 
-Slippy Tile Explorer
---------------------
+StraightSkeleton
+----------------
 
-* `Slippy Tile Explorer from Chris Hewett <https://chrishewett.com/blog/slippy-tile-explorer/?>`_
-  to obtain Slippy Tile/XYZ tile numbers from a map.
+* `StraightSkeleton <https://github.com/akashskypatel/StraightSkeleton>`_ implementation to build hip and gable roofs.
