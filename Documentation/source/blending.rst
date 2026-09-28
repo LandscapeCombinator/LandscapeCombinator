@@ -19,7 +19,7 @@ for blending the landscapes.
   | The Y axis (Alpha) defines how we compute the new heightmap data:
   | ``NewData = Alpha * OldData``
   | For example, a curve which is always 1 means that this landscape data is not changed.
-	
+
 * | **DegradeOtherData (pointer to UCurveFloat)**:
   | A curve that specifies how the data at the border of a landscape overlapping with this one gets modified.
   | The X axis of the curve represents the distance from the border of the overlapping region and goes from 0 (at the border) to (1 at the center).
@@ -82,9 +82,21 @@ The curve for the L32 landscape.
 
 .. image:: _static/images/curve_this.png
   :alt: The curve for the L32 landscape
-  
+
 The Details Panel of the ``BlendLandscape`` component (on the Matterhorn landscape).
 
 .. image:: _static/images/blend_details.png
   :class: details
   :alt: The Details Panel of the ``BlendLandscape`` component (on the Matterhorn landscape).
+
+
+Blend Landscape Settings
+------------------------
+
+.. include:: params/BlendLandscape.inc
+
+
+Heightmap Modifier Settings
+---------------------------
+
+.. include:: params/HeightmapModifier.inc

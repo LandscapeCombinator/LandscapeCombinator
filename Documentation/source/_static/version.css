@@ -1,0 +1,7 @@
+.navbar-brand .logo__title::after {
+  content: "v0.9.0";
+  display: block;
+  font-size: 0.75rem;
+  font-weight: normal;
+  color: var(--pst-color-text-muted);
+}
