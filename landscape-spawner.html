@@ -1,0 +1,633 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Landscape Spawner &#8212; Landscape Combinator</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=4418a689" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=3efb0adc" />
+    <link rel="stylesheet" type="text/css" href="_static/version.css?v=1052ebe4" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
+
+    <script src="_static/documentation_options.js?v=2a76c96f"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'landscape-spawner';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="_static/logo-lc.svg"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Landscape Mesh Spawner" href="landscape-mesh-spawner.html" />
+    <link rel="prev" title="Generators" href="generators.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.9.0" />
+  
+    
+    <script src="_static/searchtools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <script src="searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">Landscape Combinator</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="generators.html">Generators</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Landscape Spawner</a></li>
+<li class="toctree-l1"><a class="reference internal" href="landscape-mesh-spawner.html">Landscape Mesh Spawner</a></li>
+<li class="toctree-l1"><a class="reference internal" href="landscape-texturer.html">Landscape Texturer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="image-downloader.html">Image Downloader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="blending.html">Blending Landscapes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="splines.html">Spline Importer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ogr-geometry.html">OGR Geometry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ogrfilter.html">OGR Filter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="landscape-pcg-volume.html">Landscape PCG Volume</a></li>
+<li class="toctree-l1"><a class="reference internal" href="roads.html">Roads From Splines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building</a></li>
+<li class="toctree-l1"><a class="reference internal" href="buildings-from-splines.html">Buildings From Splines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="position-based-generation.html">Position Based Generation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="continuous-generation.html">Continuous Generation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="landscape-material.html">Landscape Material</a></li>
+<li class="toctree-l1"><a class="reference internal" href="credit.html">Credit</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+<a href="https://github.com/LandscapeCombinator/LandscapeCombinator" target="_blank"
+   class="btn btn-sm btn-source-repository-button"
+   title="Source repository"
+   data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="_sources/landscape-spawner.rst" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.rst</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Landscape Spawner</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#landscape-spawner-overview">Landscape Spawner Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#landscape-spawner-settings">Landscape Spawner Settings</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#position-based-generation-reference">Position Based Generation Reference</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#general-settings">General Settings</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#concurrency-settings">Concurrency Settings</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="landscape-spawner">
+<span id="id1"></span><h1>Landscape Spawner<a class="headerlink" href="#landscape-spawner" title="Link to this heading">#</a></h1>
+<section id="landscape-spawner-overview">
+<h2>Landscape Spawner Overview<a class="headerlink" href="#landscape-spawner-overview" title="Link to this heading">#</a></h2>
+<ol class="arabic simple">
+<li><p>Search for <code class="docutils literal notranslate"><span class="pre">LandscapeSpawner</span></code> in the Content Browser, and drag one in your landscape.
+You can have several <code class="docutils literal notranslate"><span class="pre">LandscapeSpawner</span></code>’s in your level.</p></li>
+<li><p>Choose the heightmap source that you want in the <a class="reference internal" href="image-downloader.html#image-downloader"><span class="std std-ref">Heightmap Downloader</span></a> component
+(the <code class="docutils literal notranslate"><span class="pre">LandscapeCombinatorMap</span></code> in the Plugin’s Content contains several <code class="docutils literal notranslate"><span class="pre">LandscapeSpawner</span></code> examples).</p></li>
+<li><p>In the Details Panel of the <code class="docutils literal notranslate"><span class="pre">LandscapeSpawner</span></code>, you can check the “Create Mapbox Decals” or
+“Create Custom Decals” options if you also want to create decals. “Create Custom Decals” uses
+the Image Downloader settings from the <a class="reference internal" href="image-downloader.html#image-downloader"><span class="std std-ref">Texture Downloader</span></a>
+component.</p></li>
+<li><p>If you prefer to keep the creation of decals separated, you can use
+<a class="reference internal" href="landscape-texturer.html#landscape-texturer"><span class="std std-ref">Landscape Texturer actors</span></a> after (or before) your
+landscape has been created.</p></li>
+<li><p>In the Details Panel of the <code class="docutils literal notranslate"><span class="pre">LandscapeSpawner</span></code>, click on <code class="docutils literal notranslate"><span class="pre">Spawn</span> <span class="pre">Landscape</span></code>.</p></li>
+</ol>
+</section>
+<section id="landscape-spawner-settings">
+<h2>Landscape Spawner Settings<a class="headerlink" href="#landscape-spawner-settings" title="Link to this heading">#</a></h2>
+<p class="rubric">General</p>
+<ul class="simple">
+<li><p><strong>Spawn Method</strong> (<code class="docutils literal notranslate"><span class="pre">ESpawnMethod</span></code>, default <code class="docutils literal notranslate"><span class="pre">Create</span> <span class="pre">Fresh</span> <span class="pre">Landscape</span></code>)</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">Create</span> <span class="pre">Fresh</span> <span class="pre">Landscape</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Create</span> <span class="pre">Fresh</span> <span class="pre">Landscape</span> <span class="pre">Incrementally</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Extend</span> <span class="pre">Existing</span> <span class="pre">Landscape</span></code>: This option lets you extend an existing landscape. It will apply the heightmaps to the landscape. It will add components as necessary to extend the landscape if the downloaded heightmaps extend beyond the current landscape size. The landscape needs to be already placed in the rough correct location for the downloaded heightmaps.</p></li>
+</ul>
+</li>
+<li><p><strong>Landscape To Extend Selection</strong> (<code class="docutils literal notranslate"><span class="pre">FActorSelection</span></code>)</p></li>
+<li><p><strong>Landscape Label</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>, default <code class="docutils literal notranslate"><span class="pre">&quot;SpawnedLandscape&quot;</span></code>):
+Label of the landscape to create.</p></li>
+<li><p><strong>Landscape Tag</strong> (<code class="docutils literal notranslate"><span class="pre">FName</span></code>, default <code class="docutils literal notranslate"><span class="pre">&quot;lc&quot;</span></code>):
+Tag to add on the spawned landscape.</p></li>
+<li><p><strong>Landscape Material</strong> (<code class="docutils literal notranslate"><span class="pre">UMaterialInterface</span></code>):
+Material to apply to the landscape</p></li>
+<li><p><strong>Create Landscape Streaming Proxies</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">false</span></code>):
+If you are using World Partition, check this option if you want to create landscape streaming proxies. This is useful if you have a large landscape, but it might slow things down for small landscapes. When using this option, it’s important to use a preset for the component counts, or the generation will freeze or be very slow.</p></li>
+<li><p><strong>Spawned Actors Path</strong> (<code class="docutils literal notranslate"><span class="pre">FName</span></code>):
+Folder used to spawn the actors. This setting is unused when generating from a combination or from blueprints.</p></li>
+<li><p><strong>Z Scale</strong> (<code class="docutils literal notranslate"><span class="pre">double</span></code>, default <code class="docutils literal notranslate"><span class="pre">1</span></code>):
+The scale in the Z-axis of your heightmap, ZScale = 1 corresponds to real-world size.</p></li>
+</ul>
+<p class="rubric">Blending</p>
+<ul class="simple">
+<li><p><strong>Blend Landscape With Another Landscape</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">false</span></code>):
+This is used if you want to create a “hole” in another, larger background landscape, so that the newly spawned landscape doesn’t get hidden by the background landscape.</p></li>
+<li><p><strong>Blend Landscape</strong> (<code class="docutils literal notranslate"><span class="pre">UBlendLandscape</span></code>)</p></li>
+</ul>
+<p class="rubric">Decals</p>
+<ul class="simple">
+<li><p><strong>Decal Creation</strong> (<code class="docutils literal notranslate"><span class="pre">EDecalCreation</span></code>, default <code class="docutils literal notranslate"><span class="pre">None</span></code>)</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Mapbox</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">MapTiler</span></code></p></li>
+</ul>
+</li>
+<li><p><strong>Decal Material</strong> (<code class="docutils literal notranslate"><span class="pre">UMaterial</span></code>)</p></li>
+<li><p><strong>Decal Merge Images</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">false</span></code>)</p></li>
+<li><p><strong>Decals Sort Order</strong> (<code class="docutils literal notranslate"><span class="pre">int</span></code>, default <code class="docutils literal notranslate"><span class="pre">0</span></code>)</p></li>
+<li><p><strong>Decals Mapbox Token</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>)</p></li>
+<li><p><strong>Decals Map Tiler Token</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>)</p></li>
+<li><p><strong>Decals Mapbox Zoom</strong> (<code class="docutils literal notranslate"><span class="pre">int</span></code>, default <code class="docutils literal notranslate"><span class="pre">9</span></code>)</p></li>
+<li><p><strong>Decals Map Tiler Zoom</strong> (<code class="docutils literal notranslate"><span class="pre">int</span></code>, default <code class="docutils literal notranslate"><span class="pre">9</span></code>)</p></li>
+<li><p><strong>Decals Mapbox 2x</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">false</span></code>)</p></li>
+</ul>
+<p class="rubric">Component Count</p>
+<ul class="simple">
+<li><p><strong>Components Method</strong> (<code class="docutils literal notranslate"><span class="pre">EComponentsMethod</span></code>, default <code class="docutils literal notranslate"><span class="pre">Auto</span> <span class="pre">Without</span> <span class="pre">Border</span></code>)</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">Manual</span></code>: Enter the Quads Per Section, Section per Components, and Components Counts manually</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Auto</span> <span class="pre">Without</span> <span class="pre">Border</span></code>: When the landscape components do not exactly match with the total size of the heightmaps, Unreal Engine adds some padding at the border. Check this option if you are willing to drop some data at the border in order to make your heightmaps match the landscape components.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Auto</span></code>: Let Unreal Engine decide the component count based on the heightmap resolution.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Preset</span> <span class="pre">8129</span> <span class="pre">8129</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Preset</span> <span class="pre">4033</span> <span class="pre">4033</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Preset</span> <span class="pre">2017</span> <span class="pre">2017</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Preset</span> <span class="pre">1009</span> <span class="pre">1009</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Preset</span> <span class="pre">1009</span> <span class="pre">1009</span> <span class="pre">2</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Preset</span> <span class="pre">505</span> <span class="pre">505</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Preset</span> <span class="pre">505</span> <span class="pre">505</span> <span class="pre">2</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Preset</span> <span class="pre">253</span> <span class="pre">253</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Preset</span> <span class="pre">253</span> <span class="pre">253</span> <span class="pre">2</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Preset</span> <span class="pre">127</span> <span class="pre">127</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Preset</span> <span class="pre">127</span> <span class="pre">127</span> <span class="pre">2</span></code></p></li>
+</ul>
+</li>
+<li><p><strong>Quads Per Subsection</strong> (<code class="docutils literal notranslate"><span class="pre">int</span></code>)</p></li>
+<li><p><strong>Sections Per Component</strong> (<code class="docutils literal notranslate"><span class="pre">int</span></code>)</p></li>
+<li><p><strong>Component Count</strong> (<code class="docutils literal notranslate"><span class="pre">FIntPoint</span></code>)</p></li>
+</ul>
+<p class="rubric">Landscape Spawner</p>
+<ul class="simple">
+<li><p><strong>Heightmap Downloader</strong> (<code class="docutils literal notranslate"><span class="pre">UImageDownloader</span></code>)</p></li>
+<li><p><strong>Position Based Generation</strong> (<code class="docutils literal notranslate"><span class="pre">ULCPositionBasedGeneration</span></code>)</p></li>
+</ul>
+</section>
+<section id="position-based-generation-reference">
+<h2>Position Based Generation Reference<a class="headerlink" href="#position-based-generation-reference" title="Link to this heading">#</a></h2>
+<p class="rubric">Position Based Generation</p>
+<ul class="simple">
+<li><p><strong>Enable Position Based Generation</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">false</span></code>)</p></li>
+<li><p><strong>Zoom Level</strong> (<code class="docutils literal notranslate"><span class="pre">int</span></code>, default <code class="docutils literal notranslate"><span class="pre">14</span></code>)</p></li>
+<li><p><strong>Generate All Tiles At Distance</strong> (<code class="docutils literal notranslate"><span class="pre">int</span></code>, default <code class="docutils literal notranslate"><span class="pre">1</span></code>):
+Distance 0 means 1 tile, Distance 1 means 3x3=9 tiles, Distance 2 means 5x5=25 tiles, etc.</p></li>
+<li><p><strong>Show Generation State</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">true</span></code>)</p></li>
+<li><p><strong>Group First Tiles</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">true</span></code>):
+group the first group of tiles as a single rectangle</p></li>
+</ul>
+</section>
+<section id="general-settings">
+<h2>General Settings<a class="headerlink" href="#general-settings" title="Link to this heading">#</a></h2>
+<p class="rubric">Landscape Combinator</p>
+<ul class="simple">
+<li><p><strong>Temporary Folder</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>):
+Folder to hold the downloaded and processed files</p></li>
+<li><p><strong>MapTiler Token</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>)</p></li>
+<li><p><strong>Mapbox Token</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>)</p></li>
+<li><p><strong>NextZen Token</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>)</p></li>
+</ul>
+</section>
+<section id="concurrency-settings">
+<h2>Concurrency Settings<a class="headerlink" href="#concurrency-settings" title="Link to this heading">#</a></h2>
+<p class="rubric">Landscape Combinator</p>
+<ul class="simple">
+<li><p><strong>Game Thread Work Budget Per Tick (Seconds)</strong> (<code class="docutils literal notranslate"><span class="pre">float</span></code>, default <code class="docutils literal notranslate"><span class="pre">0.02f</span></code>)</p></li>
+</ul>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="generators.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Generators</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="landscape-mesh-spawner.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Landscape Mesh Spawner</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#landscape-spawner-overview">Landscape Spawner Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#landscape-spawner-settings">Landscape Spawner Settings</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#position-based-generation-reference">Position Based Generation Reference</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#general-settings">General Settings</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#concurrency-settings">Concurrency Settings</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2026, Landscape Combinator.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

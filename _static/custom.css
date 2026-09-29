@@ -1,0 +1,18 @@
+html[data-theme="light"] {
+  --pst-color-primary: #2e7d4f;
+  --pst-color-link: #2e7d4f;
+}
+
+html[data-theme="dark"] {
+  --pst-color-primary: #6fcf97;
+  --pst-color-link: #6fcf97;
+}
+
+/* Slightly more readable body text and softer code blocks */
+.bd-article {
+  line-height: 1.7;
+}
+
+div.highlight pre {
+  border-radius: 6px;
+}

@@ -1,0 +1,868 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Image Downloader &#8212; Landscape Combinator</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=90905a2f556bf617f1a9" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=4418a689" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=3efb0adc" />
+    <link rel="stylesheet" type="text/css" href="_static/version.css?v=1052ebe4" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="_static/scripts/fontawesome.js?digest=90905a2f556bf617f1a9"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9" />
+
+    <script src="_static/documentation_options.js?v=2a76c96f"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'image-downloader';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="icon" href="_static/logo-lc.svg"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Blending Landscapes" href="blending.html" />
+    <link rel="prev" title="Landscape Texturer" href="landscape-texturer.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.9.0" />
+  
+    
+    <script src="_static/searchtools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <script src="searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">Landscape Combinator</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="generators.html">Generators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="landscape-spawner.html">Landscape Spawner</a></li>
+<li class="toctree-l1"><a class="reference internal" href="landscape-mesh-spawner.html">Landscape Mesh Spawner</a></li>
+<li class="toctree-l1"><a class="reference internal" href="landscape-texturer.html">Landscape Texturer</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Image Downloader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="blending.html">Blending Landscapes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="splines.html">Spline Importer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ogr-geometry.html">OGR Geometry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ogrfilter.html">OGR Filter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="landscape-pcg-volume.html">Landscape PCG Volume</a></li>
+<li class="toctree-l1"><a class="reference internal" href="roads.html">Roads From Splines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building</a></li>
+<li class="toctree-l1"><a class="reference internal" href="buildings-from-splines.html">Buildings From Splines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="position-based-generation.html">Position Based Generation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="continuous-generation.html">Continuous Generation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="landscape-material.html">Landscape Material</a></li>
+<li class="toctree-l1"><a class="reference internal" href="credit.html">Credit</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+<a href="https://github.com/LandscapeCombinator/LandscapeCombinator" target="_blank"
+   class="btn btn-sm btn-source-repository-button"
+   title="Source repository"
+   data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="_sources/image-downloader.rst" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.rst</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<div class="theme-switch-container dropdown pst-js-only" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Color mode">
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button dropdown-toggle" aria-label="Color mode" data-bs-toggle="dropdown">
+    <i class="theme-switch fa-solid fa-sun fa-lg fa-fw" data-mode="light" title="Light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg fa-fw" data-mode="dark" title="Dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg fa-fw" data-mode="auto" title="System Settings"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg fa-fw me-1"></i>System Settings</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="light"><i class="fa-solid fa-sun fa-lg fa-fw me-1"></i>Light</button></li>
+    <li><button class="dropdown-item d-flex align-items-center theme-change-button" data-mode="dark"><i class="fa-solid fa-moon fa-lg fa-fw me-1"></i>Dark</button></li>
+  </ul>
+</div>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Image Downloader</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#image-source">Image Source</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wms">WMS</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#xyz">XYZ</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mapbox">Mapbox</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#viewfinder-panoramas">Viewfinder Panoramas</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#usgs-1-3">USGS 1/3”</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#swissalti3d-swisstopo">swissALTI3D (©swisstopo)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#litto-3d-guadeloupe">Litto 3D Guadeloupe</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#local-file">Local File</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#local-folder">Local Folder</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#url">URL</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#image-downloader-settings">Image Downloader Settings</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#basic-image-downloader-settings">Basic Image Downloader Settings</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#parameters-selection-settings">Parameters Selection Settings</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="image-downloader">
+<span id="id1"></span><h1>Image Downloader<a class="headerlink" href="#image-downloader" title="Link to this heading">#</a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">ImageDownloader</span></code> component is used in:</p>
+<ul class="simple">
+<li><p>the <a class="reference internal" href="landscape-spawner.html#landscape-spawner"><span class="std std-ref">LandscapeSpawner</span></a> actor to download heightmaps (<code class="docutils literal notranslate"><span class="pre">HeightmapDownloader</span></code>) and to create textures and decals (<code class="docutils literal notranslate"><span class="pre">TextureDownloader</span></code>),</p></li>
+<li><p>the <a class="reference internal" href="landscape-texturer.html#landscape-texturer"><span class="std std-ref">LandscapeTexturer</span></a> actor to download satellite (and other) images for your landscapes,</p></li>
+<li><p>the <code class="docutils literal notranslate"><span class="pre">BasicImageDownloader</span></code> actor to simply download images.</p></li>
+</ul>
+<p>Here are the sources that are supported by <code class="docutils literal notranslate"><span class="pre">ImageDownloader</span></code>. Feel free to suggest new sources on:
+<a class="reference external" href="https://github.com/LandscapeCombinator/LandscapeCombinator/issues">GitHub</a>
+and I will do my best to add them.</p>
+<section id="image-source">
+<h2>Image Source<a class="headerlink" href="#image-source" title="Link to this heading">#</a></h2>
+<section id="wms">
+<h3>WMS<a class="headerlink" href="#wms" title="Link to this heading">#</a></h3>
+<p>You can download images from any WMS server using the <code class="docutils literal notranslate"><span class="pre">Generic</span> <span class="pre">WMS</span></code> source.
+Enter the GetCapabilities URL of a WMS server, and then choose a layer.
+Enter the <code class="docutils literal notranslate"><span class="pre">MinLong</span> <span class="pre">(Left),</span> <span class="pre">MaxLong</span> <span class="pre">(Right),</span> <span class="pre">MinLat</span> <span class="pre">(Bottom),</span> <span class="pre">MaxLat</span> <span class="pre">(Top)</span></code>
+coordinates in the given coordinate system, as well as the width and height
+of the image you want to download. To find coordinates, you can use the
+DuckDuckGo link from the Details Panel to search for the correct
+<code class="docutils literal notranslate"><span class="pre">epsg.io</span></code> map of the layer’s coordinate system.
+These can also be set automatically from a Bounding Actor (see the <code class="docutils literal notranslate"><span class="pre">Parameters</span> <span class="pre">Selection</span></code> dropdown).</p>
+<p>There are a few preset WMS servers in the <code class="docutils literal notranslate"><span class="pre">ImageDownloader</span></code>. If you know of a
+WMS server that would be good to have here, please let me know!</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://wxs.ign.fr/altimetrie/geoportail/r/wms?SERVICE=WMS&amp;VERSION=1.3.0&amp;REQUEST=GetCapabilities">IGN Heightmaps</a>:
+Contains high resolution (1m per pixel) heightmaps for Overseas (e.g. <code class="docutils literal notranslate"><span class="pre">RGEALTI-MNT_PYR-ZIP_GLP_WGS84UTM20_WMS</span></code> for Guadeloupe) and European France (<code class="docutils literal notranslate"><span class="pre">RGEALTI-MNT_PYR-ZIP_FXX_LAMB93_WMS</span></code>).
+Choose <code class="docutils literal notranslate"><span class="pre">Width</span></code> to be <code class="docutils literal notranslate"><span class="pre">MaxLong</span> <span class="pre">-</span> <span class="pre">MinLong</span></code>, and <code class="docutils literal notranslate"><span class="pre">Height</span></code> equals <code class="docutils literal notranslate"><span class="pre">MaxLat</span> <span class="pre">-</span> <span class="pre">MinLat</span></code> to get the best possible resolution (everything as integers).</p></li>
+<li><p><a class="reference external" href="https://services.data.shom.fr/INSPIRE/wms/r?service=WMS&amp;version=1.3.0&amp;request=GetCapabilities">SHOM</a>:
+Contains hillshade elevation models, but no heightmaps.</p></li>
+<li><p><a class="reference external" href="https://elevation.nationalmap.gov/arcgis/services/3DEPElevation/ImageServer/WMSServer?request=GetCapabilities&amp;service=WMS">USGS 3DEPElevation</a>:
+Contains heightmaps for the US.</p></li>
+<li><p><a class="reference external" href="https://basemap.nationalmap.gov/arcgis/services/USGSImageryOnly/MapServer/WMSServer?request=GetCapabilities&amp;service=WMS">USGS Imagery</a>:
+Contains satellite imagery for the US.</p></li>
+</ul>
+</section>
+<section id="xyz">
+<h3>XYZ<a class="headerlink" href="#xyz" title="Link to this heading">#</a></h3>
+<p>You can use any XYZ URL of the form <code class="docutils literal notranslate"><span class="pre">https://url.to/images/{z}/{x}/{y}</span></code>.
+Then, by specifying a Zoom level and the minimum/maximum X and Y tiles,
+the image downloader will download.</p>
+<p>For servers using Slippy Tiles, you can use
+the <a class="reference external" href="https://chrishewett.com/blog/slippy-tile-explorer/?">Slippy Tile Explorer</a>
+to find the tiles numbers corresponding to the area that you want to download.
+These can also be set automatically from a Bounding Actor or using coordinates
+(see the <code class="docutils literal notranslate"><span class="pre">Parameters</span> <span class="pre">Selection</span></code> dropdown).</p>
+<p>If your server uses a convention different than Slippy Tiles, you should use
+manual <code class="docutils literal notranslate"><span class="pre">Parameters</span> <span class="pre">Selection</span></code>, and you should uncheck
+<code class="docutils literal notranslate"><span class="pre">Georeference</span> <span class="pre">Slippy</span> <span class="pre">Tiles</span></code>. Make sure that <code class="docutils literal notranslate"><span class="pre">MaxY</span> <span class="pre">Is</span> <span class="pre">North</span></code> is correctly
+checked or unchecked depending on whether Y goes up or down when going north
+in your data. Finally, add the coordinate system of your data.</p>
+</section>
+<section id="mapbox">
+<h3>Mapbox<a class="headerlink" href="#mapbox" title="Link to this heading">#</a></h3>
+<p>Mapbox is one particular XYZ server which is hard-coded. You need to provide
+an API key (that you can obtain for free from a Mapbox account) that will
+be used to download the tiles. Since Mapbox uses Slippy Tiles, the
+<code class="docutils literal notranslate"><span class="pre">Parameters</span> <span class="pre">Selection</span></code> using a Bounding Actor or coordinates works correctly
+here.</p>
+</section>
+<section id="viewfinder-panoramas">
+<h3>Viewfinder Panoramas<a class="headerlink" href="#viewfinder-panoramas" title="Link to this heading">#</a></h3>
+<p>Please <a class="reference internal" href="installation.html#installation"><span class="std std-ref">make sure</span></a> that you have 7Z installed if you want to use Viewfinder Panoramas.</p>
+<ul class="simple">
+<li><p><a class="reference external" href="http://viewfinderpanoramas.org/Coverage%20map%20viewfinderpanoramas_org1.htm">Viewfinder Panoramas 1”</a>:
+Highest resolution, around 30 meters per pixel.
+In an <code class="docutils literal notranslate"><span class="pre">ImageDownloader</span></code>, choose “Viewfinder Panoramas 1” and enter the comma-separated list of rectangles (e.g. L31, L32).</p></li>
+<li><p><a class="reference external" href="http://viewfinderpanoramas.org/Coverage%20map%20viewfinderpanoramas_org3.htm">Viewfinder Panoramas 3”</a>:
+Intermediate resolution, around 90 meters per pixel.
+In an <code class="docutils literal notranslate"><span class="pre">ImageDownloader</span></code>, choose “Viewfinder Panoramas 3” and enter the comma-separated list of rectangles (e.g. L31, L32).</p></li>
+<li><p><a class="reference external" href="http://viewfinderpanoramas.org/Coverage%20map%20viewfinderpanoramas_org15.htm">Viewfinder Panoramas 15”</a>:
+Lowest resolution, around 450 meters per pixel.
+In an <code class="docutils literal notranslate"><span class="pre">ImageDownloader</span></code>, choose “Viewfinder Panoramas 15” and enter the comma-separated list of rectangles (e.g. 15-A, 15-B, 15-G, 15-H).</p></li>
+</ul>
+</section>
+<section id="usgs-1-3">
+<h3>USGS 1/3”<a class="headerlink" href="#usgs-1-3" title="Link to this heading">#</a></h3>
+<p>This is 1/3” or around 10 meters per pixel data for the United States.</p>
+<ul class="simple">
+<li><p>Go to the <a class="reference external" href="https://apps.nationalmap.gov/downloader/">USGS National Map Data Download Application</a>.</p></li>
+<li><p>In the Datasets tab, click “Elevation Products (3DEP)”. Unselect everything except “1/3 arc-second DEM” and “Current” underneath.</p></li>
+<li><p>Zoom on the area for which you want to download heightmaps.</p></li>
+<li><p>Click on “Search Products”.</p></li>
+<li><p>In the “Products” tab, you can visualize the tiles that will be downloaded.</p></li>
+<li><p>If you want all the tiles suggested here, click on the TXT button (not CSV) to download the list of links.</p></li>
+<li><p>If you want only some of the tiles, add the ones that you want to your Cart, and click the TXT button here to download the list of links.</p></li>
+<li><p>In the Details Panel of an <code class="docutils literal notranslate"><span class="pre">ImageDownloader</span></code>, choose <code class="docutils literal notranslate"><span class="pre">USGS</span> <span class="pre">One</span> <span class="pre">Third</span></code> as a source, and enter the path to the TXT file on your computer.</p></li>
+</ul>
+</section>
+<section id="swissalti3d-swisstopo">
+<h3>swissALTI3D (©swisstopo)<a class="headerlink" href="#swissalti3d-swisstopo" title="Link to this heading">#</a></h3>
+<p>This is very high resolution data, 0.5 meter per pixel, for Switzerland. It uses EPSG 2056.</p>
+<ul class="simple">
+<li><p>Go to the <a class="reference external" href="https://www.swisstopo.admin.ch/en/geodata/height/alti3d.html">swisstopo website</a>.</p></li>
+<li><p>In Section “swissALTI3D - Access to geodata”, choose “Selection by rectangle”.</p></li>
+<li><p>Zoom on the map to the area that you wish to download.</p></li>
+<li><p>Click on “New rectangle”, and draw a rectangle in the area that you want to download.</p></li>
+<li><p>Choose the resolution, 0.5m per pixel is the best resolution but will lead to heavy heightmaps.</p></li>
+<li><p>Click on “Search”.</p></li>
+<li><p>Click on “Export all links” and then on “File ready. Click here to download”.</p></li>
+<li><p>In the Details Panel of an <code class="docutils literal notranslate"><span class="pre">ImageDownloader</span></code>, choose <code class="docutils literal notranslate"><span class="pre">Swiss</span> <span class="pre">ALTI</span> <span class="pre">3D</span></code> as a source, and enter the path to the CSV file on your computer.</p></li>
+</ul>
+</section>
+<section id="litto-3d-guadeloupe">
+<h3>Litto 3D Guadeloupe<a class="headerlink" href="#litto-3d-guadeloupe" title="Link to this heading">#</a></h3>
+<p>Please <a class="reference internal" href="installation.html#installation"><span class="std std-ref">make sure</span></a> that you have 7Z installed if you want to use Litto 3D Guadeloupe.
+This is very high resolution data, 1 meter per pixel, for Guadeloupe. It uses EPSG 4559.</p>
+<ul class="simple">
+<li><p>Go to the <a class="reference external" href="https://diffusion.shom.fr/litto3d-guad2016.html">Litto 3D Guadeloupe website</a>.</p></li>
+<li><p>Click on “Télécharger”.</p></li>
+<li><p>Click on the areas that you want to download.</p></li>
+<li><p>Click on “Télécharger la sélection”.</p></li>
+<li><p>Move all the 7z files that you have downloaded into a new folder.</p></li>
+<li><p>In the Details Panel of an <code class="docutils literal notranslate"><span class="pre">ImageDownloader</span></code>, choose <code class="docutils literal notranslate"><span class="pre">Litto</span> <span class="pre">3D</span> <span class="pre">Guadeloupe</span></code> as a source, and enter the path to the new folder on your computer.</p></li>
+</ul>
+</section>
+<section id="local-file">
+<h3>Local File<a class="headerlink" href="#local-file" title="Link to this heading">#</a></h3>
+<p>Enter the path to a georeferenced file on your computer as well as the coordinate system.</p>
+</section>
+<section id="local-folder">
+<h3>Local Folder<a class="headerlink" href="#local-folder" title="Link to this heading">#</a></h3>
+<p>Enter the path to a folder containing files named following the <code class="docutils literal notranslate"><span class="pre">_x0_y0</span></code> convention,
+as well as the coordinate system.</p>
+</section>
+<section id="url">
+<h3>URL<a class="headerlink" href="#url" title="Link to this heading">#</a></h3>
+<p>Enter an URL to a georeferenced heightmap, as well as the coordinate system.</p>
+</section>
+</section>
+<section id="image-downloader-settings">
+<h2>Image Downloader Settings<a class="headerlink" href="#image-downloader-settings" title="Link to this heading">#</a></h2>
+<p class="rubric">Source</p>
+<ul class="simple">
+<li><p><strong>Image Source Kind</strong> (<code class="docutils literal notranslate"><span class="pre">EImageSourceKind</span></code>):
+Please select the source from which to download the images.</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">Select</span> <span class="pre">A</span> <span class="pre">Source</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">IGN</span> <span class="pre">Heightmaps</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">IGN</span> <span class="pre">Satellite</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">USGS</span> <span class="pre">3</span> <span class="pre">DEP</span> <span class="pre">Elevation</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">USGS</span> <span class="pre">Topo</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">USGS</span> <span class="pre">Imagery</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SHOM</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Australia</span> <span class="pre">LiDAR</span> <span class="pre">5m</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Generic</span> <span class="pre">WMS</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">MapTiler</span> <span class="pre">Heightmaps</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">MapTiler</span> <span class="pre">Satellite</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Mapbox</span> <span class="pre">Heightmaps</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Mapbox</span> <span class="pre">Satellite</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">NextZen</span> <span class="pre">Heightmaps</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Generic</span> <span class="pre">XYZ</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Napoli</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Viewfinder15</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Viewfinder3</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Viewfinder1</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Swiss</span> <span class="pre">ALTI</span> <span class="pre">3</span> <span class="pre">D</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">USGS</span> <span class="pre">One</span> <span class="pre">Third</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Litto3</span> <span class="pre">D</span> <span class="pre">Guadeloupe</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Local</span> <span class="pre">File</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Local</span> <span class="pre">Folder</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">URL</span></code></p></li>
+</ul>
+</li>
+<li><p><strong>Merge Images</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">false</span></code>):
+Merge all downloaded images into a single image</p></li>
+<li><p><strong>Parameters Selection</strong> (<code class="docutils literal notranslate"><span class="pre">FParametersSelection</span></code>)</p></li>
+<li><p><strong>Capabilities URL</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>)</p></li>
+<li><p><strong>MapTiler Token</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>):
+The MapTiler token can be set in the Editor Preferences, in Plugins -&gt; Landscape Combinator.</p></li>
+<li><p><strong>Mapbox Token</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>):
+The Mapbox token can be set in the Editor Preferences, in Plugins -&gt; Landscape Combinator.</p></li>
+<li><p><strong>NextZen Token</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>):
+The NextZen token can be set in the Editor Preferences, in Plugins -&gt; Landscape Combinator.</p></li>
+<li><p><strong>Mapbox 2x</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">false</span></code>):
+Add &#64;2x to the Mapbox query URL, tiles become 512x512 pixels instead of 256x256 pixels. This counts for more API requests than usual.</p></li>
+<li><p><strong>XYZ URL</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>)</p></li>
+<li><p><strong>WMS X Is Long</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">true</span></code>)</p></li>
+<li><p><strong>Viewfinder15 Help</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>)</p></li>
+<li><p><strong>Viewfinder3 Help</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>)</p></li>
+<li><p><strong>Viewfinder1 Help</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>)</p></li>
+<li><p><strong>Litto3 D Help</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>)</p></li>
+<li><p><strong>Swiss ALTI3 D Help</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>)</p></li>
+<li><p><strong>USGS One Third Help</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>)</p></li>
+<li><p><strong>Local File Path</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>):
+Enter your C:\Path\To\MyHeightmap.tif in GeoTIFF format</p></li>
+<li><p><strong>CRS</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>, default <code class="docutils literal notranslate"><span class="pre">&quot;EPSG:4326&quot;</span></code>):
+Enter the name of the CRS of your file(s) (e.g. EPSG:4326)</p></li>
+<li><p><strong>Local Folder Path</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>):
+Enter C:PathToFoldercontaining heightmaps following the _x0_y0 convention</p></li>
+<li><p><strong>URL</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>):
+Enter URL to a heightmap in GeoTIFF format</p></li>
+<li><p><strong>XYZ Name</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>):
+Simple name for the downloaded files.</p></li>
+<li><p><strong>WMS Title</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>)</p></li>
+<li><p><strong>Viewfinder Tiles String</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>)</p></li>
+<li><p><strong>Litto3 D Folder</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>):
+Enter C:PathToFoldercontaining 7z files downloaded from https://diffusion.shom.fr/multiproduct/product/configure/id/108</p></li>
+<li><p><strong>Swiss ALTI3 D List Of Links</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>):
+Enter C:PathToListOfLinks.csv (see documentation for more details)</p></li>
+<li><p><strong>USGS One Third List Of Links</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>):
+Enter C:PathToListOfLinks.txt (see the help above, or the documentation for more details)</p></li>
+<li><p><strong>XYZ Format</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>):
+File format of the downloaded files (e.g. tif or png or xyz or xyz.gz). If the format contains a dot, the tile will first be uncompressed using 7-Zip.</p></li>
+<li><p><strong>WMS Name</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>)</p></li>
+<li><p><strong>Filter Degrees</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">false</span></code>):
+The tiles of Viewfinder Panoramas 1” and 3” contain subtiles, use this option if you want to filter them.</p></li>
+<li><p><strong>Use5m Data</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">false</span></code>):
+Check this if you prefer to use the less precise 5m data instead of 1m data</p></li>
+<li><p><strong>WMS Abstract</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>)</p></li>
+<li><p><strong>Filter Min Long</strong> (<code class="docutils literal notranslate"><span class="pre">int</span></code>, default <code class="docutils literal notranslate"><span class="pre">0</span></code>)</p></li>
+<li><p><strong>Skip Extraction</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">false</span></code>):
+Check this if the files have already been extracted once. Keep it checked if unsure.</p></li>
+<li><p><strong>XYZ Zoom</strong> (<code class="docutils literal notranslate"><span class="pre">int</span></code>, default <code class="docutils literal notranslate"><span class="pre">10</span></code>)</p></li>
+<li><p><strong>WMS Help</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>)</p></li>
+<li><p><strong>Filter Max Long</strong> (<code class="docutils literal notranslate"><span class="pre">int</span></code>, default <code class="docutils literal notranslate"><span class="pre">0</span></code>)</p></li>
+<li><p><strong>WMS CRS</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>):
+This should not (almost never) be modified manually, as the WMS server may not supported the given CRS. There are rare cases where the parsed CRS is not correct, and in that case the CRS can be edited to the correct value (as found in the WMS server capabilities).</p></li>
+<li><p><strong>Filter Min Lat</strong> (<code class="docutils literal notranslate"><span class="pre">int</span></code>, default <code class="docutils literal notranslate"><span class="pre">0</span></code>)</p></li>
+<li><p><strong>WMS Search CRS</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>)</p></li>
+<li><p><strong>Filter Max Lat</strong> (<code class="docutils literal notranslate"><span class="pre">int</span></code>, default <code class="docutils literal notranslate"><span class="pre">0</span></code>)</p></li>
+<li><p><strong>XYZ Min X</strong> (<code class="docutils literal notranslate"><span class="pre">int</span></code>)</p></li>
+<li><p><strong>XYZ Max X</strong> (<code class="docutils literal notranslate"><span class="pre">int</span></code>)</p></li>
+<li><p><strong>XYZ Min Y</strong> (<code class="docutils literal notranslate"><span class="pre">int</span></code>)</p></li>
+<li><p><strong>WMS Min Allowed Long</strong> (<code class="docutils literal notranslate"><span class="pre">double</span></code>)</p></li>
+<li><p><strong>XYZ Max Y</strong> (<code class="docutils literal notranslate"><span class="pre">int</span></code>)</p></li>
+<li><p><strong>WMS Max Allowed Long</strong> (<code class="docutils literal notranslate"><span class="pre">double</span></code>)</p></li>
+<li><p><strong>WMS Min Allowed Lat</strong> (<code class="docutils literal notranslate"><span class="pre">double</span></code>)</p></li>
+<li><p><strong>WMS Max Allowed Lat</strong> (<code class="docutils literal notranslate"><span class="pre">double</span></code>)</p></li>
+<li><p><strong>Max Y Is North</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">false</span></code>):
+For XYZ or Slippy Tiles, MaxY is usually South, so you can leave this unchecked.</p></li>
+<li><p><strong>WMS Min Long</strong> (<code class="docutils literal notranslate"><span class="pre">double</span></code>):
+Enter the minimum longitude of the bounding box (left coordinate). Greater or equal than WMS_MinAllowedLong.</p></li>
+<li><p><strong>Napoli Min Long</strong> (<code class="docutils literal notranslate"><span class="pre">double</span></code>):
+Enter the minimum longitude of the bounding box (left coordinate) using EPSG:32633.</p></li>
+<li><p><strong>Georeference Slippy Tiles</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">true</span></code>):
+Add georeference to downloaded files using the Slippy Tile / XYZ convention.</p></li>
+<li><p><strong>WMS Max Long</strong> (<code class="docutils literal notranslate"><span class="pre">double</span></code>):
+Enter the maximum longitude of the bounding box (right coordinate). Smaller or equal than WMS_MaxAllowedLong.</p></li>
+<li><p><strong>Napoli Max Long</strong> (<code class="docutils literal notranslate"><span class="pre">double</span></code>):
+Enter the maximum longitude of the bounding box (right coordinate) using EPSG:32633.</p></li>
+<li><p><strong>XYZ CRS</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>):
+The coordinate system used by the downloaded files.</p></li>
+<li><p><strong>WMS Min Lat</strong> (<code class="docutils literal notranslate"><span class="pre">double</span></code>):
+Enter the minimum latitude of the bounding box (bottom coordinate). Greater or equal than WMS_MinAllowedLat.</p></li>
+<li><p><strong>Napoli Min Lat</strong> (<code class="docutils literal notranslate"><span class="pre">double</span></code>):
+Enter the minimum latitude of the bounding box (bottom coordinate) using EPSG:32633.</p></li>
+<li><p><strong>Allow Invalid Tiles</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">true</span></code>):
+Ignore errors when the XYZ provider has missing tiles</p></li>
+<li><p><strong>WMS Max Lat</strong> (<code class="docutils literal notranslate"><span class="pre">double</span></code>):
+Enter the maximum latitude of the bounding box (top coordinate). Smaller or equal than WMS_MaxAllowedLat.</p></li>
+<li><p><strong>Napoli Max Lat</strong> (<code class="docutils literal notranslate"><span class="pre">double</span></code>):
+Enter the maximum latitude of the bounding box (top coordinate) using EPSG:32633.</p></li>
+<li><p><strong>WMS Max Width</strong> (<code class="docutils literal notranslate"><span class="pre">int</span></code>, default <code class="docutils literal notranslate"><span class="pre">0</span></code>):
+Maximum allowed width from the WMS provider.</p></li>
+<li><p><strong>WMS Max Height</strong> (<code class="docutils literal notranslate"><span class="pre">int</span></code>, default <code class="docutils literal notranslate"><span class="pre">0</span></code>):
+Maximum allowed width from the WMS provider.</p></li>
+<li><p><strong>Auto Set Resolution</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">false</span></code>):
+Use the best resolution when downloading image from WMS</p></li>
+<li><p><strong>WMS Single Tile</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">true</span></code>):
+If true, a single tile with the required dimensions will be downloaded. If false, multiple tiles may be downloaded, each tile having maximum dimensions WMS_MaxTileWidth x WMS_MaxTileHeight. The number of tiles is determined by the user-given resolution.</p></li>
+<li><p><strong>WMS Max Tile Width</strong> (<code class="docutils literal notranslate"><span class="pre">int</span></code>, default <code class="docutils literal notranslate"><span class="pre">5000</span></code>):
+Enter desired width for the downloaded heightmap tiles from the WMS API. Smaller or equal than WMS_MaxWidth.</p></li>
+<li><p><strong>WMS Max Tile Height</strong> (<code class="docutils literal notranslate"><span class="pre">int</span></code>, default <code class="docutils literal notranslate"><span class="pre">5000</span></code>):
+Enter desired height for the downloaded heightmap tiles from the WMS API. Smaller or equal than WMS_MaxHeight.</p></li>
+<li><p><strong>WMS Resolution Pixels Per Unit</strong> (<code class="docutils literal notranslate"><span class="pre">double</span></code>, default <code class="docutils literal notranslate"><span class="pre">1</span></code>):
+Enter the number of pixels per units (the higher the number, the higher the resolution).</p></li>
+<li><p><strong>Enable XYZ Parallel Download</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">false</span></code>)</p></li>
+<li><p><strong>Enable WMS Parallel Download</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">false</span></code>)</p></li>
+</ul>
+<p class="rubric">Remap</p>
+<ul class="simple">
+<li><p><strong>Remap</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">true</span></code>):
+Some sources use -99999 as no data. Check this option to remap -99999 to -10 (or any other mapping).</p></li>
+<li><p><strong>Hide No Data Flag</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">true</span></code>):
+Remove NoData flag from downloaded images</p></li>
+<li><p><strong>Original Value</strong> (<code class="docutils literal notranslate"><span class="pre">float</span></code>, default <code class="docutils literal notranslate"><span class="pre">-99999</span></code>)</p></li>
+<li><p><strong>Transformed Value</strong> (<code class="docutils literal notranslate"><span class="pre">float</span></code>, default <code class="docutils literal notranslate"><span class="pre">-10</span></code>)</p></li>
+</ul>
+<p class="rubric">Preprocessing</p>
+<ul class="simple">
+<li><p><strong>Preprocess</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">false</span></code>):
+Check this option if you want to run an external binary to prepare the heightmaps right after fetching them.</p></li>
+<li><p><strong>Preprocessing Tool</strong> (<code class="docutils literal notranslate"><span class="pre">UExternalTool</span></code>)</p></li>
+</ul>
+<p class="rubric">Resolution</p>
+<ul class="simple">
+<li><p><strong>Scale Resolution</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">false</span></code>):
+Check this if you wish to scale up or down the resolution of your heightmaps.</p></li>
+<li><p><strong>Precision Percent</strong> (<code class="docutils literal notranslate"><span class="pre">int</span></code>, default <code class="docutils literal notranslate"><span class="pre">100</span></code>):
+When different than 100%, your heightmap resolution will be scaled up or down using GDAL.</p></li>
+</ul>
+<p class="rubric">Adapt To Landscape</p>
+<ul class="simple">
+<li><p><strong>Adapt Resolution</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">false</span></code>):
+Check this if you want to resize the image to match the TargetLandscape’s resolution.</p></li>
+<li><p><strong>Target Landscape</strong> (<code class="docutils literal notranslate"><span class="pre">ALandscape</span></code>)</p></li>
+</ul>
+<p class="rubric">Crop Coordinates</p>
+<ul class="simple">
+<li><p><strong>Crop Coordinates</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">false</span></code>):
+Check this if you want to crop the coordinates following the bounds given in the parameters selection or a CroppingActor. This is typically not needed for WMS sources where you choose the coordinates upfront.</p></li>
+<li><p><strong>Crop Following Parameters Selection</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>, default <code class="docutils literal notranslate"><span class="pre">true</span></code>)</p></li>
+<li><p><strong>Cropping Actor</strong> (<code class="docutils literal notranslate"><span class="pre">AActor</span></code>)</p></li>
+</ul>
+</section>
+<section id="basic-image-downloader-settings">
+<h2>Basic Image Downloader Settings<a class="headerlink" href="#basic-image-downloader-settings" title="Link to this heading">#</a></h2>
+<p class="rubric">Basic Image Downloader</p>
+<ul class="simple">
+<li><p><strong>Name</strong> (<code class="docutils literal notranslate"><span class="pre">FString</span></code>, default <code class="docutils literal notranslate"><span class="pre">&quot;ImagesName&quot;</span></code>)</p></li>
+<li><p><strong>Image Downloader</strong> (<code class="docutils literal notranslate"><span class="pre">UImageDownloader</span></code>)</p></li>
+</ul>
+</section>
+<section id="parameters-selection-settings">
+<h2>Parameters Selection Settings<a class="headerlink" href="#parameters-selection-settings" title="Link to this heading">#</a></h2>
+<p class="rubric">Source</p>
+<ul class="simple">
+<li><p><strong>Parameters Selection Method</strong> (<code class="docutils literal notranslate"><span class="pre">EParametersSelectionMethod</span></code>, default <code class="docutils literal notranslate"><span class="pre">Manual</span></code>):
+Whether to enter coordinates manually or using a bounding actor.</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">Manual</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">From</span> <span class="pre">EPSG4326</span> <span class="pre">Box</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">From</span> <span class="pre">EPSG4326</span> <span class="pre">Coordinates</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">From</span> <span class="pre">Bounding</span> <span class="pre">Actor</span></code></p></li>
+</ul>
+</li>
+<li><p><strong>Parameters Bounding Actor</strong> (<code class="docutils literal notranslate"><span class="pre">AActor</span></code>):
+Select a Cube (or any other actor) that will be used to compute the WMS coordinates or XYZ tiles. You can click the “Set Source Parameters From Actor” button to force refresh after you move the actor</p></li>
+<li><p><strong>Min Long</strong> (<code class="docutils literal notranslate"><span class="pre">double</span></code>, default <code class="docutils literal notranslate"><span class="pre">0</span></code>)</p></li>
+<li><p><strong>Max Long</strong> (<code class="docutils literal notranslate"><span class="pre">double</span></code>, default <code class="docutils literal notranslate"><span class="pre">0</span></code>)</p></li>
+<li><p><strong>Min Lat</strong> (<code class="docutils literal notranslate"><span class="pre">double</span></code>, default <code class="docutils literal notranslate"><span class="pre">0</span></code>)</p></li>
+<li><p><strong>Max Lat</strong> (<code class="docutils literal notranslate"><span class="pre">double</span></code>, default <code class="docutils literal notranslate"><span class="pre">0</span></code>)</p></li>
+<li><p><strong>Longitude</strong> (<code class="docutils literal notranslate"><span class="pre">double</span></code>, default <code class="docutils literal notranslate"><span class="pre">0</span></code>)</p></li>
+<li><p><strong>Latitude</strong> (<code class="docutils literal notranslate"><span class="pre">double</span></code>, default <code class="docutils literal notranslate"><span class="pre">0</span></code>)</p></li>
+<li><p><strong>Real World Width</strong> (<code class="docutils literal notranslate"><span class="pre">double</span></code>, default <code class="docutils literal notranslate"><span class="pre">200</span></code>):
+Approximate real-world size in meters</p></li>
+<li><p><strong>Real World Height</strong> (<code class="docutils literal notranslate"><span class="pre">double</span></code>, default <code class="docutils literal notranslate"><span class="pre">200</span></code>):
+Approximate real-world size in meters</p></li>
+</ul>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="landscape-texturer.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Landscape Texturer</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="blending.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Blending Landscapes</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#image-source">Image Source</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#wms">WMS</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#xyz">XYZ</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mapbox">Mapbox</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#viewfinder-panoramas">Viewfinder Panoramas</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#usgs-1-3">USGS 1/3”</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#swissalti3d-swisstopo">swissALTI3D (©swisstopo)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#litto-3d-guadeloupe">Litto 3D Guadeloupe</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#local-file">Local File</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#local-folder">Local Folder</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#url">URL</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#image-downloader-settings">Image Downloader Settings</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#basic-image-downloader-settings">Basic Image Downloader Settings</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#parameters-selection-settings">Parameters Selection Settings</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2026, Landscape Combinator.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=90905a2f556bf617f1a9"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=90905a2f556bf617f1a9"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
