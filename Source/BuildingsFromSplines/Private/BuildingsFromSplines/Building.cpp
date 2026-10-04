@@ -13,6 +13,7 @@
 #include "LandscapeUtils/LandscapeUtils.h"
 
 #include "Components/BrushComponent.h"
+#include "Components/ShapeComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "GeometryScript/MeshPrimitiveFunctions.h"
@@ -1802,8 +1803,13 @@ bool ABuilding::AddAttachments(int FloorIndex, ULevelDescription* LevelDescripti
 						if (!IsValid(Attachment.ActorClass)) break;
 
 						AActor *NewActor = GetWorld()->SpawnActor<AActor>(Attachment.ActorClass);
-						FVector ActorOrigin, ActorExtent;
-						NewActor->GetActorBounds(true, ActorOrigin, ActorExtent);
+						FBox Box(ForceInit);
+						NewActor->ForEachComponent<UPrimitiveComponent>(false, [&Box](UPrimitiveComponent* Comp)
+						{
+							if (Comp->IsA<UShapeComponent>()) return;
+							Box += Comp->Bounds.GetBox();
+						});
+						FVector ActorExtent = Box.IsValid ? Box.GetExtent() : FVector(50);
 						NewActor->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
 
 						FVector Scale(
