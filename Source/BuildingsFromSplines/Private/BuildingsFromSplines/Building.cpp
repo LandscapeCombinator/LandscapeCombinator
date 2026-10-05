@@ -1071,6 +1071,11 @@ bool ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 
 void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 {
+	// One roll per building: a random lookup expression must not pick a different material per face
+	const int RoofMaterialID = BCfg->ResolveMaterial(BCfg->RoofMaterialExpr);
+	const int UnderRoofMaterialID = BCfg->ResolveMaterial(BCfg->UnderRoofMaterialExpr);
+	const int GableMaterialID = BCfg->ResolveMaterial(BCfg->GableMaterialExpr);
+
 	/* Allocate RoofMesh */
 
 	TObjectPtr<UDynamicMesh> RoofMesh = NewObject<UDynamicMesh>(this);
@@ -1167,7 +1172,7 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 						{ FVector2D(0, 0), FVector2D(OriginalEdgeLength, 0), FVector2D(OriginalEdgeLength / 2, TopVertexHeight) },
 						BCfg->RoofThickness
 					);
-					UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofFace, 0, BCfg->ResolveMaterial(BCfg->GableMaterialExpr));
+					UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofFace, 0, GableMaterialID);
 					UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(TargetMesh, RoofFace, FTransform(), true);
 					RoofFace->MarkAsGarbage();
 				}
@@ -1183,6 +1188,8 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 						EdgeResult.Polygon,
 						BCfg->RoofThickness
 					);
+					UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofFace, 0, RoofMaterialID);
+					if (!SetPolygroupMaterialID(RoofFace, 2, UnderRoofMaterialID)) return;
 
 					for (int32 VID : RoofFace->GetMeshRef().VertexIndicesItr())
 					{
@@ -1207,7 +1214,6 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 					RoofFace->MarkAsGarbage();
 				}
 			}
-			UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, BCfg->ResolveMaterial(BCfg->RoofMaterialExpr));
 			UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(TargetMesh, RoofMesh, FTransform(), true);
 			RoofMesh->MarkAsGarbage();
 
@@ -1261,8 +1267,8 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 			BCfg->RoofThickness
 		);
 
-		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, BCfg->ResolveMaterial(BCfg->RoofMaterialExpr));
-		if (!SetPolygroupMaterialID(RoofMesh, 2, BCfg->ResolveMaterial(BCfg->UnderRoofMaterialExpr))) return;
+		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, RoofMaterialID);
+		if (!SetPolygroupMaterialID(RoofMesh, 2, UnderRoofMaterialID)) return;
 	}
 
 
@@ -1308,7 +1314,7 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 		SweepPath, {}, {}, true
 	);
 
-	UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, BCfg->ResolveMaterial(BCfg->RoofMaterialExpr));
+	UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, RoofMaterialID);
 
 	/* Connection from the walls to the roof, inside */
 
