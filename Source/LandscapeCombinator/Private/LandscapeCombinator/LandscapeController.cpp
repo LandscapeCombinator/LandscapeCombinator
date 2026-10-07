@@ -58,7 +58,6 @@ void ULandscapeController::AdjustLandscape()
 	const double CmPxWidthRatio = CoordWidth * FMath::Abs(GlobalCoordinates->CmPerLongUnit) / InsidePixelWidth;	 // cm / px
 	const double CmPxHeightRatio = CoordHeight * FMath::Abs(GlobalCoordinates->CmPerLatUnit) / InsidePixelHeight;   // cm / px
 
-	const FVector OldScale = Landscape->GetActorScale3D();
 	const FVector OldLocation = Landscape->GetActorLocation();
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("Found Landscape %s. Adjusting scale and position."), *LandscapeLabel);
 	
@@ -80,31 +79,21 @@ void ULandscapeController::AdjustLandscape()
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("OutsidePixelWidth: %f"), OutsidePixelWidth);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("OutsidePixelHeight: %f"), OutsidePixelHeight);
 
-	FVector2D MinMaxZBeforeScaling;
-	if (!LandscapeUtils::GetLandscapeMinMaxZ(Landscape, MinMaxZBeforeScaling)) return;
+	// Must mirror HMToPNG: ConvertToPNG(..., MinAltitude - 100, MaxAltitude + 100, ...)
+	// gdal_translate then maps [PngMinAlt, PngMaxAlt] -> [0, 65535].
+	const int PngMinAlt = (int) (MinAltitude - 100);
+	const int PngMaxAlt = (int) (MaxAltitude + 100);
 
-	const double MinZBeforeScaling = MinMaxZBeforeScaling.X;
-	const double MaxZBeforeScaling = MinMaxZBeforeScaling.Y;
-	const double ZSpan = MaxZBeforeScaling - MinZBeforeScaling;
+	// UE height = (v - 32768) / 128 * ScaleZ + LocationZ, with v = (h - PngMinAlt) / (PngMaxAlt - PngMinAlt) * 65535
+	const double NewLandscapeZScale = 100.0 * ZScale * 128.0 * (PngMaxAlt - PngMinAlt) / 65535.0;
+	const double NewLocationZ       = 100.0 * ZScale * PngMinAlt + 256.0 * NewLandscapeZScale;
 
-	UE_LOG(LogLandscapeCombinator, Log, TEXT("MinZBeforeScaling: %f"), MinZBeforeScaling);
-	UE_LOG(LogLandscapeCombinator, Log, TEXT("MaxZBeforeScaling: %f"), MaxZBeforeScaling);
-	UE_LOG(LogLandscapeCombinator, Log, TEXT("MaxAltitude: %f"), MaxAltitude);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("MinAltitude: %f"), MinAltitude);
-
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("MaxAltitude: %f"), MaxAltitude);
+	UE_LOG(LogLandscapeCombinator, Log, TEXT("PngMinAlt: %d, PngMaxAlt: %d"), PngMinAlt, PngMaxAlt);
 
 	const double NewLandscapeXScale = CoordWidth * FMath::Abs(GlobalCoordinates->CmPerLongUnit) / InsidePixelWidth;
 	const double NewLandscapeYScale = CoordHeight * FMath::Abs(GlobalCoordinates->CmPerLatUnit) / InsidePixelHeight;
-	double NewLandscapeZScale;
-	if (ZSpan <= UE_SMALL_NUMBER)
-	{
-		UE_LOG(LogLandscapeCombinator, Log, TEXT("Z Span of landscape is too small, so we're using the X and Y scale average for the Z scale."));
-		NewLandscapeZScale = (NewLandscapeXScale + NewLandscapeYScale) / 2.0;
-	}
-	else
-	{
-		NewLandscapeZScale = OldScale.Z * (MaxAltitude - MinAltitude) * ZScale * 100 / ZSpan;
-	}
 
 	FVector NewScale = FVector(NewLandscapeXScale, NewLandscapeYScale, NewLandscapeZScale);
 
@@ -113,12 +102,6 @@ void ULandscapeController::AdjustLandscape()
 	Landscape->Modify();
 	Landscape->SetActorScale3D(NewScale);
 	Landscape->PostEditChange();
-			
-	FVector2D MinMaxZAfterScaling;
-	if (!LandscapeUtils::GetLandscapeMinMaxZ(Landscape, MinMaxZAfterScaling)) return;
-
-	const double MinZAfterScaling = MinMaxZAfterScaling.X;
-	const double MaxZAfterScaling = MinMaxZAfterScaling.Y;
 			
 	// expected location of the top-left corner of the data in Unreal coordinates, assuming (0, 0) world origin
 	const double TopLeftX = MinCoordWidth * GlobalCoordinates->CmPerLongUnit; // cm
@@ -134,12 +117,7 @@ void ULandscapeController::AdjustLandscape()
 	const double NewLocationX = AdjustedTopLeftX - LeftPadding;
 	const double NewLocationY = AdjustedTopLeftY - TopPadding;
 	
-	double NewLocationZ;
-	if (ZSpan <= UE_SMALL_NUMBER) NewLocationZ = 0;
-	else NewLocationZ = OldLocation.Z - MaxZAfterScaling + 100 * MaxAltitude * ZScale;
 	const FVector NewLocation = FVector(NewLocationX, NewLocationY, NewLocationZ);
-	UE_LOG(LogLandscapeCombinator, Log, TEXT("MinZAfterScaling: %f"), MinZAfterScaling);
-	UE_LOG(LogLandscapeCombinator, Log, TEXT("MaxZAfterScaling: %f"), MaxZAfterScaling);
 
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("TopLeftX: %f"), TopLeftX);
 	UE_LOG(LogLandscapeCombinator, Log, TEXT("TopLeftY: %f"), TopLeftY);
