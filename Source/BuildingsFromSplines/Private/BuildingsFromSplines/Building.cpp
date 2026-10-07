@@ -2238,10 +2238,12 @@ void ABuilding::GenerateStaticMesh()
 
 	UE::AssetUtils::FStaticMeshAssetOptions StaticMeshAssetOptions;
 	StaticMeshAssetOptions.NewAssetPath = StaticMeshPath;
-	StaticMeshAssetOptions.NumMaterialSlots = DynamicMeshComponent->GetNumMaterials();
+	TArray<UMaterialInterface*> SlotMaterials;
+	for (const TObjectPtr<UMaterialInterface>& Mat : BCfg->MaterialsArray) SlotMaterials.Add(Mat.Get());
+	StaticMeshAssetOptions.NumMaterialSlots = SlotMaterials.Num();
 	StaticMeshAssetOptions.bGenerateNaniteEnabledMesh = BCfg->bEnableNanite;
 	StaticMeshAssetOptions.NaniteSettings.bEnabled = true;
-	StaticMeshAssetOptions.AssetMaterials = DynamicMeshComponent->GetMaterials();
+	StaticMeshAssetOptions.AssetMaterials = SlotMaterials;
 	StaticMeshAssetOptions.SourceMeshes.DynamicMeshes.Add(DynamicMeshComponent->GetDynamicMesh()->GetMeshPtr());
 
 	UE::AssetUtils::FStaticMeshResults StaticMeshResults;
