@@ -478,13 +478,6 @@ public:
 	)
 	bool bAutoGenerateUVsFloors = true;
 
-	/* Recompute UVs using AutoGenerateXAtlasMeshUVs for full building (slow operation) */
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
-		meta = (DisplayPriority = "1003")
-	)
-	bool bAutoGenerateXAtlasMeshUVs = false;
-
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
 		meta = (DisplayPriority = "1004")
