@@ -12,13 +12,6 @@
 #include "Materials/MaterialInterface.h"
 #include "OSMUserData/OSMUserData.h"
 
-#if WITH_EDITOR
-#include "Editor/EditorEngine.h"
-#include "Kismet2/KismetEditorUtilities.h"
-#include "AssetRegistry/AssetRegistryModule.h"
-#include "UObject/SavePackage.h"
-#endif
-
 #define LOCTEXT_NAMESPACE "FBuildingsFromSplinesModule"
 
 UBuildingConfiguration::UBuildingConfiguration()
@@ -85,115 +78,36 @@ bool UBuildingConfiguration::AutoComputeNumFloors(UOSMUserData *BuildingOSMUserD
 	return false;
 }
 
-bool UBuildingConfiguration::CheckValidKey(FString LevelDescriptionKey) const
+bool UBuildingConfiguration::RequireLevel(const FString& Key) const
 {
-	bool bIsValidKey = LevelsMap.Contains(LevelDescriptionKey) && IsValid(LevelsMap[LevelDescriptionKey]);
-	if (!bIsValidKey)
-	{
-		LCReporter::ShowError(FText::Format(
-			LOCTEXT("Invalid Key", "Unknown Level: '{0}'. Please adjust your expression."),
-			FText::FromString(LevelDescriptionKey)
-		));
-	}
-	return bIsValidKey;
+	if (HasLevel(Key)) return true;
+
+	LCReporter::ShowError(FText::Format(
+		LOCTEXT("UnknownLevel", "Unknown Level: '{0}'. Please adjust your expression."),
+		FText::FromString(Key)
+	));
+	return false;
 }
 
-#if WITH_EDITOR
-
-bool UBuildingConfiguration::LoadFromClass(TSubclassOf<UBuildingConfiguration> BuildingConfigurationClass)
+ULevelDescription* UBuildingConfiguration::GetLevel(const FString& Key) const
 {
-	if (!IsValid(BuildingConfigurationClass)) return false;
-
-	UBuildingConfiguration* CDO = Cast<UBuildingConfiguration>(BuildingConfigurationClass->GetDefaultObject());
-	UEngine::CopyPropertiesForUnrelatedObjects(CDO, this);
-	return true;
+	return AssetLink::Resolve(LevelsMap.FindRef(Key).Get());
 }
 
-TSubclassOf<UBuildingConfiguration> UBuildingConfiguration::CreateClass(const FString &AssetPath, const FString& AssetName)
+UWallSegment* ULevelDescription::GetSegment(const FString& Key) const
 {
-	FString PackageName = AssetPath / AssetName;
-	UPackage* Package = CreatePackage(*PackageName);
-	if (!IsValid(Package))
-	{
-		LCReporter::ShowError(
-			LOCTEXT("FailedCreatePackage", "Failed to create package for new Building Configuration.")
-		);
-		return nullptr;
-	}
-	
-	UBlueprint* BuildingConfigurationClassBP = FindObject<UBlueprint>(Package, *AssetName);
-	if (IsValid(BuildingConfigurationClassBP))
-	{
-		if (!LCReporter::ShowMessage(
-			FText::Format(
-				LOCTEXT("BlueprintExists", "Building Configuration blueprint {0} already exists, overwrite it?"),
-				FText::FromString(PackageName)
-			),
-			"SuppressOverrideBuildingConfigurationBlueprint"
-		))
-		{
-			return nullptr;
-		}
-	}
-	else
-	{
-		BuildingConfigurationClassBP = FKismetEditorUtilities::CreateBlueprint(
-			GetClass(),
-			Package,
-			FName(*AssetName),
-			BPTYPE_Normal,
-			UBlueprint::StaticClass(),
-			UBlueprintGeneratedClass::StaticClass(),
-			FName(AssetName)
-		);
-	}
-
-	if (!IsValid(BuildingConfigurationClassBP))
-	{
-		LCReporter::ShowError(
-			LOCTEXT("FailedCreateBlueprint", "Failed to create new Building Configuration blueprint.")
-		);
-		return nullptr;
-	}
-
-	UClass* GeneratedClass = BuildingConfigurationClassBP->GeneratedClass;
-	if (!IsValid(GeneratedClass))
-	{
-		LCReporter::ShowError(
-			LOCTEXT("FailedGetGeneratedClass", "Failed to get generated class for new Building Configuration blueprint.")
-		);
-		return nullptr;
-	}
-
-	UBuildingConfiguration* CDO = Cast<UBuildingConfiguration>(BuildingConfigurationClassBP->GeneratedClass->GetDefaultObject());
-	UEngine::CopyPropertiesForUnrelatedObjects(this, CDO);
-
-	FAssetRegistryModule::AssetCreated(BuildingConfigurationClassBP);
-	Package->MarkPackageDirty();
-	FString PackageFileName = FPackageName::LongPackageNameToFilename(PackageName, FPackageName::GetAssetPackageExtension());
-
-	FSavePackageArgs SavePackageArgs;
-	SavePackageArgs.TopLevelFlags = EObjectFlags::RF_Public | EObjectFlags::RF_Standalone;
-	if (!UPackage::SavePackage(Package, BuildingConfigurationClassBP, *PackageFileName, SavePackageArgs))
-	{
-		LCReporter::ShowError(
-			LOCTEXT("FailedSavePackage", "Failed to save package to disk.")
-		);
-		return nullptr;
-	}
-
-	LCReporter::ShowInfo(
-		FText::Format(
-			LOCTEXT("ConversionSuccessful", "Creation of Building Configuration Blueprint Class {0} was successful."),
-			FText::FromString(PackageName)
-		),
-		"SuppressBuildingConfigurationConversionSuccessful"
-	);
-	TSubclassOf<UBuildingConfiguration> Result = GeneratedClass;
-
-	return Result;
+	return AssetLink::Resolve(WallSegmentsMap.FindRef(Key).Get());
 }
 
-#endif
+bool ULevelDescription::RequireSegment(const FString& Key, const FString& LevelKey) const
+{
+	if (HasSegment(Key)) return true;
+
+	LCReporter::ShowError(FText::Format(
+		LOCTEXT("UnknownWallSegment", "Unknown WallSegment: '{0}' in level '{1}'. Please adjust your expression, openings or filler."),
+		FText::FromString(Key), FText::FromString(LevelKey)
+	));
+	return false;
+}
 
 #undef LOCTEXT_NAMESPACE

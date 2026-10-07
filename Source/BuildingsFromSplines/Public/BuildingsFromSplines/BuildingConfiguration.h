@@ -9,6 +9,7 @@
 
 #include "ConcurrencyHelpers/LCReporter.h"
 #include "BuildingsFromSplines/LogBuildingsFromSplines.h"
+#include "BuildingsFromSplines/AssetLink.h"
 #include "LCCommon/LCBlueprintLibrary.h"
 #include "LCCommon/ActorSelection.h"
 
@@ -157,12 +158,15 @@ enum class EWallSegmentKind : uint8
 	Hole
 };
 
-UCLASS(BlueprintType, Blueprintable, EditInlineNew)
+UCLASS(BlueprintType, Blueprintable, EditInlineNew, DefaultToInstanced)
 class UWallSegment : public UObject
 {
 	GENERATED_BODY()
 
 public:
+	UPROPERTY()
+	bool bLinkedToAsset = false;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WallSegment", meta = (DisplayPriority = "-1"))
 	EWallSegmentKind WallSegmentKind = EWallSegmentKind::Wall;
 
@@ -245,12 +249,15 @@ public:
 	}
 };
 
-UCLASS(BlueprintType, Blueprintable, EditInlineNew)
+UCLASS(BlueprintType, Blueprintable, EditInlineNew, DefaultToInstanced)
 class ULevelDescription : public UObject
 {
 	GENERATED_BODY()
 
 public:
+	UPROPERTY()
+	bool bLinkedToAsset = true;
+
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "LevelDescription",
 		meta = (DisplayPriority = "1")
@@ -286,29 +293,17 @@ public:
 	 */
 	bool bResetWallSegmentsOnCorners = true;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Instanced, Category = "LevelDescription", meta = (DisplayPriority = "100"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LevelDescription", meta = (DisplayPriority = "100"))
     TMap<FString, TObjectPtr<UWallSegment>> WallSegmentsMap;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LevelDescription", meta = (DisplayPriority = "101"))
     FString WallSegmentsExpression;
 
-	bool IsValidKey(FString Key) const
-	{
-		return WallSegmentsMap.Contains(Key) && IsValid(WallSegmentsMap[Key]);
-	}
+	UWallSegment* GetSegment(const FString& Key) const;
 
-	bool CheckValidKey(FString Key) const
-	{
-		if (IsValidKey(Key)) return true;
-		else
-		{
-			LCReporter::ShowError(FText::Format(
-				LOCTEXT("Invalid Key", "Unknown WallSegment: '{0}'. Please adjust your expression."),
-				FText::FromString(Key)
-			));
-			return false;
-		}
-	}
+	bool HasSegment(const FString& Key) const { return HasKeyInMap(WallSegmentsMap, Key); }
+
+	bool RequireSegment(const FString& Key, const FString& LevelKey) const;
 };
 
 UENUM(BlueprintType)
@@ -329,15 +324,10 @@ class BUILDINGSFROMSPLINES_API UBuildingConfiguration : public UActorComponent
 	GENERATED_BODY()
 
 public:
+	UPROPERTY()
+	bool bLinkedToAsset = true;
+
 	UBuildingConfiguration();
-
-#if WITH_EDITOR
-
-	TSubclassOf<UBuildingConfiguration> CreateClass(const FString &AssetPath, const FString& AssetName);
-	
-	bool LoadFromClass(TSubclassOf<UBuildingConfiguration> BuildingConfigurationClass);
-
-#endif
 
 	/** Structural Settings */
 
@@ -512,15 +502,16 @@ public:
 	  */
 	bool bCacheLevelsWithinBuilding = true;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Instanced, Category = "Building|Levels", meta = (DisplayPriority = "1"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building|Levels", meta = (DisplayPriority = "1", ShowInnerProperties))
 	TMap<FString, TObjectPtr<ULevelDescription>> LevelsMap;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building|Levels", meta = (DisplayPriority = "2"))
 	// an expression using the level names above, with space for concatenation, star (*) for repetition {A:2, B:3, C:5} for random choice
 	FString LevelsExpression = "GroundLevel OtherLevel*";
 
-	bool CheckValidKey(FString LevelDescriptionKey) const;
-
+	ULevelDescription* GetLevel(const FString& Key) const;
+	bool HasLevel(const FString& Key) const { return HasKeyInMap(LevelsMap, Key); }
+	bool RequireLevel(const FString& Key) const;
 
 	/** Roof Settings */
 

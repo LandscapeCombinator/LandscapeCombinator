@@ -274,9 +274,10 @@ void ABuilding::ComputeOffsetPolygons()
 	for (int i = 0; i < ExpandedLevelDescriptionsKeys.Num(); i++)
 	{
 		auto &LevelDescriptionKey = ExpandedLevelDescriptionsKeys[i];
-		if (!IsValid(BCfg->LevelsMap[LevelDescriptionKey])) continue;
-		for (auto &[_, WallSegment]: BCfg->LevelsMap[LevelDescriptionKey]->WallSegmentsMap)
+		if (!BCfg->HasLevel(LevelDescriptionKey)) continue;
+		for (auto &[_, Ptr]: BCfg->GetLevel(LevelDescriptionKey)->WallSegmentsMap)
 		{
+			UWallSegment* WallSegment = AssetLink::Resolve(Ptr.Get());
 			if (IsValid(WallSegment) && WallSegment->bOverrideWallThickness)
 			{
 				if (i == ExpandedLevelDescriptionsKeys.Num() - 1)
@@ -563,13 +564,12 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 	double CurrentHeight = MinHeightLocal + BCfg->ExtraWallBottom;
 	for (auto &LevelDescriptionKey: ExpandedLevelDescriptionsKeys)
 	{
-		if (!BCfg->CheckValidKey(LevelDescriptionKey)) return false;
+		if (!BCfg->RequireLevel(LevelDescriptionKey)) return false;
 
-		auto &LevelDescription = BCfg->LevelsMap[LevelDescriptionKey];
+		ULevelDescription* LevelDescription = BCfg->GetLevel(LevelDescriptionKey);
 
 		if (BCfg->bBuildFloorTiles)
 		{
-			
 			bool bIsValidPolygroupID;
 			UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
 				FloorMesh,
@@ -1057,10 +1057,10 @@ bool ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh)
 	{
 		auto &LevelDescriptionKey = ExpandedLevelDescriptionsKeys[FloorIndex];
 
-		if (!BCfg->CheckValidKey(LevelDescriptionKey)) return false;
+		if (!BCfg->RequireLevel(LevelDescriptionKey)) return false;
 
-		if (!AddMesh(FloorIndex, BCfg->LevelsMap[LevelDescriptionKey], CurrentHeigth)) return false;
-		CurrentHeigth += BCfg->LevelsMap[LevelDescriptionKey]->LevelHeight;
+		if (!AddMesh(FloorIndex, BCfg->GetLevel(LevelDescriptionKey), CurrentHeigth)) return false;
+		CurrentHeigth += BCfg->GetLevel(LevelDescriptionKey)->LevelHeight;
 	}
 
 	for (auto& [_, LevelMesh] : LevelMeshes)
@@ -1407,9 +1407,10 @@ bool ABuilding::InitializeWallSegments()
 	for (int FloorIndex = 0; FloorIndex < NumFloors; FloorIndex++)
 	{
 		FString LevelDescriptionKey = ExpandedLevelDescriptionsKeys[FloorIndex];
-		if (!BCfg->CheckValidKey(LevelDescriptionKey)) return false;
+		if (!BCfg->RequireLevel(LevelDescriptionKey)) return false;
 
-		ULevelDescription *LevelDescription = BCfg->LevelsMap[LevelDescriptionKey];
+		ULevelDescription *LevelDescription = BCfg->GetLevel(LevelDescriptionKey);
+
 		if (LevelDescription->LevelHeight < 0)
 		{
 			LCReporter::ShowError(LOCTEXT("NegativeWallHeight", "Attempting to create a building with negative Wall height"));
@@ -1454,8 +1455,8 @@ bool ABuilding::InitializeWallSegments()
 				Length,
 				LevelDescription->WallSegmentsExpression,
 				[this, LevelDescription](FString WallSegmentKey) -> double {
-					if (LevelDescription->IsValidKey(WallSegmentKey))
-						return LevelDescription->WallSegmentsMap[WallSegmentKey]->SegmentLength;
+					if (LevelDescription->HasSegment(WallSegmentKey))
+						return LevelDescription->GetSegment(WallSegmentKey)->SegmentLength;
 					else
 						return 300;
 				},
@@ -1468,9 +1469,9 @@ bool ABuilding::InitializeWallSegments()
 			int NumFillers = 0;
 			for (auto &ExpandedWallSegmentsKey: ExpandedWallSegmentsKeys)
 			{
-				if (!LevelDescription->CheckValidKey(ExpandedWallSegmentsKey)) return false;
+				if (!LevelDescription->RequireSegment(ExpandedWallSegmentsKey, LevelDescriptionKey)) return false;
 
-				if (LevelDescription->WallSegmentsMap[ExpandedWallSegmentsKey]->bAutoExpand) NumFillers++;
+				if (LevelDescription->GetSegment(ExpandedWallSegmentsKey)->bAutoExpand) NumFillers++;
 			}
 
 			// this is the count after all insertions
@@ -1480,10 +1481,10 @@ bool ABuilding::InitializeWallSegments()
 			WallSegmentsAtFloorAndSplinePoint[FloorIndex][SplinePointIndex].SetNum(NumExpandedWallSegments);
 			for (int j = 0; j < NumExpandedWallSegments; j++)
 			{
-				if (!LevelDescription->CheckValidKey(ExpandedWallSegmentsKeys[j])) return false;
+				if (!LevelDescription->RequireSegment(ExpandedWallSegmentsKeys[j], LevelDescriptionKey)) return false;
 
 				WallSegmentsAtFloorAndSplinePoint[FloorIndex][SplinePointIndex][j] =
-					LevelDescription->WallSegmentsMap[ExpandedWallSegmentsKeys[j]];
+					LevelDescription->GetSegment(ExpandedWallSegmentsKeys[j]);
 			}
 			
 			// we then recount the number of fillers, as well as the non-fillers segments size
@@ -1582,9 +1583,9 @@ bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)
 	LevelsHeightsSum = 0;
 	for (auto &LevelDescriptionKey : ExpandedLevelDescriptionsKeys)
 	{
-		if (!BCfg->CheckValidKey(LevelDescriptionKey)) return false;
+		if (!BCfg->RequireLevel(LevelDescriptionKey)) return false;
 
-		LevelsHeightsSum += BCfg->LevelsMap[LevelDescriptionKey]->LevelHeight;
+		LevelsHeightsSum += BCfg->GetLevel(LevelDescriptionKey)->LevelHeight;
 	}
 
 	if (!IsValid(DynamicMeshComponent))
@@ -1624,7 +1625,6 @@ bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)
 		bIsGenerating = false; // so that `GenerateBuilding_Internal` can continue
 		return GenerateBuilding_Internal(SpawnedActorsPathOverride);
 	}
-
 	return true;
 }
 
@@ -1858,9 +1858,9 @@ bool ABuilding::AddAttachments()
 	{
 		auto &LevelDescriptionKey = ExpandedLevelDescriptionsKeys[FloorIndex];
 
-		if (!BCfg->CheckValidKey(LevelDescriptionKey)) return false;
+		if (!BCfg->RequireLevel(LevelDescriptionKey)) return false;
 
-		ULevelDescription *LevelDescription = BCfg->LevelsMap[LevelDescriptionKey];
+		ULevelDescription *LevelDescription = BCfg->GetLevel(LevelDescriptionKey);
 
 		if (!AddAttachments(FloorIndex, LevelDescription, CurrentHeight)) return false;
 
