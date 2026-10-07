@@ -25,6 +25,8 @@
 #include "GeometryScript/MeshBasicEditFunctions.h"
 #include "GeometryScript/MeshNormalsFunctions.h"
 #include "GeometryScript/MeshBooleanFunctions.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
 #include "GeometryScript/MeshSimplifyFunctions.h"
 #include "GeometryScript/MeshUVFunctions.h"
 #include "GeometryScript/PolyPathFunctions.h"
@@ -92,6 +94,7 @@ ABuilding::ABuilding() : AActor()
 	OpeningsVisualizerComponent = CreateEditorOnlyDefaultSubobject<UOpeningsVisualizerComponent>(TEXT("OpeningsVisualizerComponent"));
 	if (OpeningsVisualizerComponent) OpeningsVisualizerComponent->SetupAttachment(RootComponent); // null outside the editor
 	
+	CutoutSelection.ActorTag = "building-cutout";
 	Tags.AddUnique("can-push-buildings");
 }
 
@@ -2001,6 +2004,45 @@ void ABuilding::AppendBuildingStructure(UDynamicMesh* TargetMesh)
 	});
 }
 
+void ABuilding::ApplyCutouts(UDynamicMesh* TargetMesh)
+{
+	Concurrency::RunOnGameThreadAndWait([this, TargetMesh]() -> bool
+	{
+		UWorld* World = GetWorld();
+		if (!IsValid(World) || !IsValid(DynamicMeshComponent)) return true;
+
+		const FTransform ToLocal = DynamicMeshComponent->GetComponentTransform().Inverse();
+
+		for (AActor* Cutout : CutoutSelection.GetAllActors(World, false))
+		{
+			if (!IsValid(Cutout) || Cutout == this) continue;
+
+			UStaticMeshComponent* SMC = Cutout->FindComponentByClass<UStaticMeshComponent>();
+			if (!IsValid(SMC) || !IsValid(SMC->GetStaticMesh())) continue;
+
+			const FBox Box = SMC->GetStaticMesh()->GetBoundingBox();
+			const FTransform ToolTransform = FTransform(Box.GetCenter()) * SMC->GetComponentTransform() * ToLocal;
+
+			UDynamicMesh* ToolMesh = NewObject<UDynamicMesh>(this);
+			UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendBox(
+				ToolMesh, FGeometryScriptPrimitiveOptions(), ToolTransform,
+				Box.GetSize().X, Box.GetSize().Y, Box.GetSize().Z,
+				0, 0, 0, EGeometryScriptPrimitiveOriginMode::Center
+			);
+
+			FGeometryScriptMeshBooleanOptions Options;
+			Options.bFillHoles = false;
+			Options.bSimplifyOutput = false;
+
+			UGeometryScriptLibrary_MeshBooleanFunctions::ApplyMeshBoolean(
+				TargetMesh, FTransform(), ToolMesh, FTransform(),
+				EGeometryScriptBooleanOperation::Subtract, Options
+			);
+			ToolMesh->MarkAsGarbage();
+		}
+		return true;
+	});
+}
 bool ABuilding::AppendBuilding(UDynamicMesh* TargetMesh, FName SpawnedActorsPathOverride)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendBuilding");
@@ -2021,6 +2063,7 @@ bool ABuilding::AppendBuilding(UDynamicMesh* TargetMesh, FName SpawnedActorsPath
 	}
 	
 
+	ApplyCutouts(TargetMesh);
 	return Concurrency::RunOnGameThreadAndWait([this, &TargetMesh, &SpawnedActorsPathOverride]()
 	{
 		{

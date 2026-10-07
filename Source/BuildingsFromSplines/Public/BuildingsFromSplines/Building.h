@@ -1,6 +1,7 @@
 // Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #pragma once
+#include "LCCommon/ActorSelection.h"
 
 #include "BuildingsFromSplines/BuildingConfiguration.h"
 #include "BuildingsFromSplines/OpeningsVisualizerComponent.h"
@@ -66,6 +67,11 @@ public:
 		meta = (DisplayPriority = "0")
 	)
 	bool bGenerateWhenModified = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cutouts")
+	FActorSelection CutoutSelection;
+
+	void ApplyCutouts(UDynamicMesh* TargetMesh);
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building",
