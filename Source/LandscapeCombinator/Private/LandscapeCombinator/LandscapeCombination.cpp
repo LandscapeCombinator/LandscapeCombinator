@@ -65,6 +65,8 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 
 		FName Path = SpawnedActorsPathOverride.IsNone() ? FName() : FName(SpawnedActorsPathOverride.ToString() / GeneratorName);
 
+		if (Concurrency::IsCancelRequested()) return false;
+
 		bool bGeneratorSuccess = Cast<ILCGenerator>(Generator.Get())->Generate(Path, bIsUserInitiated);
 
 		if (!bGeneratorSuccess) return false;

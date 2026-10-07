@@ -30,7 +30,7 @@ void FBuildingsFromSplinesModule::StartupModule()
 		PropertyModule.RegisterCustomPropertyTypeLayout(Name, FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FAssetLinkCustomization::MakeInstance), FAssetLinkCustomization::Identifier());
 
 	if (GUnrealEd) RegisterVisualizer();
-	else PostEngineInitHandle = FCoreDelegates::OnPostEngineInit.AddRaw(this, &FBuildingsFromSplinesModule::RegisterVisualizer);
+	else PostEngineInitHandle = FCoreDelegates::GetOnPostEngineInit().AddRaw(this, &FBuildingsFromSplinesModule::RegisterVisualizer);
 }
 
 void FBuildingsFromSplinesModule::RegisterVisualizer()
@@ -40,7 +40,7 @@ void FBuildingsFromSplinesModule::RegisterVisualizer()
 
 void FBuildingsFromSplinesModule::ShutdownModule()
 {
-	FCoreDelegates::OnPostEngineInit.Remove(PostEngineInitHandle);
+	FCoreDelegates::GetOnPostEngineInit().Remove(PostEngineInitHandle);
 
 	if (GUnrealEd) GUnrealEd->UnregisterComponentVisualizer(UOpeningsVisualizerComponent::StaticClass()->GetFName());
 

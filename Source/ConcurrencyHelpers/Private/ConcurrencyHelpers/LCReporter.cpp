@@ -17,6 +17,8 @@ void LCReporter::ShowError(const FText& Message, const FText& Title)
 {
     UE_LOG(LogConcurrencyHelpers, Error, TEXT("%s: %s"), *Title.ToString(), *Message.ToString());
 
+    if (Concurrency::IsCancelRequested()) return;
+
 	FMessageDialog::Open(
 		EAppMsgCategory::Error,
 		EAppMsgType::Ok,

@@ -14,6 +14,11 @@ UNodeGenerator* UNodeGenerator::Generate(
 	return Node;
 }
 
+void UNodeGenerator::Cancel()
+{
+	if (Generator.GetInterface()) Generator.GetInterface()->CancelGeneration();
+}
+
 void UNodeGenerator::Activate()
 {
 	if (Generator.GetInterface())

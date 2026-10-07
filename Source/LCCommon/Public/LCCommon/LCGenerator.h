@@ -19,6 +19,7 @@
 #include "LCCommon/LogLCCommon.h"
 #include "LCPositionBasedGeneration.h"
 
+#include <atomic>
 #include "LCGenerator.generated.h"
 
 UENUM(BlueprintType, meta = (ScriptName = "LCGeneratorStatus"))
@@ -65,6 +66,8 @@ public:
 	// return false if the user doesn't want to cleanup
 	bool Cleanup(bool bSkipPrompt);
 
+	void CancelGeneration() { Concurrency::SetCancelRequested(true); }
+
 	bool DeleteGeneratedObjects(bool bSkipPrompt);
 	bool DeleteGeneratedObjects_GameThread(bool bSkipPrompt);
 
@@ -84,6 +87,8 @@ public:
 
 protected:
 	EGeneratorStatus CurrentStatus = EGeneratorStatus::Idle;
+	std::atomic<bool> bCancelRequested{false};
+	EGeneratorStatus FailedStatus() const { return Concurrency::IsCancelRequested() ? EGeneratorStatus::Idle : EGeneratorStatus::Error; }
 	TWeakObjectPtr<AActor> Self;
 
 	void GenerationFinished(bool bSuccess)
