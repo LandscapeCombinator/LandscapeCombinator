@@ -68,6 +68,11 @@ public:
 	)
 	bool bGenerateWhenModified = false;
 
+	UPROPERTY(VisibleAnywhere, Category = "Stairs")
+	TObjectPtr<USceneComponent> StairsHandle;
+
+	void AppendStairs(UDynamicMesh* TargetMesh);
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cutouts")
 	FActorSelection CutoutSelection;
 
