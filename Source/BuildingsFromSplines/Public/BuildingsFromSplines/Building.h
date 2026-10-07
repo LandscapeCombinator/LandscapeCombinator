@@ -67,7 +67,7 @@ public:
 	bool bGenerateWhenModified = false;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Instanced, Category = "Building",
+		EditAnywhere, BlueprintReadWrite, Category = "Building",
 		meta = (ShowOnlyInnerProperties, DisplayName="Building Configuration", DisplayPriority = "1")
 	)
 	TObjectPtr<UBuildingConfiguration> BCfg;

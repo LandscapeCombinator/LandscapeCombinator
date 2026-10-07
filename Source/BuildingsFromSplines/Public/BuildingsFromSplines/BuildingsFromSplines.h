@@ -18,7 +18,7 @@ struct FWeightedBuildingConfiguration
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Instanced, Category = "WeightedConfig")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeightedConfig")
 	TObjectPtr<UBuildingConfiguration> BuildingConfiguration;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeightedConfig")
