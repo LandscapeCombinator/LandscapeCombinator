@@ -26,10 +26,23 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 
 	CurrentStatus = EGeneratorStatus::Generating;
 
-	ULCPositionBasedGeneration* PositionBasedGeneration = Cast<ULCPositionBasedGeneration>(Self->GetComponentByClass(ULCPositionBasedGeneration::StaticClass()));
-	if (IsValid(PositionBasedGeneration) && PositionBasedGeneration->bEnablePositionBasedGeneration)
+	// Read everything we need from the component on the game thread, then only use these copies
+	TWeakObjectPtr<ULCPositionBasedGeneration> WeakPBG;
+	bool bGroupFirstTiles = false;
+	int Zoom = 0, TileDist = 0;
+	TSet<FTile> AlreadyGenerated;
+
+	if (Concurrency::RunOnGameThreadAndWait([&]() {
+		ULCPositionBasedGeneration* PBG = Self.IsValid() ? Self->FindComponentByClass<ULCPositionBasedGeneration>() : nullptr;
+		if (!IsValid(PBG) || !PBG->bEnablePositionBasedGeneration) return false;
+		WeakPBG = PBG;
+		bGroupFirstTiles = PBG->bGroupFirstTiles;
+		Zoom = PBG->ZoomLevel;
+		TileDist = PBG->GenerateAllTilesAtDistance;
+		AlreadyGenerated = PBG->GeneratedTiles;
+		return true;
+	}))
 	{
-		bool bFoundPosition = false;
 		FVector Position(0, 0, 0);
 		if (!ULCBlueprintLibrary::GetFirstPlayerPosition(Self->GetWorld(), Position) &&
 			!ULCBlueprintLibrary::GetEditorViewClientPosition(Position))
@@ -39,7 +52,6 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 			return false;
 		}
 
-		int Zoom = PositionBasedGeneration->ZoomLevel;		
 		FVector2D Location2D, Coordinates;
 		Location2D.X = Position.X;
 		Location2D.Y = Position.Y;
@@ -63,7 +75,6 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 		int CurrentX = (Coordinates.X + 180) / 360 * n;
 		int CurrentY = (1.0 - asinh(FMath::Tan(LatRad)) / UE_PI) / 2.0 * n;
 
-		int TileDist = PositionBasedGeneration->GenerateAllTilesAtDistance;
 		CurrentX = FMath::Clamp(CurrentX, 0, n - 1);
 		CurrentY = FMath::Clamp(CurrentY, 0, n - 1);
 		int MinX = FMath::Clamp(CurrentX - TileDist, 0, n - 1);
@@ -79,20 +90,18 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 			for (int Y = MinY; Y <= MaxY; ++Y)
 			{
 				FTile Tile(Zoom, X, Y);
-				if (!PositionBasedGeneration->GeneratedTiles.Contains(Tile)) MissingTiles.Add(Tile);
+				if (!AlreadyGenerated.Contains(Tile)) MissingTiles.Add(Tile);
 			}
 		}
 
-		TWeakObjectPtr<ULCPositionBasedGeneration> WeakPBGForPending = PositionBasedGeneration;
 		TArray<FTile> PendingSnapshot = MissingTiles;
-		Concurrency::RunOnGameThreadAndWait([WeakPBGForPending, PendingSnapshot]() {
-			if (!WeakPBGForPending.IsValid()) return false;
-			WeakPBGForPending->PendingTiles = TSet<FTile>(PendingSnapshot);
+		Concurrency::RunOnGameThreadAndWait([WeakPBG, PendingSnapshot]() {
+			if (!WeakPBG.IsValid()) return false;
+			WeakPBG->PendingTiles = TSet<FTile>(PendingSnapshot);
 			return true;
 		});
 
 		TWeakObjectPtr<AActor> WeakSelf = Self;
-		TWeakObjectPtr<ULCPositionBasedGeneration> WeakPBG = PositionBasedGeneration;
 		auto MarkTilesGenerated = [WeakSelf, WeakPBG](const TArray<FTile>& Tiles) -> bool
 		{
 			return Concurrency::RunOnGameThreadAndWait([WeakSelf, WeakPBG, Tiles]() {
@@ -109,7 +118,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 		};
 
 		// if all tiles are missing, we regenerate the whole rectangle
-		if (WeakPBG->bGroupFirstTiles && MissingTiles.Num() == (MaxX - MinX + 1) * (MaxY - MinY + 1))
+		if (bGroupFirstTiles && MissingTiles.Num() == (MaxX - MinX + 1) * (MaxY - MinY + 1))
 		{
 			if (!ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY))
 			{
