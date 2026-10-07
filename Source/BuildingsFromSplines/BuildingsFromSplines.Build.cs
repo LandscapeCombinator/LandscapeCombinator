@@ -28,6 +28,7 @@ public class BuildingsFromSplines : ModuleRules
 				"Engine",
 				"GeometryCore",
 				"GeometryScriptingCore",
+				"Slate",
 				"SlateCore",
 
 				// Landscape Combinator Dependencies
