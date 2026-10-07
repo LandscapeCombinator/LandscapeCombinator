@@ -473,6 +473,18 @@ void ABuilding::AppendAlongSpline(UDynamicMesh* TargetMesh, bool bInternalWall, 
 		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(ScratchWallMesh, 0, MaterialID);
 	}
 
+	/* Project UVs from position (box rotated to the wall direction) so all pieces of a wall share the same mapping */
+
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendAlongSpline/UVBoxProjection");
+
+		const FVector Tangent = BaseClockwiseSplineComponent->GetTangentAtDistanceAlongSpline(BeginDistance + Length / 2, ESplineCoordinateSpace::Local);
+		const FRotator WallYaw(0, FMath::RadiansToDegrees(FMath::Atan2(Tangent.Y, Tangent.X)), 0);
+		UGeometryScriptLibrary_MeshUVFunctions::SetMeshUVsFromBoxProjection(
+			ScratchWallMesh, 0, FTransform(WallYaw, FVector::ZeroVector, FVector(100, 100, 100)), FGeometryScriptMeshSelection()
+		);
+	}
+
 	/* Add ScratchWallMesh to our TargetMesh */
 
 	{
@@ -2041,16 +2053,6 @@ bool ABuilding::AppendBuilding(UDynamicMesh* TargetMesh, FName SpawnedActorsPath
 		}
 
 	#endif
-
-		{
-			TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendBuilding/AutoGenerateXAtlasMeshUVs");
-
-			if (BCfg->bAutoGenerateXAtlasMeshUVs)
-			{
-				UGeometryScriptLibrary_MeshUVFunctions::AutoGenerateXAtlasMeshUVs(TargetMesh, 0, FGeometryScriptXAtlasOptions());
-			}
-
-		}
 
 		AddAttachments();
 		return true;
