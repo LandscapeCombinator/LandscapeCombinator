@@ -12,7 +12,7 @@
 #include "Logging/StructuredLog.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/MessageDialog.h"
-#include "TransactionCommon.h" 
+#include "Misc/TransactionCommon.h" 
 #include "Engine/World.h"
 #include "Engine/Engine.h"
 

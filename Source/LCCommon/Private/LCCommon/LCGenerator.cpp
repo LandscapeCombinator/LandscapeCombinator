@@ -25,6 +25,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 	if (!Self.IsValid()) return false;
 
 	CurrentStatus = EGeneratorStatus::Generating;
+	Concurrency::SetCancelRequested(false);
 
 	// Read everything we need from the component on the game thread, then only use these copies
 	TWeakObjectPtr<ULCPositionBasedGeneration> WeakPBG;
@@ -48,7 +49,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 			!ULCBlueprintLibrary::GetEditorViewClientPosition(Position))
 		{
 			LCReporter::ShowError(LOCTEXT("NoPosition", "Could not get the first player position"));
-			CurrentStatus = EGeneratorStatus::Error;
+			CurrentStatus = FailedStatus();
 			return false;
 		}
 
@@ -60,13 +61,13 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 		if (!IsValid(GlobalCoordinates))
 		{
 			LCReporter::ShowError(LOCTEXT("NoGlobalCoordinates", "You must add a Level Coordinates actor before using Position Based Generation"));
-			CurrentStatus = EGeneratorStatus::Error;
+			CurrentStatus = FailedStatus();
 			return false;
 		}
 
 		if (!GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(Location2D, "EPSG:4326", Coordinates))
 		{
-			CurrentStatus = EGeneratorStatus::Error;
+			CurrentStatus = FailedStatus();
 			return false;
 		}
 
@@ -122,7 +123,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 		{
 			if (!ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY))
 			{
-				CurrentStatus = EGeneratorStatus::Error;
+				CurrentStatus = FailedStatus();
 				return false;
 			}
 			UE_LOG(LogLCCommon, Log,
@@ -143,7 +144,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 			}
 			else
 			{
-				CurrentStatus = EGeneratorStatus::Error;
+				CurrentStatus = FailedStatus();
 				GenerationFinished(false);
 				return false;
 			}
@@ -159,10 +160,16 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 
 			for (FTile& Tile : MissingTiles)
 			{
+				if (Concurrency::IsCancelRequested())
+				{
+					CurrentStatus = EGeneratorStatus::Idle;
+					GenerationFinished(false);
+					return false;
+				}
 				UE_LOG(LogLCCommon, Log, TEXT("Generating Tile (%d, %d, %d)"), Tile.Zoom, Tile.X, Tile.Y);
 				if (!ConfigureForTiles(Tile.Zoom, Tile.X, Tile.X, Tile.Y, Tile.Y))
 				{
-					CurrentStatus = EGeneratorStatus::Error;
+					CurrentStatus = FailedStatus();
 					return false;
 				}
 
@@ -177,7 +184,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 				else
 				{
 					UE_LOG(LogLCCommon, Error, TEXT("Failed to generate Tile (%d, %d, %d)"), Tile.Zoom, Tile.X, Tile.Y);
-					CurrentStatus = EGeneratorStatus::Error;
+					CurrentStatus = FailedStatus();
 					GenerationFinished(false);
 					return false;
 				}
@@ -203,7 +210,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 	else
 	{
 		bool bSuccess = OnGenerate(SpawnedActorsPath, bIsUserInitiated);
-		CurrentStatus = bSuccess ? EGeneratorStatus::Success : EGeneratorStatus::Error;
+		CurrentStatus = bSuccess ? EGeneratorStatus::Success : FailedStatus();
 		GenerationFinished(bSuccess);
 		return bSuccess;
 	}

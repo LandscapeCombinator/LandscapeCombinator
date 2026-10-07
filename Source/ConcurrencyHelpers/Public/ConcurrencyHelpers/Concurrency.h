@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <atomic>
+
 #include "LCReporter.h"
 #include "Templates/Function.h"
 #include "Async/Async.h"
@@ -157,6 +159,10 @@ public:
 	static bool RunOnThreadAndWait(bool bRunOnGameThread, TFunction<bool()> Action);
 	static bool RunOnGameThreadAndWait(TFunction<bool()> Action);
 	static bool RunAsyncAndWait(TFunction<bool()> Action);
+
+	static inline std::atomic<bool> GCancelRequested{false};
+	static bool IsCancelRequested() { return GCancelRequested.load(); }
+	static void SetCancelRequested(bool b) { GCancelRequested = b; }
 };
 
 #undef LOCTEXT_NAMESPACE

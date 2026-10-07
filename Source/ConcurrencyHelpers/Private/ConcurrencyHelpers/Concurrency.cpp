@@ -170,6 +170,7 @@ bool Concurrency::RunOnThreadAndWait(bool bRunOnGameThread, TFunction<bool()> Ac
 	}
 
 	if (IsEngineExitRequested()) return false;
+	if (IsCancelRequested()) return false;
 
 	FEvent* SyncEvent = FPlatformProcess::GetSynchEventFromPool(false);
 	if (!SyncEvent)
@@ -215,6 +216,7 @@ bool Concurrency::RunOnGameThreadThrottledAndWait(TFunction<bool()> Action)
 {
 	if (IsInGameThread()) return Action();
 	if (IsEngineExitRequested()) return false;
+	if (IsCancelRequested()) return false;
 
 	FEvent* SyncEvent = FPlatformProcess::GetSynchEventFromPool(false);
 	if (!SyncEvent)

@@ -439,7 +439,6 @@ void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64
 										if (ExpectedSize) return *Downloaded / ExpectedSize;
 										return *Downloaded / MAX_int32;
 									})
-								.RefreshRate(0.1)
 						]
 						+SVerticalBox::Slot().AutoHeight().HAlign(EHorizontalAlignment::HAlign_Center)
 						[

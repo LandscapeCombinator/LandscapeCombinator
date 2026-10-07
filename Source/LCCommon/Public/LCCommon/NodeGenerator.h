@@ -28,6 +28,9 @@ public:
 		FName SpawnedActorsPath
 	);
 
+	UFUNCTION(BlueprintCallable, Category = "LCGenerator")
+	void Cancel();
+
 	// UBlueprintAsyncActionBase interface
 	virtual void Activate() override;
 	//~UBlueprintAsyncActionBase interface
