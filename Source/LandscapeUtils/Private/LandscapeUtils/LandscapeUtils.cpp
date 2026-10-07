@@ -7,6 +7,7 @@
 #include "Coordinates/LevelCoordinates.h"
 #include "GDALInterface/GDALInterface.h"
 
+#include "Components/ModelComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Internationalization/Regex.h"
 #include "Kismet/GameplayStatics.h"
@@ -262,6 +263,15 @@ bool LandscapeUtils::GetZ(UWorld* World, FCollisionQueryParams CollisionQueryPar
 {
 	FVector StartLocation = FVector(x, y, HALF_WORLD_MAX);
 	FVector EndLocation = FVector(x, y, -HALF_WORLD_MAX);
+
+	// ignore BSPs
+	for (ULevel* Level : World->GetLevels())
+	{
+		for (UModelComponent* ModelComponent : Level->ModelComponents)
+		{
+			CollisionQueryParams.AddIgnoredComponent(ModelComponent);
+		}
+	}
 
 	FHitResult HitResult;
 	bool bLineTrace = World->LineTraceSingleByChannel(
