@@ -23,6 +23,13 @@ struct HOpeningProxy : public HComponentVisProxy
 };
 IMPLEMENT_HIT_PROXY(HOpeningProxy, HComponentVisProxy)
 
+struct HStairsProxy : public HComponentVisProxy
+{
+	DECLARE_HIT_PROXY();
+	HStairsProxy(const UActorComponent* InComponent) : HComponentVisProxy(InComponent, HPP_UI) {}
+};
+IMPLEMENT_HIT_PROXY(HStairsProxy, HComponentVisProxy)
+
 ABuilding* FOpeningsVisualizer::GetBuilding() const
 {
 	return EditedComponent.IsValid() ? Cast<ABuilding>(EditedComponent->GetOwner()) : nullptr;
@@ -46,6 +53,13 @@ void FOpeningsVisualizer::DrawVisualization(const UActorComponent* Component, co
 
 	TArray<FOpeningHandle> Handles;
 	Building->GetOpeningHandles(Handles);
+
+	if (Building->BCfg && Building->BCfg->bAutoStairs && Building->StairsHandle)
+	{
+		PDI->SetHitProxy(new HStairsProxy(Component));
+		PDI->DrawPoint(Building->StairsHandle->GetComponentLocation(), bStairsSelected ? FLinearColor::Yellow : FLinearColor(0.2f, 0.6f, 1.f), bStairsSelected ? 32.f : 26.f, SDPG_Foreground);
+		PDI->SetHitProxy(nullptr);
+	}
 	for (const FOpeningHandle& H : Handles)
 	{
 		const bool bSelected = H.Level == SelectedLevel && H.OpeningIndex == SelectedIndex;
@@ -57,17 +71,31 @@ void FOpeningsVisualizer::DrawVisualization(const UActorComponent* Component, co
 
 bool FOpeningsVisualizer::VisProxyHandleClick(FEditorViewportClient* VC, HComponentVisProxy* VisProxy, const FViewportClick& Click)
 {
+	if (VisProxy && VisProxy->IsA(HStairsProxy::StaticGetType()))
+	{
+		EditedComponent = const_cast<UOpeningsVisualizerComponent*>(Cast<UOpeningsVisualizerComponent>(VisProxy->Component.Get()));
+		SelectedLevel.Reset();
+		SelectedIndex = INDEX_NONE;
+		bStairsSelected = true;
+		return true;
+	}
 	if (!VisProxy || !VisProxy->IsA(HOpeningProxy::StaticGetType())) return false;
 	const HOpeningProxy* Proxy = static_cast<HOpeningProxy*>(VisProxy);
 
 	EditedComponent = const_cast<UOpeningsVisualizerComponent*>(Cast<UOpeningsVisualizerComponent>(VisProxy->Component.Get()));
 	SelectedLevel = Proxy->Level;
 	SelectedIndex = Proxy->Index;
+	bStairsSelected = false;
 	return IsSelectionValid();
 }
 
 bool FOpeningsVisualizer::GetWidgetLocation(const FEditorViewportClient* VC, FVector& OutLocation) const
 {
+	if (bStairsSelected && GetBuilding() && GetBuilding()->StairsHandle)
+	{
+		OutLocation = GetBuilding()->StairsHandle->GetComponentLocation();
+		return true;
+	}
 	if (!IsSelectionValid()) return false;
 
 	TArray<FOpeningHandle> Handles;
@@ -85,6 +113,15 @@ bool FOpeningsVisualizer::GetWidgetLocation(const FEditorViewportClient* VC, FVe
 
 bool FOpeningsVisualizer::HandleInputDelta(FEditorViewportClient* VC, FViewport* Viewport, FVector& DeltaTranslate, FRotator& DeltaRotate, FVector& DeltaScale)
 {
+	if (bStairsSelected && GetBuilding() && GetBuilding()->StairsHandle && VC->GetCurrentWidgetAxis() != EAxisList::None)
+	{
+		ABuilding* StairsBuilding = GetBuilding();
+		StairsBuilding->StairsHandle->Modify();
+		StairsBuilding->StairsHandle->AddWorldOffset(FVector(DeltaTranslate.X, DeltaTranslate.Y, 0));
+		StairsBuilding->StairsHandle->AddWorldRotation(FRotator(0, DeltaRotate.Yaw, 0));
+		StairsBuilding->OnOpeningsEdited();
+		return true;
+	}
 	if (!IsSelectionValid() || VC->GetCurrentWidgetAxis() == EAxisList::None) return false;
 
 	ABuilding* Building = GetBuilding();
@@ -117,8 +154,9 @@ bool FOpeningsVisualizer::HandleInputDelta(FEditorViewportClient* VC, FViewport*
 
 bool FOpeningsVisualizer::HandleInputKey(FEditorViewportClient* VC, FViewport* Viewport, FKey Key, EInputEvent Event)
 {
+	if (bStairsSelected) return Key == EKeys::Delete;
 	if (Key != EKeys::Delete || !IsSelectionValid()) return false;
-	if (Event != IE_Pressed) return true; // swallow repeat/release so the actor is not deleted
+	if (Event != IE_Pressed) return true;
 
 	const FScopedTransaction Transaction(LOCTEXT("DeleteOpening", "Delete Opening"));
 	ULevelDescription* Level = SelectedLevel.Get();

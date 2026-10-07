@@ -16,13 +16,14 @@ public:
 	virtual bool HandleInputDelta(FEditorViewportClient* VC, FViewport* Viewport, FVector& DeltaTranslate, FRotator& DeltaRotate, FVector& DeltaScale) override;
 	virtual bool HandleInputKey(FEditorViewportClient* VC, FViewport* Viewport, FKey Key, EInputEvent Event) override;
 	virtual void TrackingStopped(FEditorViewportClient* VC, bool bDidMove) override;
-	virtual void EndEditing() override { SelectedLevel.Reset(); SelectedIndex = INDEX_NONE; }
+	virtual void EndEditing() override { SelectedLevel.Reset(); SelectedIndex = INDEX_NONE; bStairsSelected = false; }
 	virtual UActorComponent* GetEditedComponent() const override { return EditedComponent.Get(); }
 
 protected:
 	TWeakObjectPtr<UOpeningsVisualizerComponent> EditedComponent;
 	TWeakObjectPtr<ULevelDescription> SelectedLevel;
 	int32 SelectedIndex = INDEX_NONE;
+	bool bStairsSelected = false;
 	bool bAllowDuplication = true; // making sure alt-drag duplicates only once per drag
 
 	ABuilding* GetBuilding() const;
