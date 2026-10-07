@@ -3,6 +3,7 @@
 #pragma once
 
 #include "BuildingsFromSplines/BuildingConfiguration.h"
+#include "BuildingsFromSplines/OpeningsVisualizerComponent.h"
 #include "LCCommon/LCGenerator.h"
 #include "ConcurrencyHelpers/LCReporter.h"
 
@@ -110,6 +111,21 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Building")
 	bool TryPushOutOfCollision();
 
+	UPROPERTY()
+	TObjectPtr<UOpeningsVisualizerComponent> OpeningsVisualizerComponent;
+
+#if WITH_EDITOR
+	void GetOpeningHandles(TArray<FOpeningHandle>& Out) const;
+	void OnOpeningsEdited() { if (bGenerateWhenModified) GenerateBuilding(); }
+#endif
+
+	// same as SplineComponent, but all points have the same Z coordinate as the lowest point,
+	// and there are subdivisions (depending on the WallSubdivions property of the BuildingConfiguration)
+	// and the points are clockwise (when seen from above in Unreal, which isn't the same as clockwise in TPolygon2
+	// because of inverted Y-axis)
+	UPROPERTY(VisibleAnywhere, Category = "Building")
+	TObjectPtr<USplineComponent> BaseClockwiseSplineComponent;
+
 protected:
 	double LastFloorExternalWallThickness = 0;
 	double LevelsHeightsSum = 0;
@@ -150,15 +166,16 @@ protected:
 	UPROPERTY(DuplicateTransient)
 	FString StaticMeshPath;
 
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UWallSegment>> GeneratedSegments;
+
 	void ReprojectSplineOnLandscape();
 	void PushActor(const FVector& Offset);
 
-	// same as SplineComponent, but all points have the same Z coordinate as the lowest point,
-	// and there are subdivisions (depending on the WallSubdivions property of the BuildingConfiguration)
-	// and the points are clockwise (when seen from above in Unreal, which isn't the same as clockwise in TPolygon2
-	// because of inverted Y-axis)
-	UPROPERTY(VisibleAnywhere, Category = "Building")
-	TObjectPtr<USplineComponent> BaseClockwiseSplineComponent;
+	// wall segments of a level that has Openings, along a wall of the given Length: each opening at its Position, filler segments in between
+	bool BuildOpeningSegments(ULevelDescription* LevelDescription, const FString& LevelDescriptionKey, double Length, TArray<UWallSegment*>& Out);
+	bool AddFillerSegment(ULevelDescription* LevelDescription, const FString& LevelDescriptionKey, double GapLength, TArray<UWallSegment*>& Out);
+
 	TArray<FTransform> BaseClockwiseFrames;
 	TArray<double> BaseClockwiseFramesTimes;
 	TArray<FVector2D> BaseVertices2D;

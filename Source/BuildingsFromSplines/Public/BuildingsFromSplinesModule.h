@@ -10,6 +10,11 @@ class FBuildingsFromSplinesModule : public IModuleInterface
 
 #if WITH_EDITOR
 	void StartupModule() override;
+	void ShutdownModule() override;
+
+protected:
+	void RegisterVisualizer();
+	FDelegateHandle PostEngineInitHandle;
 #endif
 
 };
