@@ -382,7 +382,38 @@ public:
 		meta = (EditCondition = "BuildingGeometry == EBuildingGeometry::BuildingWithFloorsAndEmptyInside", EditConditionHides, DisplayPriority = "4")
 	)
 	bool bBuildFloorTiles = true;
-	
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stairs")
+	bool bAutoStairs = false;
+
+	// Width of the stairs
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stairs", meta = (EditCondition = "bAutoStairs"))
+	double StairsWidth = 100;
+
+	// Maximum height of one step; the number of steps is derived from the level height
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stairs", meta = (EditCondition = "bAutoStairs"))
+	double StairsMaxRiser = 18;
+
+	// Depth of one step
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stairs", meta = (EditCondition = "bAutoStairs"))
+	double StairsTreadDepth = 27;
+
+	// Material expression of the stairs; if empty, the stairs use the floor material of the level they start from
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stairs", meta = (EditCondition = "bAutoStairs"))
+	FString StairsMaterialExpr;
+
+	// Minimum headroom above the stairs; the floor above a flight is cut away where there is less
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stairs", meta = (EditCondition = "bAutoStairs"))
+	double StairsHeadroom = 200;
+
+	// Free space between the wall and the side of the stairs when they are first placed
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stairs", meta = (EditCondition = "bAutoStairs"))
+	double StairsWallGap = 50;
+
+	// Free floor in front of the first step, measured from the corner when the stairs are first placed
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stairs", meta = (EditCondition = "bAutoStairs"))
+	double StairsEntryClearance = 120;
+		
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Structure",
 		meta = (DisplayPriority = "15")

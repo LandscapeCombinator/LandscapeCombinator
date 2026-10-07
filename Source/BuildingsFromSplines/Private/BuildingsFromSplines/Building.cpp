@@ -91,6 +91,8 @@ ABuilding::ABuilding() : AActor()
 	BaseClockwiseSplineComponent->SetClosedLoop(true);
 	BaseClockwiseSplineComponent->ClearSplinePoints();
 
+	StairsHandle = CreateDefaultSubobject<USceneComponent>(TEXT("StairsHandle"));
+	StairsHandle->SetupAttachment(RootComponent);
 	OpeningsVisualizerComponent = CreateEditorOnlyDefaultSubobject<UOpeningsVisualizerComponent>(TEXT("OpeningsVisualizerComponent"));
 	if (OpeningsVisualizerComponent) OpeningsVisualizerComponent->SetupAttachment(RootComponent); // null outside the editor
 	
@@ -1988,6 +1990,7 @@ void ABuilding::AppendBuildingStructure(UDynamicMesh* TargetMesh)
 		if (BCfg->bBuildFloorTiles || BCfg->RoofKind == ERoofKind::Flat)
 		{
 			if (!AppendFloors(TargetMesh)) return;
+			AppendStairs(TargetMesh);
 		}
 	}
 	else
@@ -2043,6 +2046,120 @@ void ABuilding::ApplyCutouts(UDynamicMesh* TargetMesh)
 		return true;
 	});
 }
+
+void ABuilding::AppendStairs(UDynamicMesh* TargetMesh)
+{
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendStairs");
+
+	const int32 NumFloors = ExpandedLevelDescriptionsKeys.Num();
+	if (!BCfg->bAutoStairs || !BCfg->bBuildFloorTiles || NumFloors < 2 || !IsValid(StairsHandle)) return;
+
+	const FTransform SplineT = BaseClockwiseSplineComponent->GetComponentTransform();
+
+	// first time, handle is at the start of the longest wall, inside the building
+	if (StairsHandle->GetRelativeLocation().IsNearlyZero() && StairsHandle->GetRelativeRotation().IsNearlyZero())
+	{
+		const int32 N = BaseVertices2D.Num();
+		int32 Longest = 0;
+		double LongestSquared = 0;
+		for (int32 i = 0; i < N; i++)
+		{
+			const double LengthSquared = FVector2D::DistSquared(BaseVertices2D[i], BaseVertices2D[(i + 1) % N]);
+			if (LengthSquared > LongestSquared) { Longest = i; LongestSquared = LengthSquared; }
+		}
+
+		// BaseVertices2D is clockwise, so the inside is on the right of each edge
+		const FVector2D A = BaseVertices2D[Longest];
+		const FVector2D D = (BaseVertices2D[(Longest + 1) % N] - A).GetSafeNormal();
+		const FVector2D P = A + D * BCfg->StairsEntryClearance + FVector2D(-D.Y, D.X) * (BCfg->StairsWidth / 2 + BCfg->StairsWallGap);
+		const FQuat Q = FVector(D.X, D.Y, 0).ToOrientationQuat();
+		Concurrency::RunOnGameThreadAndWait([this, &SplineT, &P, &Q]() {
+			StairsHandle->SetWorldLocationAndRotation(SplineT.TransformPosition(FVector(P.X, P.Y, MinHeightLocal)), SplineT.TransformRotation(Q));
+			return true;
+		});
+	}
+
+	const FVector Start = SplineT.InverseTransformPosition(StairsHandle->GetComponentLocation());
+	const FRotator Rotation(0, SplineT.InverseTransformRotation(StairsHandle->GetComponentQuat()).Rotator().Yaw, 0);
+	auto StairsTransformAt = [&](double Z) { return FTransform(Rotation, FVector(Start.X, Start.Y, Z)); };
+
+	TObjectPtr<UDynamicMesh> StairsMesh = nullptr;
+	TObjectPtr<UDynamicMesh> HoleMesh = nullptr;
+	if (!Concurrency::RunOnGameThreadAndWait([this, &StairsMesh, &HoleMesh]() {
+		StairsMesh = NewObject<UDynamicMesh>(this);
+		HoleMesh = NewObject<UDynamicMesh>(this);
+		return IsValid(StairsMesh) && IsValid(HoleMesh);
+	}))
+	{
+		LCReporter::ShowError(
+			LOCTEXT("StairsNewObjectError", "Internal Error: Could not create new object")
+		);
+		return;
+	}
+
+	FGeometryScriptMeshBooleanOptions BoolOptions;
+	BoolOptions.bFillHoles = false;
+	BoolOptions.bSimplifyOutput = false;
+
+	FVector CachedKey(-1, -1, -1); // rise, upper floor thickness, material
+
+	double Z = MinHeightLocal + BCfg->ExtraWallBottom;
+	for (int32 FloorIndex = 0; FloorIndex < NumFloors - 1; FloorIndex++)
+	{
+		if (!BCfg->RequireLevel(ExpandedLevelDescriptionsKeys[FloorIndex])) return;
+		if (!BCfg->RequireLevel(ExpandedLevelDescriptionsKeys[FloorIndex + 1])) return;
+
+		ULevelDescription* Lower = BCfg->GetLevel(ExpandedLevelDescriptionsKeys[FloorIndex]);
+		ULevelDescription* Upper = BCfg->GetLevel(ExpandedLevelDescriptionsKeys[FloorIndex + 1]);
+		if (!IsValid(Lower) || !IsValid(Upper)) return;
+
+		const double LowerTop = Z + Lower->FloorThickness;
+		Z += Lower->LevelHeight;
+		const double UpperBottom = Z;
+		const double Rise = UpperBottom + Upper->FloorThickness - LowerTop;
+
+		const int32 NumRisers = FMath::CeilToInt(Rise / BCfg->StairsMaxRiser);
+		if (Rise <= 0 || NumRisers < 2) continue;
+
+		const int32 MaterialID = BCfg->ResolveMaterial(BCfg->StairsMaterialExpr.IsEmpty() ? Lower->FloorMaterialExpr : BCfg->StairsMaterialExpr);
+
+		const FVector Key(Rise, Upper->FloorThickness, MaterialID);
+		if (!Key.Equals(CachedKey, 0.01))
+		{
+			CachedKey = Key;
+
+			const int32 FirstHoleStep = FMath::Max(0, FMath::FloorToInt(NumRisers * (1 - (BCfg->StairsHeadroom + Upper->FloorThickness) / Rise)));
+			const double HoleStart = BCfg->StairsTreadDepth * FirstHoleStep;
+			const double HoleLength = BCfg->StairsTreadDepth * (NumRisers - FirstHoleStep);
+
+			StairsMesh->Reset();
+			UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendLinearStairs(
+				StairsMesh, FGeometryScriptPrimitiveOptions(), FTransform(),
+				BCfg->StairsWidth, Rise / NumRisers, BCfg->StairsTreadDepth, NumRisers, true
+			);
+			UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(StairsMesh, 0, MaterialID);
+
+			HoleMesh->Reset();
+			UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendBox(
+				HoleMesh, FGeometryScriptPrimitiveOptions(),
+				FTransform(FVector(HoleStart + HoleLength / 2, 0, -1)),
+				HoleLength, BCfg->StairsWidth, Upper->FloorThickness + 2,
+				0, 0, 0, EGeometryScriptPrimitiveOriginMode::Base
+			);
+			UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(HoleMesh, 0, MaterialID);
+		}
+
+		UGeometryScriptLibrary_MeshBooleanFunctions::ApplyMeshBoolean(
+			TargetMesh, FTransform(), HoleMesh, StairsTransformAt(UpperBottom),
+			EGeometryScriptBooleanOperation::Subtract, BoolOptions
+		);
+		UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(TargetMesh, StairsMesh, StairsTransformAt(LowerTop), true);
+	}
+
+	StairsMesh->MarkAsGarbage();
+	HoleMesh->MarkAsGarbage();
+}
+
 bool ABuilding::AppendBuilding(UDynamicMesh* TargetMesh, FName SpawnedActorsPathOverride)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendBuilding");
