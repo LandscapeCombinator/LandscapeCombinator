@@ -89,6 +89,9 @@ ABuilding::ABuilding() : AActor()
 	BaseClockwiseSplineComponent->SetClosedLoop(true);
 	BaseClockwiseSplineComponent->ClearSplinePoints();
 
+	OpeningsVisualizerComponent = CreateEditorOnlyDefaultSubobject<UOpeningsVisualizerComponent>(TEXT("OpeningsVisualizerComponent"));
+	if (OpeningsVisualizerComponent) OpeningsVisualizerComponent->SetupAttachment(RootComponent); // null outside the editor
+	
 	Tags.AddUnique("can-push-buildings");
 }
 
@@ -119,6 +122,7 @@ bool ABuilding::Cleanup_Implementation(bool bSkipPrompt)
 		BaseClockwiseSplineComponent->ClearSplinePoints();
 
 	WallSegmentsAtFloorAndSplinePoint.Empty();
+	GeneratedSegments.Empty();
 	FillersSizeAtFloorAndSplinePoint.Empty();
 	Volume = nullptr;
 	SplineMeshComponents.Empty();
@@ -897,8 +901,8 @@ bool ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh, bool bInternalWal
 
 	// original number of spline points (without subdivisions)
 	const int NumSplinePoints = SplineComponent->GetNumberOfSplinePoints();
-	int NumIterations = 1; // when !bResetWallSegmentsOnCorners
-	if (LevelDescription->bResetWallSegmentsOnCorners)
+	int NumIterations = 1; // when !ResetsOnCorners()
+	if (LevelDescription->ResetsOnCorners())
 	{
 		if (SplineComponent->IsClosedLoop()) NumIterations = NumSplinePoints;
 		else NumIterations = NumSplinePoints - 1;
@@ -1396,6 +1400,68 @@ void ABuilding::SetReceivesDecals()
 	}
 }
 
+bool ABuilding::AddFillerSegment(ULevelDescription* LevelDescription, const FString& LevelDescriptionKey, double GapLength, TArray<UWallSegment*>& Out)
+{
+	if (GapLength <= MILLIMETER) return true;
+	if (!LevelDescription->RequireSegment(LevelDescription->FillerKey, LevelDescriptionKey)) return false;
+
+	UWallSegment* FillerTemplate = LevelDescription->GetSegment(LevelDescription->FillerKey);
+	UWallSegment* Gap = nullptr;
+
+	if (!Concurrency::RunOnGameThreadAndWait([this, FillerTemplate, GapLength, &Gap]() -> bool {
+		Gap = DuplicateObject<UWallSegment>(FillerTemplate, this);
+		if (!IsValid(Gap)) return false;
+
+		Gap->bAutoExpand = false;
+		Gap->SegmentLength = GapLength;
+		GeneratedSegments.Add(Gap);
+		return true;
+	}))
+	{
+		LCReporter::ShowError(
+			LOCTEXT("DuplicateSegmentError", "Internal Error: Could not create filler wall segment")
+		);
+		return false;
+	}
+
+	Out.Add(Gap);
+	return true;
+}
+
+bool ABuilding::BuildOpeningSegments(ULevelDescription* LevelDescription, const FString& LevelDescriptionKey, double Length, TArray<UWallSegment*>& Out)
+{
+	TArray<FWallOpening> Sorted = LevelDescription->Openings;
+	Sorted.Sort([](const FWallOpening& A, const FWallOpening& B) { return A.Position < B.Position; });
+
+	double Cursor = 0;
+	for (const FWallOpening& Opening : Sorted)
+	{
+		if (!LevelDescription->RequireSegment(Opening.SegmentKey, LevelDescriptionKey)) return false;
+		UWallSegment* Segment = LevelDescription->GetSegment(Opening.SegmentKey);
+
+		if (Opening.Position < Cursor - MILLIMETER)
+		{
+			UE_LOG(LogBuildingsFromSplines, Warning, TEXT("Opening '%s' at %f overlaps the previous opening and is skipped"), *Opening.SegmentKey, Opening.Position);
+			continue;
+		}
+
+		if (Opening.Position + Segment->SegmentLength > Length + MILLIMETER)
+		{
+			LCReporter::ShowError(FText::Format(
+				LOCTEXT("OpeningOutOfRange", "Opening '{0}' at {1} exceeds the wall length."),
+				FText::FromString(Opening.SegmentKey), FText::AsNumber(Opening.Position)
+			));
+			return false;
+		}
+
+		if (!AddFillerSegment(LevelDescription, LevelDescriptionKey, Opening.Position - Cursor, Out)) return false;
+		Out.Add(Segment);
+		Cursor = Opening.Position + Segment->SegmentLength;
+	}
+
+	return AddFillerSegment(LevelDescription, LevelDescriptionKey, Length - Cursor, Out);
+}
+
 bool ABuilding::InitializeWallSegments()
 {
 	// original number of spline points (without subdivisions)
@@ -1431,8 +1497,8 @@ bool ABuilding::InitializeWallSegments()
 		ThisFloorFillersSizeAtSplinePoint.SetNum(NumSplinePoints);
 		FillersSizeAtFloorAndSplinePoint[FloorIndex] = ThisFloorFillersSizeAtSplinePoint;
 
-		int NumIterations = 1; // when !bResetWallSegmentsOnCorners
-		if (LevelDescription->bResetWallSegmentsOnCorners)
+		int NumIterations = 1; // when !ResetsOnCorners()
+		if (LevelDescription->ResetsOnCorners())
 		{
 			if (SplineComponent->IsClosedLoop()) NumIterations = NumSplinePoints;
 			else NumIterations = NumSplinePoints - 1;
@@ -1441,7 +1507,7 @@ bool ABuilding::InitializeWallSegments()
 		{
 			double Length;
 
-			if (LevelDescription->bResetWallSegmentsOnCorners)
+			if (LevelDescription->ResetsOnCorners())
 			{
 				int BaseIndex = SplineIndexToBaseSplineIndex[SplinePointIndex];
 				int BaseIndexNext = SplineIndexToBaseSplineIndex[SplinePointIndex + 1];
@@ -1452,6 +1518,12 @@ bool ABuilding::InitializeWallSegments()
 			else
 			{
 				Length = BaseClockwiseSplineComponent->GetSplineLength();
+			}
+
+			if (!LevelDescription->Openings.IsEmpty())
+			{
+				if (!BuildOpeningSegments(LevelDescription, LevelDescriptionKey, Length, WallSegmentsAtFloorAndSplinePoint[FloorIndex][SplinePointIndex])) return false;
+				continue;
 			}
 
 			
@@ -1672,7 +1744,7 @@ bool ABuilding::AddAttachments(int FloorIndex, ULevelDescription* LevelDescripti
 
 	// original number of spline points (without subdivisions)
 	const int NumSplinePoints = SplineComponent->GetNumberOfSplinePoints();
-	const int MaxIterations = LevelDescription->bResetWallSegmentsOnCorners ? NumSplinePoints : 1;
+	const int MaxIterations = LevelDescription->ResetsOnCorners() ? NumSplinePoints : 1;
 	for (int i = 0; i < NumSplinePoints; i++)
 	{
 		double CurrentDistance = BaseClockwiseSplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineIndexToBaseSplineIndex[i]);
@@ -1980,10 +2052,7 @@ bool ABuilding::AppendBuilding(UDynamicMesh* TargetMesh, FName SpawnedActorsPath
 
 		}
 
-
 		AddAttachments();
-		BaseClockwiseSplineComponent->ClearSplinePoints();
-
 		return true;
 	});
 }
@@ -2056,6 +2125,43 @@ void ABuilding::ReprojectSplineOnLandscape()
 }
 
 #if WITH_EDITOR
+
+void ABuilding::GetOpeningHandles(TArray<FOpeningHandle>& Out) const
+{
+	Out.Reset();
+	if (!IsValid(BCfg) || BaseClockwiseSplineComponent->GetNumberOfSplinePoints() < 2) return;
+
+	TSet<ULevelDescription*> SeenLevels;
+	double Z = BCfg->ExtraWallBottom;
+	for (const FString& Key : ExpandedLevelDescriptionsKeys)
+	{
+		ULevelDescription* Level = BCfg->GetLevel(Key);
+		if (!IsValid(Level)) continue;
+
+		bool bAlreadySeen;
+		SeenLevels.Add(Level, &bAlreadySeen);
+
+		if (!bAlreadySeen)
+		{
+			for (int i = 0; i < Level->Openings.Num(); i++)
+			{
+				const FWallOpening& Opening = Level->Openings[i];
+				if (!Level->HasSegment(Opening.SegmentKey)) continue;
+
+				const UWallSegment* Segment = Level->GetSegment(Opening.SegmentKey);
+				const FVector P = BaseClockwiseSplineComponent->GetLocationAtDistanceAlongSpline(Opening.Position, ESplineCoordinateSpace::World);
+
+				FOpeningHandle Handle;
+				Handle.Level = Level;
+				Handle.OpeningIndex = i;
+				Handle.WorldLocation = P + GetActorTransform().TransformVector(FVector(0, 0, Z + Segment->HoleDistanceToFloor));
+				Out.Add(Handle);
+			}
+		}
+
+		Z += Level->LevelHeight;
+	}
+}
 
 void ABuilding::GenerateStaticMesh()
 {

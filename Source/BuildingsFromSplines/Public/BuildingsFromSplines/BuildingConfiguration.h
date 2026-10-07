@@ -249,6 +249,20 @@ public:
 	}
 };
 
+USTRUCT(BlueprintType)
+struct FWallOpening
+{
+	GENERATED_BODY()
+
+	/* Key in WallSegmentsMap for a hole (window, doors, attachments, etc) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Opening")
+	FString SegmentKey;
+
+	/* Distance from the start of the perimeter to the start of the opening */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Opening")
+	double Position = 0;
+};
+
 UCLASS(BlueprintType, Blueprintable, EditInlineNew, DefaultToInstanced)
 class ULevelDescription : public UObject
 {
@@ -298,6 +312,16 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LevelDescription", meta = (DisplayPriority = "101"))
     FString WallSegmentsExpression;
+
+	/* If not empty, WallSegmentsExpression is ignored and wall segments are not reset on corners */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LevelDescription", meta = (DisplayPriority = "102"))
+	TArray<FWallOpening> Openings;
+
+	/* Key in WallSegmentsMap used to fill the gaps between openings (resized to fit) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LevelDescription", meta = (DisplayPriority = "103"))
+	FString FillerKey;
+
+	bool ResetsOnCorners() const { return bResetWallSegmentsOnCorners && Openings.IsEmpty(); }
 
 	UWallSegment* GetSegment(const FString& Key) const;
 

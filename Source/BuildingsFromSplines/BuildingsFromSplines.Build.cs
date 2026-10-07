@@ -28,7 +28,6 @@ public class BuildingsFromSplines : ModuleRules
 				"Engine",
 				"GeometryCore",
 				"GeometryScriptingCore",
-				"Slate",
 				"SlateCore",
 
 				// Landscape Combinator Dependencies
@@ -42,8 +41,10 @@ public class BuildingsFromSplines : ModuleRules
 
 		if (Target.bBuildEditor)
 		{
+			PrivateDependencyModuleNames.Add("InputCore");
 			PrivateDependencyModuleNames.Add("UnrealEd");
 			PrivateDependencyModuleNames.Add("PropertyEditor");
+			PrivateDependencyModuleNames.Add("Slate");
 			PrivateDependencyModuleNames.Add("GeometryScriptingEditor");
 			PrivateDependencyModuleNames.Add("ModelingComponentsEditorOnly");
 		}
