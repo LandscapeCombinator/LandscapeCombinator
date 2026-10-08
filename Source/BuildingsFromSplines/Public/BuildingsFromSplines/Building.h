@@ -84,6 +84,10 @@ public:
 	)
 	TObjectPtr<UBuildingConfiguration> BCfg;
 
+	mutable UBuildingConfiguration* ResolvedBCfg = nullptr;
+	double EffectiveExtraWallBottom = 0;
+	int EffectiveNumFloors = 0;
+
 	virtual bool Cleanup_Implementation(bool bSkipPrompt) override;
 
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Building",
