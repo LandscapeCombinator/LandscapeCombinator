@@ -102,6 +102,7 @@ ABuilding::ABuilding() : AActor()
 
 bool ABuilding::Cleanup_Implementation(bool bSkipPrompt)
 {
+	Concurrency::SetCancelRequested(false);
 	Modify();
 
 	if (!DeleteGeneratedObjects(bSkipPrompt)) return false;

@@ -1,6 +1,7 @@
 // Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "LandscapeCombinator/GeneratorStatus.h"
+#include "ConcurrencyHelpers/Concurrency.h"
 
 #if WITH_EDITOR
 #include "Editor.h"
@@ -12,6 +13,9 @@ void UGeneratorStatus::NativeConstruct()
 
 	if (RowButton)
 		RowButton->OnClicked.AddDynamic(this, &UGeneratorStatus::HandleRowClicked);
+	if (GenerateButton) GenerateButton->OnClicked.AddDynamic(this, &UGeneratorStatus::HandleGenerateClicked);
+	if (CancelButton) CancelButton->OnClicked.AddDynamic(this, &UGeneratorStatus::HandleCancelClicked);
+	if (CleanButton) CleanButton->OnClicked.AddDynamic(this, &UGeneratorStatus::HandleCleanClicked);
 
 	RefreshStatus();
 }
@@ -19,6 +23,8 @@ void UGeneratorStatus::NativeConstruct()
 void UGeneratorStatus::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
+
+    Buttons.Tick(GenerateButton, SpinSpeed, InDeltaTime);
 
 	TimeSinceLastRefresh += InDeltaTime;
 	if (TimeSinceLastRefresh < RefreshInterval) return;
@@ -45,7 +51,7 @@ void UGeneratorStatus::HandleRowClicked()
 
 void UGeneratorStatus::RefreshStatus()
 {
-    if (!NameText || !StatusText || !TilesText || !Throbber) return;
+    if (!NameText || !StatusText || !TilesText) return;
 
     AActor* Actor = TargetGenerator.Get();
     if (!IsValid(Actor))
@@ -91,7 +97,7 @@ void UGeneratorStatus::RefreshStatus()
         default:                           StatusString = TEXT("Unknown"); break;
     }
     StatusText->SetText(FText::FromString(StatusString));
-    Throbber->SetVisibility(bIsGenerating ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
+    Buttons.Update(GenerateButton, CancelButton, CleanButton, true, bIsGenerating);
 
     if (bHasTileTracking)
     {
@@ -135,4 +141,35 @@ void UGeneratorStatus::UpdateRowColor(EGeneratorStatus GeneratorStatus, int32 Nu
     }
 
     RowButton->SetBackgroundColor(Color);
+}
+
+void UGeneratorStatus::HandleGenerateClicked()
+{
+	AActor* Actor = TargetGenerator.Get();
+	if (!IsValid(Actor)) return;
+
+	ILCGenerator* Generator = Cast<ILCGenerator>(Actor);
+	if (!Generator || Generator->GetGeneratorStatus() == EGeneratorStatus::Generating) return;
+
+	Generator->GenerateFromGameThread(FName(), true);
+}
+
+void UGeneratorStatus::HandleCancelClicked()
+{
+	AActor* Actor = TargetGenerator.Get();
+	if (IsValid(Actor) && Actor->Implements<ULCGenerator>())
+	{
+		Concurrency::SetCancelRequested(true);
+	}
+}
+
+void UGeneratorStatus::HandleCleanClicked()
+{
+	AActor* Actor = TargetGenerator.Get();
+	if (!IsValid(Actor) || !Actor->Implements<ULCGenerator>()) return;
+
+	ILCGenerator* Generator = Cast<ILCGenerator>(Actor);
+	if (Generator && Generator->GetGeneratorStatus() == EGeneratorStatus::Generating) return;
+
+	ILCGenerator::Execute_Cleanup(Actor, false);
 }

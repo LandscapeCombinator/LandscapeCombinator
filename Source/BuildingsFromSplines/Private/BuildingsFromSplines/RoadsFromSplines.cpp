@@ -505,6 +505,7 @@ TArray<UObject*> ARoadsFromSplines::GetGeneratedObjects() const
 
 bool ARoadsFromSplines::Cleanup_Implementation(bool bSkipPrompt)
 {
+	Concurrency::SetCancelRequested(false);
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR(__FUNCTION__);
 
 	TWeakObjectPtr<ARoadsFromSplines> WeakThis(this);

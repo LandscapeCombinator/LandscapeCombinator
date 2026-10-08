@@ -25,6 +25,8 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "GeneratorsStatusTabButton")
 	bool bIsActive = false;
 
+    void ApplyColor();
+
 	UPROPERTY(BlueprintReadWrite, Category = "GeneratorsStatusTabButton")
 	TWeakObjectPtr<AActor> TargetActor;
 

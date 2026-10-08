@@ -23,6 +23,13 @@ namespace
 void UGeneratorsStatus::NativeConstruct()
 {
 	Super::NativeConstruct();
+
+if (PanelBorder) PanelBorder->SetBrushColor(ActiveTabColor);
+
+	if (GenerateAllButton) GenerateAllButton->OnClicked.AddDynamic(this, &UGeneratorsStatus::HandleGenerateAllClicked);
+	if (CancelAllButton) CancelAllButton->OnClicked.AddDynamic(this, &UGeneratorsStatus::HandleCancelAllClicked);
+	if (CleanAllButton) CleanAllButton->OnClicked.AddDynamic(this, &UGeneratorsStatus::HandleCleanAllClicked);
+
 	RefreshGeneratorsList();
 }
 
@@ -56,6 +63,7 @@ void UGeneratorsStatus::RefreshGeneratorsList()
 	TabSwitcher->ClearChildren();
 	TabButtonBox->ClearChildren();
 	TabButtons.Empty();
+	TabInfos.Reset();
 
 	TArray<AActor*> AllCombinationActors;
 	UGameplayStatics::GetAllActorsOfClass(TargetWorld, ALandscapeCombination::StaticClass(), AllCombinationActors);
@@ -147,6 +155,9 @@ void UGeneratorsStatus::RefreshGeneratorsList()
 	{
 		const FGeneratorTabData& TabData = Tabs[TabIndex];
 
+		FGeneratorTabInfo& TabInfo = TabInfos.AddDefaulted_GetRef();
+		TabInfo.TabActor = TabData.TabActor;
+
 		UVerticalBox* TabContent = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
 		for (const TWeakObjectPtr<AActor>& GeneratorPtr : TabData.Generators)
 		{
@@ -179,6 +190,8 @@ void UGeneratorsStatus::SetActiveTab(int32 TabIndex)
 
 	TabIndex = FMath::Clamp(TabIndex, 0, TabSwitcher->GetChildrenCount() - 1);
 	TabSwitcher->SetActiveWidgetIndex(TabIndex);
+	ActiveTabIndex = TabIndex;
+	UpdateAllButtons();
 
 	for (int32 i = 0; i < TabButtons.Num(); ++i)
 	{
@@ -189,4 +202,45 @@ void UGeneratorsStatus::SetActiveTab(int32 TabIndex)
 	}
 
 	OnTabChanged(TabIndex);
+}
+
+void UGeneratorsStatus::HandleGenerateAllClicked() { GenerateAll(); }
+void UGeneratorsStatus::HandleCancelAllClicked() { CancelAll(); }
+void UGeneratorsStatus::HandleCleanAllClicked() { CleanAll(); }
+
+ALandscapeCombination* UGeneratorsStatus::GetActiveCombination() const
+{
+	return TabInfos.IsValidIndex(ActiveTabIndex) ? Cast<ALandscapeCombination>(TabInfos[ActiveTabIndex].TabActor.Get()) : nullptr;
+}
+
+void UGeneratorsStatus::GenerateAll()
+{
+	ALandscapeCombination* Combination = GetActiveCombination();
+	if (Combination && Combination->GetGeneratorStatus() != EGeneratorStatus::Generating) Combination->GenerateActors();
+}
+
+void UGeneratorsStatus::CancelAll()
+{
+	if (ALandscapeCombination* Combination = GetActiveCombination()) Combination->CancelGeneration();
+}
+
+void UGeneratorsStatus::CleanAll()
+{
+	ALandscapeCombination* Combination = GetActiveCombination();
+	if (Combination && Combination->GetGeneratorStatus() != EGeneratorStatus::Generating) Combination->DeleteActors();
+}
+
+
+void UGeneratorsStatus::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
+{
+    Super::NativeTick(MyGeometry, InDeltaTime);
+    UpdateAllButtons();
+    Buttons.Tick(GenerateAllButton, SpinSpeed, InDeltaTime);
+}
+
+void UGeneratorsStatus::UpdateAllButtons()
+{
+    ALandscapeCombination* Combination = GetActiveCombination();
+    const bool bGenerating = Combination && Combination->GetGeneratorStatus() == EGeneratorStatus::Generating;
+    Buttons.Update(GenerateAllButton, CancelAllButton, CleanAllButton, Combination != nullptr, bGenerating);
 }

@@ -2,6 +2,7 @@
 
 #include "LandscapeCombinator/GeneratorsStatusTabButton.h"
 #include "LandscapeCombinator/GeneratorsStatus.h"
+#include "Brushes/SlateColorBrush.h"
 
 
 void UGeneratorsStatusTabButton::InitializeTab(UGeneratorsStatus* InOwner, int32 InTabIndex, const FText& InLabel, AActor* InTargetActor)
@@ -17,6 +18,7 @@ void UGeneratorsStatusTabButton::InitializeTab(UGeneratorsStatus* InOwner, int32
         LabelText->SetText(InLabel);
 
     OnLabelSet(InLabel);
+    ApplyColor();
 }
 
 void UGeneratorsStatusTabButton::HandleClicked()
@@ -40,5 +42,20 @@ void UGeneratorsStatusTabButton::SetActive(bool bNewActive)
 {
 	if (bIsActive == bNewActive) return;
 	bIsActive = bNewActive;
-	OnActiveChanged(bIsActive);
+	ApplyColor();
+    OnActiveChanged(bIsActive);
+}
+
+
+void UGeneratorsStatusTabButton::ApplyColor()
+{
+    if (!ButtonRoot) return;
+
+    FButtonStyle Style = ButtonRoot->GetStyle();
+    Style.SetNormal(FSlateColorBrush(FLinearColor::White));
+    Style.SetHovered(FSlateColorBrush(FLinearColor(0.85f, 0.85f, 0.85f)));
+    Style.SetPressed(FSlateColorBrush(FLinearColor(0.7f, 0.7f, 0.7f)));
+    ButtonRoot->SetStyle(Style);
+    if (const UGeneratorsStatus* OwnerPtr = Owner.Get())
+        ButtonRoot->SetBackgroundColor(bIsActive ? OwnerPtr->ActiveTabColor : OwnerPtr->InactiveTabColor);
 }

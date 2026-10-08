@@ -668,6 +668,7 @@ bool ASplineImporter::GetUECoordinates(
 
 bool ASplineImporter::Cleanup_Implementation(bool bSkipPrompt) 
 {
+	Concurrency::SetCancelRequested(false);
 	Modify();
 
 	if (DeleteGeneratedObjects(bSkipPrompt))
