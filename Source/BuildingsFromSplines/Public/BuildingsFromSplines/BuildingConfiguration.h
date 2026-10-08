@@ -15,6 +15,8 @@
 
 #include "BuildingConfiguration.generated.h"
 
+class UOSMUserData;
+
 #define LOCTEXT_NAMESPACE "FBuildingsFromSplinesModule"
 
 UENUM(BlueprintType)
@@ -524,10 +526,8 @@ public:
 	)
 	TMap<FString, TObjectPtr<UMaterialInterface>> Materials;
 
-	TArray<FString> MaterialNamesArray;
-	TArray<TObjectPtr<UMaterialInterface>> MaterialsArray;
-
-	int ResolveMaterial(FString ExprStr);
+	int ResolveMaterial(FString ExprStr) const;
+	void GetMaterialsArray(TArray<TObjectPtr<UMaterialInterface>>& Out) const;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Building|Materials",
@@ -716,8 +716,7 @@ public:
 	bool bConvertToVolume = false;
 
 
-	UFUNCTION()
-	bool AutoComputeNumFloors(UOSMUserData *BuildingOSMUserData);
+	bool AutoComputeNumFloors(UOSMUserData *BuildingOSMUserData, int& OutNumFloors) const;
 
 };
 

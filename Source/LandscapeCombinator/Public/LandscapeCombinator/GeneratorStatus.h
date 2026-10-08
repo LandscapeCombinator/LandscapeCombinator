@@ -23,7 +23,7 @@ public:
 
 	// How often to refresh, in seconds.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneratorStatus")
-	float RefreshInterval = 1.0f;
+	float RefreshInterval = 0.05f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GeneratorStatus")
 	float SpinSpeed = 360.0f; // degrees per second

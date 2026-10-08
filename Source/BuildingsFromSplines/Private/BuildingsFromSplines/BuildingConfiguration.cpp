@@ -18,11 +18,12 @@ UBuildingConfiguration::UBuildingConfiguration()
 {
 }
 
-int UBuildingConfiguration::ResolveMaterial(FString ExprStr)
+int UBuildingConfiguration::ResolveMaterial(FString ExprStr) const
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("ResolveMaterial");
 
-	FExpression *Expr = FExpression::Parse(ExprStr);
+	TUniquePtr<FExpression> ExprOwner(FExpression::Parse(ExprStr));
+	FExpression* Expr = ExprOwner.Get();
 	if (!Expr) return 0;
 
 	if (Expr->ExprType != EExprType::Concat) return 0;
@@ -30,12 +31,23 @@ int UBuildingConfiguration::ResolveMaterial(FString ExprStr)
 	Expr->MakeChoices();
 	if (Expr->Children.IsEmpty()) return 0;
 
-	int Index = MaterialNamesArray.IndexOfByKey(Expr->Children[0]->Symbol);
+	int Index = -1, i = 0;
+	for (const auto& Pair : Materials)
+	{
+		if (Pair.Key == Expr->Children[0]->Symbol) { Index = i; break; }
+		i++;
+	}
 	if (Index >= 0) return Index;
 	else return 0;
 }
 
-bool UBuildingConfiguration::AutoComputeNumFloors(UOSMUserData *BuildingOSMUserData)
+void UBuildingConfiguration::GetMaterialsArray(TArray<TObjectPtr<UMaterialInterface>>& Out) const
+{
+	Out.Reset();
+	for (const auto& Pair : Materials) Out.Add(Pair.Value);
+}
+
+bool UBuildingConfiguration::AutoComputeNumFloors(UOSMUserData *BuildingOSMUserData, int& OutNumFloors) const
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR("AutoComputeNumFloors");
 
@@ -48,8 +60,7 @@ bool UBuildingConfiguration::AutoComputeNumFloors(UOSMUserData *BuildingOSMUserD
 		int NumLevels = FCString::Atoi(*LevelsString);
 		if (NumLevels > 0)
 		{
-			bUseRandomNumFloors = false;
-			NumFloors = NumLevels;
+			OutNumFloors = NumLevels;
 			return true;
 		}
 		// we don't return false to give a chance to the 'height' field below
@@ -65,8 +76,7 @@ bool UBuildingConfiguration::AutoComputeNumFloors(UOSMUserData *BuildingOSMUserD
 		double Height = FCString::Atod(*HeightString);
 		if (Height > 0)
 		{
-			bUseRandomNumFloors = false;
-			NumFloors = FMath::Max(1, Height * 100 / 300);
+			OutNumFloors = FMath::Max(1, Height * 100 / 300);
 			return true;
 		}
 		else if (!HeightString.IsEmpty())
