@@ -19,7 +19,6 @@
 #include "LCCommon/LogLCCommon.h"
 #include "LCPositionBasedGeneration.h"
 
-#include <atomic>
 #include "LCGenerator.generated.h"
 
 UENUM(BlueprintType, meta = (ScriptName = "LCGeneratorStatus"))
@@ -87,7 +86,6 @@ public:
 
 protected:
 	EGeneratorStatus CurrentStatus = EGeneratorStatus::Idle;
-	std::atomic<bool> bCancelRequested{false};
 	EGeneratorStatus FailedStatus() const { return Concurrency::IsCancelRequested() ? EGeneratorStatus::Idle : EGeneratorStatus::Error; }
 	TWeakObjectPtr<AActor> Self;
 

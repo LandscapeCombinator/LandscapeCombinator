@@ -48,6 +48,7 @@ bool FOpeningsVisualizer::IsSelectionValid() const
 
 void FOpeningsVisualizer::DrawVisualization(const UActorComponent* Component, const FSceneView* View, FPrimitiveDrawInterface* PDI)
 {
+	if (!IsValid(Component) || !PDI) return;
 	const ABuilding* Building = Cast<ABuilding>(Component->GetOwner());
 	if (!Building) return;
 

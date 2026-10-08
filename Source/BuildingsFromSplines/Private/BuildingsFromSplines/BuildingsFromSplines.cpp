@@ -43,6 +43,7 @@ bool ABuildingsFromSplines::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 
 bool ABuildingsFromSplines::Cleanup_Implementation(bool bSkipPrompt)
 {
+	Concurrency::SetCancelRequested(false);
 	Modify();
 	
 	if (DeleteGeneratedObjects(bSkipPrompt))
