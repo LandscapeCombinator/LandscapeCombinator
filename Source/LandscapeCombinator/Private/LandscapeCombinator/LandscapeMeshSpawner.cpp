@@ -47,6 +47,44 @@ void ALandscapeMeshSpawner::DeleteLandscape()
 	Execute_Cleanup(this, false);
 }
 
+bool ALandscapeMeshSpawner::Cleanup_Implementation(bool bSkipPrompt)
+{
+	Concurrency::SetCancelRequested(false);
+	Modify();
+
+	if (!DeleteGeneratedObjects(bSkipPrompt)) return false;
+	SpawnedLandscapeMeshes.Empty();
+
+	if (!bReuseExistingMesh) return true;
+
+	const FName OwnerName = GetFName();
+	TWeakObjectPtr<ALandscapeMesh> MeshToRegenerate;
+	FLastMeshSettings Settings;
+
+	Concurrency::RunOnGameThreadAndWait([&]() {
+		ALandscapeMesh* SharedMesh = Cast<ALandscapeMesh>(ExistingLandscapeMesh.GetActor(GetWorld(), false));
+		if (!IsValid(SharedMesh)) return true;
+
+		if (SharedMesh->RemoveHeightmaps(OwnerName) == 0) { SharedMesh->Clear(); return true; }
+
+		MeshToRegenerate = SharedMesh;
+		Settings = SharedMesh->GetLastSettings();
+		return true;
+	});
+
+	if (MeshToRegenerate.IsValid())
+	{
+		Concurrency::RunAsync([MeshToRegenerate, Settings]() {
+			ALandscapeMesh* Mesh = MeshToRegenerate.Get();
+			if (!IsValid(Mesh)) return;
+			if (Mesh->RegenerateMesh(Settings.SplitNormalsAngle, Settings.SplitDirection, Settings.ApronWidth, Settings.ApronDepth))
+				ALandscapeMesh::RegisterAndCutLowerPriority(Mesh, Settings.SplitNormalsAngle, Settings.SplitDirection, Settings.ApronWidth, Settings.ApronDepth);
+		});
+	}
+
+	return true;
+}
+
 #if WITH_EDITOR
 
 AActor *ALandscapeMeshSpawner::Duplicate(FName FromName, FName ToName)
@@ -73,7 +111,7 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 
 	Modify();
 
-	if (bDeleteExistingMeshesBeforeSpawningMeshes)
+	if (bDeleteExistingMeshesBeforeSpawningMeshes && !bReuseExistingMesh)
 	{
 		if (!Execute_Cleanup(this, !bIsUserInitiated)) return false;
 	}
@@ -99,10 +137,31 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 
 	TWeakObjectPtr<ALandscapeMeshSpawner> WeakThis(this);
 
+	TWeakObjectPtr<ALandscapeMesh> ExistingMesh;
+	if (bReuseExistingMesh)
+	{
+		ALandscapeMesh* FoundMesh = nullptr;
+		if (!Concurrency::RunOnGameThreadThrottledAndWait([&]() {
+			FoundMesh = Cast<ALandscapeMesh>(ExistingLandscapeMesh.GetActor(World, false));
+			return IsValid(FoundMesh);
+		}))
+		{
+			LCReporter::ShowError(
+				LOCTEXT("NoExistingMesh",
+					"Could not find the existing Landscape Mesh to reuse.\n"
+					"Please spawn it first, and check the \"Existing Landscape Mesh\" setting."
+				)
+			);
+
+			return false;
+		}
+		ExistingMesh = FoundMesh;
+	}
+
 	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World, false);
 	if (IsValid(GlobalCoordinates))
 	{
-		if (bIsUserInitiated && !LCReporter::ShowMessage(
+		if (bIsUserInitiated && !bReuseExistingMesh && !LCReporter::ShowMessage(
 			LOCTEXT(
 				"ALandscapeMeshSpawner::OnGenerate::ExistingGlobal",
 				"There already exists a LevelCoordinates actor. Continue?\n"
@@ -213,17 +272,36 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 		return false;
 	}
 
+	const FName OwnerName = GetFName();
+	bool bAddedToSharedMesh = false;
+
 	for (auto &OutputFile : Files)
 	{
 		FVector4d ThisFileCoordinates = FVector4d();
+		if (!GDALInterface::GetCoordinates(ThisFileCoordinates, OutputFile)) return false;
+
+		if (bReuseExistingMesh)
 		{
-			if (!GDALInterface::GetCoordinates(ThisFileCoordinates, OutputFile)) return false;
+			ALandscapeMesh* SharedMesh = ExistingMesh.Get();
+			if (IsValid(SharedMesh) && SharedMesh->HasHeightmap(OwnerName, ThisFileCoordinates))
+			{
+				UE_LOG(LogLandscapeCombinator, Log, TEXT("Skipping heightmap '%s': this area was already added by %s"), *OutputFile, *OwnerName.ToString());
+				continue;
+			}
 		}
 
 		ALandscapeMesh *LandscapeMesh = nullptr;
-		bool bThreadSuccess = Concurrency::RunOnGameThreadThrottledAndWait([WeakThis, &LandscapeMesh, ThisFileCoordinates, GlobalCoordinates, OutputFile, SpawnedActorsPathOverride]()
+		bool bThreadSuccess = Concurrency::RunOnGameThreadThrottledAndWait([WeakThis, ExistingMesh, OwnerName, &LandscapeMesh, ThisFileCoordinates, GlobalCoordinates, OutputFile, SpawnedActorsPathOverride]()
 		{
 			if (!WeakThis.IsValid() || !IsValid(WeakThis->GetWorld())) return false;
+
+			if (WeakThis->bReuseExistingMesh)
+			{
+				LandscapeMesh = ExistingMesh.Get();
+				if (!IsValid(LandscapeMesh)) return false;
+				return LandscapeMesh->AddHeightmap(WeakThis->HeightmapPriority, ThisFileCoordinates, GlobalCoordinates, OutputFile, OwnerName);
+			}
+
 			UWorld *World = WeakThis->GetWorld();
 			LandscapeMesh = World->SpawnActor<ALandscapeMesh>();
 			if (!IsValid(LandscapeMesh)) return false;
@@ -242,7 +320,6 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 			return true;
 		});
 
-
 		if (!IsValid(LandscapeMesh))
 		{
 			LCReporter::ShowError(
@@ -255,10 +332,33 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 			return false;
 		}
 
-		if (!bThreadSuccess) return false;
+		if (!bThreadSuccess)
+		{
+			UE_LOG(LogLandscapeCombinator, Error, TEXT("Failed to add heightmap '%s'"), *OutputFile);
+			return false;
+		}
 
-		if (!LandscapeMesh->RegenerateMesh(SplitNormalsAngle, GridSplitDirection, ApronWidth, ApronDepth)) return false;
+		if (bReuseExistingMesh)
+		{
+			bAddedToSharedMesh = true;
+			continue;
+		}
+
+		if (!LandscapeMesh->RegenerateMesh(SplitNormalsAngle, GridSplitDirection, ApronWidth, ApronDepth)) { UE_LOG(LogLandscapeCombinator, Error, TEXT("RegenerateMesh failed after adding '%s'"), *OutputFile); return false; }
 		ALandscapeMesh::RegisterAndCutLowerPriority(LandscapeMesh, SplitNormalsAngle, GridSplitDirection, ApronWidth, ApronDepth);
+	}
+
+	if (bAddedToSharedMesh)
+	{
+		ALandscapeMesh* SharedMesh = ExistingMesh.Get();
+		if (!IsValid(SharedMesh)) return false;
+
+		if (!SharedMesh->RegenerateMesh(SplitNormalsAngle, GridSplitDirection, ApronWidth, ApronDepth))
+		{
+			UE_LOG(LogLandscapeCombinator, Error, TEXT("RegenerateMesh failed after adding the heightmaps of %s"), *OwnerName.ToString());
+			return false;
+		}
+		ALandscapeMesh::RegisterAndCutLowerPriority(SharedMesh, SplitNormalsAngle, GridSplitDirection, ApronWidth, ApronDepth);
 	}
 
 	return true;
