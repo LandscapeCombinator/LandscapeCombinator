@@ -8,6 +8,7 @@
 #include "ConcurrencyHelpers/LCReporter.h"
 #include "ConsoleHelpers/ExternalTool.h"
 #include "LCCommon/LCGenerator.h"
+#include "LCCommon/ActorSelection.h"
 #include "LandscapeMesh.h"
 
 #include "GenericPlatform/GenericPlatformMisc.h"
@@ -50,9 +51,18 @@ public:
 	/* Label of the landscape to create. */
 	FString LandscapeMeshLabel = "SpawnedLandscapeMesh";
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner", meta = (DisplayPriority = "5"))
+	/* Add the heightmaps to an existing landscape mesh */
+	bool bReuseExistingMesh = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
+		meta = (EditCondition = "bReuseExistingMesh", EditConditionHides, DisplayPriority = "6")
+	)
+	FActorSelection ExistingLandscapeMesh;
+
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
-		meta = (DisplayPriority = "1")
+		meta = (EditCondition = "!bReuseExistingMesh", EditConditionHides, DisplayPriority = "1")
 	)
 	/* Material to apply to the landscape */
 	TObjectPtr<UMaterialInterface> LandscapeMaterial = nullptr;
@@ -66,7 +76,7 @@ public:
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
-		meta = (DisplayPriority = "4")
+		meta = (EditCondition = "!bReuseExistingMesh", EditConditionHides, DisplayPriority = "4")
 	)
 	/* Folder used to spawn the actors. This setting is unused when generating from a combination or from blueprints. */
 	FName SpawnedActorsPath;
@@ -86,7 +96,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner", meta = (DisplayPriority = "11"))
 	double SplitNormalsAngle = 0;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner", meta = (DisplayPriority = "12"))
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
+		meta = (EditCondition = "!bReuseExistingMesh", EditConditionHides, DisplayPriority = "12")
+	)
 	bool bDeleteExistingMeshesBeforeSpawningMeshes = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner", meta = (DisplayPriority = "13"))
@@ -96,15 +109,24 @@ public:
 	/* How each grid quad is split into two triangles. */
 	EGridSplitDirection GridSplitDirection = EGridSplitDirection::Checkerboard;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner", meta = (DisplayPriority = "16"))
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
+		meta = (EditCondition = "!bReuseExistingMesh", EditConditionHides, DisplayPriority = "16")
+	)
 	/* in cm */
 	double ApronWidth = 10000.0;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner", meta = (DisplayPriority = "17"))
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
+		meta = (EditCondition = "!bReuseExistingMesh", EditConditionHides, DisplayPriority = "17")
+	)
 	/* in cm */
 	double ApronDepth = 10000.0;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner", meta = (DisplayPriority = "20"))
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
+		meta = (EditCondition = "!bReuseExistingMesh", EditConditionHides, DisplayPriority = "20")
+	)
 	/* Tag to add on the spawned landscape meshes. */
 	FName SpawnedLandscapeMeshesTag;
 
@@ -123,21 +145,7 @@ public:
 
 	virtual bool OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated) override;
 
-	virtual bool Cleanup_Implementation(bool bSkipPrompt) override
-	{
-		Concurrency::SetCancelRequested(false);
-		Modify();
-
-		if (DeleteGeneratedObjects(bSkipPrompt))
-		{
-			SpawnedLandscapeMeshes.Empty();
-			return true;
-		}
-		else
-		{
-			return false;
-		}
-	}
+	virtual bool Cleanup_Implementation(bool bSkipPrompt) override;
 
 #if WITH_EDITOR
 	virtual AActor* Duplicate(FName FromName, FName ToName) override;

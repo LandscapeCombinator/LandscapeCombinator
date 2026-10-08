@@ -7,6 +7,7 @@
 #include "ConcurrencyHelpers/Concurrency.h"
 #include "ConcurrencyHelpers/LCReporter.h"
 
+#include "ConstrainedDelaunay2.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "Engine/World.h"
 #include "Engine/CollisionProfile.h"
@@ -48,6 +49,21 @@ void ALandscapeMesh::PostRegisterAllComponents()
 {
 	Super::PostRegisterAllComponents();
 
+	// Register landscapes so that later landscapes crop them
+	const UWorld* ThisWorld = GetWorld();
+	if (IsValid(ThisWorld) && !ThisWorld->IsGameWorld())
+	{
+		const TArray<FRegisteredHeightmap> Entries = MakeRegistryEntries(this);
+		if (!Entries.IsEmpty())
+		{
+			FScopeLock Lock(&RegistryLock);
+			GRegisteredHeightmaps.RemoveAll([this](const FRegisteredHeightmap& Entry) {
+				return !Entry.Mesh.IsValid() || Entry.Mesh.Get() == this;
+			});
+			GRegisteredHeightmaps.Append(Entries);
+		}
+	}
+
 	if (bHasCookedCollisionThisSession) return;
 	if (!IsValid(MeshComponent) || !IsValid(MeshComponent->GetDynamicMesh())) return;
 	if (MeshComponent->GetDynamicMesh()->GetMeshRef().TriangleCount() == 0) return;
@@ -67,7 +83,11 @@ void ALandscapeMesh::PostRegisterAllComponents()
 void ALandscapeMesh::Destroyed()
 {
 	MeshGenerationCounter.Increment();
-	Unregister(this);
+
+	const UWorld* ThisWorld = GetWorld();
+	const bool bTeardown = IsEngineExitRequested() || !IsValid(ThisWorld) || ThisWorld->bIsTearingDown;
+	Unregister(this, !bTeardown);
+
 	Super::Destroyed();
 }
 
@@ -77,9 +97,10 @@ void ALandscapeMesh::Clear()
 
 	Modify();
 
-	Points.Empty();
-	Width = 0;
-	Height = 0;
+	{
+		FScopeLock Lock(&HeightmapsLock);
+		Heightmaps.Empty();
+	}
 	Unregister(this);
 
 	if (IsValid(MeshComponent) && IsValid(MeshComponent->GetDynamicMesh()))
@@ -89,7 +110,7 @@ void ALandscapeMesh::Clear()
 	}
 }
 
-bool ALandscapeMesh::AddHeightmap(int InPriority, FVector4d Coordinates, UGlobalCoordinates* GlobalCoordinates, FString File)
+bool ALandscapeMesh::AddHeightmap(int InPriority, FVector4d Coordinates, UGlobalCoordinates* GlobalCoordinates, FString File, FName OwnerName)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR(__FUNCTION__);
 
@@ -140,18 +161,47 @@ bool ALandscapeMesh::AddHeightmap(int InPriority, FVector4d Coordinates, UGlobal
 
 	if (!WeakThis.IsValid()) return false;
 
-	return Concurrency::RunOnGameThreadThrottledAndWait([WeakThis, InPriority, InWidth, InHeight, NewPoints, NewRect]() mutable {
+	FLandscapeMeshHeightmap NewHeightmap;
+	NewHeightmap.Owner = OwnerName;
+	NewHeightmap.SourceCoordinates = Coordinates;
+	NewHeightmap.Priority = InPriority;
+	NewHeightmap.Width = InWidth;
+	NewHeightmap.Height = InHeight;
+	NewHeightmap.Rect = NewRect;
+	NewHeightmap.Points = MoveTemp(NewPoints);
+
+	return Concurrency::RunOnGameThreadThrottledAndWait([WeakThis, OwnerName, NewHeightmap = MoveTemp(NewHeightmap)]() mutable {
 		ALandscapeMesh* StrongThis = WeakThis.Get();
 		if (!IsValid(StrongThis)) return false;
 
+		FScopeLock Lock(&StrongThis->HeightmapsLock);
+
+		if (OwnerName.IsNone())
+		{
+			StrongThis->Heightmaps.Reset();
+		}
+
 		StrongThis->Modify();
-		StrongThis->Points = MoveTemp(NewPoints);
-		StrongThis->Width = InWidth;
-		StrongThis->Height = InHeight;
-		StrongThis->Priority = InPriority;
-		StrongThis->Rect = NewRect;
+		StrongThis->Heightmaps.Add(MoveTemp(NewHeightmap));
 		return true;
 	});
+}
+
+bool ALandscapeMesh::HasHeightmap(FName OwnerName, const FVector4d& SourceCoordinates)
+{
+	FScopeLock Lock(&HeightmapsLock);
+	return Heightmaps.ContainsByPredicate([&OwnerName, &SourceCoordinates](const FLandscapeMeshHeightmap& H) {
+		return H.Owner == OwnerName && H.SourceCoordinates == SourceCoordinates;
+	});
+}
+
+int32 ALandscapeMesh::RemoveHeightmaps(FName OwnerName)
+{
+	Modify();
+
+	FScopeLock Lock(&HeightmapsLock);
+	Heightmaps.RemoveAll([OwnerName](const FLandscapeMeshHeightmap& H) { return H.Owner == OwnerName; });
+	return Heightmaps.Num();
 }
 
 bool ALandscapeMesh::CookCollisionFromCurrentMesh()
@@ -161,7 +211,7 @@ bool ALandscapeMesh::CookCollisionFromCurrentMesh()
 	FScopeLock Lock(&CookLock);
 
 	TWeakObjectPtr<ALandscapeMesh> WeakThis(this);
-	const int64 ThisGeneration = MeshGenerationCounter.Increment();
+	const int64 ThisGeneration = MeshGenerationCounter.GetValue();
 
 	// wait for the async collision cook without blocking the game thread
 	TSharedPtr<FEvent, ESPMode::ThreadSafe> CookDoneEvent = MakeShareable(
@@ -214,14 +264,14 @@ bool ALandscapeMesh::IsPointCoveredByHigherOrEqualPriority(const FVector2D& Poin
 {
 	FScopeLock Lock(&RegistryLock);
 
-	const uint32 SelfId = IsValid(Self) ? Self->GetUniqueID() : 0;
+	const FName SelfName = IsValid(Self) ? Self->GetFName() : NAME_None;
 
 	for (const FRegisteredHeightmap& Entry : GRegisteredHeightmaps)
 	{
 		ALandscapeMesh* EntryMesh = Entry.Mesh.Get();
 		if (!IsValid(EntryMesh) || EntryMesh == Self) continue;
 		if (Entry.Priority < Priority) continue;
-		if (Entry.Priority == Priority && EntryMesh->GetUniqueID() < SelfId) continue;
+		if (Entry.Priority == Priority && EntryMesh->GetFName().Compare(SelfName) < 0) continue;
 
 		if (Point.X >= Entry.Rect[0] && Point.X <= Entry.Rect[1] &&
 			Point.Y >= Entry.Rect[2] && Point.Y <= Entry.Rect[3])
@@ -233,48 +283,382 @@ bool ALandscapeMesh::IsPointCoveredByHigherOrEqualPriority(const FVector2D& Poin
 	return false;
 }
 
+TArray<FRegisteredHeightmap> ALandscapeMesh::MakeRegistryEntries(ALandscapeMesh* Mesh)
+{
+	TArray<FRegisteredHeightmap> Entries;
+
+	FScopeLock Lock(&Mesh->HeightmapsLock);
+	for (const FLandscapeMeshHeightmap& Heightmap : Mesh->Heightmaps)
+	{
+		FRegisteredHeightmap Entry;
+		Entry.Priority = Heightmap.Priority;
+		Entry.Rect = Heightmap.Rect;
+		Entry.Mesh = Mesh;
+		Entries.Add(Entry);
+	}
+	return Entries;
+}
+
+void ALandscapeMesh::CollectMeshesCroppedBy(const TArray<FRegisteredHeightmap>& Entries, ALandscapeMesh* Skip, TArray<TWeakObjectPtr<ALandscapeMesh>>& OutMeshes)
+{
+	for (const FRegisteredHeightmap& Entry : GRegisteredHeightmaps)
+	{
+		if (!Entry.Mesh.IsValid() || Entry.Mesh.Get() == Skip) continue;
+
+		for (const FRegisteredHeightmap& Other : Entries)
+		{
+			if (Entry.Priority > Other.Priority) continue;
+
+			const bool bOverlaps =
+			Entry.Rect[0] <= Other.Rect[1] && Entry.Rect[1] >= Other.Rect[0] &&
+			Entry.Rect[2] <= Other.Rect[3] && Entry.Rect[3] >= Other.Rect[2];
+
+			if (bOverlaps)
+			{
+				OutMeshes.AddUnique(Entry.Mesh);
+				break;
+			}
+		}
+	}
+}
+
+void ALandscapeMesh::RegenerateWithOwnSettings(const TArray<TWeakObjectPtr<ALandscapeMesh>>& Meshes, const FLastMeshSettings& Fallback, bool bAsync)
+{
+	auto Work = [Meshes, Fallback]()
+	{
+		for (const TWeakObjectPtr<ALandscapeMesh>& WeakMesh : Meshes)
+		{
+			ALandscapeMesh* Mesh = WeakMesh.Get();
+			if (!IsValid(Mesh)) continue;
+
+			FLastMeshSettings Settings = Mesh->GetLastSettings();
+			if (!Settings.bValid) Settings = Fallback;
+			if (!Settings.bValid)
+			{
+				UE_LOG(LogLandscapeCombinator, Warning, TEXT("Cannot rebuild %s: its generation settings are unknown. Please regenerate it manually."), *Mesh->GetActorNameOrLabel());
+				continue;
+			}
+
+			Mesh->RegenerateMesh(Settings.SplitNormalsAngle, Settings.SplitDirection, Settings.ApronWidth, Settings.ApronDepth);
+		}
+	};
+
+	if (bAsync) Concurrency::RunAsync(Work);
+	else Work();
+}
+
 void ALandscapeMesh::RegisterAndCutLowerPriority(ALandscapeMesh* Mesh, double SplitNormalsAngle, EGridSplitDirection SplitDirection, double ApronWidth, double ApronDepth)
 {
 	if (!IsValid(Mesh)) return;
 
-	TArray<TWeakObjectPtr<ALandscapeMesh>> MeshesToCut;
+	const TArray<FRegisteredHeightmap> NewEntries = MakeRegistryEntries(Mesh);
+
+	TArray<FRegisteredHeightmap> OldEntries;
+	TArray<TWeakObjectPtr<ALandscapeMesh>> MeshesToRebuild;
 
 	{
 		FScopeLock Lock(&RegistryLock);
+
+		for (const FRegisteredHeightmap& Entry : GRegisteredHeightmaps)
+		{
+			if (Entry.Mesh.Get() == Mesh) OldEntries.Add(Entry);
+		}
 
 		GRegisteredHeightmaps.RemoveAll([Mesh](const FRegisteredHeightmap& Entry) {
 			return !Entry.Mesh.IsValid() || Entry.Mesh.Get() == Mesh;
 		});
 
-		FRegisteredHeightmap NewEntry;
-		NewEntry.Priority = Mesh->Priority;
-		NewEntry.Rect = Mesh->Rect;
-		NewEntry.Mesh = Mesh;
-		GRegisteredHeightmaps.Add(NewEntry);
+		GRegisteredHeightmaps.Append(NewEntries);
+		CollectMeshesCroppedBy(NewEntries, Mesh, MeshesToRebuild);
+		CollectMeshesCroppedBy(OldEntries, Mesh, MeshesToRebuild);
+	}
 
-		for (const FRegisteredHeightmap& Entry : GRegisteredHeightmaps)
+	FLastMeshSettings Fallback;
+	Fallback.bValid = true;
+	Fallback.SplitNormalsAngle = SplitNormalsAngle;
+	Fallback.SplitDirection = SplitDirection;
+	Fallback.ApronWidth = ApronWidth;
+	Fallback.ApronDepth = ApronDepth;
+
+	RegenerateWithOwnSettings(MeshesToRebuild, Fallback, false);
+}
+
+FLastMeshSettings ALandscapeMesh::GetLastSettings()
+{
+	FScopeLock Lock(&HeightmapsLock);
+	return LastSettings;
+}
+
+struct FLandscapeMeshGrid
+{
+	const FLandscapeMeshHeightmap& Heightmap;
+	TArray<bool> bCovered;
+	TArray<bool> QuadSkipped;
+	TArray<int32> VertexIds;
+
+	explicit FLandscapeMeshGrid(const FLandscapeMeshHeightmap& InHeightmap) : Heightmap(InHeightmap)
+	{
+		bCovered.Init(false, Heightmap.Points.Num());
+		QuadSkipped.Init(false, FMath::Max(0, (Heightmap.Width - 1) * (Heightmap.Height - 1)));
+		VertexIds.Init(-1, Heightmap.Points.Num());
+	}
+
+	int32 GetOrAddVertex(FDynamicMesh3& Mesh, const FTransform& WorldToMesh, int32 GridIndex)
+	{
+		if (VertexIds[GridIndex] == -1)
 		{
-			if (Entry.Mesh.Get() == Mesh) continue;
-			if (Entry.Priority > Mesh->Priority) continue;
+			VertexIds[GridIndex] = Mesh.AppendVertex(WorldToMesh.TransformPosition(Heightmap.Points[GridIndex]));
+		}
+		return VertexIds[GridIndex];
+	}
+};
 
-			bool bOverlaps =
-				Entry.Rect[0] <= Mesh->Rect[1] && Entry.Rect[1] >= Mesh->Rect[0] &&
-				Entry.Rect[2] <= Mesh->Rect[3] && Entry.Rect[3] >= Mesh->Rect[2];
+bool ALandscapeMesh::IsCoveredBySiblingHeightmap(const TArray<FLandscapeMeshHeightmap>& Siblings, int32 SelfIndex, const FVector2D& Point)
+{
+	const int32 SelfPriority = Siblings[SelfIndex].Priority;
+	for (int32 OtherIndex = 0; OtherIndex < Siblings.Num(); ++OtherIndex)
+	{
+		if (OtherIndex == SelfIndex) continue;
+		const FLandscapeMeshHeightmap& Other = Siblings[OtherIndex];
+		if (Other.Priority < SelfPriority) continue;
+		if (Other.Priority == SelfPriority && OtherIndex < SelfIndex) continue;
 
-			if (bOverlaps)
+		if (Point.X >= Other.Rect[0] && Point.X <= Other.Rect[1] &&
+			Point.Y >= Other.Rect[2] && Point.Y <= Other.Rect[3])
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+void ALandscapeMesh::ComputeCoverage(FLandscapeMeshGrid& Grid, int32 HeightmapIndex, const TArray<FLandscapeMeshHeightmap>& Siblings)
+{
+	const TArray<FVector>& Points = Grid.Heightmap.Points;
+	for (int32 Index = 0; Index < Points.Num(); ++Index)
+	{
+		const FVector2D Point2D(Points[Index].X, Points[Index].Y);
+		Grid.bCovered[Index] =
+			IsPointCoveredByHigherOrEqualPriority(Point2D, Grid.Heightmap.Priority, this) ||
+			IsCoveredBySiblingHeightmap(Siblings, HeightmapIndex, Point2D);
+	}
+}
+
+void ALandscapeMesh::BuildGridForHeightmap(FDynamicMesh3& Mesh, FLandscapeMeshGrid& Grid, const FTransform& WorldToMesh, EGridSplitDirection SplitDirection)
+{
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("ALandscapeMesh::RegenerateMesh::BuildGridMesh");
+
+	const int32 Width = Grid.Heightmap.Width;
+	const int32 Height = Grid.Heightmap.Height;
+
+	for (int32 j = 0; j < Height - 1; ++j)
+	{
+		for (int32 i = 0; i < Width - 1; ++i)
+		{
+			int32 TopLeft = i + j * Width;
+			int32 TopRight = (i + 1) + j * Width;
+			int32 BottomLeft = i + (j + 1) * Width;
+			int32 BottomRight = (i + 1) + (j + 1) * Width;
+
+			bool bSkipQuad = Grid.bCovered[TopLeft] || Grid.bCovered[TopRight] || Grid.bCovered[BottomLeft] || Grid.bCovered[BottomRight];
+			Grid.QuadSkipped[i + j * (Width - 1)] = bSkipQuad;
+
+			if (bSkipQuad) continue;
+
+			int32 A = Grid.GetOrAddVertex(Mesh, WorldToMesh, TopLeft);
+			int32 B = Grid.GetOrAddVertex(Mesh, WorldToMesh, TopRight);
+			int32 C = Grid.GetOrAddVertex(Mesh, WorldToMesh, BottomLeft);
+			int32 D = Grid.GetOrAddVertex(Mesh, WorldToMesh, BottomRight);
+
+			bool bSplitForward = (SplitDirection == EGridSplitDirection::Forward) ||
+				(SplitDirection == EGridSplitDirection::Checkerboard && (i + j) % 2 == 0);
+
+			if (bSplitForward)
 			{
-				ALandscapeMesh* EntryMesh = Entry.Mesh.Get();
-				MeshesToCut.Add(Entry.Mesh);
+				Mesh.AppendTriangle(A, D, B);
+				Mesh.AppendTriangle(A, C, D);
+			}
+			else
+			{
+				Mesh.AppendTriangle(A, C, B);
+				Mesh.AppendTriangle(C, D, B);
 			}
 		}
 	}
+}
 
-	for (TWeakObjectPtr<ALandscapeMesh>& WeakMesh : MeshesToCut)
+void ALandscapeMesh::BuildApronForHeightmap(FDynamicMesh3& Mesh, FLandscapeMeshGrid& Grid, const FTransform& WorldToMesh, double ApronWidth, double ApronDepth)
+{
+	const TArray<FVector>& Points = Grid.Heightmap.Points;
+	const int32 Width = Grid.Heightmap.Width;
+	const int32 Height = Grid.Heightmap.Height;
+
+	if (ApronWidth <= 0 || Width <= 1 || Height <= 1) return;
+
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("ALandscapeMesh::RegenerateMesh::BuildApron");
+
+	auto IsQuadSkipped = [&](int32 qi, int32 qj) -> bool
 	{
-		if (ALandscapeMesh* StrongMesh = WeakMesh.Get())
+		if (qi < 0 || qi >= Width - 1 || qj < 0 || qj >= Height - 1) return true;
+		return Grid.QuadSkipped[qi + qj * (Width - 1)];
+	};
+
+	struct FBoundaryEdge { int32 VaGrid; int32 VbGrid; };
+	TArray<FBoundaryEdge> BoundaryEdges;
+
+	TArray<int8> OutwardXSign, OutwardYSign;
+	OutwardXSign.Init(0, Points.Num());
+	OutwardYSign.Init(0, Points.Num());
+
+	auto AddBoundaryEdge = [&](int32 qi, int32 qj, int32 VaGrid, int32 VbGrid)
+	{
+		const FVector& Va = Points[VaGrid];
+		const FVector& Vb = Points[VbGrid];
+
+		FVector2D EdgeDir(Vb.X - Va.X, Vb.Y - Va.Y);
+		if (!EdgeDir.Normalize()) return;
+
+		FVector2D Perp(-EdgeDir.Y, EdgeDir.X);
+
+		FVector QuadCenter = 0.25 * (
+			Points[qi + qj * Width] + Points[(qi + 1) + qj * Width] +
+			Points[qi + (qj + 1) * Width] + Points[(qi + 1) + (qj + 1) * Width]);
+		FVector2D Mid = 0.5 * (FVector2D(Va.X, Va.Y) + FVector2D(Vb.X, Vb.Y));
+		FVector2D ToCenter = FVector2D(QuadCenter.X, QuadCenter.Y) - Mid;
+
+		FVector2D Outward = (FVector2D::DotProduct(Perp, ToCenter) > 0.0) ? -Perp : Perp;
+
+		int8 SignX = (Outward.X > 0.5) ? 1 : (Outward.X < -0.5) ? -1 : 0;
+		int8 SignY = (Outward.Y > 0.5) ? 1 : (Outward.Y < -0.5) ? -1 : 0;
+
+		double Cross2D = EdgeDir.X * Outward.Y - EdgeDir.Y * Outward.X;
+		int32 FinalVaGrid = VaGrid;
+		int32 FinalVbGrid = VbGrid;
+		if (Cross2D <= 0.0)
 		{
-			StrongMesh->RegenerateMesh(SplitNormalsAngle, SplitDirection, ApronWidth, ApronDepth);
+			FinalVaGrid = VbGrid;
+			FinalVbGrid = VaGrid;
 		}
+
+		BoundaryEdges.Add({ FinalVaGrid, FinalVbGrid });
+		if (SignX != 0) { OutwardXSign[VaGrid] = SignX; OutwardXSign[VbGrid] = SignX; }
+		if (SignY != 0) { OutwardYSign[VaGrid] = SignY; OutwardYSign[VbGrid] = SignY; }
+	};
+
+	for (int32 j = 0; j < Height - 1; ++j)
+	{
+		for (int32 i = 0; i < Width - 1; ++i)
+		{
+			if (IsQuadSkipped(i, j)) continue;
+
+			int32 TopLeft = i + j * Width;
+			int32 TopRight = (i + 1) + j * Width;
+			int32 BottomLeft = i + (j + 1) * Width;
+			int32 BottomRight = (i + 1) + (j + 1) * Width;
+
+			if (IsQuadSkipped(i - 1, j)) AddBoundaryEdge(i, j, TopLeft, BottomLeft);
+			if (IsQuadSkipped(i + 1, j)) AddBoundaryEdge(i, j, TopRight, BottomRight);
+			if (IsQuadSkipped(i, j - 1)) AddBoundaryEdge(i, j, TopLeft, TopRight);
+			if (IsQuadSkipped(i, j + 1)) AddBoundaryEdge(i, j, BottomLeft, BottomRight);
+		}
+	}
+
+	TArray<int32> ApronVertexIds;
+	ApronVertexIds.Init(-1, Points.Num());
+
+	auto GetOrAddApronVertex = [&](int32 GridIndex) -> int32
+	{
+		if (ApronVertexIds[GridIndex] == -1)
+		{
+			FVector2D Dir(OutwardXSign[GridIndex], OutwardYSign[GridIndex]);
+			if (Dir.IsNearlyZero()) Dir = FVector2D(1, 0);
+			FVector ApronPos = Points[GridIndex] + FVector(Dir.X, Dir.Y, 0.0) * ApronWidth - FVector(0, 0, ApronDepth);
+			ApronVertexIds[GridIndex] = Mesh.AppendVertex(WorldToMesh.TransformPosition(ApronPos));
+		}
+		return ApronVertexIds[GridIndex];
+	};
+
+	for (const FBoundaryEdge& Edge : BoundaryEdges)
+	{
+		int32 Va = Grid.GetOrAddVertex(Mesh, WorldToMesh, Edge.VaGrid);
+		int32 Vb = Grid.GetOrAddVertex(Mesh, WorldToMesh, Edge.VbGrid);
+		int32 ApronA = GetOrAddApronVertex(Edge.VaGrid);
+		int32 ApronB = GetOrAddApronVertex(Edge.VbGrid);
+
+		Mesh.AppendTriangle(Va, ApronA, ApronB);
+		Mesh.AppendTriangle(Va, ApronB, Vb);
+	}
+}
+
+void ALandscapeMesh::FillGapsWithCDT(FDynamicMesh3& Mesh, const FTransform& WorldToMesh, const TArray<FLandscapeMeshHeightmap>& AllHeightmaps)
+{
+	if (Mesh.TriangleCount() == 0) return;
+
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("ALandscapeMesh::RegenerateMesh::ConstrainedDelaunay");
+
+	auto Area2 = [&Mesh](int32 A, int32 B, int32 C) -> double
+	{
+		const FVector3d PA = Mesh.GetVertex(A);
+		const FVector3d PB = Mesh.GetVertex(B);
+		const FVector3d PC = Mesh.GetVertex(C);
+		return (PB.X - PA.X) * (PC.Y - PA.Y) - (PB.Y - PA.Y) * (PC.X - PA.X);
+	};
+
+	auto SortedKey = [](int32 A, int32 B, int32 C)
+	{
+		if (A > B) Swap(A, B);
+		if (B > C) Swap(B, C);
+		if (A > B) Swap(A, B);
+		return FIntVector(A, B, C);
+	};
+
+	FConstrainedDelaunay2d CDT;
+	CDT.bOrientedEdges = false;
+
+	CDT.Vertices.SetNum(Mesh.MaxVertexID());
+	for (int32 VertexId : Mesh.VertexIndicesItr())
+	{
+		const FVector3d P = Mesh.GetVertex(VertexId);
+		CDT.Vertices[VertexId] = FVector2d(P.X, P.Y);
+	}
+
+	for (int32 EdgeId : Mesh.EdgeIndicesItr())
+		CDT.Edges.Add(Mesh.GetEdgeV(EdgeId));
+
+	TSet<FIntVector> ExistingTriangles;
+	double ExpectedSign = 0.0;
+	for (int32 TriangleId : Mesh.TriangleIndicesItr())
+	{
+		const FIndex3i T = Mesh.GetTriangle(TriangleId);
+		ExistingTriangles.Add(SortedKey(T.A, T.B, T.C));
+		if (ExpectedSign == 0.0) ExpectedSign = Area2(T.A, T.B, T.C);
+	}
+
+	int32 MinPriority = MAX_int32;
+	for (const FLandscapeMeshHeightmap& H : AllHeightmaps) MinPriority = FMath::Min(MinPriority, H.Priority);
+
+	const bool bCDTSuccess = CDT.Triangulate([&](const TArray<FVector2d>&, const FIndex3i& T)
+	{
+		const FVector3d Centroid = (Mesh.GetVertex(T.A) + Mesh.GetVertex(T.B) + Mesh.GetVertex(T.C)) / 3.0;
+		const FVector World = WorldToMesh.InverseTransformPosition(Centroid);
+		return !IsPointCoveredByHigherOrEqualPriority(FVector2D(World.X, World.Y), MinPriority, this);
+	});
+
+	if (!bCDTSuccess)
+	{
+		UE_LOG(LogLandscapeCombinator, Warning, TEXT("Constrained Delaunay triangulation failed in %s, the gaps between heightmaps are not filled."), *GetActorNameOrLabel());
+		return;
+	}
+
+	for (const FIndex3i& T : CDT.Triangles)
+	{
+		if (ExistingTriangles.Contains(SortedKey(T.A, T.B, T.C))) continue;
+
+		const double Area = Area2(T.A, T.B, T.C);
+		if (Area == 0.0) continue;
+
+		if ((Area > 0.0) == (ExpectedSign > 0.0)) Mesh.AppendTriangle(T.A, T.B, T.C);
+		else Mesh.AppendTriangle(T.A, T.C, T.B);
 	}
 }
 
@@ -283,25 +667,32 @@ bool ALandscapeMesh::RegenerateMesh(double SplitNormalsAngle, EGridSplitDirectio
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR(__FUNCTION__);
 
 	TWeakObjectPtr<ALandscapeMesh> WeakThis(this);
+	TArray<FLandscapeMeshHeightmap> LocalHeightmaps;
+	int64 ThisGeneration = 0;
+	{
+		FScopeLock Lock(&HeightmapsLock);
+		LocalHeightmaps = Heightmaps;
+		ThisGeneration = MeshGenerationCounter.Increment();
+	}
 
-	if (Points.IsEmpty() || Width <= 0 || Height <= 0)
+	if (LocalHeightmaps.IsEmpty() ||
+		LocalHeightmaps.ContainsByPredicate([](const FLandscapeMeshHeightmap& H) { return H.Points.IsEmpty() || H.Width <= 0 || H.Height <= 0; }))
 	{
 		LCReporter::ShowError(LOCTEXT("NoHeightmap", "There is no heightmap in the Landscape Mesh, cannot generate"));
 		return false;
 	}
 
-	TArray<FVector> LocalPoints = Points;
-	int LocalWidth = Width;
-	int LocalHeight = Height;
-	int LocalPriority = Priority;
-
-	TArray<bool> bCovered;
-	bCovered.SetNum(LocalPoints.Num());
-	for (int32 Index = 0; Index < LocalPoints.Num(); ++Index)
 	{
-		FVector2D Point2D(LocalPoints[Index].X, LocalPoints[Index].Y);
-		bCovered[Index] = IsPointCoveredByHigherOrEqualPriority(Point2D, LocalPriority, this);
+		FScopeLock Lock(&HeightmapsLock);
+		LastSettings.bValid = true;
+		LastSettings.SplitNormalsAngle = SplitNormalsAngle;
+		LastSettings.SplitDirection = SplitDirection;
+		LastSettings.ApronWidth = ApronWidth;
+		LastSettings.ApronDepth = ApronDepth;
 	}
+
+	const bool bMultiHeightmap = LocalHeightmaps.Num() > 1;
+	if (bMultiHeightmap) ApronWidth = 0;
 
 	FTransform WorldToMesh;
 	bool bGotTransform = Concurrency::RunOnGameThreadAndWait([WeakThis, &WorldToMesh]() {
@@ -312,169 +703,16 @@ bool ALandscapeMesh::RegenerateMesh(double SplitNormalsAngle, EGridSplitDirectio
 	if (!bGotTransform) return false;
 
 	FDynamicMesh3 NewMesh;
-	int32 TotalQuads = 0;
-	int32 SkippedQuads = 0;
 
-	TArray<int32> VertexIds;
-	VertexIds.Init(-1, LocalPoints.Num());
-
-	auto GetOrAddVertex = [&](int32 GridIndex) -> int32
+	for (int32 HeightmapIndex = 0; HeightmapIndex < LocalHeightmaps.Num(); ++HeightmapIndex)
 	{
-		if (VertexIds[GridIndex] == -1)
-		{
-			VertexIds[GridIndex] = NewMesh.AppendVertex(WorldToMesh.TransformPosition(LocalPoints[GridIndex]));
-		}
-		return VertexIds[GridIndex];
-	};
-
-	TArray<bool> QuadSkipped;
-	QuadSkipped.Init(false, FMath::Max(0, (LocalWidth - 1) * (LocalHeight - 1)));
-
-	{
-		TRACE_CPUPROFILER_EVENT_SCOPE_STR("ALandscapeMesh::RegenerateMesh::BuildGridMesh");
-
-		for (int32 j = 0; j < LocalHeight - 1; ++j)
-		{
-			for (int32 i = 0; i < LocalWidth - 1; ++i)
-			{
-				int32 TopLeft = i + j * LocalWidth;
-				int32 TopRight = (i + 1) + j * LocalWidth;
-				int32 BottomLeft = i + (j + 1) * LocalWidth;
-				int32 BottomRight = (i + 1) + (j + 1) * LocalWidth;
-
-				bool bSkipQuad = bCovered[TopLeft] || bCovered[TopRight] || bCovered[BottomLeft] || bCovered[BottomRight];
-				QuadSkipped[i + j * (LocalWidth - 1)] = bSkipQuad;
-
-				TotalQuads++;
-				if (bSkipQuad)
-				{
-					SkippedQuads++;
-					continue;
-				}
-
-				int32 A = GetOrAddVertex(TopLeft);
-				int32 B = GetOrAddVertex(TopRight);
-				int32 C = GetOrAddVertex(BottomLeft);
-				int32 D = GetOrAddVertex(BottomRight);
-
-				bool bSplitForward = (SplitDirection == EGridSplitDirection::Forward) ||
-					(SplitDirection == EGridSplitDirection::Checkerboard && (i + j) % 2 == 0);
-
-				if (bSplitForward)
-				{
-					NewMesh.AppendTriangle(A, D, B);
-					NewMesh.AppendTriangle(A, C, D);
-				}
-				else
-				{
-					NewMesh.AppendTriangle(A, C, B);
-					NewMesh.AppendTriangle(C, D, B);
-				}
-			}
-		}
+		FLandscapeMeshGrid Grid(LocalHeightmaps[HeightmapIndex]);
+		ComputeCoverage(Grid, HeightmapIndex, LocalHeightmaps);
+		BuildGridForHeightmap(NewMesh, Grid, WorldToMesh, SplitDirection);
+		BuildApronForHeightmap(NewMesh, Grid, WorldToMesh, ApronWidth, ApronDepth);
 	}
 
-	if (ApronWidth > 0 && LocalWidth > 1 && LocalHeight > 1)
-	{
-		TRACE_CPUPROFILER_EVENT_SCOPE_STR("ALandscapeMesh::RegenerateMesh::BuildApron");
-
-		auto IsQuadSkipped = [&](int32 qi, int32 qj) -> bool
-		{
-			if (qi < 0 || qi >= LocalWidth - 1 || qj < 0 || qj >= LocalHeight - 1) return true;
-			return QuadSkipped[qi + qj * (LocalWidth - 1)];
-		};
-
-		struct FBoundaryEdge { int32 VaGrid; int32 VbGrid; };
-		TArray<FBoundaryEdge> BoundaryEdges;
-
-		TArray<int8> OutwardXSign, OutwardYSign;
-		OutwardXSign.Init(0, LocalPoints.Num());
-		OutwardYSign.Init(0, LocalPoints.Num());
-
-		auto AddBoundaryEdge = [&](int32 qi, int32 qj, int32 VaGrid, int32 VbGrid)
-		{
-			const FVector& Va = LocalPoints[VaGrid];
-			const FVector& Vb = LocalPoints[VbGrid];
-
-			FVector2D EdgeDir(Vb.X - Va.X, Vb.Y - Va.Y);
-			if (!EdgeDir.Normalize()) return;
-
-			FVector2D Perp(-EdgeDir.Y, EdgeDir.X);
-
-			FVector QuadCenter = 0.25 * (
-				LocalPoints[qi + qj * LocalWidth] + LocalPoints[(qi + 1) + qj * LocalWidth] +
-				LocalPoints[qi + (qj + 1) * LocalWidth] + LocalPoints[(qi + 1) + (qj + 1) * LocalWidth]);
-			FVector2D Mid = 0.5 * (FVector2D(Va.X, Va.Y) + FVector2D(Vb.X, Vb.Y));
-			FVector2D ToCenter = FVector2D(QuadCenter.X, QuadCenter.Y) - Mid;
-
-			FVector2D Outward = (FVector2D::DotProduct(Perp, ToCenter) > 0.0) ? -Perp : Perp;
-
-			int8 SignX = (Outward.X > 0.5) ? 1 : (Outward.X < -0.5) ? -1 : 0;
-			int8 SignY = (Outward.Y > 0.5) ? 1 : (Outward.Y < -0.5) ? -1 : 0;
-
-			double Cross2D = EdgeDir.X * Outward.Y - EdgeDir.Y * Outward.X;
-			int32 FinalVaGrid = VaGrid;
-			int32 FinalVbGrid = VbGrid;
-			if (Cross2D <= 0.0)
-			{
-				FinalVaGrid = VbGrid;
-				FinalVbGrid = VaGrid;
-			}
-
-			BoundaryEdges.Add({ FinalVaGrid, FinalVbGrid });
-			if (SignX != 0) { OutwardXSign[VaGrid] = SignX; OutwardXSign[VbGrid] = SignX; }
-			if (SignY != 0) { OutwardYSign[VaGrid] = SignY; OutwardYSign[VbGrid] = SignY; }
-		};
-
-		for (int32 j = 0; j < LocalHeight - 1; ++j)
-		{
-			for (int32 i = 0; i < LocalWidth - 1; ++i)
-			{
-				if (IsQuadSkipped(i, j)) continue;
-
-				int32 TopLeft = i + j * LocalWidth;
-				int32 TopRight = (i + 1) + j * LocalWidth;
-				int32 BottomLeft = i + (j + 1) * LocalWidth;
-				int32 BottomRight = (i + 1) + (j + 1) * LocalWidth;
-
-				if (IsQuadSkipped(i - 1, j)) AddBoundaryEdge(i, j, TopLeft, BottomLeft);
-				if (IsQuadSkipped(i + 1, j)) AddBoundaryEdge(i, j, TopRight, BottomRight);
-				if (IsQuadSkipped(i, j - 1)) AddBoundaryEdge(i, j, TopLeft, TopRight);
-				if (IsQuadSkipped(i, j + 1)) AddBoundaryEdge(i, j, BottomLeft, BottomRight);
-			}
-		}
-
-		TArray<int32> ApronVertexIds;
-		ApronVertexIds.Init(-1, LocalPoints.Num());
-
-		auto GetOrAddApronVertex = [&](int32 GridIndex) -> int32
-		{
-			if (ApronVertexIds[GridIndex] == -1)
-			{
-				FVector2D Dir(OutwardXSign[GridIndex], OutwardYSign[GridIndex]);
-				if (Dir.IsNearlyZero()) Dir = FVector2D(1, 0);
-				FVector ApronPos = LocalPoints[GridIndex] + FVector(Dir.X, Dir.Y, 0.0) * ApronWidth - FVector(0, 0, ApronDepth);
-				ApronVertexIds[GridIndex] = NewMesh.AppendVertex(WorldToMesh.TransformPosition(ApronPos));
-			}
-			return ApronVertexIds[GridIndex];
-		};
-
-		for (const FBoundaryEdge& Edge : BoundaryEdges)
-		{
-			int32 Va = GetOrAddVertex(Edge.VaGrid);
-			int32 Vb = GetOrAddVertex(Edge.VbGrid);
-			int32 ApronA = GetOrAddApronVertex(Edge.VaGrid);
-			int32 ApronB = GetOrAddApronVertex(Edge.VbGrid);
-
-			NewMesh.AppendTriangle(Va, ApronA, ApronB);
-			NewMesh.AppendTriangle(Va, ApronB, Vb);
-		}
-	}
-
-	{
-		int32 CoveredCount = 0;
-		for (bool b : bCovered) {if (b) CoveredCount++; }
-	}
+	if (bMultiHeightmap) FillGapsWithCDT(NewMesh, WorldToMesh, LocalHeightmaps);
 
 	ALandscapeMesh* StrongThis = WeakThis.Get();
 	if (!IsValid(StrongThis) || !IsValid(StrongThis->MeshComponent) || !IsValid(StrongThis->MeshComponent->GetDynamicMesh()))
@@ -505,17 +743,15 @@ bool ALandscapeMesh::RegenerateMesh(double SplitNormalsAngle, EGridSplitDirectio
 		);
 		NewMesh = MoveTemp(ScratchMesh->GetMeshRef());
 		Concurrency::RunOnGameThread([ScratchMesh]() {
-            if (IsValid(ScratchMesh))
-            {
-                ScratchMesh->RemoveFromRoot();
-            }
-        });
+			if (IsValid(ScratchMesh))
+			{
+				ScratchMesh->RemoveFromRoot();
+			}
+		});
 	}
 
 	TSharedPtr<FDynamicMesh3, ESPMode::ThreadSafe> NewMeshPtr =
 		MakeShared<FDynamicMesh3, ESPMode::ThreadSafe>(MoveTemp(NewMesh));
-
-	const int64 ThisGeneration = MeshGenerationCounter.Increment();
 
 	bool bCommitted = Concurrency::RunOnGameThreadThrottledAndWait([WeakThis, NewMeshPtr, ThisGeneration]()
 	{
@@ -537,18 +773,37 @@ bool ALandscapeMesh::RegenerateMesh(double SplitNormalsAngle, EGridSplitDirectio
 		return true;
 	});
 
-	if (!bCommitted) return false;
+	if (!bCommitted) return MeshGenerationCounter.GetValue() != ThisGeneration;
 
 	bHasCookedCollisionThisSession = true;
-	return CookCollisionFromCurrentMesh();
+	if (!CookCollisionFromCurrentMesh()) return MeshGenerationCounter.GetValue() != ThisGeneration;
+	return true;
 }
 
-void ALandscapeMesh::Unregister(ALandscapeMesh* Mesh)
+void ALandscapeMesh::Unregister(ALandscapeMesh* Mesh, bool bRestoreCropped)
 {
-	FScopeLock Lock(&RegistryLock);
-	GRegisteredHeightmaps.RemoveAll([Mesh](const FRegisteredHeightmap& Entry) {
-		return !Entry.Mesh.IsValid() || Entry.Mesh.Get() == Mesh;
-	});
+	TArray<FRegisteredHeightmap> Removed;
+	TArray<TWeakObjectPtr<ALandscapeMesh>> ToRestore;
+
+	{
+		FScopeLock Lock(&RegistryLock);
+
+		if (IsValid(Mesh))
+		{
+			for (const FRegisteredHeightmap& Entry : GRegisteredHeightmaps)
+			{
+				if (Entry.Mesh.Get() == Mesh) Removed.Add(Entry);
+			}
+		}
+
+		GRegisteredHeightmaps.RemoveAll([Mesh](const FRegisteredHeightmap& Entry) {
+			return !Entry.Mesh.IsValid() || Entry.Mesh.Get() == Mesh;
+		});
+
+		if (bRestoreCropped) CollectMeshesCroppedBy(Removed, Mesh, ToRestore);
+	}
+
+	if (!ToRestore.IsEmpty()) RegenerateWithOwnSettings(ToRestore, FLastMeshSettings(), true);
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -36,6 +36,7 @@ public class LandscapeCombinator : ModuleRules
 				// Unreal Engine dependencies
 				"Projects",
 				"InputCore",
+				"GeometryAlgorithms",
 				"GeometryCore",
 				"GeometryFramework",
 				"GeometryScriptingCore",
