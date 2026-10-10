@@ -20,6 +20,7 @@ struct FEdgeSplinePoints
 	FVector EndLocal = FVector::ZeroVector;
 	FVector EndTangentLocal = FVector::ZeroVector;
 	double TilingOffset = 0.0;
+	double TilingLength = 0.0;
 };
 
 UENUM(BlueprintType)
@@ -100,7 +101,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Meshes",
 		meta = (DisplayPriority = "7")
 	)
-	FName TilingOffsetParameterName = "TilingOffset";
+	FName TilingOffsetParameterName = "TilingOffsetY";
 
 	/* Get the default tiling */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Meshes",
@@ -243,11 +244,6 @@ public:
 		meta = (DisplayPriority = "10", EditCondition = "bFillJunctions", EditConditionHides)
 	)
 	float JunctionFillHeight = 5.f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Junctions",
-		meta = (DisplayPriority = "20", EditCondition = "bFillJunctions", EditConditionHides)
-	)
-	int InnerFillingNumSamples = 10;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Junctions",
 		meta = (DisplayPriority = "100", EditCondition = "bFillJunctions", EditConditionHides)
