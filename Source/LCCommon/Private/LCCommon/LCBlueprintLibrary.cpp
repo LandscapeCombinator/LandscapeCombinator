@@ -265,6 +265,7 @@ void ULCBlueprintLibrary::DeleteFolder(UWorld &World, FFolder Folder)
 {
 	if (Folder != Folder.GetRootObject() && !HasActor(World, Folder))
 	{
+		FScopedTransaction Transaction(NSLOCTEXT("LandscapeCombinator", "DeleteFolder", "Delete Folder"));
 		FActorFolders::Get().DeleteFolder(World, Folder);
 		FFolder Parent = Folder.GetParent();
 		if (Parent != Folder.GetRootObject()) DeleteFolder(World, Parent);

@@ -11,6 +11,9 @@
 #include "GeometryScript/MeshPrimitiveFunctions.h"
 #include "GeometryScript/MeshUVFunctions.h"
 #include "GeometryScript/MeshNormalsFunctions.h"
+#include "GeometryScript/MeshRemeshFunctions.h"
+#include "Engine/StaticMesh.h"
+#include "StaticMeshResources.h"
 #include "Algo/Reverse.h"
 
 #include "BuildingsFromSplines/Building.h"
@@ -292,30 +295,39 @@ void ARoadsFromSplines::SampleFilletInnerEdge(USplineMeshComponent* Mesh, const 
 
 	const int32 FwdAxis   = (RoadMeshAxis == ESplineMeshAxis::X) ? 0 : (RoadMeshAxis == ESplineMeshAxis::Y) ? 1 : 2;
 	const int32 WidthAxis = (RoadMeshAxis == ESplineMeshAxis::X) ? 1 : (RoadMeshAxis == ESplineMeshAxis::Y) ? 2 : 0;
-	static const EAxis::Type AxisEnum[3] = { EAxis::X, EAxis::Y, EAxis::Z };
-
-	const FBox Bounds = IntersectionMesh->GetBoundingBox();
-	const double MinDist = Bounds.Min[FwdAxis];
-	const double MaxDist = Bounds.Max[FwdAxis];
-	const double MinSide = Bounds.Min[WidthAxis];
-	const double MaxSide = Bounds.Max[WidthAxis];
-
-	const FTransform FirstSlice = Mesh->CalcSliceTransform(MinDist) * Mesh->GetComponentTransform();
-	const FVector Forward = FirstSlice.GetUnitAxis(AxisEnum[FwdAxis]);
-	const FVector Left = FVector::UpVector ^ Forward;
-
-	FVector LocalMinProbe = FVector::ZeroVector; LocalMinProbe[WidthAxis] = MinSide;
-
+	const int32 UpAxis    = 3 - FwdAxis - WidthAxis;
 	const bool bMinIsInner = (RoadMeshAxis != ESplineMeshAxis::X);
-
-	for (int32 s = 0; s <= InnerFillingNumSamples; s++)
+	const FStaticMeshRenderData* RD = IntersectionMesh->GetRenderData();
+	if (!RD || RD->LODResources.IsEmpty() || !IntersectionMesh->bAllowCPUAccess)
 	{
-		const double Distance = FMath::Lerp(MinDist, MaxDist, (double)s / InnerFillingNumSamples);
-		const FTransform Slice = Mesh->CalcSliceTransform(Distance) * Mesh->GetComponentTransform();
+		UE_LOG(LogBuildingsFromSplines, Warning, TEXT("SampleFilletInnerEdge: no CPU vertex data for %s"), *IntersectionMesh->GetName());
+		return;
+	}
 
-		FVector Local = FVector::ZeroVector;
-		Local[WidthAxis] = bMinIsInner ? MinSide : MaxSide;
-		OutPoints.Add(Slice.TransformPosition(Local));
+	const FPositionVertexBuffer& Pos = RD->LODResources[0].VertexBuffers.PositionVertexBuffer;
+	TArray<FVector> Verts;
+	for (uint32 v = 0; v < Pos.GetNumVertices(); v++) Verts.Add(FVector(Pos.VertexPosition(v)));
+
+	const FBox Box(Verts);
+	const double Inner = bMinIsInner ? Box.Min[WidthAxis] : Box.Max[WidthAxis];
+	const double Tol = Box.GetExtent().GetMax() * 1e-4;
+
+	TMap<int32, FVector> Rim;
+	for (const FVector& P : Verts)
+		if (FMath::Abs(P[WidthAxis] - Inner) <= Tol)
+		{
+			FVector& Best = Rim.FindOrAdd(FMath::RoundToInt(P[FwdAxis] * 100.0), P);
+			if (P[UpAxis] > Best[UpAxis]) Best = P;
+		}
+	Rim.KeySort(TLess<int32>());
+
+	const FTransform ToWorld = Mesh->GetComponentTransform();
+	for (TPair<int32, FVector>& It : Rim)
+	{
+		FVector P = It.Value;
+		const double Distance = P[FwdAxis];
+		P[FwdAxis] = 0.0;
+		OutPoints.Add((Mesh->CalcSliceTransform(Distance) * ToWorld).TransformPosition(P));
 	}
 }
 
@@ -348,7 +360,7 @@ void ARoadsFromSplines::FillJunctionInterior(int32 JunctionNode, TArray<FVector>
 	const FTransform& ActorTransform = GetActorTransform();
 
 	TArray<FVector2D> Boundary2D;
-	TMap<FVector2D, double> HeightOffsets;
+	TArray<double> Heights;
 	double MinZ = MAX_dbl;
 
 	for (const FVector& World : BoundaryWorld)
@@ -359,7 +371,7 @@ void ARoadsFromSplines::FillJunctionInterior(int32 JunctionNode, TArray<FVector>
 		const FVector Local = ActorTransform.InverseTransformPosition(World);
 		const FVector2D Point2D(Local.X, Local.Y);
 		Boundary2D.Add(Point2D);
-		HeightOffsets.Add(Point2D, Local.Z - MinZ);
+		Heights.Add(Local.Z - MinZ);
 	}
 
 	double SignedArea = 0.0;
@@ -371,18 +383,29 @@ void ARoadsFromSplines::FillJunctionInterior(int32 JunctionNode, TArray<FVector>
 	}
 	UE_LOG(LogBuildingsFromSplines, Verbose, TEXT("FillJunctionInterior: Junction %d SignedArea=%.2f (%s) MinZ=%.2f"),
 		JunctionNode, SignedArea, SignedArea < 0 ? TEXT("REVERSING") : TEXT("kept as-is"), MinZ);
-	if (SignedArea < 0) Algo::Reverse(Boundary2D);
+	if (SignedArea < 0)
+	{ 
+		Algo::Reverse(Boundary2D);
+		Algo::Reverse(Heights);
+	}
+
+	FVector2D Pivot2D(0, 0);
+	for (const FVector2D& P : Boundary2D) Pivot2D += P;
+	Pivot2D /= FMath::Max(1, Boundary2D.Num());
+	for (FVector2D& P : Boundary2D) P -= Pivot2D;
 
 	if (!JunctionFillMeshComponents.Contains(JunctionNode))
 	{
 		UDynamicMeshComponent* FillComponent = NewObject<UDynamicMeshComponent>(RootComponent);
 		FillComponent->SetMobility(EComponentMobility::Static);
 		FillComponent->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
+		FillComponent->SetRelativeLocation(FVector(Pivot2D.X, Pivot2D.Y, 0.0));
 		FillComponent->CreationMethod = EComponentCreationMethod::Instance;
 		FillComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		FillComponent->SetCollisionProfileName(TEXT("BlockAll"));
 		FillComponent->bEnableComplexCollision = true;
 		FillComponent->SetComplexAsSimpleCollisionEnabled(true);
+		FillComponent->SetTangentsType(EDynamicMeshComponentTangentsMode::AutoCalculated);
 		FillComponent->RegisterComponent();
 		AddInstanceComponent(FillComponent);
 		JunctionFillMeshComponents.Add(JunctionNode, FillComponent);
@@ -395,32 +418,44 @@ void ARoadsFromSplines::FillJunctionInterior(int32 JunctionNode, TArray<FVector>
 	UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSimpleExtrudePolygon(
 		FillMesh, FGeometryScriptPrimitiveOptions(), FTransform(FVector(0, 0, MinZ - JunctionFillHeight)), Boundary2D, JunctionFillHeight);
 
+	FGeometryScriptRemeshOptions RemeshOptions;
+	RemeshOptions.MeshBoundaryConstraint = EGeometryScriptRemeshEdgeConstraintType::Fixed;
+	RemeshOptions.GroupBoundaryConstraint = EGeometryScriptRemeshEdgeConstraintType::Fixed;
+
+	FGeometryScriptUniformRemeshOptions UniformOptions;
+	UniformOptions.TargetType = EGeometryScriptUniformRemeshTargetType::TargetEdgeLength;
+	UniformOptions.TargetEdgeLength = 30;
+	UGeometryScriptLibrary_RemeshingFunctions::ApplyUniformRemesh(FillMesh, RemeshOptions, UniformOptions);
+
+	const int32 N = Boundary2D.Num();
+	auto HeightAt = [&](const FVector2D& P)
+	{
+		double SumW = 0.0, SumH = 0.0;
+		for (int32 i = 0; i < N; i++)
+		{
+			const int32 j = (i + 1) % N;
+			const FVector2D AB = Boundary2D[j] - Boundary2D[i];
+			const double T = FMath::Clamp(FVector2D::DotProduct(P - Boundary2D[i], AB) / FMath::Max(AB.SizeSquared(), 1e-8), 0.0, 1.0);
+			const double W = 1.0 / (FVector2D::DistSquared(P, Boundary2D[i] + AB * T) + 1e-3);
+			SumW += W;
+			SumH += W * FMath::Lerp(Heights[i], Heights[j], T);
+		}
+		return SumH / SumW;
+	};
+
+	for (int32 VID : FillMesh->GetMeshRef().VertexIndicesItr())
+	{
+		FVector V = FillMesh->GetMeshRef().GetVertex(VID);
+		V.Z += HeightAt(FVector2D(V.X, V.Y));
+		FillMesh->GetMeshRef().SetVertex(VID, V);
+	}
+
 	FTransform ProjectionTransform = FTransform::Identity;
 	ProjectionTransform.SetScale3D(FVector(DefaultRoadMeshLength * FillJunctionUVScale));
 	UGeometryScriptLibrary_MeshUVFunctions::SetMeshUVsFromPlanarProjection(
 		FillMesh, 0, ProjectionTransform, FGeometryScriptMeshSelection());
 
 	UGeometryScriptLibrary_MeshNormalsFunctions::RecomputeNormals(FillMesh, FGeometryScriptCalculateNormalsOptions());
-
-	int32 NumMatched = 0, NumUnmatched = 0;
-	for (int32 VID : FillMesh->GetMeshRef().VertexIndicesItr())
-	{
-		FVector V = FillMesh->GetMeshRef().GetVertex(VID);
-		if (const double* Offset = HeightOffsets.Find(FVector2D(V.X, V.Y)))
-		{
-			V.Z += *Offset;
-			FillMesh->GetMeshRef().SetVertex(VID, V);
-			NumMatched++;
-		}
-		else
-		{
-			NumUnmatched++;
-			UE_LOG(LogBuildingsFromSplines, Verbose, TEXT("FillJunctionInterior: Junction %d vertex %d at (%.3f, %.3f) NO HeightOffset match -- left at MinZ"),
-				JunctionNode, VID, V.X, V.Y);
-		}
-	}
-	UE_LOG(LogBuildingsFromSplines, Verbose, TEXT("FillJunctionInterior: Junction %d height pass: %d matched, %d unmatched of %d vertices"),
-		JunctionNode, NumMatched, NumUnmatched, FillMesh->GetMeshRef().VertexCount());
 
 	if (IsValid(JunctionFillMaterial))
 		FillComponent->SetMaterial(0, JunctionFillMaterial);
@@ -557,6 +592,15 @@ bool ARoadsFromSplines::GenerateRoads(bool bIsUserInitiated)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR(__FUNCTION__);
 
+	if (IsValid(IntersectionMesh) && !IntersectionMesh->bAllowCPUAccess)
+	{
+		LCReporter::ShowError(FText::Format(
+			LOCTEXT("IntersectionMeshNoCPUAccess", "Enable 'Allow CPU Access' on the intersection mesh '{0}': the junction fill needs its vertex data."),
+			FText::FromString(IntersectionMesh->GetName())
+		));
+		return false;
+	}
+
 	TWeakObjectPtr<ARoadsFromSplines> WeakThis(this);
 
 	UWorld* World = GetWorld();
@@ -669,7 +713,9 @@ USplineMeshComponent* ARoadsFromSplines::SpawnSplineMeshComponent(const FEdgeSpl
 	MeshComponent->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
 	MeshComponent->SetStaticMesh(Mesh);
 	MeshComponent->SetForwardAxis(RoadMeshAxis, false);
-	MeshComponent->SetStartAndEnd(Points.StartLocal, Points.StartTangentLocal, Points.EndLocal, Points.EndTangentLocal, false);
+	const FVector Pivot = (Points.StartLocal + Points.EndLocal) * 0.5;
+	MeshComponent->SetRelativeLocation(Pivot);
+	MeshComponent->SetStartAndEnd(Points.StartLocal - Pivot, Points.StartTangentLocal, Points.EndLocal - Pivot, Points.EndTangentLocal, false);
 	ApplyLandscapeRoll(MeshComponent, Points);
 	MeshComponent->SetStartScale(FVector2D(WidthScale, HeightScale), false);
 	MeshComponent->SetEndScale(FVector2D(WidthScale, HeightScale), false);
@@ -690,7 +736,7 @@ USplineMeshComponent* ARoadsFromSplines::SpawnSplineMeshComponent(const FEdgeSpl
 	
 	if (DefaultMeshLength > KINDA_SMALL_NUMBER)
 	{
-		const float EdgeLength = FVector::Dist(Points.StartLocal, Points.EndLocal);
+		const float EdgeLength = Points.TilingLength != 0.0 ? Points.TilingLength : FVector::Dist(Points.StartLocal, Points.EndLocal);
 		const float Tiling = EdgeLength / DefaultMeshLength;
 
 		if (UMaterialInstanceDynamic* DynMaterial = MeshComponent->CreateAndSetMaterialInstanceDynamic(0))
@@ -799,6 +845,14 @@ bool ARoadsFromSplines::CreateSplineMeshForEdge(int32 EdgeIndex, float ZStagger)
 		const float Key = OrigSpline->FindInputKeyClosestToWorldLocation(StartWorld);
 		const float DistAlong = OrigSpline->GetDistanceAlongSplineAtSplineInputKey(Key);
 		Points.TilingOffset = (DefaultRoadMeshLength > KINDA_SMALL_NUMBER) ? FMath::Fmod(DistAlong / DefaultRoadMeshLength, 1.0) : 0.0;
+		const float EndKey = OrigSpline->FindInputKeyClosestToWorldLocation(EndWorld);
+		double EndDistAlong = OrigSpline->GetDistanceAlongSplineAtSplineInputKey(EndKey);
+		Points.TilingLength = EndDistAlong - DistAlong;
+		if (OrigSpline->IsClosedLoop())
+		{
+			const double SplineLength = OrigSpline->GetSplineLength();
+			Points.TilingLength = FMath::Fmod(Points.TilingLength + 1.5 * SplineLength, SplineLength) - 0.5 * SplineLength;
+		}
 	}
 
 	// claim synchronously so a second caller doesn't re-queue before this runs
