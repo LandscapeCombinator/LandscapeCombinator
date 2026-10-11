@@ -412,56 +412,86 @@ void ARoadsFromSplines::FillJunctionInterior(int32 JunctionNode, TArray<FVector>
 	}
 
 	UDynamicMeshComponent* FillComponent = JunctionFillMeshComponents[JunctionNode];
-	UDynamicMesh* FillMesh = FillComponent->GetDynamicMesh();
-	FillMesh->Reset();
 
-	UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSimpleExtrudePolygon(
-		FillMesh, FGeometryScriptPrimitiveOptions(), FTransform(FVector(0, 0, MinZ - JunctionFillHeight)), Boundary2D, JunctionFillHeight);
+	UDynamicMesh* ScratchMesh = NewObject<UDynamicMesh>();
+	ScratchMesh->AddToRoot(); // no GC
+	const uint32 ThisGeneration = ++JunctionFillGeneration.FindOrAdd(JunctionNode);
+	const double FillHeight = JunctionFillHeight;
+	const double UVScale = DefaultRoadMeshLength * FillJunctionUVScale;
 
-	FGeometryScriptRemeshOptions RemeshOptions;
-	RemeshOptions.MeshBoundaryConstraint = EGeometryScriptRemeshEdgeConstraintType::Fixed;
-	RemeshOptions.GroupBoundaryConstraint = EGeometryScriptRemeshEdgeConstraintType::Fixed;
+	TWeakObjectPtr<ARoadsFromSplines> WeakThis(this);
+	TWeakObjectPtr<UDynamicMeshComponent> WeakFill(FillComponent);
 
-	FGeometryScriptUniformRemeshOptions UniformOptions;
-	UniformOptions.TargetType = EGeometryScriptUniformRemeshTargetType::TargetEdgeLength;
-	UniformOptions.TargetEdgeLength = 30;
-	UGeometryScriptLibrary_RemeshingFunctions::ApplyUniformRemesh(FillMesh, RemeshOptions, UniformOptions);
-
-	const int32 N = Boundary2D.Num();
-	auto HeightAt = [&](const FVector2D& P)
+	Concurrency::RunAsync([WeakThis, WeakFill, ScratchMesh, JunctionNode, ThisGeneration, Boundary2D = MoveTemp(Boundary2D), Heights = MoveTemp(Heights), MinZ, FillHeight, UVScale]()
 	{
-		double SumW = 0.0, SumH = 0.0;
-		for (int32 i = 0; i < N; i++)
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("ARoadsFromSplines::FillJunctionInterior::Async");
+
+		UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSimpleExtrudePolygon(
+			ScratchMesh, FGeometryScriptPrimitiveOptions(), FTransform(FVector(0, 0, MinZ - FillHeight)), Boundary2D, FillHeight);
+
+		FGeometryScriptRemeshOptions RemeshOptions;
+		RemeshOptions.MeshBoundaryConstraint = EGeometryScriptRemeshEdgeConstraintType::Fixed;
+		RemeshOptions.GroupBoundaryConstraint = EGeometryScriptRemeshEdgeConstraintType::Fixed;
+		RemeshOptions.RemeshIterations = 1;
+		RemeshOptions.bReprojectToInputMesh = false;
+
+		FGeometryScriptUniformRemeshOptions UniformOptions;
+		UniformOptions.TargetType = EGeometryScriptUniformRemeshTargetType::TargetEdgeLength;
+		UniformOptions.TargetEdgeLength = 200;
+		UGeometryScriptLibrary_RemeshingFunctions::ApplyUniformRemesh(ScratchMesh, RemeshOptions, UniformOptions);
+
+		const int32 N = Boundary2D.Num();
+		auto HeightAt = [&](const FVector2D& P)
 		{
-			const int32 j = (i + 1) % N;
-			const FVector2D AB = Boundary2D[j] - Boundary2D[i];
-			const double T = FMath::Clamp(FVector2D::DotProduct(P - Boundary2D[i], AB) / FMath::Max(AB.SizeSquared(), 1e-8), 0.0, 1.0);
-			const double W = 1.0 / (FVector2D::DistSquared(P, Boundary2D[i] + AB * T) + 1e-3);
-			SumW += W;
-			SumH += W * FMath::Lerp(Heights[i], Heights[j], T);
+			double SumW = 0.0, SumH = 0.0;
+			for (int32 i = 0; i < N; i++)
+			{
+				const int32 j = (i + 1) % N;
+				const FVector2D AB = Boundary2D[j] - Boundary2D[i];
+				const double T = FMath::Clamp(FVector2D::DotProduct(P - Boundary2D[i], AB) / FMath::Max(AB.SizeSquared(), 1e-8), 0.0, 1.0);
+				const double W = 1.0 / (FVector2D::DistSquared(P, Boundary2D[i] + AB * T) + 1e-3);
+				SumW += W;
+				SumH += W * FMath::Lerp(Heights[i], Heights[j], T);
+			}
+			return SumH / SumW;
+		};
+
+		for (int32 VID : ScratchMesh->GetMeshRef().VertexIndicesItr())
+		{
+			FVector V = ScratchMesh->GetMeshRef().GetVertex(VID);
+			V.Z += HeightAt(FVector2D(V.X, V.Y));
+			ScratchMesh->GetMeshRef().SetVertex(VID, V);
 		}
-		return SumH / SumW;
-	};
 
-	for (int32 VID : FillMesh->GetMeshRef().VertexIndicesItr())
-	{
-		FVector V = FillMesh->GetMeshRef().GetVertex(VID);
-		V.Z += HeightAt(FVector2D(V.X, V.Y));
-		FillMesh->GetMeshRef().SetVertex(VID, V);
-	}
+		FTransform ProjectionTransform = FTransform::Identity;
+		ProjectionTransform.SetScale3D(FVector(UVScale));
+		UGeometryScriptLibrary_MeshUVFunctions::SetMeshUVsFromPlanarProjection(
+			ScratchMesh, 0, ProjectionTransform, FGeometryScriptMeshSelection());
 
-	FTransform ProjectionTransform = FTransform::Identity;
-	ProjectionTransform.SetScale3D(FVector(DefaultRoadMeshLength * FillJunctionUVScale));
-	UGeometryScriptLibrary_MeshUVFunctions::SetMeshUVsFromPlanarProjection(
-		FillMesh, 0, ProjectionTransform, FGeometryScriptMeshSelection());
+		UGeometryScriptLibrary_MeshNormalsFunctions::RecomputeNormals(ScratchMesh, FGeometryScriptCalculateNormalsOptions());
 
-	UGeometryScriptLibrary_MeshNormalsFunctions::RecomputeNormals(FillMesh, FGeometryScriptCalculateNormalsOptions());
+		Concurrency::RunOnGameThreadThrottled([WeakThis, WeakFill, ScratchMesh, JunctionNode, ThisGeneration]()
+		{
+			TRACE_CPUPROFILER_EVENT_SCOPE_STR("ARoadsFromSplines::FillJunctionInterior::Commit");
 
-	if (IsValid(JunctionFillMaterial))
-		FillComponent->SetMaterial(0, JunctionFillMaterial);
+			ON_SCOPE_EXIT { if (IsValid(ScratchMesh)) ScratchMesh->RemoveFromRoot(); };
 
-	FillComponent->NotifyMeshUpdated();
-	FillComponent->UpdateCollision(false);
+			ARoadsFromSplines* StrongThis = WeakThis.Get();
+			UDynamicMeshComponent* Fill = WeakFill.Get();
+			if (!IsValid(StrongThis) || !IsValid(Fill) || !IsValid(StrongThis->GetWorld()) || !IsValid(ScratchMesh)) return;
+
+			const uint32* CurrentGeneration = StrongThis->JunctionFillGeneration.Find(JunctionNode);
+			if (!CurrentGeneration || *CurrentGeneration != ThisGeneration) return;
+
+			Fill->GetDynamicMesh()->GetMeshRef() = MoveTemp(ScratchMesh->GetMeshRef());
+
+			if (IsValid(StrongThis->JunctionFillMaterial))
+				Fill->SetMaterial(0, StrongThis->JunctionFillMaterial);
+
+			Fill->NotifyMeshUpdated();
+			Fill->UpdateCollision(false);
+		});
+	});
 
 	if (bShowDebugJunctionFill)
 	{

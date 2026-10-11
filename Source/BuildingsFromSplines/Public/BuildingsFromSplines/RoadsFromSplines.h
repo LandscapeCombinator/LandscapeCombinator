@@ -312,6 +312,8 @@ protected:
 	UPROPERTY(DuplicateTransient)
 	TMap<int32, TObjectPtr<UDynamicMeshComponent>> JunctionFillMeshComponents;
 
+	TMap<int32, uint32> JunctionFillGeneration;
+
 	TMap<int32, TArray<TObjectPtr<USplineMeshComponent>>> JunctionMeshComponents;
 
 
