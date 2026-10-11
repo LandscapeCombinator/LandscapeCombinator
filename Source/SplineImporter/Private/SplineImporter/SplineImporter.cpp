@@ -315,7 +315,7 @@ bool ASplineImporter::GenerateRegularSplines(
 			if (!SplineOwner) return false;
 
 	#if WITH_EDITOR
-			SplineOwner->SetActorLabel("SC_" + this->GetActorNameOrLabel());
+			if (!World->IsGameWorld()) SplineOwner->SetActorLabel("SC_" + this->GetActorNameOrLabel());
 			ULCBlueprintLibrary::SetFolderPath2(SplineOwner, SpawnedActorsPathOverride, SpawnedActorsPath);
 	#endif
 			
@@ -348,7 +348,7 @@ bool ASplineImporter::GenerateRegularSplines(
 				if (!IsValid(SplineOwner)) return false;
 
 #if WITH_EDITOR
-				SplineOwner->SetActorLabel("SC_" + this->GetActorNameOrLabel() + FString::FromInt(i));
+				if (!World->IsGameWorld()) SplineOwner->SetActorLabel("SC_" + this->GetActorNameOrLabel() + FString::FromInt(i));
 				ULCBlueprintLibrary::SetFolderPath2(SplineOwner, SpawnedActorsPathOverride, SpawnedActorsPath);
 #endif
 
@@ -386,7 +386,7 @@ bool ASplineImporter::GenerateRegularSplines(
 				}
 
 #if WITH_EDITOR
-				SplineOwner->SetActorLabel(SplineOwner->GetActorNameOrLabel() + "_" + FString::FromInt(i));
+				if (!World->IsGameWorld()) SplineOwner->SetActorLabel(SplineOwner->GetActorNameOrLabel() + "_" + FString::FromInt(i));
 				ULCBlueprintLibrary::SetFolderPath2(SplineOwner, SpawnedActorsPathOverride, SpawnedActorsPath);
 #endif
 				SplineOwner->Tags.Add(SplinesTag);
