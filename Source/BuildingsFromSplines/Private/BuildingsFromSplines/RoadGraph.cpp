@@ -218,10 +218,12 @@ void FRoadGraph::SplitEdgeAt(int32 EdgeIndex, int32 AtNode, int32& OutLeft, int3
 	const FVector SplitTangent = FMath::Lerp(Old.StartTangentWorld, Old.EndTangentWorld, T);
 
 	// Carry arc-length data across the split for any chain both endpoints agree on.
+	TArray<FChainSample> NewSamples;
 	for (const FChainSample& StartSample : Nodes[Old.StartNodeIndex].ChainSamples)
 	for (const FChainSample& EndSample : Nodes[Old.EndNodeIndex].ChainSamples)
 		if (StartSample.ChainId == EndSample.ChainId)
-			Nodes[AtNode].ChainSamples.Add({ StartSample.ChainId, FMath::Lerp(StartSample.ArcLength, EndSample.ArcLength, T) });
+			NewSamples.Add({ StartSample.ChainId, FMath::Lerp(StartSample.ArcLength, EndSample.ArcLength, T) });
+	Nodes[AtNode].ChainSamples.Append(NewSamples);
 
 	OutLeft  = AddEdge(Old.StartNodeIndex, AtNode, Old.StartTangentWorld, SplitTangent);
 	OutRight = AddEdge(AtNode, Old.EndNodeIndex, SplitTangent, Old.EndTangentWorld);
