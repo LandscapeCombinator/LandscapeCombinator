@@ -26,6 +26,7 @@
 #include "LevelEditor.h"
 #include "SLevelViewport.h"
 #include "Blueprint/UserWidget.h"
+#include "Engine/World.h"
 #include "Engine/AssetManager.h"
 #include "Engine/AssetManagerTypes.h"
 
@@ -34,6 +35,13 @@
 IMPLEMENT_MODULE(FLandscapeCombinatorModule, LandscapeCombinator)
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
+
+#if WITH_EDITOR
+namespace
+{
+	FDelegateHandle WorldCleanupHandle;
+}
+#endif
 
 void FLandscapeCombinatorModule::StartupModule()
 {
@@ -68,6 +76,22 @@ void FLandscapeCombinatorModule::StartupModule()
 	BeginPIEHandle = FEditorDelegates::PostPIEStarted.AddRaw(this, &FLandscapeCombinatorModule::OnPIEStateChanged);
 	EndPIEHandle   = FEditorDelegates::EndPIE.AddRaw(this, &FLandscapeCombinatorModule::OnPIEStateChanged);
 
+	// The overlay widget lives in the editor world. Before that world is destroyed (map load),
+	// detach the overlay so the world can be garbage collected, then bring it back in the new world.
+	WorldCleanupHandle = FWorldDelegates::OnWorldCleanup.AddLambda([this](UWorld* World, bool bSessionEnded, bool bCleanupResources)
+	{
+		UUserWidget* Overlay = GeneratorStatusOverlayInstance.Get();
+		if (!bGeneratorStatusOverlayVisible || !Overlay || Overlay->GetWorld() != World) return;
+
+		HideGeneratorStatusOverlay();
+		if (IsEngineExitRequested() || !GEditor) return;
+
+		GEditor->GetTimerManager()->SetTimerForNextTick([this]()
+		{
+			if (!bGeneratorStatusOverlayVisible) ShowGeneratorStatusOverlay();
+		});
+	});
+
 	ModifyCookDelegateHandle = FGameDelegates::Get().GetModifyCookDelegate().AddRaw(this, &FLandscapeCombinatorModule::GetPackagesToAlwaysCook);
 
 #endif
@@ -76,6 +100,8 @@ void FLandscapeCombinatorModule::StartupModule()
 void FLandscapeCombinatorModule::ShutdownModule()
 {
 #if WITH_EDITOR
+
+	FWorldDelegates::OnWorldCleanup.Remove(WorldCleanupHandle);
 
 	FEditorDelegates::PostPIEStarted.Remove(BeginPIEHandle);
 	FEditorDelegates::EndPIE.Remove(EndPIEHandle);
@@ -115,6 +141,9 @@ void FLandscapeCombinatorModule::ToggleGeneratorStatusOverlay()
 
 void FLandscapeCombinatorModule::ShowGeneratorStatusOverlay()
 {
+	// only set to true once the overlay is actually attached
+	bGeneratorStatusOverlayVisible = false;
+
 	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
 	TSharedPtr<SLevelViewport> ActiveViewport = LevelEditorModule.GetFirstActiveLevelViewport();
 	if (!ActiveViewport.IsValid())
@@ -141,9 +170,10 @@ void FLandscapeCombinatorModule::HideGeneratorStatusOverlay()
 	TSharedPtr<SLevelViewport> Viewport = GeneratorStatusOverlayViewport.Pin();
 	UUserWidget* OverlayWidget = GeneratorStatusOverlayInstance.Get();
 
-	if (Viewport.IsValid() && OverlayWidget)
+	if (OverlayWidget)
 	{
-		Viewport->RemoveOverlayWidget(OverlayWidget->TakeWidget());
+		if (Viewport.IsValid()) Viewport->RemoveOverlayWidget(OverlayWidget->TakeWidget());
+		OverlayWidget->ReleaseSlateResources(true);
 	}
 
 	GeneratorStatusOverlayInstance.Reset();
@@ -153,16 +183,10 @@ void FLandscapeCombinatorModule::HideGeneratorStatusOverlay()
 
 void FLandscapeCombinatorModule::OnPIEStateChanged(bool bIsSimulating)
 {
-	if (!bGeneratorStatusOverlayVisible) return;
-
+	// PIE start/stop switches the target world: drop the rows of the old world now,
+	// the widget rebuilds itself on its next tick
 	UGeneratorsStatus* Status = Cast<UGeneratorsStatus>(GeneratorStatusOverlayInstance.Get());
-	if (!IsValid(Status)) return;
-
-	TWeakObjectPtr<UGeneratorsStatus> WeakStatus = Status;
-	GEditor->GetTimerManager()->SetTimerForNextTick([WeakStatus]()
-	{
-		if (IsValid(WeakStatus.Get())) WeakStatus.Get()->RefreshGeneratorsList();
-	});
+	if (IsValid(Status)) Status->InvalidateGeneratorsList();
 }
 
 void FLandscapeCombinatorModule::RegisterMenus()

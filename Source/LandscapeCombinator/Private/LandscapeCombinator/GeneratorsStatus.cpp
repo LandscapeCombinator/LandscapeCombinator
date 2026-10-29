@@ -5,6 +5,7 @@
 #include "LCCommon/LCGenerator.h"
 #include "Kismet/GameplayStatics.h"
 #include "Blueprint/WidgetTree.h"
+#include "EngineUtils.h"
 
 #if WITH_EDITOR
 #include "Editor.h"
@@ -24,11 +25,23 @@ void UGeneratorsStatus::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-if (PanelBorder) PanelBorder->SetBrushColor(ActiveTabColor);
+	if (PanelBorder) PanelBorder->SetBrushColor(ActiveTabColor);
 
 	if (GenerateAllButton) GenerateAllButton->OnClicked.AddDynamic(this, &UGeneratorsStatus::HandleGenerateAllClicked);
 	if (CancelAllButton) CancelAllButton->OnClicked.AddDynamic(this, &UGeneratorsStatus::HandleCancelAllClicked);
 	if (CleanAllButton) CleanAllButton->OnClicked.AddDynamic(this, &UGeneratorsStatus::HandleCleanAllClicked);
+	if (TabDropdown) TabDropdown->OnSelectionChanged.AddDynamic(this, &UGeneratorsStatus::HandleTabDropdownSelection);
+
+	if (AddGeneratorDropdown)
+	{
+		AddGeneratorDropdown->ClearOptions();
+		for (TSubclassOf<AActor> GenClass : GeneratorClasses)
+		{
+			if (IsValid(GenClass))
+				AddGeneratorDropdown->AddOption(GenClass->GetName());
+		}
+		AddGeneratorDropdown->OnSelectionChanged.AddDynamic(this, &UGeneratorsStatus::HandleAddGeneratorSelection);
+	}
 
 	RefreshGeneratorsList();
 }
@@ -49,21 +62,15 @@ bool UGeneratorsStatus::IsGeneratorExcluded(AActor* Generator) const
 
 void UGeneratorsStatus::RefreshGeneratorsList()
 {
-	if (!IsValid(TabSwitcher) || !IsValid(TabButtonBox)) return;
-	if (!GeneratorStatusClass || !TabButtonClass) return;
+	if (!IsValid(TabSwitcher)) return;
+	if (!GeneratorStatusClass) return;
 
-	UWorld* TargetWorld = nullptr;
-#if WITH_EDITOR
-	if (GEditor && GEditor->PlayWorld) TargetWorld = GEditor->PlayWorld;
-	else if (GEditor) TargetWorld = GEditor->GetEditorWorldContext().World();
-#endif
-	if (!TargetWorld) TargetWorld = GetWorld();
+	UWorld* TargetWorld = GetTargetWorld();
 	if (!TargetWorld) return;
 
-	TabSwitcher->ClearChildren();
-	TabButtonBox->ClearChildren();
-	TabButtons.Empty();
-	TabInfos.Reset();
+	const int32 PreviousTab = ActiveTabIndex;
+	bDirty = false;
+	ClearTabs();
 
 	TArray<AActor*> AllCombinationActors;
 	UGameplayStatics::GetAllActorsOfClass(TargetWorld, ALandscapeCombination::StaticClass(), AllCombinationActors);
@@ -95,31 +102,28 @@ void UGeneratorsStatus::RefreshGeneratorsList()
 	TSet<AActor*> UsedGenerators;
 	TArray<FGeneratorTabData> Tabs;
 
-	// One tab per combination=
+	// One tab per combination
 	for (ALandscapeCombination* Combination : Combinations)
 	{
 		FGeneratorTabData TabData;
 		TabData.Label = Combination->GetActorNameOrLabel();
 		TabData.TabActor = Combination;
 
-        for (const FGeneratorWrapper& Wrapper : Combination->Generators)
-        {
-            if (!Wrapper.Generator.IsValid()) continue;
-            if (!Wrapper.Generator->Implements<ULCGenerator>()) continue;
-
-            AActor* GeneratorActor = Wrapper.Generator.Get();
-            if (IsGeneratorExcluded(GeneratorActor)) continue;
-
-            UsedGenerators.Add(GeneratorActor);
-            if (!Wrapper.bIsEnabled) continue;
-
-            TabData.Generators.Add(GeneratorActor);
-        }
-
-		if (TabData.Generators.Num() > 0)
+		for (const FGeneratorWrapper& Wrapper : Combination->Generators)
 		{
-			Tabs.Add(MoveTemp(TabData));
+			if (!Wrapper.Generator.IsValid()) continue;
+			if (!Wrapper.Generator->Implements<ULCGenerator>()) continue;
+
+			AActor* GeneratorActor = Wrapper.Generator.Get();
+			if (IsGeneratorExcluded(GeneratorActor)) continue;
+
+			UsedGenerators.Add(GeneratorActor);
+			if (!Wrapper.bIsEnabled) continue;
+
+			TabData.Generators.Add(GeneratorActor);
 		}
+
+		Tabs.Add(MoveTemp(TabData));
 	}
 
 	// Extra tab for generators not referenced by a combination
@@ -172,15 +176,12 @@ void UGeneratorsStatus::RefreshGeneratorsList()
 		}
 		TabSwitcher->AddChild(TabContent);
 
-		UGeneratorsStatusTabButton* TabButton = CreateWidget<UGeneratorsStatusTabButton>(this, TabButtonClass);
-		if (!IsValid(TabButton)) continue;
-
-		TabButton->InitializeTab(this, TabIndex, FText::FromString(TabData.Label), TabData.TabActor.Get());
-		TabButtons.Add(TabButton);
-		TabButtonBox->AddChildToHorizontalBox(TabButton);
+		if (TabDropdown) TabDropdown->AddOption(TabData.Label);
 	}
 
-	if (Tabs.Num() > 0) SetActiveTab(0);
+	if (TabDropdown) TabDropdown->SetVisibility(Tabs.Num() > 0 ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
+	if (Tabs.Num() > 0) SetActiveTab(PreviousTab);
+	LastSignature = ComputeSignature();
 }
 
 void UGeneratorsStatus::SetActiveTab(int32 TabIndex)
@@ -191,15 +192,8 @@ void UGeneratorsStatus::SetActiveTab(int32 TabIndex)
 	TabIndex = FMath::Clamp(TabIndex, 0, TabSwitcher->GetChildrenCount() - 1);
 	TabSwitcher->SetActiveWidgetIndex(TabIndex);
 	ActiveTabIndex = TabIndex;
-	UpdateAllButtons();
-
-	for (int32 i = 0; i < TabButtons.Num(); ++i)
-	{
-		if (UGeneratorsStatusTabButton* Button = TabButtons[i])
-		{
-			Button->SetActive(i == TabIndex);
-		}
-	}
+	if (TabDropdown && TabDropdown->GetSelectedIndex() != TabIndex) TabDropdown->SetSelectedIndex(TabIndex);
+		UpdateAllButtons();
 
 	OnTabChanged(TabIndex);
 }
@@ -233,14 +227,123 @@ void UGeneratorsStatus::CleanAll()
 
 void UGeneratorsStatus::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
-    Super::NativeTick(MyGeometry, InDeltaTime);
-    UpdateAllButtons();
-    Buttons.Tick(GenerateAllButton, SpinSpeed, InDeltaTime);
+	Super::NativeTick(MyGeometry, InDeltaTime);
+	TimeSinceRefresh += InDeltaTime;
+	if (bDirty || TimeSinceRefresh >= 0.25f)
+	{
+		TimeSinceRefresh = 0.f;
+		if (bDirty || ComputeSignature() != LastSignature) RefreshGeneratorsList();
+	}
+	UpdateAllButtons();
+	Buttons.Tick(GenerateAllButton, SpinSpeed, InDeltaTime);
 }
 
 void UGeneratorsStatus::UpdateAllButtons()
 {
-    ALandscapeCombination* Combination = GetActiveCombination();
-    const bool bGenerating = Combination && Combination->GetGeneratorStatus() == EGeneratorStatus::Generating;
-    Buttons.Update(GenerateAllButton, CancelAllButton, CleanAllButton, Combination != nullptr, bGenerating);
+	ALandscapeCombination* Combination = GetActiveCombination();
+	const bool bGenerating = Combination && Combination->GetGeneratorStatus() == EGeneratorStatus::Generating;
+	Buttons.Update(GenerateAllButton, CancelAllButton, CleanAllButton, Combination != nullptr, bGenerating);
+}
+
+void UGeneratorsStatus::HandleAddGeneratorSelection(FString SelectedItem, ESelectInfo::Type SelectionType)
+{
+	if (SelectedItem.IsEmpty() || SelectionType == ESelectInfo::OnNavigation) return;
+
+	UClass* SelectedClass = nullptr;
+	for (TSubclassOf<AActor> GenClass : GeneratorClasses)
+	{
+		if (IsValid(GenClass))
+		{
+			if (SelectedItem == GenClass->GetName())
+			{
+				SelectedClass = *GenClass;
+				break;
+			}
+		}
+	}
+
+	if (!IsValid(SelectedClass)) return;
+
+	UWorld* TargetWorld = GetTargetWorld();
+	if (!TargetWorld) return;
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	FVector SpawnLocation = FVector::ZeroVector;
+	FRotator SpawnRotation = FRotator::ZeroRotator;
+
+	ALandscapeCombination* LandscapeCombination = GetActiveCombination();
+	if (IsValid(LandscapeCombination))
+	{
+		SpawnLocation = LandscapeCombination->GetActorLocation();
+	}
+
+	AActor* NewActor = TargetWorld->SpawnActor<AActor>(SelectedClass, SpawnLocation, SpawnRotation, SpawnParams);
+	if (IsValid(NewActor))
+	{
+		if (IsValid(LandscapeCombination))
+		{
+			FGeneratorWrapper NewWrapper;
+			NewWrapper.Generator = NewActor;
+			NewWrapper.bIsEnabled = true;
+			LandscapeCombination->Generators.Add(NewWrapper);
+			LandscapeCombination->Modify();
+		}
+
+		RefreshGeneratorsList();
+	}
+
+	AddGeneratorDropdown->ClearSelection();
+}
+
+UWorld* UGeneratorsStatus::GetTargetWorld() const
+{
+	UWorld* World = nullptr;
+#if WITH_EDITOR
+	if (GEditor) World = GEditor->PlayWorld ? GEditor->PlayWorld.Get() : GEditor->GetEditorWorldContext().World();
+#endif
+	return World ? World : GetWorld();
+}
+
+void UGeneratorsStatus::ClearTabs()
+{
+	if (TabSwitcher) TabSwitcher->ClearChildren();
+	if (TabDropdown) TabDropdown->ClearOptions();
+	TabInfos.Reset();
+}
+
+void UGeneratorsStatus::InvalidateGeneratorsList()
+{
+	ClearTabs();
+	bDirty = true;
+}
+
+uint32 UGeneratorsStatus::ComputeSignature() const
+{
+	uint32 Hash = 0;
+	UWorld* World = GetTargetWorld();
+	if (!World) return Hash;
+
+	for (TActorIterator<AActor> It(World); It; ++It)
+	{
+		Hash = HashCombine(Hash, GetTypeHash(*It));
+		Hash = HashCombine(Hash, GetTypeHash(It->GetActorNameOrLabel()));
+		if (const ALandscapeCombination* Combination = Cast<ALandscapeCombination>(*It))
+		{
+			for (const FGeneratorWrapper& Wrapper : Combination->Generators)
+			{
+				Hash = HashCombine(Hash, GetTypeHash(Wrapper.Generator.Get()));
+				Hash = HashCombine(Hash, GetTypeHash((int32) Wrapper.bIsEnabled));
+			}
+		}
+	}
+	return Hash;
+}
+
+void UGeneratorsStatus::HandleTabDropdownSelection(FString SelectedItem, ESelectInfo::Type SelectionType)
+{
+	if (!TabDropdown || SelectionType == ESelectInfo::Direct) return;
+	const int32 Index = TabDropdown->FindOptionIndex(SelectedItem);
+	if (Index != INDEX_NONE) SetActiveTab(Index);
 }
