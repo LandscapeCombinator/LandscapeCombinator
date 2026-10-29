@@ -5,4 +5,5 @@
 void ULCPositionBasedGeneration::ClearGeneratedTilesCache()
 {
 	GeneratedTiles.Empty();
+	PendingTiles.Empty();
 }

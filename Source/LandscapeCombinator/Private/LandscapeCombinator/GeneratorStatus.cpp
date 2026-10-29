@@ -72,7 +72,7 @@ void UGeneratorStatus::RefreshStatus()
 		if (PBG->bEnablePositionBasedGeneration)
 		{
 			NumGenerated = PBG->GeneratedTiles.Num();
-			NumPending = PBG->PendingTiles.Num();
+			NumPending = (Actor->Implements<ULCGenerator>() && Cast<ILCGenerator>(Actor)->GetGeneratorStatus() == EGeneratorStatus::Generating) ? PBG->PendingTiles.Num() : 0;
 			bHasTileTracking = true;
 		}
 	}
