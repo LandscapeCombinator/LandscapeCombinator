@@ -161,18 +161,6 @@ GDALDataset* AGDALImporter::LoadGDALDataset(bool bIsUserInitiated)
 	}
 }
 
-void AGDALImporter::FlushPCGCacheIfNeeded()
-{
-#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
-	if (!bFlushPCGCacheAfterImport) return;
-
-	Concurrency::RunOnGameThreadThrottled([]() {
-		if (UPCGSubsystem* PCGSubsystem = UPCGSubsystem::GetSubsystemForCurrentWorld())
-			PCGSubsystem->FlushCache();
-	});
-#endif
-}
-
 #if WITH_EDITOR
 
 void AGDALImporter::PostEditChangeProperty(FPropertyChangedEvent& Event)

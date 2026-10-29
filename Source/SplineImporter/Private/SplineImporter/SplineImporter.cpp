@@ -240,29 +240,13 @@ bool ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 	if (bUseLandscapeSplines)
 	{
 		return Concurrency::RunOnGameThreadThrottledAndWait([&]() {
-			if (GenerateLandscapeSplines(bIsUserInitiated, Landscape, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists))
-			{
-				FlushPCGCacheIfNeeded();
-				return true;
-			}
-			else
-			{
-				return false;
-			}
+			return GenerateLandscapeSplines(bIsUserInitiated, Landscape, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
 		});
 	}
 	else
 	{
 		return Concurrency::RunOnGameThreadThrottledAndWait([&]() {
-			if (GenerateRegularSplines(bIsUserInitiated, SpawnedActorsPathOverride, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists))
-			{
-				FlushPCGCacheIfNeeded();
-				return true;
-			}
-			else
-			{
-				return false;
-			}
+			return GenerateRegularSplines(bIsUserInitiated, SpawnedActorsPathOverride, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
 		});
 	}
 #else
@@ -273,15 +257,7 @@ bool ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 		return false;
 	}
 	return Concurrency::RunOnGameThreadThrottledAndWait([&]() {
-		if (GenerateRegularSplines(bIsUserInitiated, SpawnedActorsPathOverride, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists))
-		{
-			FlushPCGCacheIfNeeded();
-			return true;
-		}
-		else
-		{
-			return false;
-		}
+		return GenerateRegularSplines(bIsUserInitiated, SpawnedActorsPathOverride, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointLists);
 	});
 
 #endif
@@ -306,7 +282,43 @@ bool ASplineImporter::GenerateRegularSplines(
 		return false;
 	}
 
+	const bool bAnyPoints = PointLists.ContainsByPredicate(
+		[](const FPointList &List) { return List.Points.Num() > 0; }
+	);
+
+	if (!bAnyPoints)
+	{
+		if (bIsUserInitiated)
+		{
+			LCReporter::ShowError(
+				LOCTEXT("NoSplinePoints", "No Splines were generated, make sure to save your map and check collision settings on the target actor")
+			);
+			return false;
+		}
+		return true;
+	}
+
 	AActor *SplineOwner = nullptr;
+
+	auto TagOwner = [this](AActor *Target)
+	{
+		Concurrency::RunOnGameThreadAndWait([Target, this]()
+		{
+			Target->Tags.Add(SplinesTag);
+			return true;
+		});
+	};
+
+	auto DestroyOwner = [this](AActor *Target)
+	{
+		SplineOwners.Remove(Target);
+		Concurrency::RunOnGameThreadAndWait([Target]()
+		{
+			if (IsValid(Target)) Target->Destroy();
+			return true;
+		});
+	};
+
 	if (SplineOwnerKind == ESplineOwnerKind::SingleSplineCollection)
 	{
 		Concurrency::RunOnGameThreadAndWait([&SplineOwner, &SpawnedActorsPathOverride, World, this]()
@@ -319,7 +331,6 @@ bool ASplineImporter::GenerateRegularSplines(
 			ULCBlueprintLibrary::SetFolderPath2(SplineOwner, SpawnedActorsPathOverride, SpawnedActorsPath);
 	#endif
 			
-			SplineOwner->Tags.Add(SplinesTag);
 			return true;
 		});
 
@@ -340,6 +351,8 @@ bool ASplineImporter::GenerateRegularSplines(
 	for (auto &PointList : PointLists)
 	{
 		i++;
+		if (PointList.Points.Num() == 0) continue;
+
 		if (SplineOwnerKind == ESplineOwnerKind::ManySplineCollections)
 		{
 			Concurrency::RunOnGameThreadAndWait([&SplineOwner, &SpawnedActorsPathOverride, World, i, this]()
@@ -352,7 +365,6 @@ bool ASplineImporter::GenerateRegularSplines(
 				ULCBlueprintLibrary::SetFolderPath2(SplineOwner, SpawnedActorsPathOverride, SpawnedActorsPath);
 #endif
 
-				SplineOwner->Tags.Add(SplinesTag);
 				return true;
 			});
 			
@@ -389,7 +401,6 @@ bool ASplineImporter::GenerateRegularSplines(
 				if (!World->IsGameWorld()) SplineOwner->SetActorLabel(SplineOwner->GetActorNameOrLabel() + "_" + FString::FromInt(i));
 				ULCBlueprintLibrary::SetFolderPath2(SplineOwner, SpawnedActorsPathOverride, SpawnedActorsPath);
 #endif
-				SplineOwner->Tags.Add(SplinesTag);
 				return true;
 			}))
 			{
@@ -400,7 +411,20 @@ bool ASplineImporter::GenerateRegularSplines(
 		}
 
 		if (AddRegularSpline(SplineOwner, CollisionQueryParams, OGRTransform, GlobalCoordinates, PointList))
+		{
 			bAtLeastOneSuccess = true;
+			if (SplineOwnerKind != ESplineOwnerKind::SingleSplineCollection) TagOwner(SplineOwner);
+		}
+		else if (SplineOwnerKind != ESplineOwnerKind::SingleSplineCollection)
+		{
+			DestroyOwner(SplineOwner);
+		}
+	}
+
+	if (SplineOwnerKind == ESplineOwnerKind::SingleSplineCollection)
+	{
+		if (bAtLeastOneSuccess) TagOwner(SplineOwner);
+		else DestroyOwner(SplineOwner);
 	}
 
 	if (bIsUserInitiated && !bAtLeastOneSuccess)
@@ -440,7 +464,7 @@ bool ASplineImporter::AddRegularSpline(
 		if (!IsValid(SplineComponent))
 		{
 			LCReporter::ShowError(
-				LOCTEXT("SplineComponentFailed", "Could not create SplineComponent.")
+				LOCTEXT("SplineComponentFailed1", "Could not create SplineComponent.")
 			);
 			return false;
 		}
@@ -457,8 +481,8 @@ bool ASplineImporter::AddRegularSpline(
 		if (!IsValid(SplineComponent))
 		{
 			LCReporter::ShowError(FText::Format(
-				LOCTEXT("SplineComponentFailed", "Could not get valid SplineComponent in {0}."),
-				FText::FromString(ActorToSpawn->GetName())
+				LOCTEXT("SplineComponentFailed2", "Could not get valid SplineComponent in {0}."),
+				FText::FromString(SplineOwner->GetName())
 			));
 			return false;
 		}

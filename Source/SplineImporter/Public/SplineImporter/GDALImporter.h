@@ -145,12 +145,6 @@ public:
 	/* Folder used to spawn the actors. This setting is unused when generating from a combination. */
 	FName SpawnedActorsPath;
 
-	/* If true, flushes the global PCG cache once after a successful import. */
-	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
-		meta = (DisplayPriority = "1400")
-	)
-	bool bFlushPCGCacheAfterImport = false;
-
 	UFUNCTION(CallInEditor, Category = "GDALImporter")
 	void Import() {
 		Concurrency::RunAsync([this]() { Generate(SpawnedActorsPath, true); });
@@ -184,8 +178,6 @@ protected:
 	GDALDataset* LoadGDALDatasetFromShortQuery(FString ShortQuery, bool bIsUserInitiated);
 
 	virtual void SetOverpassShortQuery();
-	
-	void FlushPCGCacheIfNeeded();
 };
 
 #undef LOCTEXT_NAMESPACE

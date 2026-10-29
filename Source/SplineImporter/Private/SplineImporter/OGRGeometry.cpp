@@ -149,8 +149,6 @@ bool AOGRGeometry::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIniti
 		}
 	}
 
-	if (bAnyUnion) FlushPCGCacheIfNeeded();
-
 	UE_LOG(LogSplineImporter, Log, TEXT("Found %d geometries"), NumGeometries);
 	Tags.AddUnique(AreaTag);
 	SetGeometry(Geometry);
