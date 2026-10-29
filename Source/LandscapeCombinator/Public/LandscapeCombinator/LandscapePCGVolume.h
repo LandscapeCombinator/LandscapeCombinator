@@ -24,11 +24,6 @@ public:
 
 	virtual TArray<UObject*> GetGeneratedObjects() const override { return TArray<UObject*>(); }
 
-	ALandscapePCGVolume(const FObjectInitializer& ObjectInitializer) : APCGVolume(ObjectInitializer)
-	{
-		PCGComponent->GenerationTrigger = EPCGComponentGenerationTrigger::GenerateOnDemand;
-	}
-
 	/* Landscape used to automatically set the size of the PCG volume. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapePCGVolume",
 		meta = (DisplayPriority = "0")
