@@ -5,6 +5,7 @@
 #include "FileDownloader/FileDownloaderStyle.h"
 
 #include "ConcurrencyHelpers/Concurrency.h"
+#include "ConcurrencyHelpers/ConcurrencySettings.h"
 #include "ConcurrencyHelpers/LCReporter.h"
 
 #include "Async/Async.h"
@@ -91,8 +92,8 @@ bool Download::SynchronousFromURL(FString URL, FString File, bool bProgress)
 
 		Request->ProcessRequest();
 		double StartTime = FPlatformTime::Seconds();
-		UE_LOG(LogFileDownloader, Log, TEXT("Waiting for Content-Length request to complete (10s timeout)"));
-		SyncEvent->Wait();
+		UE_LOG(LogFileDownloader, Log, TEXT("Waiting for Content-Length request to complete (%.0fs timeout)"), GetDefault<UConcurrencySettings>()->ContentLengthTimeoutSeconds);
+		SyncEvent->Wait((uint32)(GetDefault<UConcurrencySettings>()->ContentLengthTimeoutSeconds * 1000));
 		UE_LOG(LogFileDownloader, Log, TEXT("Finished waiting for Content-Length request to complete"));
 		Request->OnProcessRequestComplete().Unbind();
 		Request->CancelRequest();
@@ -173,14 +174,14 @@ bool Download::SynchronousFromURLExpecting(FString URL, FString File, bool bProg
 	});
 
 	Request->ProcessRequest();
-	float StartTime = FPlatformTime::Seconds();
-	UE_LOG(LogFileDownloader, Log, TEXT("Waiting for download to complete (100s timeout)"));
-	SyncEvent->Wait();
+	double StartTime = FPlatformTime::Seconds();
+	UE_LOG(LogFileDownloader, Log, TEXT("Waiting for download to complete (%.0fs timeout)"), GetDefault<UConcurrencySettings>()->DownloadTimeoutSeconds);
+	bool bAborted = false; while (!SyncEvent->Wait(100)) { if (Concurrency::IsCancelRequested() || IsEngineExitRequested() || FPlatformTime::Seconds() - StartTime > GetDefault<UConcurrencySettings>()->DownloadTimeoutSeconds) { bAborted = true; break; } }
 	UE_LOG(LogFileDownloader, Log, TEXT("Finished waiting for download to complete"));
 	Request->OnProcessRequestComplete().Unbind();
 	Request->CancelRequest();
 
-	return bDownloadResult;
+	return !bAborted && bDownloadResult;
 }
 
 void Download::FromURL(FString URL, FString File, bool bProgress, TFunction<void(bool)> OnComplete)

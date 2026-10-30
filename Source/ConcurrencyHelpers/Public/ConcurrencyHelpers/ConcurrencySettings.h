@@ -19,4 +19,10 @@ public:
 	
 	UPROPERTY(config, EditAnywhere, Category = "LandscapeCombinator", meta=(DisplayPriority = "1000", DisplayName="Game Thread Work Budget Per Tick (Seconds)"))
 	float GameThreadWorkBudgetPerTickSeconds = 0.02f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "LandscapeCombinator", meta = (ClampMin = "1.0"))
+	float DownloadTimeoutSeconds = 100.f;
+
+	UPROPERTY(Config, EditAnywhere, Category = "LandscapeCombinator", meta = (ClampMin = "1.0"))
+	float ContentLengthTimeoutSeconds = 10.f;
 };
