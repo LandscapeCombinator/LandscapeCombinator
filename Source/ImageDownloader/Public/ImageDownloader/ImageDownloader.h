@@ -23,8 +23,7 @@ enum class EImageSourceKind : uint8
 {
 	Select_A_Source,
 
-	IGN_Heightmaps,
-	IGN_Satellite,
+	IGN,
 	USGS_3DEPElevation,
 	USGS_Topo,
 	USGS_Imagery,

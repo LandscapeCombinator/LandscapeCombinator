@@ -570,8 +570,7 @@ bool UImageDownloader::IsWMS()
 	return
 		ImageSourceKind == EImageSourceKind::GenericWMS ||
 		ImageSourceKind == EImageSourceKind::Australia_LiDAR5m || 
-		ImageSourceKind == EImageSourceKind::IGN_Heightmaps ||
-		ImageSourceKind == EImageSourceKind::IGN_Satellite ||
+		ImageSourceKind == EImageSourceKind::IGN ||
 		ImageSourceKind == EImageSourceKind::SHOM ||
 		ImageSourceKind == EImageSourceKind::USGS_Imagery ||
 		ImageSourceKind == EImageSourceKind::USGS_Topo ||
@@ -629,12 +628,12 @@ bool UImageDownloader::AllowsParametersSelection()
 
 bool UImageDownloader::CanAutoSetResolution()
 {
-	return ImageSourceKind == EImageSourceKind::IGN_Heightmaps;
+	return ImageSourceKind == EImageSourceKind::IGN;
 }
 
 void UImageDownloader::AutoSetResolution()
 {
-	if (ImageSourceKind == EImageSourceKind::IGN_Heightmaps)
+	if (ImageSourceKind == EImageSourceKind::IGN)
 	{
 		WMS_ResolutionPixelsPerUnit = 1;
 		WMS_MinLat = FMath::RoundToZero(WMS_MinLat);
@@ -912,15 +911,9 @@ void UImageDownloader::OnLayerChanged()
 
 void UImageDownloader::OnImageSourceChanged(TFunction<void(bool)> OnComplete)
 {
-	if (ImageSourceKind == EImageSourceKind::IGN_Heightmaps)
+	if (ImageSourceKind == EImageSourceKind::IGN)
 	{
 		CapabilitiesURL = "https://data.geopf.fr/wms-r?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = true;
-	}
-	else if (ImageSourceKind == EImageSourceKind::IGN_Satellite)
-	{
-		CapabilitiesURL = "https://data.geopf.fr/annexes/ressources/wms-r/satellite.xml";
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
 		WMS_X_IsLong = true;
 	}
