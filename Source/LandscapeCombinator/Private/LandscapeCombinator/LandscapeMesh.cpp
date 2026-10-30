@@ -128,7 +128,7 @@ bool ALandscapeMesh::AddHeightmap(int InPriority, FVector4d Coordinates, UGlobal
 		TRACE_CPUPROFILER_EVENT_SCOPE_STR("ALandscapeMesh::AddHeightmap::ReadFile");
 		if (!GDALInterface::ReadHeightmapFromFile(File, InWidth, InHeight, Data))
 		{
-			LCReporter::ShowError(LOCTEXT("HeightmapError", "Could not read heightmap from file: {0}"), FText::FromString(File));
+			LCReporter::ShowError(FText::Format(LOCTEXT("HeightmapError", "Could not read heightmap from file: {0}"), FText::FromString(File)));
 			return false;
 		}
 	}
