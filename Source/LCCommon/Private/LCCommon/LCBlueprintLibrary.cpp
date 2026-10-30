@@ -153,77 +153,77 @@ TSet<TObjectPtr<USplineComponent>> ULCBlueprintLibrary::FindSplineComponents(UWo
 
 bool ULCBlueprintLibrary::FindPushOffset(TWeakObjectPtr<AActor> Actor, UPrimitiveComponent* TestComponent, FName RequiredPusherTag, int MaxSteps, double StepSize, FVector& OutOffset, bool bShowDebug)
 {
-    TRACE_CPUPROFILER_EVENT_SCOPE_STR("FindPushOffset");
-    check(IsInGameThread());
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("FindPushOffset");
+	check(IsInGameThread());
 
-    if (!Actor.IsValid() || !IsValid(TestComponent)) return false;
-    UWorld* World = Actor->GetWorld();
-    if (!IsValid(World)) return false;
+	if (!Actor.IsValid() || !IsValid(TestComponent)) return false;
+	UWorld* World = Actor->GetWorld();
+	if (!IsValid(World)) return false;
 
-    const FVector Origin = TestComponent->GetComponentLocation();
-    const FQuat Rotation = TestComponent->GetComponentQuat();
+	const FVector Origin = TestComponent->GetComponentLocation();
+	const FQuat Rotation = TestComponent->GetComponentQuat();
 
-    if (TestComponent->GetCollisionEnabled() == ECollisionEnabled::NoCollision)
-        TestComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	if (TestComponent->GetCollisionEnabled() == ECollisionEnabled::NoCollision)
+		TestComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 
-    FComponentQueryParams QueryParams(SCENE_QUERY_STAT(FindPushOffset), Actor.Get());
-    QueryParams.bTraceComplex = false;
+	FComponentQueryParams QueryParams(SCENE_QUERY_STAT(FindPushOffset), Actor.Get());
+	QueryParams.bTraceComplex = false;
 
-    const FBoxSphereBounds LocalBounds = TestComponent->CalcBounds(FTransform::Identity);
+	const FBoxSphereBounds LocalBounds = TestComponent->CalcBounds(FTransform::Identity);
 	FVector ShapeExtent = LocalBounds.BoxExtent;
 	ShapeExtent.Z *= 10; // make the box very tall to avoid buildings going above roads and missing collision
 	FCollisionShape Shape = FCollisionShape::MakeBox(ShapeExtent);
-    auto DrawShape = [&](const FVector& Loc, const FColor& Color)
-    {
-        if (!bShowDebug) return;
-        const FVector BoxCenter = Loc + Rotation.RotateVector(LocalBounds.Origin);
-        DrawDebugBox(World, BoxCenter, LocalBounds.BoxExtent, Rotation, Color, false, 5.f, 0, 10.f);
-    };
+	auto DrawShape = [&](const FVector& Loc, const FColor& Color)
+	{
+		if (!bShowDebug) return;
+		const FVector BoxCenter = Loc + Rotation.RotateVector(LocalBounds.Origin);
+		DrawDebugBox(World, BoxCenter, LocalBounds.BoxExtent, Rotation, Color, false, 5.f, 0, 10.f);
+	};
 
-    auto HasOverlap = [&](const FVector& TestLocation) -> bool
-    {
-        TArray<FOverlapResult> Overlaps;
+	auto HasOverlap = [&](const FVector& TestLocation) -> bool
+	{
+		TArray<FOverlapResult> Overlaps;
 		World->OverlapMultiByChannel(Overlaps, TestLocation + Rotation.RotateVector(LocalBounds.Origin), Rotation, ECC_Visibility, Shape, QueryParams);
 
-        if (RequiredPusherTag.IsNone())
-            return Overlaps.Num() > 0;
+		if (RequiredPusherTag.IsNone())
+			return Overlaps.Num() > 0;
 
-        for (const FOverlapResult& O : Overlaps)
-            if (AActor* OwnerActor = O.GetActor())
-                if (OwnerActor->ActorHasTag(RequiredPusherTag))
-                    return true;
-        return false;
-    };
+		for (const FOverlapResult& O : Overlaps)
+			if (AActor* OwnerActor = O.GetActor())
+				if (OwnerActor->ActorHasTag(RequiredPusherTag))
+					return true;
+		return false;
+	};
 
-    const bool bInitialOverlap = HasOverlap(Origin);
-    DrawShape(Origin, bInitialOverlap ? FColor::Red : FColor::Green);
-    if (!bInitialOverlap) return false;
+	const bool bInitialOverlap = HasOverlap(Origin);
+	DrawShape(Origin, bInitialOverlap ? FColor::Red : FColor::Green);
+	if (!bInitialOverlap) return false;
 
-    static const FVector2D Directions[] =
-    {
-        { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 },
-        { 0.7071f,  0.7071f }, { 0.7071f, -0.7071f },
-        { -0.7071f, 0.7071f }, { -0.7071f, -0.7071f }
-    };
+	static const FVector2D Directions[] =
+	{
+		{ 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 },
+		{ 0.7071f,  0.7071f }, { 0.7071f, -0.7071f },
+		{ -0.7071f, 0.7071f }, { -0.7071f, -0.7071f }
+	};
 
-    for (const FVector2D& D2 : Directions)
-    {
-        const FVector Dir(D2.X, D2.Y, 0);
-        for (int Step = 1; Step <= MaxSteps; Step++)
-        {
-            const FVector Candidate = Origin + Dir * (StepSize * Step);
-            const bool bCandidateOverlap = HasOverlap(Candidate);
-            DrawShape(Candidate, bCandidateOverlap ? FColor::Red : FColor::Green);
+	for (int Step = 1; Step <= MaxSteps; Step++)
+	{
+		for (const FVector2D& D2 : Directions)
+		{
+			const FVector Dir(D2.X, D2.Y, 0);
+			const FVector Candidate = Origin + Dir * (StepSize * Step);
+			const bool bCandidateOverlap = HasOverlap(Candidate);
+			DrawShape(Candidate, bCandidateOverlap ? FColor::Red : FColor::Green);
 
-            if (!bCandidateOverlap)
-            {
-                OutOffset = Dir * (StepSize * Step);
-                return true;
-            }
-        }
-    }
+			if (!bCandidateOverlap)
+			{
+				OutOffset = Dir * (StepSize * Step);
+				return true;
+			}
+		}
+	}
 
-    return false;
+	return false;
 }
 
 #if WITH_EDITOR
