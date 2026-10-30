@@ -305,7 +305,6 @@ bool FWMSProvider::CreateURL(
 )
 {
 
-#if 0 // skip bound checks for now, because we parse max longitude/latitude wrong for the NRW WMS server
 	// if one bound is non zero, we check all the bounds
 	if (MinAllowedLong != 0 && MaxAllowedLong != 0 && MinAllowedLat != 0 && MaxAllowedLat != 0)
 	{
@@ -357,7 +356,7 @@ bool FWMSProvider::CreateURL(
 		return false;
 	}
 
-	if (MinLong >= MaxLong)
+	if (MinLat >= MaxLat)
 	{
 		LCReporter::ShowError(FText::Format(
 			LOCTEXT("MinMaxLat", "MinLat ({0}) is larger than MaxLat ({1})"),
@@ -404,7 +403,6 @@ bool FWMSProvider::CreateURL(
 
 		return false;
 	}
-#endif
 
 	if (GetMapURL.IsEmpty())
 	{
