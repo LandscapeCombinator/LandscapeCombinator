@@ -51,7 +51,7 @@ bool ALandscapePCGVolume::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUs
 
 bool ALandscapePCGVolume::Cleanup_Implementation(bool bSkipPrompt)
 {
-	Concurrency::SetCancelRequested(false);
+	if (GetGeneratorStatus() != EGeneratorStatus::Generating) Concurrency::SetCancelRequested(false);
 	Modify();
 	
 	if (!IsValid(PCGComponent)) return false;

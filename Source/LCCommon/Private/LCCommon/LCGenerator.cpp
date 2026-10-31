@@ -24,8 +24,8 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 	Self = Cast<AActor>(this);
 	if (!Self.IsValid()) return false;
 
+	if (CurrentStatus != EGeneratorStatus::Generating) Concurrency::SetCancelRequested(false);
 	CurrentStatus = EGeneratorStatus::Generating;
-	Concurrency::SetCancelRequested(false);
 
 	// Read everything we need from the component on the game thread, then only use these copies
 	TWeakObjectPtr<ULCPositionBasedGeneration> WeakPBG;
@@ -239,7 +239,7 @@ bool ILCGenerator::DeleteGeneratedObjects_GameThread(bool bSkipPrompt)
 
 	if (GeneratedObjects.Num() == 0)
 	{
-		CurrentStatus = EGeneratorStatus::Idle;
+		if (CurrentStatus != EGeneratorStatus::Generating) CurrentStatus = EGeneratorStatus::Idle;
 		return true;
 	}
 
@@ -305,7 +305,7 @@ bool ILCGenerator::DeleteGeneratedObjects_GameThread(bool bSkipPrompt)
 		}
 	}
 
-	CurrentStatus = EGeneratorStatus::Idle;
+	if (CurrentStatus != EGeneratorStatus::Generating) CurrentStatus = EGeneratorStatus::Idle;
 	return true;
 }
 

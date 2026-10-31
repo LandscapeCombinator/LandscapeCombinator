@@ -338,7 +338,7 @@ void AOGRGeometry::HideGeometryPreview()
 
 bool AOGRGeometry::Cleanup_Implementation(bool bSkipPrompt)
 {
-	Concurrency::SetCancelRequested(false);
+	if (GetGeneratorStatus() != EGeneratorStatus::Generating) Concurrency::SetCancelRequested(false);
 	TWeakObjectPtr<AOGRGeometry> WeakThis(this);
 
 	if (!Concurrency::RunOnGameThreadAndWait([WeakThis]() {

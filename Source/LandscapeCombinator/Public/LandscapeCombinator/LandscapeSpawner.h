@@ -322,7 +322,7 @@ public:
 
 	virtual bool Cleanup_Implementation(bool bSkipPrompt) override
 	{
-		Concurrency::SetCancelRequested(false);
+	if (GetGeneratorStatus() != EGeneratorStatus::Generating) Concurrency::SetCancelRequested(false);
 		Modify();
 
 		if (DeleteGeneratedObjects(bSkipPrompt))

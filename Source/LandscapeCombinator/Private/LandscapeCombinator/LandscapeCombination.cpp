@@ -121,7 +121,7 @@ bool ALandscapeCombination::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 
 bool ALandscapeCombination::Cleanup_Implementation(bool bSkipPrompt)
 {
-	Concurrency::SetCancelRequested(false);
+	if (GetGeneratorStatus() != EGeneratorStatus::Generating) Concurrency::SetCancelRequested(false);
 	Modify();
 
 	for (auto &GeneratorWrapper: Generators)
