@@ -147,7 +147,7 @@ public:
 
 	UFUNCTION(CallInEditor, Category = "GDALImporter")
 	void Import() {
-		Concurrency::RunAsync([this]() { Generate(SpawnedActorsPath, true); });
+		GenerateFromGameThread(SpawnedActorsPath, true);
 	}
 
 	UFUNCTION(CallInEditor, Category = "GDALImporter")

@@ -105,7 +105,7 @@ public:
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Buildings",
 		meta = (DisplayName = "Generate Buildings", DisplayPriority = "101")
 	)
-	void GenerateBuildingsEditor() { GenerateBuildings(FName(), true); }
+	void GenerateBuildingsEditor() { GenerateFromGameThread(FName(), true); }
 
 	virtual bool OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated) override;
 

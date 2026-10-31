@@ -1615,8 +1615,9 @@ bool ABuilding::InitializeWallSegments()
 
 void ABuilding::GenerateBuilding()
 {
+	if (GetGeneratorStatus() == EGeneratorStatus::Generating) return;
 	Modify();
-	GenerateBuilding_Internal(SpawnedActorsPath);
+	GenerateFromGameThread(SpawnedActorsPath, true);
 }
 
 bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)

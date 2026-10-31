@@ -104,7 +104,7 @@ public:
 		meta = (DisplayPriority = "10")
 	)
 	void CreateDecals() { 
-		Concurrency::RunAsync([this]() { Generate(SpawnedActorsPath, true); });
+		GenerateFromGameThread(SpawnedActorsPath, true);
 	}
 	
 	/* Delete all decal actors asoociated with this Landscape Texturer */

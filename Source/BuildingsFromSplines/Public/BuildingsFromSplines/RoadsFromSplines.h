@@ -277,7 +277,7 @@ public:
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "RoadsFromSplines",
 		meta = (DisplayName = "Generate Roads", DisplayPriority = "1")
 	)
-	void GenerateRoadsEditor() { GenerateRoads(true); }
+	void GenerateRoadsEditor() { GenerateFromGameThread(FName(), true); }
 
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "RoadsFromSplines",
 		meta = (DisplayPriority = "2", DisplayName = "Clear Roads")
