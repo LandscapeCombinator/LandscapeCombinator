@@ -62,7 +62,7 @@ public:
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
-		meta = (EditCondition = "!bReuseExistingMesh", EditConditionHides, DisplayPriority = "1")
+		meta = (DisplayPriority = "1")
 	)
 	/* Material to apply to the landscape */
 	TObjectPtr<UMaterialInterface> LandscapeMaterial = nullptr;

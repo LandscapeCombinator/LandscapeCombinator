@@ -299,7 +299,14 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 			{
 				LandscapeMesh = ExistingMesh.Get();
 				if (!IsValid(LandscapeMesh)) return false;
-				return LandscapeMesh->AddHeightmap(WeakThis->HeightmapPriority, ThisFileCoordinates, GlobalCoordinates, OutputFile, OwnerName);
+				if (!LandscapeMesh->AddHeightmap(WeakThis->HeightmapPriority, ThisFileCoordinates, GlobalCoordinates, OutputFile, OwnerName)) return false;
+				if (IsValid(WeakThis->LandscapeMaterial)) LandscapeMesh->MeshComponent->SetMaterial(0, WeakThis->LandscapeMaterial);
+				if (!WeakThis->SpawnedLandscapeMeshesTag.IsNone() && !LandscapeMesh->Tags.Contains(WeakThis->SpawnedLandscapeMeshesTag))
+				{
+					LandscapeMesh->Modify();
+					LandscapeMesh->Tags.Add(WeakThis->SpawnedLandscapeMeshesTag);
+				}
+				return true;
 			}
 
 			UWorld *World = WeakThis->GetWorld();
