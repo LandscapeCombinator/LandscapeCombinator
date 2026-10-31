@@ -61,7 +61,7 @@ class IMAGEDOWNLOADER_API UImageDownloader : public UActorComponent
 public:
 	UImageDownloader();
 
-	bool ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY);
+	bool ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY, int PaddingPx = 0);
 
 	/**********************
 	 *  Heightmap Source  *

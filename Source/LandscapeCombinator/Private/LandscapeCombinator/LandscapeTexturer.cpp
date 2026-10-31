@@ -57,16 +57,16 @@ bool ALandscapeTexturer::CreateDecals(TObjectPtr<UGlobalCoordinates> GlobalCoord
 	TArray<ADecalActor*> NewDecals = UDecalCoordinates::CreateDecals(GetWorld(), DecalMaterial, DownloadedImages);
 	DecalActors.Append(NewDecals);
 
-#if WITH_EDITOR
 	Concurrency::RunOnGameThreadAndWait([this, &NewDecals, SpawnedActorsPathOverride](){
 		for (auto &DecalActor : NewDecals)
 		{
+#if WITH_EDITOR
 			ULCBlueprintLibrary::SetFolderPath2(DecalActor, SpawnedActorsPathOverride, SpawnedActorsPath);
-			DecalActor->GetDecal()->SortOrder = DecalsSortOrder;
+#endif
+			DecalActor->GetDecal()->SetSortOrder(DecalsSortOrder);
 		}
 		return true;
 	});
-#endif
 
 	if (bIsUserInitiated)
 	{

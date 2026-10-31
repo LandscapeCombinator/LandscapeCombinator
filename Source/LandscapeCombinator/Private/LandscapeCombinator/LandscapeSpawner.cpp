@@ -601,7 +601,7 @@ bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 					{
 						ULCBlueprintLibrary::SetFolderPath2(DecalActor, SpawnedActorsPathOverride, SpawnedActorsPath);
 						DecalActor->GetDecal()->Modify();
-						DecalActor->GetDecal()->SortOrder = DecalsSortOrder;
+						DecalActor->GetDecal()->SetSortOrder(DecalsSortOrder);
 						DecalActor->GetDecal()->MarkRenderStateDirty();
 					}
 				}

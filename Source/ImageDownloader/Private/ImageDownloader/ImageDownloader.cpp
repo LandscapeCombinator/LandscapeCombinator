@@ -57,7 +57,7 @@ UImageDownloader::UImageDownloader()
 	PreprocessingTool = CreateDefaultSubobject<UExternalTool>(TEXT("Preprocessing Tool"));
 }
 
-bool UImageDownloader::ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY)
+bool UImageDownloader::ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY, int PaddingPx)
 {
 	if (IsXYZ())
 	{
@@ -77,6 +77,7 @@ bool UImageDownloader::ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY,
 
 		FVector4d Coordinates3857(MinLong3857, MaxLong3857, MinLat3857, MaxLat3857);
 		FVector4d CoordinatesWMS;
+		const double PaddingUnits = WMS_ResolutionPixelsPerUnit > 0 ? PaddingPx / WMS_ResolutionPixelsPerUnit : 0;
 
 		if (!GDALInterface::ConvertCoordinates(Coordinates3857, /*bCrop=*/false, CoordinatesWMS, "EPSG:3857", WMS_CRS))
 		{
@@ -92,10 +93,18 @@ bool UImageDownloader::ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY,
 			return false;
 		}
 
-		WMS_MinLong = CoordinatesWMS[0];
-		WMS_MaxLong = CoordinatesWMS[1];
-		WMS_MinLat  = CoordinatesWMS[2];
-		WMS_MaxLat  = CoordinatesWMS[3];
+		WMS_MinLong = CoordinatesWMS[0] - PaddingUnits;
+		WMS_MaxLong = CoordinatesWMS[1] + PaddingUnits;
+		WMS_MinLat  = CoordinatesWMS[2] - PaddingUnits;
+		WMS_MaxLat  = CoordinatesWMS[3] + PaddingUnits;
+
+		if (WMS_MinAllowedLong != 0 && WMS_MaxAllowedLong != 0 && WMS_MinAllowedLat != 0 && WMS_MaxAllowedLat != 0)
+		{
+			WMS_MinLong = FMath::Max(WMS_MinLong, WMS_MinAllowedLong);
+			WMS_MaxLong = FMath::Min(WMS_MaxLong, WMS_MaxAllowedLong);
+			WMS_MinLat  = FMath::Max(WMS_MinLat, WMS_MinAllowedLat);
+			WMS_MaxLat  = FMath::Min(WMS_MaxLat, WMS_MaxAllowedLat);
+		}
 
 		ParametersSelection.ParametersSelectionMethod = EParametersSelectionMethod::Manual;
 		return true;
@@ -437,7 +446,7 @@ HMFetcher* UImageDownloader::CreateFetcher(
 
 	if (GlobalCoordinates)
 	{
-		Result = Result->AndThen(new HMDebugFetcher("Reproject", new HMReproject(Name, GlobalCoordinates->CRS)));
+		Result = Result->AndThen(new HMDebugFetcher("Reproject", new HMReproject(Name, GlobalCoordinates->CRS, bEnsureOneBand)));
 	}
 
 	if (bMergeImages)
@@ -904,6 +913,14 @@ void UImageDownloader::OnLayerChanged()
 		WMS_MaxAllowedLong = WMS_Provider.MaxYs[LayerIndex];
 		WMS_MinAllowedLat = WMS_Provider.MinXs[LayerIndex];
 		WMS_MaxAllowedLat = WMS_Provider.MaxXs[LayerIndex];
+	}
+	if (CanAutoSetResolution())
+	{
+		// IGN works with whole units (see AutoSetResolution), so we shrink the allowed extent to whole units
+		WMS_MinAllowedLong = FMath::CeilToDouble(WMS_MinAllowedLong);
+		WMS_MaxAllowedLong = FMath::FloorToDouble(WMS_MaxAllowedLong);
+		WMS_MinAllowedLat = FMath::CeilToDouble(WMS_MinAllowedLat);
+		WMS_MaxAllowedLat = FMath::FloorToDouble(WMS_MaxAllowedLat);
 	}
 	WMS_SearchCRS = FString::Format(TEXT("https://duckduckgo.com/?q={0}+site%3Aepsg.io"), { WMS_CRS });
 	WMS_Abstract = WMS_Provider.Abstracts[LayerIndex];

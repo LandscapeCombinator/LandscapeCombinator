@@ -29,7 +29,7 @@ public:
 	
 	virtual bool ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY) override
 	{
-		if (IsValid(ImageDownloader)) return ImageDownloader->ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY);
+		if (IsValid(ImageDownloader)) return ImageDownloader->ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY, 2);
 		else
 		{
 			LCReporter::ShowError(LOCTEXT("Error", "ImageDownloader is not set"));

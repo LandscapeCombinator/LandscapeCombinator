@@ -21,7 +21,7 @@ bool HMReproject::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 	}
 
 	FString ReprojectedFile = FPaths::Combine(OutputDir, Name + ".tif");
-	if (GDALInterface::Warp(InputFiles, ReprojectedFile, InputCRS, OutputCRS, true, 0))
+	if (GDALInterface::Warp(InputFiles, ReprojectedFile, InputCRS, OutputCRS, bCrop, 0))
 	{	
 		OutputFiles.Add(ReprojectedFile);
 		return true;

@@ -9,7 +9,7 @@
 class HMReproject : public HMFetcher
 {
 public:
-	HMReproject(FString Name0, FString CRSReprojection) : Name(Name0)
+	HMReproject(FString Name0, FString CRSReprojection, bool bCrop0 = true) : Name(Name0), bCrop(bCrop0)
 	{
 		OutputCRS = CRSReprojection;
 	};
@@ -27,6 +27,7 @@ public:
 
 private:
 	FString Name;
+	bool bCrop;
 };
 
 #undef LOCTEXT_NAMESPACE

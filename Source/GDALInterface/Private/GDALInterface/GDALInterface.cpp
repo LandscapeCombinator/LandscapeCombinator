@@ -989,6 +989,7 @@ bool GDALInterface::Warp(FString SourceFile, FString TargetFile, FString InCRS, 
 	Args.Add(TCHAR_TO_UTF8(*OutCRS));
 	Args.Add("-dstnodata");
 	Args.Add(TCHAR_TO_UTF8(*FString::SanitizeFloat(NoData)));
+	if (!bCrop) Args.Add("-dstalpha");
 
 	if (bCrop)
 	{
