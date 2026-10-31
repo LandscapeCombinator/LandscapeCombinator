@@ -23,10 +23,7 @@ void UNodeGenerator::Activate()
 {
 	if (Generator.GetInterface())
 	{
-		Concurrency::RunAsync([this]() {
-			bool bSuccess = Generator.GetInterface()->Generate(SpawnedActorsPath, true);
-			TaskComplete(bSuccess);
-		});
+		Generator.GetInterface()->GenerateFromGameThread(SpawnedActorsPath, true, [this](bool bSuccess) { TaskComplete(bSuccess); });
 	}
 }
 

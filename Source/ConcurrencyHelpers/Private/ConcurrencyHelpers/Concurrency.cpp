@@ -129,7 +129,7 @@ void Concurrency::RunOnGameThread(TFunction<void()> Action)
 	#endif
 }
 
-void Concurrency::RunOnGameThreadThrottled(TFunction<void()> Action)
+static void EnqueueThrottled(TFunction<void()> Action)
 {
 	if (IsEngineExitRequested()) return;
 
@@ -152,7 +152,12 @@ void Concurrency::RunOnGameThreadThrottled(TFunction<void()> Action)
 		}
 	}
 
-	GThrottledActions.Enqueue(MakeExitSafe(MoveTemp(Action)));
+	GThrottledActions.Enqueue(MoveTemp(Action));
+}
+
+void Concurrency::RunOnGameThreadThrottled(TFunction<void()> Action)
+{
+	EnqueueThrottled(MakeExitSafe(MoveTemp(Action)));
 }
 
 bool Concurrency::RunOnThreadAndWait(bool bRunOnGameThread, TFunction<bool()> Action)
@@ -230,7 +235,7 @@ bool Concurrency::RunOnGameThreadThrottledAndWait(TFunction<bool()> Action)
 	TSharedRef<bool, ESPMode::ThreadSafe> bSuccess = MakeShared<bool, ESPMode::ThreadSafe>(false);
 	TFunction<bool()> SafeAction = MakeExitSafeBool(MoveTemp(Action));
 
-	RunOnGameThreadThrottled([SafeAction = MoveTemp(SafeAction), bSuccess, SyncEvent]()
+	EnqueueThrottled([SafeAction = MoveTemp(SafeAction), bSuccess, SyncEvent]()
 	{
 		*bSuccess = SafeAction();
 		SyncEvent->Trigger();

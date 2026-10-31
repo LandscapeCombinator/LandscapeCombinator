@@ -724,30 +724,19 @@ bool ALandscapeMesh::RegenerateMesh(double SplitNormalsAngle, EGridSplitDirectio
 	{
 		TRACE_CPUPROFILER_EVENT_SCOPE_STR("ALandscapeMesh::RegenerateMesh::ComputeSplitNormals");
 
-		UDynamicMesh* ScratchMesh = nullptr;
+		TStrongObjectPtr<UDynamicMesh> ScratchMesh;
 		bool bAllocated = Concurrency::RunOnGameThreadAndWait([&ScratchMesh]() {
-			ScratchMesh = NewObject<UDynamicMesh>();
-			if (IsValid(ScratchMesh))
-			{
-				ScratchMesh->AddToRoot(); // no GC
-				return true;
-			}
-			return false;
+			ScratchMesh.Reset(NewObject<UDynamicMesh>());
+			return ScratchMesh.IsValid();
 		});
 		if (!bAllocated) return false;
-		if (!IsValid(ScratchMesh)) return false;
+		if (!ScratchMesh.IsValid()) return false;
 
 		ScratchMesh->GetMeshRef() = MoveTemp(NewMesh);
 		UGeometryScriptLibrary_MeshNormalsFunctions::ComputeSplitNormals(
-			ScratchMesh, FGeometryScriptSplitNormalsOptions(), FGeometryScriptCalculateNormalsOptions()
+			ScratchMesh.Get(), FGeometryScriptSplitNormalsOptions(), FGeometryScriptCalculateNormalsOptions()
 		);
 		NewMesh = MoveTemp(ScratchMesh->GetMeshRef());
-		Concurrency::RunOnGameThread([ScratchMesh]() {
-			if (IsValid(ScratchMesh))
-			{
-				ScratchMesh->RemoveFromRoot();
-			}
-		});
 	}
 
 	TSharedPtr<FDynamicMesh3, ESPMode::ThreadSafe> NewMeshPtr =

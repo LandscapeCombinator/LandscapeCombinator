@@ -1,6 +1,7 @@
 // Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "BuildingsFromSplines/RoadsFromSplines.h"
+#include "UObject/StrongObjectPtr.h"
 
 #include "LCCommon/LCBlueprintLibrary.h"
 #include "ConcurrencyHelpers/Concurrency.h"
@@ -413,8 +414,7 @@ void ARoadsFromSplines::FillJunctionInterior(int32 JunctionNode, TArray<FVector>
 
 	UDynamicMeshComponent* FillComponent = JunctionFillMeshComponents[JunctionNode];
 
-	UDynamicMesh* ScratchMesh = NewObject<UDynamicMesh>();
-	ScratchMesh->AddToRoot(); // no GC
+	TStrongObjectPtr<UDynamicMesh> ScratchMesh(NewObject<UDynamicMesh>());
 	const uint32 ThisGeneration = ++JunctionFillGeneration.FindOrAdd(JunctionNode);
 	const double FillHeight = JunctionFillHeight;
 	const double UVScale = DefaultRoadMeshLength * FillJunctionUVScale;
@@ -427,7 +427,7 @@ void ARoadsFromSplines::FillJunctionInterior(int32 JunctionNode, TArray<FVector>
 		TRACE_CPUPROFILER_EVENT_SCOPE_STR("ARoadsFromSplines::FillJunctionInterior::Async");
 
 		UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSimpleExtrudePolygon(
-			ScratchMesh, FGeometryScriptPrimitiveOptions(), FTransform(FVector(0, 0, MinZ - FillHeight)), Boundary2D, FillHeight);
+			ScratchMesh.Get(), FGeometryScriptPrimitiveOptions(), FTransform(FVector(0, 0, MinZ - FillHeight)), Boundary2D, FillHeight);
 
 		FGeometryScriptRemeshOptions RemeshOptions;
 		RemeshOptions.MeshBoundaryConstraint = EGeometryScriptRemeshEdgeConstraintType::Fixed;
@@ -438,7 +438,7 @@ void ARoadsFromSplines::FillJunctionInterior(int32 JunctionNode, TArray<FVector>
 		FGeometryScriptUniformRemeshOptions UniformOptions;
 		UniformOptions.TargetType = EGeometryScriptUniformRemeshTargetType::TargetEdgeLength;
 		UniformOptions.TargetEdgeLength = 200;
-		UGeometryScriptLibrary_RemeshingFunctions::ApplyUniformRemesh(ScratchMesh, RemeshOptions, UniformOptions);
+		UGeometryScriptLibrary_RemeshingFunctions::ApplyUniformRemesh(ScratchMesh.Get(), RemeshOptions, UniformOptions);
 
 		const int32 N = Boundary2D.Num();
 		auto HeightAt = [&](const FVector2D& P)
@@ -466,19 +466,17 @@ void ARoadsFromSplines::FillJunctionInterior(int32 JunctionNode, TArray<FVector>
 		FTransform ProjectionTransform = FTransform::Identity;
 		ProjectionTransform.SetScale3D(FVector(UVScale));
 		UGeometryScriptLibrary_MeshUVFunctions::SetMeshUVsFromPlanarProjection(
-			ScratchMesh, 0, ProjectionTransform, FGeometryScriptMeshSelection());
+			ScratchMesh.Get(), 0, ProjectionTransform, FGeometryScriptMeshSelection());
 
-		UGeometryScriptLibrary_MeshNormalsFunctions::RecomputeNormals(ScratchMesh, FGeometryScriptCalculateNormalsOptions());
+		UGeometryScriptLibrary_MeshNormalsFunctions::RecomputeNormals(ScratchMesh.Get(), FGeometryScriptCalculateNormalsOptions());
 
 		Concurrency::RunOnGameThreadThrottled([WeakThis, WeakFill, ScratchMesh, JunctionNode, ThisGeneration]()
 		{
 			TRACE_CPUPROFILER_EVENT_SCOPE_STR("ARoadsFromSplines::FillJunctionInterior::Commit");
 
-			ON_SCOPE_EXIT { if (IsValid(ScratchMesh)) ScratchMesh->RemoveFromRoot(); };
-
 			ARoadsFromSplines* StrongThis = WeakThis.Get();
 			UDynamicMeshComponent* Fill = WeakFill.Get();
-			if (!IsValid(StrongThis) || !IsValid(Fill) || !IsValid(StrongThis->GetWorld()) || !IsValid(ScratchMesh)) return;
+			if (!IsValid(StrongThis) || !IsValid(Fill) || !IsValid(StrongThis->GetWorld()) || !ScratchMesh.IsValid()) return;
 
 			const uint32* CurrentGeneration = StrongThis->JunctionFillGeneration.Find(JunctionNode);
 			if (!CurrentGeneration || *CurrentGeneration != ThisGeneration) return;
