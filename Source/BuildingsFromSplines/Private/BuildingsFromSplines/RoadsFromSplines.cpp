@@ -669,7 +669,7 @@ bool ARoadsFromSplines::GenerateRoads(bool bIsUserInitiated)
 
 	for (USplineComponent* SplineComponent : FoundSplines)
 	{
-		if (!IsValid(SplineComponent)) return false;
+		if (!IsValid(SplineComponent) || Concurrency::IsCancelRequested()) return false;
 		if (SplineToEdgeIndices.Contains(SplineComponent)) continue;
 
 		TArray<FVector> Points;
