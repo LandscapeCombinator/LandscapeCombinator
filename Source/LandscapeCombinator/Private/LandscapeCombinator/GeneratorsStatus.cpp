@@ -327,15 +327,22 @@ uint32 UGeneratorsStatus::ComputeSignature() const
 
 	for (TActorIterator<AActor> It(World); It; ++It)
 	{
-		Hash = HashCombine(Hash, GetTypeHash(*It));
-		Hash = HashCombine(Hash, GetTypeHash(It->GetActorNameOrLabel()));
-		if (const ALandscapeCombination* Combination = Cast<ALandscapeCombination>(*It))
+		AActor* Actor = *It;
+		if (!IsValid(Actor)) continue;
+
+		if (const ALandscapeCombination* Combination = Cast<ALandscapeCombination>(Actor))
 		{
+			Hash = HashCombine(Hash, GetTypeHash(Actor));
+			Hash = HashCombine(Hash, GetTypeHash(Actor->GetActorNameOrLabel()));
 			for (const FGeneratorWrapper& Wrapper : Combination->Generators)
 			{
 				Hash = HashCombine(Hash, GetTypeHash(Wrapper.Generator.Get()));
 				Hash = HashCombine(Hash, GetTypeHash((int32) Wrapper.bIsEnabled));
 			}
+		}
+		else if (Actor->Implements<ULCGenerator>() && !IsGeneratorExcluded(Actor))
+		{
+			Hash = HashCombine(Hash, GetTypeHash(Actor));
 		}
 	}
 	return Hash;
