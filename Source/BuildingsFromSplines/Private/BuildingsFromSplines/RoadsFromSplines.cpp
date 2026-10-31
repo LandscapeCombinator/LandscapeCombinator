@@ -565,6 +565,16 @@ TArray<UObject*> ARoadsFromSplines::GetGeneratedObjects() const
 	for (auto &[i, DynamicMeshComponent] : JunctionFillMeshComponents)
 		GeneratedObjects.Add(DynamicMeshComponent);
 
+	TArray<USplineMeshComponent*> OwnedSplineMeshes;
+	GetComponents<USplineMeshComponent>(OwnedSplineMeshes);
+	for (USplineMeshComponent* Component : OwnedSplineMeshes)
+		if (IsValid(Component)) GeneratedObjects.AddUnique(Component);
+
+	TArray<UDynamicMeshComponent*> OwnedDynamicMeshes;
+	GetComponents<UDynamicMeshComponent>(OwnedDynamicMeshes);
+	for (UDynamicMeshComponent* Component : OwnedDynamicMeshes)
+		if (IsValid(Component)) GeneratedObjects.AddUnique(Component);
+
 	return GeneratedObjects;
 }
 
