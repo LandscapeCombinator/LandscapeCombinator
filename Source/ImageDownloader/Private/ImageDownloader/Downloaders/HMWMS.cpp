@@ -70,6 +70,8 @@ bool HMWMS::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 			return false;
 		}
 
+		if (bResolutionWasCapped) WMS_ResolutionPixelsPerUnit = ActualResolution;
+
 		if (WMS_Provider.CreateURL(Width, Height, WMS_Name, WMS_CRS, WMS_X_IsLong,
 								WMS_MinAllowedLong, WMS_MaxAllowedLong, WMS_MinAllowedLat, WMS_MaxAllowedLat,
 								WMS_MinLong, WMS_MaxLong, WMS_MinLat, WMS_MaxLat, URL, bGeoTiff, FileExt))
