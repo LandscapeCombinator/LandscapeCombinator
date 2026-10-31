@@ -26,7 +26,8 @@ public:
         double InMinLat,
         double InMaxLat,
         bool InSingleTile,
-        double &InResolutionPixelsPerUnit
+        double &InResolutionPixelsPerUnit,
+        bool InMaxResolution
     ) :
         WMS_Provider(InWMS_Provider),
         bEnableParallelDownload(bEnableParallelDownload0),
@@ -44,7 +45,8 @@ public:
         WMS_MinLat(InMinLat),
         WMS_MaxLat(InMaxLat),
         bWMSSingleTile(InSingleTile),
-        WMS_ResolutionPixelsPerUnit(InResolutionPixelsPerUnit)
+        WMS_ResolutionPixelsPerUnit(InResolutionPixelsPerUnit),
+        bWMS_MaxResolution(InMaxResolution)
     {
     }
 
@@ -68,4 +70,5 @@ protected:
     double WMS_MaxLat;
     bool bWMSSingleTile;
     double &WMS_ResolutionPixelsPerUnit;
+    bool bWMS_MaxResolution;
 };

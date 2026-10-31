@@ -417,7 +417,7 @@ public:
 		)
 	)
 	/* Enter desired width for the downloaded heightmap tiles from the WMS API. Smaller or equal than WMS_MaxWidth. */
-	int WMS_MaxTileWidth = 5000;
+	int WMS_MaxTileWidth = 1000;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
@@ -427,13 +427,23 @@ public:
 		)
 	)
 	/* Enter desired height for the downloaded heightmap tiles from the WMS API. Smaller or equal than WMS_MaxHeight. */
-	int WMS_MaxTileHeight = 5000;
+	int WMS_MaxTileHeight = 1000;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS() && (!CanAutoSetResolution() || !bAutoSetResolution)",
+			EditCondition = "IsWMS() && bWMSSingleTile && (!CanAutoSetResolution() || !bAutoSetResolution)",
 			EditConditionHides, DisplayPriority = "50"
+		)
+	)
+	/* Download at the highest resolution allowed by the maximum tile size. */
+	bool bWMS_MaxResolution = true;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
+		meta = (
+			EditCondition = "IsWMS() && (!CanAutoSetResolution() || !bAutoSetResolution) && (!bWMSSingleTile || !bWMS_MaxResolution)",
+			EditConditionHides, DisplayPriority = "51"
 		)
 	)
 	/* Enter the number of pixels per units (the higher the number, the higher the resolution). */

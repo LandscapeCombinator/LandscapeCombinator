@@ -248,7 +248,8 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(bool bIsUserInitiated, FString
 					WMS_Name, WMS_CRS, WMS_X_IsLong,
 					WMS_MinAllowedLong, WMS_MaxAllowedLong, WMS_MinAllowedLat, WMS_MaxAllowedLat,
 					WMS_MinLong, WMS_MaxLong, WMS_MinLat, WMS_MaxLat,
-					bWMSSingleTile, WMS_ResolutionPixelsPerUnit
+					bWMSSingleTile, WMS_ResolutionPixelsPerUnit,
+					bWMSSingleTile && bWMS_MaxResolution && (!CanAutoSetResolution() || !bAutoSetResolution)
 				);
 
 				if (!WMSFetcher) return nullptr;

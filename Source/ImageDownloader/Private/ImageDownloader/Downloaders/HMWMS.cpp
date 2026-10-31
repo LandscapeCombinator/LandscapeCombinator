@@ -27,6 +27,9 @@ bool HMWMS::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 	TArray<FVector4d> Bounds;
 	TArray<FString> FileNames;
 
+	if (bWMS_MaxResolution)
+		WMS_ResolutionPixelsPerUnit = FMath::Min(WMS_MaxTileWidth / (WMS_MaxLong - WMS_MinLong), WMS_MaxTileHeight / (WMS_MaxLat - WMS_MinLat));
+
 	// Calculate the number of tiles needed based on resolution
 	int NumTilesX = FMath::CeilToInt((WMS_MaxLong - WMS_MinLong) / (WMS_MaxTileWidth / WMS_ResolutionPixelsPerUnit));
 	int NumTilesY = FMath::CeilToInt((WMS_MaxLat - WMS_MinLat) / (WMS_MaxTileHeight / WMS_ResolutionPixelsPerUnit));
@@ -51,7 +54,7 @@ bool HMWMS::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 
 		double ActualResolution = FMath::Min(Width / (WMS_MaxLong - WMS_MinLong), Height / (WMS_MaxLat - WMS_MinLat));
 
-		if (bIsUserInitiated && bResolutionWasCapped && !LCReporter::ShowMessage(
+		if (bIsUserInitiated && bResolutionWasCapped && !bWMS_MaxResolution && !LCReporter::ShowMessage(
 			FText::Format(
 				LOCTEXT(
 					"LowResolutionMessage",
