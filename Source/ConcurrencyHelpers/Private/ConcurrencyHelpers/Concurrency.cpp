@@ -51,7 +51,7 @@ namespace
 	{
 		return [Action = MoveTemp(Action)]()
 		{
-			if (IsEngineExitRequested()) return;
+			if (IsEngineExitRequested() || Concurrency::IsCancelRequested()) return;
 			Action();
 		};
 	}
@@ -60,7 +60,7 @@ namespace
 	{
 		return [Action = MoveTemp(Action)]() -> bool
 		{
-			if (IsEngineExitRequested()) return false;
+			if (IsEngineExitRequested() || Concurrency::IsCancelRequested()) return false;
 			return Action();
 		};
 	}
