@@ -1,4 +1,4 @@
-
+﻿
 // Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "BuildingsFromSplines/BuildingsFromSplines.h"
@@ -12,9 +12,15 @@
 #include "Logging/StructuredLog.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/MessageDialog.h"
-#include "Misc/TransactionCommon.h" 
+#include "Misc/EngineVersionComparison.h"
 #include "Engine/World.h"
 #include "Engine/Engine.h"
+
+#if UE_VERSION_OLDER_THAN(5, 8, 0)
+#include "TransactionCommon.h"
+#else
+#include "Misc/TransactionCommon.h"
+#endif
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(BuildingsFromSplines)
 

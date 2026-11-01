@@ -6,6 +6,7 @@
 
 #include "Landscape.h"
 
+#include "Engine/World.h"
 #include "LevelCoordinates.generated.h"
 
 #define LOCTEXT_NAMESPACE "FCoordinatesModule"

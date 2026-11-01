@@ -1,6 +1,7 @@
 // Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "SplineImporter/OGRGeometry.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "LCCommon/LCBlueprintLibrary.h"
 #include "ConcurrencyHelpers/LCReporter.h"
 #include "ConcurrencyHelpers/Concurrency.h"

@@ -21,6 +21,7 @@ IMPLEMENT_MODULE(FBuildingsFromSplinesModule, BuildingsFromSplines)
 #include "BuildingsFromSplines/AssetLinkCustomization.h"
 #include "BuildingsFromSplines/AssetLink.h"
 #include "Misc/CoreDelegates.h"
+#include "Misc/EngineVersionComparison.h"
 
 void FBuildingsFromSplinesModule::StartupModule()
 {
@@ -30,7 +31,14 @@ void FBuildingsFromSplinesModule::StartupModule()
 		PropertyModule.RegisterCustomPropertyTypeLayout(Name, FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FAssetLinkCustomization::MakeInstance), FAssetLinkCustomization::Identifier());
 
 	if (GUnrealEd) RegisterVisualizer();
-	else PostEngineInitHandle = FCoreDelegates::GetOnPostEngineInit().AddRaw(this, &FBuildingsFromSplinesModule::RegisterVisualizer);
+	else
+	{
+#if UE_VERSION_OLDER_THAN(5, 8, 0)
+		PostEngineInitHandle = FCoreDelegates::OnPostEngineInit.AddRaw(this, &FBuildingsFromSplinesModule::RegisterVisualizer);
+#else
+		PostEngineInitHandle = FCoreDelegates::GetOnPostEngineInit().AddRaw(this, &FBuildingsFromSplinesModule::RegisterVisualizer);
+#endif
+	}
 }
 
 void FBuildingsFromSplinesModule::RegisterVisualizer()
@@ -40,7 +48,11 @@ void FBuildingsFromSplinesModule::RegisterVisualizer()
 
 void FBuildingsFromSplinesModule::ShutdownModule()
 {
+#if UE_VERSION_OLDER_THAN(5, 8, 0)
+	FCoreDelegates::OnPostEngineInit.Remove(PostEngineInitHandle);
+#else
 	FCoreDelegates::GetOnPostEngineInit().Remove(PostEngineInitHandle);
+#endif
 
 	if (GUnrealEd) GUnrealEd->UnregisterComponentVisualizer(UOpeningsVisualizerComponent::StaticClass()->GetFName());
 

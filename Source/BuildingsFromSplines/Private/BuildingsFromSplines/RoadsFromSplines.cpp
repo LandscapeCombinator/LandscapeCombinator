@@ -1,6 +1,8 @@
 // Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "BuildingsFromSplines/RoadsFromSplines.h"
+#include "TimerManager.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "UObject/StrongObjectPtr.h"
 
 #include "LCCommon/LCBlueprintLibrary.h"

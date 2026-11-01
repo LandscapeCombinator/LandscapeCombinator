@@ -1,4 +1,5 @@
 #include "BuildingsFromSplines/RoadGraph.h"
+#include "BuildingsFromSplines/LogBuildingsFromSplines.h"
 
 namespace
 {

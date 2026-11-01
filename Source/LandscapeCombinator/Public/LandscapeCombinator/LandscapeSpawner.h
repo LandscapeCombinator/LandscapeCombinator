@@ -20,6 +20,7 @@
 #include "LandscapeStreamingProxy.h"
 #include "HAL/ThreadManager.h"
 
+#include "Materials/Material.h"
 #include "LandscapeSpawner.generated.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"

@@ -11,6 +11,7 @@
 #include "Landscape.h"
 #include "Engine/DecalActor.h"
 
+#include "Materials/Material.h"
 #include "LandscapeTexturer.generated.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"

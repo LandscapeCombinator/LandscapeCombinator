@@ -123,7 +123,7 @@ function New-Archive {
         $PackagePath = Resolve-Path("Package_$Plugin")
         Write-Output "UPlugin Path: $UPluginPath"
         Write-Output "Package Path: $PackagePath"
-        & "${UEFolder}Engine\Build\BatchFiles\RunUAT.bat" BuildPlugin -TargetPlatforms=Win64+Linux -Plugin="$UPluginPath" -Package="$PackagePath" -Rocket
+        & (Join-Path $UEFolder "Engine\Build\BatchFiles\RunUAT.bat") BuildPlugin -TargetPlatforms=Win64+Linux -Plugin="$UPluginPath" -Package="$PackagePath" -Rocket
         $Attempts = 0
         while ($Attempts -lt 6)
         {
@@ -198,7 +198,7 @@ function Update-Transitive {
 
 function Write-Graph {
     param(
-        [HashTable]$Graph        
+        [HashTable]$Graph
     )
 
     foreach ($Key in $Graph.Keys)

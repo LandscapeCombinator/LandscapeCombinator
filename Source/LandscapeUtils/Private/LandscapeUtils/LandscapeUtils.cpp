@@ -1,6 +1,7 @@
 // Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #include "LandscapeUtils/LandscapeUtils.h"
+#include "Engine/Level.h"
 #include "LandscapeUtils/LogLandscapeUtils.h"
 #include "ConcurrencyHelpers/Concurrency.h"
 #include "ConcurrencyHelpers/LCReporter.h"

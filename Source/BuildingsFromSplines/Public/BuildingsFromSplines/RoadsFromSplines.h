@@ -10,6 +10,7 @@
 
 #include "Components/SplineComponent.h"
 #include "Components/SplineMeshComponent.h"
+#include "Components/DynamicMeshComponent.h"
 
 #include "RoadsFromSplines.generated.h"
 

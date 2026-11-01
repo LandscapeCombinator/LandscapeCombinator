@@ -3,6 +3,7 @@
 #if WITH_EDITOR
 
 #include "BuildingsFromSplines/AssetLinkCustomization.h"
+#include "Misc/EngineVersionComparison.h"
 #include "BuildingsFromSplines/AssetLink.h"
 
 #include "DetailWidgetRow.h"
@@ -117,6 +118,7 @@ void FAssetLinkCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> Hand
 	Args.bHideSelectionTip = true;
 	Args.bAllowFavoriteSystem = false;
 
+#if !UE_VERSION_OLDER_THAN(5, 8, 0)
 	for (TFieldIterator<FProperty> It(Target->GetClass()); It; ++It)
 	{
 		if (!It->HasAnyPropertyFlags(CPF_Edit) || !AssetLink::IsLinkable(It->GetOwnerClass())) continue;
@@ -126,6 +128,7 @@ void FAssetLinkCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> Hand
 		if (Category.FindChar('|', Bar)) Category.LeftInline(Bar);
 		if (!Category.IsEmpty()) Args.InitialCategories.Add(FName(*Category));
 	}
+#endif
 
 	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 	TSharedRef<IDetailsView> View = PropertyModule.CreateDetailView(Args);
