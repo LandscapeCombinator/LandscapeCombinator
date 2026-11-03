@@ -1,4 +1,4 @@
-// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
+﻿// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
 
 #pragma once
 
@@ -191,37 +191,11 @@ public:
 	)
 	double IntersectionSize = 500.0f;
 
-	/* Corner fillets between two roads meeting at an angle sharper than this are skipped. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Junctions",
-		meta = (DisplayPriority = "2", ClampMin = "0", ClampMax = "180")
-	)
-	double MinCornerAngleDegrees = 30;
-
-	/* Distance from the road centerline to the inner (junction-facing) edge of the
-		IntersectionMesh, in cm. IntersectionMesh is usually just a curb/sidewalk strip
-		near the edge of the road, not the full road width, so this is independent of
-		how wide the road actually is -- set it to wherever the near edge of that mesh
-		asset actually sits (e.g. for a 4m road with a 0.7m sidewalk strip starting at
-		the road edge, that's 200 - 70 = 130).
-		Used to align the junction interior fill boundary with the real edge of the
-		spawned intersection meshes, and to find the curb-line point at corners sharp
-		enough to skip a fillet mesh. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Junctions",
-		meta = (DisplayPriority = "3")
-	)
-	double JunctionCurbOffset = 130.0;
-
 	/* How much the corner arcs bulge into the junction. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Junctions",
 		meta = (DisplayPriority = "4")
 	)
-	double CornerStraightness = 5;
-
-	/* Z offset for corner meshes to prevent them from Z-fighting */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Junctions",
-		meta = (DisplayPriority = "5")
-	)
-	double IntersectionStaggerZ = 1;
+	double CornerStraightness = 3;
 
 	/* If true, fill the empty interior of curvy junctions with a mesh that follows the
 	   (possibly sloped) boundary formed by the corner fillet meshes. Ignored in straight-stub mode. */

@@ -9,6 +9,9 @@
 
 #if WITH_EDITOR
 #include "Editor.h"
+#include "Builders/CubeBuilder.h"
+#include "GameFramework/Volume.h"
+#include "ActorFactories/ActorFactory.h"
 #endif
 
 namespace
@@ -280,6 +283,14 @@ void UGeneratorsStatus::HandleAddGeneratorSelection(FString SelectedItem, ESelec
 	}
 
 	AActor* NewActor = TargetWorld->SpawnActor<AActor>(SelectedClass, SpawnLocation, SpawnRotation, SpawnParams);
+#if WITH_EDITOR
+	if (AVolume* Volume = Cast<AVolume>(NewActor))
+	{
+		UCubeBuilder* Builder = NewObject<UCubeBuilder>(GetTransientPackage(), NAME_None, RF_Transactional);
+		Builder->X = Builder->Y = Builder->Z = 200.f;
+		UActorFactory::CreateBrushForVolumeActor(Volume, Builder);
+	}
+#endif
 	if (IsValid(NewActor))
 	{
 		if (IsValid(LandscapeCombination))

@@ -109,7 +109,7 @@ void ARoadsFromSplines::CreateStraightJunctionMeshes(int32 JunctionNode)
         const FVector EndTangent   = Data ? Data->BlendedEndTangent.Get(Edge.EndTangentWorld) : Edge.EndTangentWorld;
         const FVector NearTangent = bStartIsJunction ? StartTangent : -EndTangent;
         const FVector FarTangent  = bStartIsJunction ? EndTangent : -StartTangent;
-        const float CenterZ = ZOffset + (StubIndex - NumArms / 2.f) * IntersectionStaggerZ;
+        const float CenterZ = ZOffset;
 
         FEdgeSplinePoints Points;
         Points.StartLocal = ActorTransform.InverseTransformPosition(Center) + FVector(0, 0, CenterZ);
@@ -181,10 +181,7 @@ void ARoadsFromSplines::CreateCurvyJunctionMeshes(int32 JunctionNode)
 
 	struct FCornerData
 	{
-		bool bSkipped = false;
 		FEdgeSplinePoints Points;
-		FVector StartWorld = FVector::ZeroVector;
-		FVector EndWorld = FVector::ZeroVector;
 	};
 	TArray<FCornerData> Corners;
 
@@ -192,56 +189,21 @@ void ARoadsFromSplines::CreateCurvyJunctionMeshes(int32 JunctionNode)
 	{
 		const int32 j = (i + 1) % NumArms;
 
-		const double CosAngle = FVector::DotProduct(Arms[i].Value, Arms[j].Value);
-		const double AngleDegrees = FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(CosAngle, -1.0, 1.0)));
-
 		FCornerData Corner;
-
-		if (AngleDegrees < MinCornerAngleDegrees)
-		{
-			UE_LOG(LogBuildingsFromSplines, Verbose, TEXT("CreateCurvyJunctionMeshes: skipping fillet between arm %d and %d (angle %.1f < %.1f)"),
-				i, j, AngleDegrees, MinCornerAngleDegrees);
-			FVector UnusedA, UnusedB;
-			Corner.bSkipped = true;
-
-			const FVector RawStart = ArmEndpoint(i, UnusedA);
-			const FVector RawEnd   = ArmEndpoint(j, UnusedB);
-
-			auto OffsetTowards = [&](const FVector& Point, const FVector& Dir, const FVector& Other) -> FVector
-			{
-				const FVector Perp = FVector::CrossProduct(Dir, FVector::UpVector).GetSafeNormal() * (JunctionCurbOffset * WidthScale);
-				const FVector CandidateA = Point + Perp;
-				const FVector CandidateB = Point - Perp;
-				return (FVector::DistSquared(CandidateA, Other) < FVector::DistSquared(CandidateB, Other)) ? CandidateA : CandidateB;
-			};
-
-			Corner.StartWorld = OffsetTowards(RawStart, Arms[i].Value, RawEnd);
-			Corner.EndWorld = OffsetTowards(RawEnd, Arms[j].Value, RawStart);
-
-			UE_LOG(LogBuildingsFromSplines, Verbose, TEXT("CreateCurvyJunctionMeshes: skipping fillet %d->%d (angle %.1f < %.1f); curb-offset points StartWorld=%s EndWorld=%s"),
-				i, j, AngleDegrees, MinCornerAngleDegrees, *Corner.StartWorld.ToString(), *Corner.EndWorld.ToString());
-
-			Corners.Add(Corner);
-			continue;
-		}
 
 		FVector StartDir, EndDir;
 		const FVector StartWorld = ArmEndpoint(i, StartDir);
 		const FVector EndWorld   = ArmEndpoint(j, EndDir);
 
-		UE_LOG(LogBuildingsFromSplines, Verbose, TEXT("CreateCurvyJunctionMeshes: corner %d->%d (angle %.1f) StartWorld=%s EndWorld=%s"),
-			i, j, AngleDegrees, *StartWorld.ToString(), *EndWorld.ToString());
+		UE_LOG(LogBuildingsFromSplines, Verbose, TEXT("CreateCurvyJunctionMeshes: corner %d->%d StartWorld=%s EndWorld=%s"),
+			i, j, *StartWorld.ToString(), *EndWorld.ToString());
 
 		const double ChordDist = FVector::Dist(StartWorld, EndWorld);
 		const FVector StartTangentWorld = -StartDir * ChordDist * 0.5 * CornerStraightness;
 		const FVector EndTangentWorld   =  EndDir   * ChordDist * 0.5 * CornerStraightness;
 
-		const float StaggerZ = ZOffset + (i - NumArms / 2.f) * IntersectionStaggerZ;
-
-		Corner.StartWorld = StartWorld;
-		Corner.EndWorld = EndWorld;
-		Corner.Points.StartLocal = ActorTransform.InverseTransformPosition(StartWorld) + FVector(0, 0, StaggerZ);
-		Corner.Points.EndLocal   = ActorTransform.InverseTransformPosition(EndWorld)   + FVector(0, 0, StaggerZ);
+		Corner.Points.StartLocal = ActorTransform.InverseTransformPosition(StartWorld) + FVector(0, 0, ZOffset);
+		Corner.Points.EndLocal   = ActorTransform.InverseTransformPosition(EndWorld)   + FVector(0, 0, ZOffset);
 		Corner.Points.StartTangentLocal = ActorTransform.InverseTransformVector(StartTangentWorld);
 		Corner.Points.EndTangentLocal   = ActorTransform.InverseTransformVector(EndTangentWorld);
 		Corners.Add(Corner);
@@ -259,15 +221,6 @@ void ARoadsFromSplines::CreateCurvyJunctionMeshes(int32 JunctionNode)
 
 		for (const FCornerData& Corner : Corners)
 		{
-			if (Corner.bSkipped)
-			{
-				BoundaryWorld.Add(Corner.StartWorld);
-				BoundaryWorld.Add(Corner.EndWorld);
-				UE_LOG(LogBuildingsFromSplines, Verbose, TEXT("FillJunctionInterior: Junction %d boundary += SKIPPED corner raw points %s, %s (now %d pts)"),
-					JunctionNode, *Corner.StartWorld.ToString(), *Corner.EndWorld.ToString(), BoundaryWorld.Num());
-				continue;
-			}
-
 			USplineMeshComponent* Mesh = WeakThis->SpawnSplineMeshComponent(
 				Corner.Points, WeakThis->IntersectionMesh, WeakThis->DefaultIntersectionMeshLength);
 			if (!IsValid(Mesh)) continue;
