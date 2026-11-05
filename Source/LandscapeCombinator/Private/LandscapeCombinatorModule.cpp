@@ -131,6 +131,7 @@ void FLandscapeCombinatorModule::PluginButtonClicked()
 void FLandscapeCombinatorModule::GetPackagesToAlwaysCook(TConstArrayView<const ITargetPlatform*> TargetPlatforms, TArray<FName>& OutPackagesToCook, TArray<FName>& OutPackagesToNeverCook)
 {
 	OutPackagesToCook.AddUnique(TEXT("/LandscapeCombinator/UI/W_GeneratorsStatus"));
+	OutPackagesToCook.AddUnique(TEXT("/LandscapeCombinator/Materials/M_GeoDecal"));
 }
 
 void FLandscapeCombinatorModule::ToggleGeneratorStatusOverlay()

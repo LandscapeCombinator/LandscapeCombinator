@@ -26,12 +26,12 @@ UMaterialInstanceDynamic* UDecalCoordinates::SetDecalTextureFromColors(
 {
     UMaterialInstanceDynamic* MID = nullptr;
     Concurrency::RunOnGameThreadThrottledAndWait([&]() {
-        FCreateTexture2DParameters Params;
-        Params.bUseAlpha = true;
-        Params.CompressionSettings = TC_EditorIcon; // preserves alpha exactly
-
-        UTexture2D* Texture = FImageUtils::CreateTexture2D(
-            Width, Height, Colors, Outer, TextureName, RF_Public | RF_Transactional, Params);
+        UTexture2D* Texture = UTexture2D::CreateTransient(Width, Height, PF_B8G8R8A8, FName(*TextureName));
+        FTexture2DMipMap& Mip = Texture->GetPlatformData()->Mips[0];
+        void* Data = Mip.BulkData.Lock(LOCK_READ_WRITE);
+        FMemory::Memcpy(Data, Colors.GetData(), (SIZE_T) Width * Height * sizeof(FColor));
+        Mip.BulkData.Unlock();
+        Texture->UpdateResource();
         MID = UMaterialInstanceDynamic::Create(Material, Outer);
         MID->SetTextureParameterValue(FName("Texture"), Texture);
         Decal->SetDecalMaterial(MID);
