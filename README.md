@@ -61,12 +61,6 @@ GDAL
 * [GDAL](https://gdal.org/) for all heightmaps transformations (MIT License).
 
 
-GEOS
-----
-
-* [GEOS](https://libgeos.org/) is a core GDAL dependency (LGPL License).
-
-
 EPSG
 ----
 

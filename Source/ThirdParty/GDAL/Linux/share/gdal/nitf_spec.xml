@@ -1,8 +1,6 @@
 <?xml version="1.0"?>
 <!--
 /******************************************************************************
- * $Id$
- *
  * Project:  NITF Library
  * Purpose:  Description of NITF TREs
  * Author:   Even Rouault, <even dot rouault at spatialys.com>
@@ -163,7 +161,7 @@
         <if cond="EXISTENCE_MASK:29">
             <field name="DATA_FLD_2" length="32" type="string"/>
         </if>
-        <if cond="EXISTENCE_MASK:24">
+        <if cond="EXISTENCE_MASK:24 OR EXISTENCE_MASK:23 OR EXISTENCE_MASK:22 OR EXISTENCE_MASK:21 OR EXISTENCE_MASK:20 OR EXISTENCE_MASK:19">
             <field name="WAVE_LENGTH_UNIT" length="1" type="string"/>
         </if>
         <loop counter="COUNT" name="BANDS" md_prefix="BAND_%05d_">
@@ -2579,6 +2577,226 @@
         <field length="6"/>
         <field name="SUN_EL" length="5"/>
         <field name="SUN_AZ" length="5"/>
+    </tre>
+
+    <!-- MIL-STD-2411 page 33 -->
+    <tre name="RPFHDR" location="image" length="48">
+        <field name="LITTLE_BIG_ENDIAN_INDICATOR" length="1" type="UnsignedInt_BigEndian"/>
+        <field name="HEADER_SECTION_LENGTH" length="2" type="UnsignedInt_BigEndian"/>
+        <field name="FILENAME" length="12" type="string"/>
+        <field name="NEW_REPLACEMENT_UPDATE_INDICATOR" length="1" type="UnsignedInt_BigEndian"/>
+        <field name="GOVERNING_STANDARD_NUMBER" length="15" type="string"/>
+        <field name="GOVERNING_STANDARD_DATE" length="8" type="string"/>
+        <field name="SECURITY_CLASSIFICATION" length="1" type="string"/>
+        <field name="SECURITY_COUNTRY_INTERNATIONAL_CODE" length="2" type="string"/>
+        <field name="SECURITY_RELEASE_MARKING" length="2" type="string"/>
+        <field name="LOCATION_SECTION_LOCATION" length="4" type="UnsignedInt_BigEndian"/>
+    </tre>
+
+    <tre name="RPF">
+        <!-- Location section -->
+        <field name="LOCATION_SECTION_LENGTH" length="2" type="UnsignedInt_BigEndian"/>
+        <field name="COMPONENT_LOCATION_OFFSET" length="4" type="UnsignedInt_BigEndian"/>
+        <field name="NUMBER_OF_COMPONENT_LOCATION_RECORDS" length="2" type="UnsignedInt_BigEndian"/>
+        <field name="COMPONENT_LOCATION_RECORD_LENGTH" length="2" type="UnsignedInt_BigEndian"/>
+        <field name="COMPONENT_AGGREGATE_LENGTH" length="4" type="UnsignedInt_BigEndian"/>
+        <loop counter="NUMBER_OF_COMPONENT_LOCATION_RECORDS" name="CLR">
+            <field name="COMPONENT_ID" length="2" type="UnsignedInt_BigEndian"/>
+            <field name="COMPONENT_LENGTH" length="4" type="UnsignedInt_BigEndian"/>
+            <field name="COMPONENT_LOCATION" length="4" type="UnsignedInt_BigEndian"/>
+        </loop>
+
+        <!-- TODO: lots of missing rpf_component and no logic yet in nitfimage to deal with them -->
+
+        <rpf_component id="CoverageSectionSubheader">
+            <field name="NORTHWEST_LATITUDE" length="8" type="IEEE754_Float64_BigEndian"/>
+            <field name="NORTHWEST_LONGITUDE" length="8" type="IEEE754_Float64_BigEndian"/>
+            <field name="SOUTHWEST_LATITUDE" length="8" type="IEEE754_Float64_BigEndian"/>
+            <field name="SOUTHWEST_LONGITUDE" length="8" type="IEEE754_Float64_BigEndian"/>
+            <field name="NORTHEAST_LATITUDE" length="8" type="IEEE754_Float64_BigEndian"/>
+            <field name="NORTHEAST_LONGITUDE" length="8" type="IEEE754_Float64_BigEndian"/>
+            <field name="SOUTHEAST_LATITUDE" length="8" type="IEEE754_Float64_BigEndian"/>
+            <field name="SOUTHEAST_LONGITUDE" length="8" type="IEEE754_Float64_BigEndian"/>
+            <field name="NORTH_SOUTH_VERTICAL_RESOLUTION" length="8" type="IEEE754_Float64_BigEndian"/>
+            <field name="EAST_WEST_HORIZONTAL_RESOLUTION" length="8" type="IEEE754_Float64_BigEndian"/>
+            <field name="LATITUDE_VERTICAL_INTERVAL" length="8" type="IEEE754_Float64_BigEndian"/>
+            <field name="LONGITUDE_HORIZONTAL_INTERVAL" length="8" type="IEEE754_Float64_BigEndian"/>
+        </rpf_component>
+
+        <rpf_component id="CompressionSectionSubsection">
+            <field name="COMPRESSION_ALGORITHM_ID" length="2" type="UnsignedInt_BigEndian"/>
+            <field name="NUMBER_OF_COMPRESSION_LOOKUP_OFFSET_RECORDS" length="2" type="UnsignedInt_BigEndian"/>
+            <field name="NUMBER_OF_COMPRESSION_PARAMETER_OFFSET_RECORDS" length="2" type="UnsignedInt_BigEndian"/>
+        </rpf_component>
+
+        <rpf_component id="CompressionLookupSubsection">
+            <field name="COMPRESSION_LOOKUP_OFFSET_TABLE_OFFSET" length="4" type="UnsignedInt_BigEndian"/>
+            <field name="COMPRESSION_LOOKUP_TABLE_OFFSET_RECORD_LENGTH" length="2" type="UnsignedInt_BigEndian"/>
+            <loop counter="NUMBER_OF_COMPRESSION_LOOKUP_OFFSET_RECORDS" name="COMP_LOOKUP_OFFSET">
+                <field name="COMPRESSION_LOOKUP_TABLE_ID" length="2" type="UnsignedInt_BigEndian"/>
+                <field name="NUMBER_OF_COMPRESSION_LOOKUP_RECORDS" length="4" type="UnsignedInt_BigEndian"/>
+                <field name="NUMBER_OF_VALUES_PER_COMPRESSION_RECORDS" length="2" type="UnsignedInt_BigEndian"/>
+                <field name="COMPRESSION_RECORD_VALUE_BIT_LENGTH" length="2" type="UnsignedInt_BigEndian"/>
+                <field name="COMPRESSION_LOOKUP_TABLE_OFFSET" length="4" type="UnsignedInt_BigEndian"/>
+            </loop>
+            <!-- compression lookup table missing -->
+        </rpf_component>
+
+        <rpf_component id="ColorGrayscaleSectionSubheader">
+            <field name="NUMBER_OF_COLOR_GRAYSCALE_OFFSET_RECORDS" length="1" type="UnsignedInt_BigEndian"/>
+            <field name="NUMBER_OF_COLOR_CONVERTER_OFFSET_RECORDS" length="1" type="UnsignedInt_BigEndian"/>
+            <field name="EXTERNAL_COLOR_GRAYSCALE_FILENAME" length="12" type="string"/>
+        </rpf_component>
+
+        <rpf_component id="ColormapSubsection">
+            <field name="COLORMAP_OFFSET_TABLE_OFFSET" length="4" type="UnsignedInt_BigEndian"/>
+            <field name="COLOR_GRAYSCALE_OFFSET_RECORD_LENGTH" length="2" type="UnsignedInt_BigEndian"/>
+            <loop counter="NUMBER_OF_COLOR_GRAYSCALE_OFFSET_RECORDS" name="COLOR_OFFSET_RECORD">
+                <field name="COLOR_GRAYSCALE_TABLE_ID" length="2" type="UnsignedInt_BigEndian"/>
+                <field name="NUMBER_OF_COLOR_GRAYSCALE_RECORDS" length="4" type="UnsignedInt_BigEndian"/>
+                <field name="COLOR_GRAYSCALE_ELEMENT_LENGTH" length="1" type="UnsignedInt_BigEndian"/>
+                <field name="HISTOGRAM_RECORD_LENGTH" length="2" type="UnsignedInt_BigEndian"/>
+                <field name="COLOR_GRAYSCALE_TABLE_OFFSET" length="4" type="UnsignedInt_BigEndian"/>
+                <field name="HISTOGRAM_TABLE_OFFSET" length="4" type="UnsignedInt_BigEndian"/>
+            </loop>
+            <!-- color/grayscale element group and histogram element group missing -->
+        </rpf_component>
+
+        <rpf_component id="ImageDescriptionSubheader">
+            <field name="NUMBER_OF_SPECTRAL_GROUPS" length="2" type="UnsignedInt_BigEndian"/>
+            <field name="NUMBER_OF_SUBFRAME_TABLES" length="2" type="UnsignedInt_BigEndian"/>
+            <field name="NUMBER_OF_SPECTRAL_BAND_TABLES" length="2" type="UnsignedInt_BigEndian"/>
+            <field name="NUMBER_OF_SPECTRAL_BAND_LINES_PER_IMAGE_ROW" length="2" type="UnsignedInt_BigEndian"/>
+            <field name="NUMBER_OF_SUBFRAME_IN_EAST_WEST_DIRECTION" length="2" type="UnsignedInt_BigEndian"/>
+            <field name="NUMBER_OF_SUBFRAME_IN_NORTH_SOUTH_DIRECTION" length="2" type="UnsignedInt_BigEndian"/>
+            <field name="NUMBER_OF_OUTPUT_COLUMNS_PER_SUBFRAME" length="4" type="UnsignedInt_BigEndian"/>
+            <field name="NUMBER_OF_OUTPUT_ROWS_PER_SUBFRAME" length="4" type="UnsignedInt_BigEndian"/>
+            <field name="SUBFRAME_MASK_TABLE_OFFSET" length="4" type="UnsignedInt_BigEndian"/>
+            <field name="TRANSPARENCY_MASK_TABLE_OFFSET" length="4" type="UnsignedInt_BigEndian"/>
+        </rpf_component>
+
+        <rpf_component id="ImageDisplayParametersSubheader">
+            <field name="NUMBER_OF_IMAGE_ROWS" length="4" type="UnsignedInt_BigEndian"/>
+            <field name="NUMBER_OF_CODES_PER_ROW" length="4" type="UnsignedInt_BigEndian"/>
+            <field name="IMAGE_CODE_BIT_LENGTH" length="1" type="UnsignedInt_BigEndian"/>
+        </rpf_component>
+
+        <rpf_component id="ColorConverterSubsection">
+            <field name="COLOR_CONVERTER_OFFSET_TABLE_OFFSET" length="4" type="UnsignedInt_BigEndian"/>
+            <field name="COLOR_CONVERTER_OFFSET_RECORD_LENGTH" length="2" type="UnsignedInt_BigEndian"/>
+            <field name="COLOR_CONVERTER_RECORD_LENGTH" length="2" type="UnsignedInt_BigEndian"/>
+            <loop counter="NUMBER_OF_COLOR_CONVERTER_OFFSET_RECORDS"  name="COLOR_CONVERTER_OFFSET_RECORD">
+                <field name="COLOR_CONVERTER_TABLE_ID" length="2" type="UnsignedInt_BigEndian"/>
+                <field name="NUMBER_OF_COLOR_CONVERTER_RECORDS" length="4" type="UnsignedInt_BigEndian"/>
+                <field name="COLOR_CONVERTER_TABLE_OFFSET" length="4" type="UnsignedInt_BigEndian"/>
+                <field name="SOURCE_OFFSET_TABLE_OFFSET" length="4" type="UnsignedInt_BigEndian"/>
+                <field name="TARGET_OFFSET_TABLE_OFFSET" length="4" type="UnsignedInt_BigEndian"/>
+            </loop>
+            <loop counter="NUMBER_OF_COLOR_CONVERTER_OFFSET_RECORDS" name="COLOR_CONVERTER_TABLE">
+                <loop counter="NUMBER_OF_COLOR_CONVERTER_RECORDS">
+                    <field name="TARGET_COLOR_GRAYSCALE_TABLE_ENTRY_NUMBER" length="4" type="UnsignedInt_BigEndian"/>
+                </loop>
+            </loop>
+        </rpf_component>
+
+        <rpf_component id="MaskSubsection">
+            <field name="SUBFRAME_SEQUENCE_RECORD_LENGTH" length="2" type="UnsignedInt_BigEndian"/>
+            <field name="TRANSPARENCY_SEQUENCE_RECORD_LENGTH" length="2" type="UnsignedInt_BigEndian"/>
+            <field name="TRANSPARENT_OUTPUT_PIXEL_CODE_LENGTH" length="2" type="UnsignedInt_BigEndian"/>
+            <if cond="TRANSPARENT_OUTPUT_PIXEL_CODE_LENGTH=8">
+                <field name="TRANSPARENT_OUTPUT_PIXEL_CODE" length="1" type="UnsignedInt_BigEndian"/>
+            </if>
+        </rpf_component>
+
+        <rpf_component id="AttributeSectionSubheader">
+            <field name="NUMBER_OF_ATTRIBUTE_OFFSET_RECORDS" length="2" type="UnsignedInt_BigEndian"/>
+            <field name="NUMBER_OF_EXPLICIT_AREAL_COVERAGE_RECORDS" length="2" type="UnsignedInt_BigEndian"/>
+            <field name="ATTRIBUTE_OFFSET_TABLE_OFFSET" length="4" type="UnsignedInt_BigEndian"/>
+            <field name="ATTRIBUTE_OFFSET_RECORD_LENGTH" length="2" type="UnsignedInt_BigEndian"/>
+        </rpf_component>
+
+        <rpf_component id="AttributeSubsection">
+            <loop counter="NUMBER_OF_ATTRIBUTE_OFFSET_RECORDS" name="AOR">
+                <field name="ATTRIBUTE_ID" length="2" type="UnsignedInt_BigEndian"/>
+                <field name="PARAMETER_ID" length="1" type="UnsignedInt_BigEndian"/>
+                <field name="AREAL_COVERAGE_SEQUENCE_NUMBER" length="1" type="UnsignedInt_BigEndian"/>
+                <field name="ATTRIBUTE_RECORD_OFFSET" length="4" type="UnsignedInt_BigEndian"/>
+            </loop>
+
+            <!-- missing attribute table -->
+        </rpf_component>
+
+        <rpf_component id="ExplicitArealCoverageTable">
+            <field name="EXPLICIT_AREAL_COVERAGE_TABLE_OFFSET" length="4" type="UnsignedInt_BigEndian"/>
+            <field name="EXPLICIT_AREAL_COVERAGE_RECORD_LENGTH" length="2" type="UnsignedInt_BigEndian"/>
+            <field name="CORNER_COORDINATES_RECORD_LENGTH" length="2" type="UnsignedInt_BigEndian"/>
+            <loop counter="NUMBER_OF_EXPLICIT_AREAL_COVERAGE_RECORDS" name="EACR">
+                <field name="NUMBER_OF_VERTICES" length="2" type="UnsignedInt_BigEndian"/>
+                <loop counter="NUMBER_OF_VERTICES" name="VERTEX">
+                    <field name="LAT" length="8" type="IEEE754_Float64_BigEndian"/>
+                    <field name="LONG" length="8" type="IEEE754_Float64_BigEndian"/>
+                </loop>
+            </loop>
+        </rpf_component>
+
+        <rpf_component id="BoundaryRectangleSectionSubheader">
+            <field name="BOUNDARY_RECTANGLE_TABLE_OFFSET" length="4" type="UnsignedInt_BigEndian"/>
+            <field name="NUMBER_OF_BOUNDARY_RECTANGLE_RECORDS" length="2" type="UnsignedInt_BigEndian"/>
+            <field name="BOUNDARY_RECTANGLE_RECORD_LENGTH" length="2" type="UnsignedInt_BigEndian"/>
+        </rpf_component>
+
+        <rpf_component id="BoundaryRectangleTable">
+            <loop counter="NUMBER_OF_BOUNDARY_RECTANGLE_RECORDS" name="BRR">
+                <field name="PRODUCT_DATA_TYPE" length="5" type="string"/>
+                <field name="COMPRESSION_RATIO" length="5" type="string"/>
+                <field name="SCALE_OR_RESOLUTION" length="12" type="string"/>
+                <field name="ZONE" length="1" type="string"/>
+                <field name="PRODUCER" length="5" type="string"/>
+                <field name="NORTHWEST_LATITUDE" length="8" type="IEEE754_Float64_BigEndian"/>
+                <field name="NORTHWEST_LONGITUDE" length="8" type="IEEE754_Float64_BigEndian"/>
+                <field name="SOUTHWEST_LATITUDE" length="8" type="IEEE754_Float64_BigEndian"/>
+                <field name="SOUTHWEST_LONGITUDE" length="8" type="IEEE754_Float64_BigEndian"/>
+                <field name="NORTHEAST_LATITUDE" length="8" type="IEEE754_Float64_BigEndian"/>
+                <field name="NORTHEAST_LONGITUDE" length="8" type="IEEE754_Float64_BigEndian"/>
+                <field name="SOUTHEAST_LATITUDE" length="8" type="IEEE754_Float64_BigEndian"/>
+                <field name="SOUTHEAST_LONGITUDE" length="8" type="IEEE754_Float64_BigEndian"/>
+                <field name="NORTH_SOUTH_VERTICAL_RESOLUTION" length="8" type="IEEE754_Float64_BigEndian"/>
+                <field name="EAST_WEST_HORIZONTAL_RESOLUTION" length="8" type="IEEE754_Float64_BigEndian"/>
+                <field name="LATITUDE_VERTICAL_INTERVAL" length="8" type="IEEE754_Float64_BigEndian"/>
+                <field name="LONGITUDE_HORIZONTAL_INTERVAL" length="8" type="IEEE754_Float64_BigEndian"/>
+                <field name="NUMBER_OF_FRAMES_NORTH_SOUTH_DIRECTION" length="4" type="UnsignedInt_BigEndian"/>
+                <field name="NUMBER_OF_FRAMES_EAST_WEST_DIRECTION" length="4" type="UnsignedInt_BigEndian"/>
+            </loop>
+        </rpf_component>
+
+        <rpf_component id="FrameFileIndexSectionSubHeader">
+            <field name="HIGHEST_SECURITY_CLASSIFICATION" length="1" type="string"/>
+            <field name="FRAME_FILE_INDEX_TABLE_OFFSET" length="4" type="UnsignedInt_BigEndian"/>
+            <field name="NUMBER_OF_FRAME_FILE_INDEX_RECORDS" length="4" type="UnsignedInt_BigEndian"/>
+            <field name="NUMBER_OF_PATH_NAME_RECORDS" length="2" type="UnsignedInt_BigEndian"/>
+            <field name="FRAME_FILE_INDEX_RECORD_LENGTH" length="2" type="UnsignedInt_BigEndian"/>
+        </rpf_component>
+
+        <rpf_component id="FrameFileIndexSubsection">
+            <!-- frame file index table -->
+            <loop counter="NUMBER_OF_FRAME_FILE_INDEX_RECORDS" name="FFIR">
+                <field name="BOUNDARY_RECTANGLE_RECORD_NUMBER" length="2" type="UnsignedInt_BigEndian"/>
+                <field name="FRAME_LOCATION_ROW_NUMBER" length="2" type="UnsignedInt_BigEndian"/>
+                <field name="FRAME_LOCATION_COLUMN_NUMBER" length="2" type="UnsignedInt_BigEndian"/>
+                <field name="PATHNAME_RECORD_OFFSET" length="4" type="UnsignedInt_BigEndian"/>
+                <field name="FRAME_FILE_NAME" length="12" type="string"/>
+                <field name="GEOGRAPHIC_LOCATION" length="6" type="string"/>
+                <field name="FRAME_FILE_SECURITY_CLASSIFICATION" length="1" type="string"/>
+                <field name="FRAME_FILE_SECURITY_COUNTRY_CODE" length="2" type="string"/>
+                <field name="FRAME_FILE_SECURITY_RELEASE_MARKING" length="2" type="string"/>
+            </loop>
+
+            <!-- pathname table -->
+            <loop counter="NUMBER_OF_PATH_NAME_RECORDS" name="PNR" md_prefix="PNR_%05d_">
+                <field name="PATHNAME_LENGTH" length="2" type="UnsignedInt_BigEndian"/>
+                <field name="PATHNAME" length_var="PATHNAME_LENGTH" type="string"/>
+            </loop>
+        </rpf_component>
     </tre>
 
   </tres>

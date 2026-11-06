@@ -768,7 +768,7 @@ class CPL_DLL GDALAttribute : virtual public GDALAbstractMDArray
 };
 
 /************************************************************************/
-/*                            GDALAttributeString                       */
+/*                         GDALAttributeString                          */
 /************************************************************************/
 
 //! @cond Doxygen_Suppress
@@ -797,7 +797,7 @@ class CPL_DLL GDALAttributeString final : public GDALAttribute
 //! @endcond
 
 /************************************************************************/
-/*                           GDALAttributeNumeric                       */
+/*                         GDALAttributeNumeric                         */
 /************************************************************************/
 
 //! @cond Doxygen_Suppress
@@ -1080,7 +1080,7 @@ class CPL_DLL GDALMDArray : virtual public GDALAbstractMDArray,
     bool AdviseRead(const GUInt64 *arrayStartIdx, const size_t *count,
                     CSLConstList papszOptions = nullptr) const;
 
-    bool IsRegularlySpaced(double &dfStart, double &dfIncrement) const;
+    virtual bool IsRegularlySpaced(double &dfStart, double &dfIncrement) const;
 
     bool GuessGeoTransform(size_t nDimX, size_t nDimY, bool bPixelIsPoint,
                            GDALGeoTransform &gt) const;
@@ -1103,6 +1103,16 @@ class CPL_DLL GDALMDArray : virtual public GDALAbstractMDArray,
 
     virtual bool GetRawBlockInfo(const uint64_t *panBlockCoordinates,
                                  GDALMDArrayRawBlockInfo &info) const;
+
+    virtual int GetOverviewCount() const;
+
+    virtual std::shared_ptr<GDALMDArray> GetOverview(int idx) const;
+
+    virtual CPLErr BuildOverviews(const char *pszResampling, int nOverviews,
+                                  const int *panOverviewList,
+                                  GDALProgressFunc pfnProgress,
+                                  void *pProgressData,
+                                  CSLConstList papszOptions);
 
     //! @cond Doxygen_Suppress
     static constexpr GUInt64 COPY_COST = 1000;
@@ -1148,18 +1158,16 @@ class CPL_DLL GDALMDArray : virtual public GDALAbstractMDArray,
 };
 
 //! @cond Doxygen_Suppress
-bool GDALMDRasterIOFromBand(GDALRasterBand *poBand, GDALRWFlag eRWFlag,
-                            size_t iDimX, size_t iDimY,
-                            const GUInt64 *arrayStartIdx, const size_t *count,
-                            const GInt64 *arrayStep,
-                            const GPtrDiff_t *bufferStride,
-                            const GDALExtendedDataType &bufferDataType,
-                            void *pBuffer);
+bool CPL_DLL GDALMDRasterIOFromBand(
+    GDALRasterBand *poBand, GDALRWFlag eRWFlag, size_t iDimX, size_t iDimY,
+    const GUInt64 *arrayStartIdx, const size_t *count, const GInt64 *arrayStep,
+    const GPtrDiff_t *bufferStride, const GDALExtendedDataType &bufferDataType,
+    void *pBuffer);
 
 //! @endcond
 
 /************************************************************************/
-/*                     GDALMDArrayRegularlySpaced                       */
+/*                      GDALMDArrayRegularlySpaced                      */
 /************************************************************************/
 
 //! @cond Doxygen_Suppress
@@ -1209,6 +1217,8 @@ class CPL_DLL GDALMDArrayRegularlySpaced final : public GDALMDArray
         GetAttributes(CSLConstList) const override;
 
     void AddAttribute(const std::shared_ptr<GDALAttribute> &poAttr);
+
+    bool IsRegularlySpaced(double &dfStart, double &dfIncrement) const override;
 };
 
 //! @endcond
@@ -1319,7 +1329,7 @@ class CPL_DLL GDALDimension
 };
 
 /************************************************************************/
-/*                   GDALDimensionWeakIndexingVar()                     */
+/*                    GDALDimensionWeakIndexingVar()                    */
 /************************************************************************/
 
 //! @cond Doxygen_Suppress

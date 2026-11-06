@@ -39,7 +39,7 @@ public class GDALInterface : ModuleRules
 		{
 			foreach (string SOFile in Directory.GetFiles(Path.Combine(GDALDirectory, "bin"), "*.so"))
 			{
-				if (SOFile.Contains("gdal") || SOFile.Contains("geos"))
+				if (SOFile.Contains("gdal"))
 				{
 					PublicAdditionalLibraries.Add(SOFile);
 				}

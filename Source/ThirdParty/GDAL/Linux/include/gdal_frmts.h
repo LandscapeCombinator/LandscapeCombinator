@@ -1,5 +1,4 @@
 /******************************************************************************
- * $Id$
  *
  * Project:  GDAL
  * Purpose:  Prototypes for all format specific driver initialization.
@@ -19,6 +18,7 @@
 
 CPL_C_START
 void CPL_DLL GDALRegister_GTiff(void);
+void CPL_DLL GDALRegister_LIBERTIFF(void);
 void CPL_DLL GDALRegister_GXF(void);
 void CPL_DLL GDALRegister_HFA(void);
 void CPL_DLL GDALRegister_AAIGrid(void);
@@ -28,8 +28,6 @@ void CPL_DLL GDALRegister_AIGrid(void);
 // void CPL_DLL GDALRegister_AIGrid2(void);
 void CPL_DLL GDALRegister_CEOS(void);
 void CPL_DLL GDALRegister_SAR_CEOS(void);
-void CPL_DLL GDALRegister_SDTS(void);
-void CPL_DLL GDALRegister_ELAS(void);
 void CPL_DLL GDALRegister_EHdr(void);
 void CPL_DLL GDALRegister_GenBin(void);
 void CPL_DLL GDALRegister_PAux(void);
@@ -48,6 +46,7 @@ void CPL_DLL DeclareDeferredGTAPlugin(void);
 void CPL_DLL GDALRegister_JPEG(void);
 void DeclareDeferredJPEGPlugin(void);
 void CPL_DLL GDALRegister_JP2KAK(void);
+void CPL_DLL GDALRegister_JP2Grok(void);
 void DeclareDeferredJP2KAKPlugin(void);
 void CPL_DLL GDALRegister_JPIPKAK(void);
 void DeclareDeferredJPIPKAKPlugin(void);
@@ -66,7 +65,6 @@ void DeclareDeferredECWPlugin(void);
 void CPL_DLL GDALRegister_JP2ECW(void);
 void CPL_DLL GDALRegister_ECW_JP2ECW();
 void CPL_DLL GDALRegister_FujiBAS(void);
-void CPL_DLL GDALRegister_FIT(void);
 void CPL_DLL GDALRegister_VRT(void);
 void CPL_DLL GDALRegister_GTI(void);
 void CPL_DLL GDALRegister_USGSDEM(void);
@@ -77,7 +75,6 @@ void CPL_DLL GDALRegister_HDF4Image(void);
 void CPL_DLL GDALRegister_L1B(void);
 void CPL_DLL GDALRegister_LDF(void);
 void CPL_DLL GDALRegister_BSB(void);
-void CPL_DLL GDALRegister_XPM(void);
 void CPL_DLL GDALRegister_BMP(void);
 void CPL_DLL GDALRegister_GSC(void);
 void CPL_DLL GDALRegister_NITF(void);
@@ -114,7 +111,6 @@ void CPL_DLL GDALRegister_MSG(void);
 void DeclareDeferredMSGPlugin(void);
 void CPL_DLL GDALRegister_RIK(void);
 void CPL_DLL GDALRegister_Leveller(void);
-void CPL_DLL GDALRegister_SGI(void);
 void CPL_DLL GDALRegister_SRTMHGT(void);
 void CPL_DLL GDALRegister_DIPEx(void);
 void CPL_DLL GDALRegister_ISIS3(void);
@@ -145,7 +141,6 @@ void CPL_DLL GDALRegister_TSX(void);
 void CPL_DLL GDALRegister_ADRG(void);
 void CPL_DLL GDALRegister_SRP(void);
 void CPL_DLL GDALRegister_COASP(void);
-void CPL_DLL GDALRegister_BLX(void);
 void CPL_DLL GDALRegister_LCP(void);
 void CPL_DLL GDALRegister_EIR(void);
 void CPL_DLL GDALRegister_ESRIC(void);
@@ -153,8 +148,6 @@ void CPL_DLL GDALRegister_GEOR(void);
 void DeclareDeferredGEORPlugin(void);
 void CPL_DLL GDALRegister_TIL(void);
 void CPL_DLL GDALRegister_R(void);
-void CPL_DLL GDALRegister_Rasterlite(void);
-void DeclareDeferredRasterlitePlugin(void);
 void CPL_DLL GDALRegister_PostGISRaster(void);
 void DeclareDeferredPostGISRasterPlugin(void);
 void CPL_DLL GDALRegister_NWT_GRD(void);
@@ -164,7 +157,6 @@ void CPL_DLL GDALRegister_KMLSUPEROVERLAY(void);
 void CPL_DLL GDALRegister_GTX(void);
 void CPL_DLL GDALRegister_LOSLAS(void);
 void CPL_DLL GDALRegister_NTv2(void);
-void CPL_DLL GDALRegister_CTable2(void);
 void CPL_DLL GDALRegister_JP2OpenJPEG(void);
 void DeclareDeferredOPENJPEGPlugin(void);
 void CPL_DLL GDALRegister_XYZ(void);
@@ -172,7 +164,6 @@ void CPL_DLL GDALRegister_HF2(void);
 void CPL_DLL GDALRegister_PDF(void);
 void DeclareDeferredPDFPlugin(void);
 void CPL_DLL GDALRegister_MAP(void);
-void CPL_DLL GDALRegister_OZI(void);
 void CPL_DLL GDALRegister_ACE2(void);
 void CPL_DLL GDALRegister_CTG(void);
 void CPL_DLL GDALRegister_SNODAS(void);
@@ -193,12 +184,10 @@ void CPL_DLL GDALRegister_WMTS(void);
 void DeclareDeferredWMTSPlugin(void);
 void CPL_DLL GDALRegister_SAFE(void);
 void CPL_DLL GDALRegister_SENTINEL2(void);
-void CPL_DLL GDALRegister_mrf(void);
+void CPL_DLL GDALRegister_MRF(void);
 void DeclareDeferredMRFPlugin(void);
 void CPL_DLL GDALRegister_RRASTER(void);
 void CPL_DLL GDALRegister_Derived(void);
-void CPL_DLL GDALRegister_JP2Lura(void);
-void DeclareDeferredJP2LuraPlugin(void);
 void CPL_DLL GDALRegister_PRF(void);
 void CPL_DLL GDALRegister_NULL(void);
 void CPL_DLL GDALRegister_EEDAI(void);
@@ -231,6 +220,11 @@ void DeclareDeferredBASISU_KTX2Plugin(void);
 void CPL_DLL GDALRegister_NOAA_B(void);
 void CPL_DLL GDALRegister_NSIDCbin(void);
 void CPL_DLL GDALRegister_SNAP_TIFF(void);
+void CPL_DLL GDALRegister_RCM(void);
+void CPL_DLL GDALRegister_MiraMon(void);
+void CPL_DLL GDALRegister_GDALG(void);
+void CPL_DLL GDALRegister_E57(void);
+void CPL_DLL GDALRegister_CPHD(void);
 CPL_C_END
 
 #endif /* ndef GDAL_FRMTS_H_INCLUDED */

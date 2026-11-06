@@ -64,6 +64,11 @@ class CPL_DLL GDALPamMultiDim final
     void ClearStatistics(const std::string &osArrayFullName,
                          const std::string &osContext);
 
+    std::string GetOverviewFilename(const std::string &osArrayFullName,
+                                    const std::string &osContext);
+    std::string GenerateOverviewFilename(const std::string &osArrayFullName,
+                                         const std::string &osContext);
+
     static std::shared_ptr<GDALPamMultiDim>
     GetPAM(const std::shared_ptr<GDALMDArray> &poParent);
 };

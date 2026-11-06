@@ -1,3 +1,0 @@
-[codespell]
-skip = ./tools/astyle,./src/deps,./web/themes,./util/geosop/cxxopts.hpp
-ignore-words = ./tools/codespell.ignore

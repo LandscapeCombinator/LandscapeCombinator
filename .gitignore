@@ -6,3 +6,4 @@ Documentation/build
 Build
 Package_*
 TEMP_*
+*.log

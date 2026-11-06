@@ -12,19 +12,19 @@
 
     "arrayOfTwoIntegers": {
       "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
       "items": {
-        "type": "integer",
-        "minItems": 2,
-        "maxItems": 2
+        "type": "integer"
       }
     },
 
     "arrayOfTwoNumbers": {
       "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
       "items": {
-        "type": "number",
-        "minItems": 2,
-        "maxItems": 2
+        "type": "number"
       }
     },
 
@@ -33,6 +33,9 @@
       "properties": {
         "band": {
           "type": "integer"
+        },
+        "description": {
+          "type": "string"
         },
         "block": {
           "$ref": "#/definitions/arrayOfTwoIntegers"
@@ -43,6 +46,17 @@
         "colorInterpretation": {
           "type": "string"
         },
+        "noDataValue": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string",
+              "const": "NaN"
+            }
+          ]
+        },
         "type": {
           "enum": [
             "Byte",
@@ -52,11 +66,13 @@
             "UInt32",
             "Int32",
             "UInt64",
-            "Int32",
+            "Int64",
+            "Float16",
             "Float32",
             "Float64",
             "CInt16",
             "CInt32",
+            "CFloat16",
             "CFloat32",
             "CFloat64"
           ]
@@ -118,6 +134,31 @@
         },
         "metadata": {
           "$ref": "#/definitions/metadata"
+        },
+        "colorTable": {
+          "type": "object",
+          "properties": {
+            "entries": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 4,
+                "items": {
+                  "type": "integer"
+                }
+              }
+            },
+            "count": {
+              "type": "integer"
+            },
+            "palette": {
+              "type": "string"
+            }
+          }
+        },
+        "rat": {
+          "type": "object"
         }
       },
       "required": [
@@ -184,14 +225,17 @@
         },
         "geoTransform": {
           "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
           "items": {
-            "type": "number",
-            "minItems": 6,
-            "maxItems": 6
+            "type": "number"
           }
         },
         "cornerCoordinates": {
           "$ref": "#/definitions/cornerCoordinates"
+        },
+        "extent": {
+          "type": "object"
         },
         "wgs84Extent": {
           "$ref": "https://geojson.org/schema/Geometry.json"
@@ -228,12 +272,12 @@
 
     "metadataDomain": {
       "$comment": " The values of a metadadomain are key: string pairs, or arbitrary JSON objects for metadata domain names starting with the \"json:\" prefix.",
-      "any": [
+      "anyOf": [
         {
           "type": "object"
         },
         {
-          "type": "#/definitions/keyValueDict"
+          "$ref": "#/definitions/keyValueDict"
         }
       ]
     },
@@ -252,10 +296,10 @@
         },
         "dataAxisToSRSAxisMapping": {
           "type": "array",
+          "minItems": 2,
+          "maxItems": 3,
           "items": {
-            "type": "number",
-            "minItems": 2,
-            "maxItems": 3
+            "type": "number"
           }
         },
         "coordinateEpoch": {

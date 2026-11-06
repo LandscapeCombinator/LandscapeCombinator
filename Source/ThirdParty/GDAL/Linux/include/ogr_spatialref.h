@@ -1,5 +1,4 @@
 /******************************************************************************
- * $Id$
  *
  * Project:  OpenGIS Simple Features Reference Implementation
  * Purpose:  Classes for manipulating spatial reference systems in a
@@ -180,10 +179,21 @@ class CPL_DLL OGRSpatialReference
 
     OGRSpatialReference &AssignAndSetThreadSafe(const OGRSpatialReference &);
 
+#ifdef DEPRECATE_OGRSPATIALREFERENCE_REF_COUNTING
+    int Reference()
+        CPL_WARN_DEPRECATED("Use OGRSpatialReferenceRefCountedPtr instead");
+    int Dereference()
+        CPL_WARN_DEPRECATED("Use OGRSpatialReferenceRefCountedPtr instead");
+    int GetReferenceCount() const
+        CPL_WARN_DEPRECATED("Use OGRSpatialReferenceRefCountedPtr instead");
+    void Release()
+        CPL_WARN_DEPRECATED("Use OGRSpatialReferenceRefCountedPtr instead");
+#else
     int Reference();
     int Dereference();
     int GetReferenceCount() const;
     void Release();
+#endif
 
     const char *GetName() const;
 
@@ -391,6 +401,8 @@ class CPL_DLL OGRSpatialReference
     int IsSame(const OGRSpatialReference *,
                const char *const *papszOptions) const;
 
+    const char *GetCelestialBodyName() const;
+
     void Clear();
     OGRErr SetLocalCS(const char *);
     OGRErr SetProjCS(const char *);
@@ -403,6 +415,8 @@ class CPL_DLL OGRSpatialReference
                      double dfConvertToRadians = 0.0);
     OGRErr SetWellKnownGeogCS(const char *);
     OGRErr CopyGeogCSFrom(const OGRSpatialReference *poSrcSRS);
+    OGRErr CopyGeogCSFrom(const OGRSpatialReference *poSrcSRS,
+                          bool bInnerMostGeogCRS);
     OGRErr SetVertCS(const char *pszVertCSName, const char *pszVertDatumName,
                      int nVertDatumClass = 2005);
     OGRErr SetCompoundCS(const char *pszName,
@@ -439,7 +453,7 @@ class CPL_DLL OGRSpatialReference
                         int nCode);
 
     OGRErr AutoIdentifyEPSG();
-    OGRSpatialReferenceH *FindMatches(char **papszOptions, int *pnEntries,
+    OGRSpatialReferenceH *FindMatches(CSLConstList papszOptions, int *pnEntries,
                                       int **ppanMatchConfidence) const;
     OGRSpatialReference *
     FindBestMatch(int nMinimumMatchConfidence = 90,
@@ -448,8 +462,8 @@ class CPL_DLL OGRSpatialReference
 
     int GetEPSGGeogCS() const;
 
-    const char *GetAuthorityCode(const char *pszTargetKey) const;
-    const char *GetAuthorityName(const char *pszTargetKey) const;
+    const char *GetAuthorityCode(const char *pszTargetKey = nullptr) const;
+    const char *GetAuthorityName(const char *pszTargetKey = nullptr) const;
     char *GetOGCURN() const;
 
     bool GetAreaOfUse(double *pdfWestLongitudeDeg, double *pdfSouthLatitudeDeg,
@@ -674,7 +688,7 @@ class CPL_DLL OGRSpatialReference
     OGRErr SetUTM(int nZone, int bNorth = TRUE);
     int GetUTMZone(int *pbNorth = nullptr) const;
 
-    /** Wagner I -- VII */
+    /** Wagner I \-- VII */
     OGRErr SetWagner(int nVariation, double dfCenterLat, double dfFalseEasting,
                      double dfFalseNorthing);
 
@@ -725,7 +739,6 @@ class CPL_DLL OGRSpatialReference
     static OGRSpatialReference *GetWGS84SRS();
 
     /** Convert a OGRSpatialReference* to a OGRSpatialReferenceH.
-     * @since GDAL 2.3
      */
     static inline OGRSpatialReferenceH ToHandle(OGRSpatialReference *poSRS)
     {
@@ -733,7 +746,6 @@ class CPL_DLL OGRSpatialReference
     }
 
     /** Convert a OGRSpatialReferenceH to a OGRSpatialReference*.
-     * @since GDAL 2.3
      */
     static inline OGRSpatialReference *FromHandle(OGRSpatialReferenceH hSRS)
     {
@@ -742,14 +754,98 @@ class CPL_DLL OGRSpatialReference
 };
 
 /*! @cond Doxygen_Suppress */
-struct CPL_DLL OGRSpatialReferenceReleaser
+
+#include "ogr_refcountedptr.h"
+
+template <>
+struct OGRRefCountedPtr<OGRSpatialReference>
+    : public OGRRefCountedPtrBase<OGRSpatialReference>
 {
-    void operator()(OGRSpatialReference *poSRS) const
+    /** Constructs from a raw OGRSpatialReference instance.
+     *
+     * Be careful: a fresh OGRSpatialReference instance has a reference count
+     * equal to one, so you generally want to set add_ref = false
+     * So ``OGRSpatialReferenceRefCountedPtr srs(new OGRSpatialReference(), false)``
+     * or less error prone ``auto srs = OGRSpatialReferenceRefCountedPtr::makeInstance()``
+     */
+    inline explicit OGRRefCountedPtr(OGRSpatialReference *poSRS, bool add_ref)
+        : OGRRefCountedPtrBase<OGRSpatialReference>(poSRS, add_ref)
     {
-        if (poSRS)
-            poSRS->Release();
     }
+
+    /** Constructs with a null OGRSpatialReference instance.
+     */
+    inline OGRRefCountedPtr()
+    {
+    }
+
+    /** Constructs with a null OGRSpatialReference instance.
+     */
+    // cppcheck-suppress noExplicitConstructor
+    inline /* implicit */ OGRRefCountedPtr(std::nullptr_t)
+    {
+    }
+
+    /** Constructs with a new OGRSpatialReference instance initialized
+     * with a WKT string (or in an empty state if pszWKT is nullptr).
+     */
+    inline static OGRRefCountedPtr makeInstance(const char *pszWKT = nullptr)
+    {
+        // Initial ref_count of OGRSpatialReference is 1, so don't add a ref
+        return OGRRefCountedPtr(new OGRSpatialReference(pszWKT),
+                                /* add_ref = */ false);
+    }
+
+    /** Constructs with a clone of an existing OGRSpatialReference instance.
+     */
+    inline static OGRRefCountedPtr makeClone(const OGRSpatialReference *poSRS)
+    {
+        return OGRRefCountedPtr(poSRS ? poSRS->Clone() : nullptr,
+                                /* add_ref = */ false);
+    }
+
+    /** Constructs with a clone of an existing OGRSpatialReference instance.
+     */
+    inline static OGRRefCountedPtr makeClone(const OGRSpatialReference &oSRS)
+    {
+        return OGRRefCountedPtr(oSRS.Clone(),
+                                /* add_ref = */ false);
+    }
+
+    /** Reset the managed raw pointer.
+     *
+     * Release the current managed raw pointer.
+     */
+    inline void reset()
+    {
+        OGRRefCountedPtrBase<OGRSpatialReference>::reset(nullptr, false);
+    }
+
+    /** Reset the managed raw pointer.
+     *
+     * Release the current managed raw pointer and manages a new one.
+     * By default, increases the reference count of the new raw pointer (when
+     * not null).
+     */
+    inline void reset(OGRSpatialReference *poRawPtr, bool add_ref)
+    {
+        OGRRefCountedPtrBase<OGRSpatialReference>::reset(poRawPtr, add_ref);
+    }
+
+    /** Use reset(OGRSpatialReference *poRawPtr, bool add_ref) to be explicit
+     * about ref counting.
+     */
+    inline void reset(OGRSpatialReference *poRawPtr) = delete;
 };
+
+/** Smart pointer around OGRSpatialReference.
+ *
+ * It uses OGRSpatialReference built-in reference counting, to increase the reference
+ * count when assigning a raw pointer to the smart pointer, and decrease it
+ * when releasing it.
+ * Somewhat similar to https://www.boost.org/doc/libs/latest/libs/smart_ptr/doc/html/smart_ptr.html#intrusive_ptr
+ */
+using OGRSpatialReferenceRefCountedPtr = OGRRefCountedPtr<OGRSpatialReference>;
 
 /*! @endcond */
 
@@ -772,9 +868,7 @@ struct CPL_DLL OGRSpatialReferenceReleaser
 class CPL_DLL OGRCoordinateTransformation
 {
   public:
-    virtual ~OGRCoordinateTransformation()
-    {
-    }
+    virtual ~OGRCoordinateTransformation();
 
     static void DestroyCT(OGRCoordinateTransformation *poCT);
 
@@ -814,8 +908,10 @@ class CPL_DLL OGRCoordinateTransformation
      * @param pabSuccess array of per-point flags set to TRUE if that point
      * transforms, or FALSE if it does not. Might be NULL.
      *
-     * @return TRUE if a transformation could be found (but not all points may
-     * have necessarily succeed to transform), otherwise FALSE.
+     * @return TRUE on success, or FALSE if some or all points fail to
+     * transform. When FALSE is returned the pabSuccess[] array indicates which
+     * points succeeded or failed to transform. When TRUE is returned, all
+     * values in pabSuccess[] are set to true.
      */
     int Transform(size_t nCount, double *x, double *y, double *z = nullptr,
                   int *pabSuccess = nullptr);
@@ -836,8 +932,13 @@ class CPL_DLL OGRCoordinateTransformation
      * @param pabSuccess array of per-point flags set to TRUE if that point
      * transforms, or FALSE if it does not. Might be NULL.
      *
-     * @return TRUE if a transformation could be found (but not all points may
-     * have necessarily succeed to transform), otherwise FALSE.
+     * @return TRUE on success, or FALSE if some or all points fail to
+     * transform. When FALSE is returned the pabSuccess[] array indicates which
+     * points succeeded or failed to transform. When TRUE is returned, all
+     * values in pabSuccess[] are set to true.
+     * Caution: prior to GDAL 3.11, TRUE could be returned if a
+     * transformation could be found but not all points may
+     * have necessarily succeed to transform.
      */
     virtual int Transform(size_t nCount, double *x, double *y, double *z,
                           double *t, int *pabSuccess) = 0;
@@ -858,8 +959,13 @@ class CPL_DLL OGRCoordinateTransformation
      * @param panErrorCodes Output array of nCount value that will be set to 0
      * for success, or a non-zero value for failure. Refer to PROJ 8 public
      * error codes. Might be NULL
-     * @return TRUE if a transformation could be found (but not all points may
-     * have necessarily succeed to transform), otherwise FALSE.
+     * @return TRUE on success, or FALSE if some or all points fail to
+     * transform. When FALSE is returned the panErrorCodes[] array indicates
+     * which points succeeded or failed to transform. When TRUE is returned, all
+     * values in panErrorCodes[] are set to zero.
+     * Caution: prior to GDAL 3.11, TRUE could be returned if a
+     * transformation could be found but not all points may
+     * have necessarily succeed to transform.
      * @since GDAL 3.3, and PROJ 8 to be able to use PROJ public error codes
      */
     virtual int TransformWithErrorCodes(size_t nCount, double *x, double *y,
@@ -924,7 +1030,6 @@ class CPL_DLL OGRCoordinateTransformation
 
     /** Convert a OGRCoordinateTransformation* to a
      * OGRCoordinateTransformationH.
-     * @since GDAL 2.3
      */
     static inline OGRCoordinateTransformationH
     ToHandle(OGRCoordinateTransformation *poCT)
@@ -934,7 +1039,6 @@ class CPL_DLL OGRCoordinateTransformation
 
     /** Convert a OGRCoordinateTransformationH to a
      * OGRCoordinateTransformation*.
-     * @since GDAL 2.3
      */
     static inline OGRCoordinateTransformation *
     FromHandle(OGRCoordinateTransformationH hCT)
@@ -957,6 +1061,17 @@ class CPL_DLL OGRCoordinateTransformation
      * @since GDAL 3.3
      */
     virtual OGRCoordinateTransformation *GetInverse() const = 0;
+
+  protected:
+    /*! @cond Doxygen_Suppress */
+    OGRCoordinateTransformation() = default;
+    OGRCoordinateTransformation(const OGRCoordinateTransformation &) = default;
+    OGRCoordinateTransformation &
+    operator=(const OGRCoordinateTransformation &) = default;
+    OGRCoordinateTransformation(OGRCoordinateTransformation &&) = default;
+    OGRCoordinateTransformation &
+    operator=(OGRCoordinateTransformation &&) = default;
+    /*! @endcond */
 };
 
 OGRCoordinateTransformation CPL_DLL *

@@ -1,5 +1,4 @@
 /**********************************************************************
- * $Id$
  *
  * Name:     cpl_error.h
  * Project:  CPL - Common Portability Library
@@ -18,6 +17,7 @@
 #include "cpl_port.h"
 
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stddef.h>
 
 /*=====================================================================
@@ -25,20 +25,43 @@
  =====================================================================*/
 
 /**
- * \file cpl_error.h
- *
- * CPL error handling services.
+ \file cpl_error.h
+
+ CPL error handling services.
+
+ \verbatim embed:rst
+ See :ref:`error handling <error_handling>` for an introduction.
+ \endverbatim
  */
 
 CPL_C_START
 
-/** Error category */
+/** Error category / error level.
+ *
+ * Can be used either as return code for a number of functions of the GDAL API,
+ * or as the error level in warning/errors raised by CPLError().
+ */
 typedef enum
 {
+    /** No error. Only used as the return value of a function */
     CE_None = 0,
+
+    /** Debug message. Emitted through CPLDebug(). */
     CE_Debug = 1,
+
+    /** Non-nominal situation that is worth bringing to the attention of the
+     * user, but that does not prevent the ongoing operation to complete.
+     */
     CE_Warning = 2,
+
+    /** Error that prevents the current operation to succeed. Other following
+     * GDAL operations might succeed.
+     */
     CE_Failure = 3,
+
+    /** Fatal unrecoverable error. The process is terminated with
+     * abort() after it is emitted.
+     */
     CE_Fatal = 4
 } CPLErr;
 
@@ -66,11 +89,12 @@ typedef enum
     CPLE_UserInterrupt,
     CPLE_ObjectNull,
     CPLE_HttpResponse,
-    CPLE_AWSBucketNotFound,
-    CPLE_AWSObjectNotFound,
-    CPLE_AWSAccessDenied,
-    CPLE_AWSInvalidCredentials,
-    CPLE_AWSSignatureDoesNotMatch,
+    CPLE_BucketNotFound,
+    CPLE_ObjectNotFound,
+    CPLE_AccessDenied,
+    CPLE_InvalidCredentials,
+    CPLE_SignatureDoesNotMatch,
+    CPLE_ObjectStorageGenericError,
 } CPLErrorNum;
 
 #else
@@ -78,7 +102,7 @@ typedef enum
 /** Error number */
 typedef int CPLErrorNum;
 
-/** No error */
+/** No error. Category used by CPLDebug() */
 #define CPLE_None 0
 /** Application defined error */
 #define CPLE_AppDefined 1
@@ -106,26 +130,94 @@ typedef int CPLErrorNum;
  */
 /** HTTP response */
 #define CPLE_HttpResponse 11
-/** AWSBucketNotFound */
-#define CPLE_AWSBucketNotFound 12
-/** AWSObjectNotFound */
-#define CPLE_AWSObjectNotFound 13
-/** AWSAccessDenied */
-#define CPLE_AWSAccessDenied 14
-/** AWSInvalidCredentials */
-#define CPLE_AWSInvalidCredentials 15
-/** AWSSignatureDoesNotMatch */
-#define CPLE_AWSSignatureDoesNotMatch 16
-/** VSIE_AWSError */
-#define CPLE_AWSError 17
+/** VSIE_BucketNotFound */
+#define CPLE_BucketNotFound 12
+/** VSIE_ObjectNotFound */
+#define CPLE_ObjectNotFound 13
+/** VSIE_AccessDenied */
+#define CPLE_AccessDenied 14
+/** VSIE_InvalidCredentials */
+#define CPLE_InvalidCredentials 15
+/** VSIE_SignatureDoesNotMatch */
+#define CPLE_SignatureDoesNotMatch 16
+/** VSIE_ObjectStorageGenericError */
+#define CPLE_ObjectStorageGenericError 17
 
 /* 100 - 299 reserved for GDAL */
 
 #endif
 
+/** Deprecated alias for CPLE_BucketNotFound
+ *
+ * @deprecated since 3.12
+ */
+#define CPLE_AWSBucketNotFound CPLE_BucketNotFound
+
+/** Deprecated alias for CPLE_ObjectNotFound
+ *
+ * @deprecated since 3.12
+ */
+#define CPLE_AWSObjectNotFound CPLE_ObjectNotFound
+
+/** Deprecated alias for CPLE_AccessDenied
+ *
+ * @deprecated since 3.12
+ */
+#define CPLE_AWSAccessDenied CPLE_AccessDenied
+
+/** Deprecated alias for CPLE_AWSInvalidCredentials
+ *
+ * @deprecated since 3.12
+ */
+#define CPLE_AWSInvalidCredentials CPLE_InvalidCredentials
+
+/** Deprecated alias for CPLE_SignatureDoesNotMatch
+ *
+ * @deprecated since 3.12
+ */
+#define CPLE_AWSSignatureDoesNotMatch CPLE_SignatureDoesNotMatch
+
+/** Deprecated alias for CPLE_ObjectStorageGenericError
+ *
+ * @deprecated since 3.12
+ */
+#define CPLE_AWSError CPLE_ObjectStorageGenericError
+
 void CPL_DLL CPLError(CPLErr eErrClass, CPLErrorNum err_no,
                       CPL_FORMAT_STRING(const char *fmt), ...)
     CPL_PRINT_FUNC_FORMAT(3, 4);
+
+#ifdef GDAL_COMPILATION
+
+const char CPL_DLL *CPLSPrintf(CPL_FORMAT_STRING(const char *fmt), ...)
+    CPL_PRINT_FUNC_FORMAT(1, 2) CPL_WARN_UNUSED_RESULT;
+
+/** Similar to CPLError(), but only execute it once during the life-time
+ * of a process.
+ *
+ * @since 3.11
+ */
+#define CPLErrorOnce(eErrClass, err_no, ...)                                   \
+    do                                                                         \
+    {                                                                          \
+        static bool lbCPLErrorOnce = false;                                    \
+        if (!lbCPLErrorOnce)                                                   \
+        {                                                                      \
+            lbCPLErrorOnce = true;                                             \
+            const char *lCPLErrorMsg = CPLSPrintf(__VA_ARGS__);                \
+            const size_t lCPLErrorMsgLen = strlen(lCPLErrorMsg);               \
+            const char *lCPLErrorMsgSuffix =                                   \
+                " Further messages of this type will be suppressed.";          \
+            if (lCPLErrorMsgLen && lCPLErrorMsg[lCPLErrorMsgLen - 1] == '.')   \
+                CPLError((eErrClass), (err_no), "%s%s", lCPLErrorMsg,          \
+                         lCPLErrorMsgSuffix);                                  \
+            else                                                               \
+                CPLError((eErrClass), (err_no), "%s.%s", lCPLErrorMsg,         \
+                         lCPLErrorMsgSuffix);                                  \
+        }                                                                      \
+    } while (0)
+#endif
+
 void CPL_DLL CPLErrorV(CPLErr, CPLErrorNum, const char *, va_list);
 void CPL_DLL CPLEmergencyError(const char *) CPL_NO_RETURN;
 void CPL_DLL CPL_STDCALL CPLErrorReset(void);
@@ -136,6 +228,15 @@ GUInt32 CPL_DLL CPL_STDCALL CPLGetErrorCounter(void);
 void CPL_DLL *CPL_STDCALL CPLGetErrorHandlerUserData(void);
 void CPL_DLL CPLErrorSetState(CPLErr eErrClass, CPLErrorNum err_no,
                               const char *pszMsg);
+#if defined(GDAL_COMPILATION) && defined(__cplusplus)
+extern "C++"
+{
+    void CPL_DLL CPLErrorSetState(CPLErr eErrClass, CPLErrorNum err_no,
+                                  const char *pszMsg,
+                                  const GUInt32 *pnErrorCounter);
+}
+#endif
+
 void CPL_DLL CPLCallPreviousHandler(CPLErr eErrClass, CPLErrorNum err_no,
                                     const char *pszMsg);
 /*! @cond Doxygen_Suppress */
@@ -151,6 +252,8 @@ void CPL_DLL CPL_STDCALL CPLDefaultErrorHandler(CPLErr, CPLErrorNum,
                                                 const char *);
 void CPL_DLL CPL_STDCALL CPLQuietErrorHandler(CPLErr, CPLErrorNum,
                                               const char *);
+void CPL_DLL CPL_STDCALL CPLQuietWarningsErrorHandler(CPLErr, CPLErrorNum,
+                                                      const char *);
 void CPL_DLL CPLTurnFailureIntoWarning(int bOn);
 
 CPLErrorHandler CPL_DLL CPLGetErrorHandler(void **ppUserData);
@@ -172,14 +275,55 @@ void CPL_DLL CPL_STDCALL CPLPopErrorHandler(void);
     do                                                                         \
     {                                                                          \
     } while (0) /* Eat all CPLDebugProgress calls. */
+
+#ifdef GDAL_COMPILATION
+/** Similar to CPLDebug(), but only execute it once during the life-time
+ * of a process.
+ *
+ * @since 3.11
+ */
+#define CPLDebugOnce(...)                                                      \
+    do                                                                         \
+    {                                                                          \
+    } while (0)
+#endif
+
 #else
 void CPL_DLL CPLDebug(const char *, CPL_FORMAT_STRING(const char *), ...)
     CPL_PRINT_FUNC_FORMAT(2, 3);
 void CPL_DLL CPLDebugProgress(const char *, CPL_FORMAT_STRING(const char *),
                               ...) CPL_PRINT_FUNC_FORMAT(2, 3);
+
+#ifdef GDAL_COMPILATION
+/** Similar to CPLDebug(), but only execute it once during the life-time
+ * of a process.
+ *
+ * @since 3.11
+ */
+#define CPLDebugOnce(category, ...)                                            \
+    do                                                                         \
+    {                                                                          \
+        static bool lbCPLDebugOnce = false;                                    \
+        if (!lbCPLDebugOnce)                                                   \
+        {                                                                      \
+            lbCPLDebugOnce = true;                                             \
+            const char *lCPLDebugMsg = CPLSPrintf(__VA_ARGS__);                \
+            const size_t lCPLErrorMsgLen = strlen(lCPLDebugMsg);               \
+            const char *lCPLDebugMsgSuffix =                                   \
+                " Further messages of this type will be suppressed.";          \
+            if (lCPLErrorMsgLen && lCPLDebugMsg[lCPLErrorMsgLen - 1] == '.')   \
+                CPLDebug((category), "%s%s", lCPLDebugMsg,                     \
+                         lCPLDebugMsgSuffix);                                  \
+            else                                                               \
+                CPLDebug((category), "%s.%s", lCPLDebugMsg,                    \
+                         lCPLDebugMsgSuffix);                                  \
+        }                                                                      \
+    } while (0)
 #endif
 
-#ifdef DEBUG
+#endif
+
+#if defined(DEBUG) || defined(GDAL_DEBUG)
 /** Same as CPLDebug(), but expands to nothing for non-DEBUG builds.
  * @since GDAL 3.1
  */
@@ -303,6 +447,23 @@ extern "C++"
          * before construction.
          */
         ~CPLErrorStateBackuper();
+    };
+
+    /** Class that turns errors into warning on construction, and
+     *  restores the previous state on destruction.
+     */
+    class CPL_DLL CPLTurnFailureIntoWarningBackuper
+    {
+      public:
+        CPLTurnFailureIntoWarningBackuper()
+        {
+            CPLTurnFailureIntoWarning(true);
+        }
+
+        ~CPLTurnFailureIntoWarningBackuper()
+        {
+            CPLTurnFailureIntoWarning(false);
+        }
     };
 }
 

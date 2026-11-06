@@ -38,7 +38,7 @@ class GDALRasterWindow;
  *
  * @since 3.12
  */
-class GDALGeoTransform
+class CPL_DLL GDALGeoTransform
 {
   public:
     // NOTE to GDAL developers: do not reorder those coefficients!
@@ -64,7 +64,7 @@ class GDALGeoTransform
     /** Default constructor for an identity geotransformation matrix. */
     inline GDALGeoTransform() = default;
 
-    /** Constructor from a array of 6 double */
+    /** Constructor from an array of 6 doubles */
     inline explicit GDALGeoTransform(const double coeffs[6])
     {
         static_assert(sizeof(GDALGeoTransform) == 6 * sizeof(double),
@@ -153,10 +153,10 @@ class GDALGeoTransform
         GDALApplyGeoTransform(data(), dfPixel, dfLine, pdfGeoX, pdfGeoY);
     }
 
-    /** Apply a geotransform to an OGREnvelope in geographic coordinates.
+    /** Apply a (inverse) geotransform to an OGREnvelope in georeferenced coordinates.
      *
-     * @param env An envelope in geographic coordinates
-     * @param window A window in pixel/line coordinates
+     * @param env An envelope in georeferenced coordinates
+     * @param[out] window A window in pixel/line coordinates
      * @return true if the geotransform was successfully applied
      */
     bool Apply(const OGREnvelope &env, GDALRasterWindow &window) const;
@@ -164,7 +164,7 @@ class GDALGeoTransform
     /** Apply a geotransform to a GDALRasterWindow in pixel/line coordinates.
      *
      * @param window A window in pixel/line coordinates
-     * @param env An envelope in geographic coordinates
+     * @param[out] env An envelope in georeferenced coordinates
      * @return true if the geotransform was successfully applied
      */
     bool Apply(const GDALRasterWindow &window, OGREnvelope &env) const;
@@ -229,6 +229,23 @@ class GDALGeoTransform
     {
         return xrot == 0 && yrot == 0;
     }
+
+    /** Initialize a geotransform from a string.
+     *
+     * @param pszGT the string to parse
+     * @param pszSep string separating the elements of the geotransform
+     * @return true if the initialization was successful
+     * @since 3.13
+     */
+    bool Init(const char *pszGT, const char *pszSep = ",");
+
+    /** Return a string containing the six geotransform values
+     * separated by commas.
+     *
+     * @param pszSep characters to place between elements of the geotransform
+     * @since 3.13
+     */
+    std::string ToString(const char *pszSep = ", ") const;
 };
 
 #endif

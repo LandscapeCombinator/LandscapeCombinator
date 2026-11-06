@@ -1,5 +1,4 @@
 /******************************************************************************
- * $Id$
  *
  * Project:  GDAL Core
  * Purpose:  GDAL Core C++/Private declarations
@@ -52,9 +51,13 @@ class CPL_DLL GDALProxyDataset : public GDALDataset
                               GDALRasterIOExtraArg *psExtraArg) override;
 
   public:
+    CPLErr Close(GDALProgressFunc, void *) override;
+    bool GetCloseReportsProgress() const override;
+
     char **GetMetadataDomainList() override;
-    char **GetMetadata(const char *pszDomain) override;
-    CPLErr SetMetadata(char **papszMetadata, const char *pszDomain) override;
+    CSLConstList GetMetadata(const char *pszDomain) override;
+    CPLErr SetMetadata(CSLConstList papszMetadata,
+                       const char *pszDomain) override;
     const char *GetMetadataItem(const char *pszName,
                                 const char *pszDomain) override;
     CPLErr SetMetadataItem(const char *pszName, const char *pszValue,
@@ -65,11 +68,11 @@ class CPL_DLL GDALProxyDataset : public GDALDataset
     const OGRSpatialReference *GetSpatialRef() const override;
     CPLErr SetSpatialRef(const OGRSpatialReference *poSRS) override;
 
-    CPLErr GetGeoTransform(double *) override;
-    CPLErr SetGeoTransform(double *) override;
+    CPLErr GetGeoTransform(GDALGeoTransform &) const override;
+    CPLErr SetGeoTransform(const GDALGeoTransform &) override;
 
     void *GetInternalHandle(const char *) override;
-    GDALDriver *GetDriver() override;
+    GDALDriver *GetDriver() const override;
     char **GetFileList() override;
 
     int GetGCPCount() override;
@@ -81,7 +84,7 @@ class CPL_DLL GDALProxyDataset : public GDALDataset
     CPLErr AdviseRead(int nXOff, int nYOff, int nXSize, int nYSize,
                       int nBufXSize, int nBufYSize, GDALDataType eDT,
                       int nBandCount, int *panBandList,
-                      char **papszOptions) override;
+                      CSLConstList papszOptions) override;
 
     CPLErr CreateMaskBand(int nFlags) override;
 
@@ -125,8 +128,9 @@ class CPL_DLL GDALProxyRasterBand : public GDALRasterBand
 
   public:
     char **GetMetadataDomainList() override;
-    char **GetMetadata(const char *pszDomain) override;
-    CPLErr SetMetadata(char **papszMetadata, const char *pszDomain) override;
+    CSLConstList GetMetadata(const char *pszDomain) override;
+    CPLErr SetMetadata(CSLConstList papszMetadata,
+                       const char *pszDomain) override;
     const char *GetMetadataItem(const char *pszName,
                                 const char *pszDomain) override;
     CPLErr SetMetadataItem(const char *pszName, const char *pszValue,
@@ -181,7 +185,7 @@ class CPL_DLL GDALProxyRasterBand : public GDALRasterBand
 
     CPLErr AdviseRead(int nXOff, int nYOff, int nXSize, int nYSize,
                       int nBufXSize, int nBufYSize, GDALDataType eDT,
-                      char **papszOptions) override;
+                      CSLConstList papszOptions) override;
 
     CPLErr GetHistogram(double dfMin, double dfMax, int nBuckets,
                         GUIntBig *panHistogram, int bIncludeOutOfRange,
@@ -205,7 +209,7 @@ class CPL_DLL GDALProxyRasterBand : public GDALRasterBand
 
     CPLVirtualMem *GetVirtualMemAuto(GDALRWFlag eRWFlag, int *pnPixelSpace,
                                      GIntBig *pnLineSpace,
-                                     char **papszOptions) override;
+                                     CSLConstList papszOptions) override;
 
     CPLErr InterpolateAtPoint(double dfPixel, double dfLine,
                               GDALRIOResampleAlg eInterpolation,
@@ -225,7 +229,7 @@ class CPL_DLL GDALProxyRasterBand : public GDALRasterBand
 typedef struct _GDALProxyPoolCacheEntry GDALProxyPoolCacheEntry;
 class GDALProxyPoolRasterBand;
 
-class CPL_DLL GDALProxyPoolDataset : public GDALProxyDataset
+class CPL_DLL GDALProxyPoolDataset /* non final */ : public GDALProxyDataset
 {
   private:
     GIntBig responsiblePID = -1;
@@ -233,9 +237,9 @@ class CPL_DLL GDALProxyPoolDataset : public GDALProxyDataset
     mutable char *pszProjectionRef = nullptr;
     mutable OGRSpatialReference *m_poSRS = nullptr;
     mutable OGRSpatialReference *m_poGCPSRS = nullptr;
-    double adfGeoTransform[6]{0, 1, 0, 0, 0, 1};
+    GDALGeoTransform m_gt{};
     bool m_bHasSrcSRS = false;
-    bool bHasSrcGeoTransform = false;
+    bool m_bHasSrcGeoTransform = false;
     char *pszGCPProjection = nullptr;
     int nGCPCount = 0;
     GDAL_GCP *pasGCPList = nullptr;
@@ -262,7 +266,7 @@ class CPL_DLL GDALProxyPoolDataset : public GDALProxyDataset
                          int nRasterXSize, int nRasterYSize,
                          GDALAccess eAccess = GA_ReadOnly, int bShared = FALSE,
                          const char *pszProjectionRef = nullptr,
-                         double *padfGeoTransform = nullptr,
+                         const GDALGeoTransform *pGT = nullptr,
                          const char *pszOwner = nullptr);
 
     static GDALProxyPoolDataset *Create(const char *pszSourceDatasetDescription,
@@ -293,13 +297,13 @@ class CPL_DLL GDALProxyPoolDataset : public GDALProxyDataset
     const OGRSpatialReference *GetSpatialRef() const override;
     CPLErr SetSpatialRef(const OGRSpatialReference *poSRS) override;
 
-    CPLErr GetGeoTransform(double *) override;
-    CPLErr SetGeoTransform(double *) override;
+    CPLErr GetGeoTransform(GDALGeoTransform &) const override;
+    CPLErr SetGeoTransform(const GDALGeoTransform &) override;
 
     // Special behavior for the following methods : they return a pointer
     // data type, that must be cached by the proxy, so it doesn't become invalid
     // when the underlying object get closed.
-    char **GetMetadata(const char *pszDomain) override;
+    CSLConstList GetMetadata(const char *pszDomain) override;
     const char *GetMetadataItem(const char *pszName,
                                 const char *pszDomain) override;
 
@@ -319,7 +323,8 @@ class CPL_DLL GDALProxyPoolDataset : public GDALProxyDataset
 class GDALProxyPoolOverviewRasterBand;
 class GDALProxyPoolMaskBand;
 
-class CPL_DLL GDALProxyPoolRasterBand : public GDALProxyRasterBand
+class CPL_DLL
+    GDALProxyPoolRasterBand /* non final */ : public GDALProxyRasterBand
 {
   private:
     CPLHashSet *metadataSet = nullptr;
@@ -357,7 +362,7 @@ class CPL_DLL GDALProxyPoolRasterBand : public GDALProxyRasterBand
     // Special behavior for the following methods : they return a pointer
     // data type, that must be cached by the proxy, so it doesn't become invalid
     // when the underlying object get closed.
-    char **GetMetadata(const char *pszDomain) override;
+    CSLConstList GetMetadata(const char *pszDomain) override;
     const char *GetMetadataItem(const char *pszName,
                                 const char *pszDomain) override;
     char **GetCategoryNames() override;
@@ -378,7 +383,7 @@ class CPL_DLL GDALProxyPoolRasterBand : public GDALProxyRasterBand
 /*                  GDALProxyPoolOverviewRasterBand                     */
 /* ******************************************************************** */
 
-class GDALProxyPoolOverviewRasterBand : public GDALProxyPoolRasterBand
+class GDALProxyPoolOverviewRasterBand final : public GDALProxyPoolRasterBand
 {
   private:
     GDALProxyPoolRasterBand *poMainBand = nullptr;
@@ -407,7 +412,7 @@ class GDALProxyPoolOverviewRasterBand : public GDALProxyPoolRasterBand
 /*                      GDALProxyPoolMaskBand                           */
 /* ******************************************************************** */
 
-class GDALProxyPoolMaskBand : public GDALProxyPoolRasterBand
+class GDALProxyPoolMaskBand final : public GDALProxyPoolRasterBand
 {
   private:
     GDALProxyPoolRasterBand *poMainBand = nullptr;
@@ -452,7 +457,7 @@ typedef struct GDALProxyPoolDatasetHS *GDALProxyPoolDatasetH;
 GDALProxyPoolDatasetH CPL_DLL GDALProxyPoolDatasetCreate(
     const char *pszSourceDatasetDescription, int nRasterXSize, int nRasterYSize,
     GDALAccess eAccess, int bShared, const char *pszProjectionRef,
-    double *padfGeoTransform);
+    const double *padfGeoTransform);
 
 void CPL_DLL
 GDALProxyPoolDatasetDelete(GDALProxyPoolDatasetH hProxyPoolDataset);

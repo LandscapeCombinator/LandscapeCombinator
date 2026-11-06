@@ -1,5 +1,4 @@
 /******************************************************************************
- * $Id$
  *
  * Project:  GDAL
  * Purpose:  JP2 Box Reader (and GMLJP2 Interpreter)
@@ -41,7 +40,7 @@ class CPL_DLL GDALJP2Box
 
     GByte abyUUID[16]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-    GByte *pabyData = nullptr;
+    std::vector<GByte> abyData{};
 
     bool m_bAllowGetFileSize = true;
 
@@ -56,7 +55,7 @@ class CPL_DLL GDALJP2Box
         m_bAllowGetFileSize = b;
     }
 
-    int SetOffset(GIntBig nNewOffset);
+    int SetOffset(vsi_l_offset nNewOffset);
     int ReadBox();
 
     int ReadFirst();
@@ -113,7 +112,7 @@ class CPL_DLL GDALJP2Box
 
     const GByte *GetWritableData() const
     {
-        return pabyData;
+        return abyData.data();
     }
 
     GByte *GetWritableBoxData() const;
@@ -168,8 +167,8 @@ class CPL_DLL GDALJP2Metadata
   public:
     char **papszGMLMetadata;
 
-    bool bHaveGeoTransform;
-    double adfGeoTransform[6];
+    bool m_bHaveGeoTransform{};
+    GDALGeoTransform m_gt{};
     bool bPixelIsPoint;
 
     OGRSpatialReference m_oSRS{};
@@ -205,9 +204,9 @@ class CPL_DLL GDALJP2Metadata
 
     // Write oriented.
     void SetSpatialRef(const OGRSpatialReference *poSRS);
-    void SetGeoTransform(double *);
+    void SetGeoTransform(const GDALGeoTransform &gt);
     void SetGCPs(int, const GDAL_GCP *);
-    void SetRPCMD(char **papszRPCMDIn);
+    void SetRPCMD(CSLConstList papszRPCMDIn);
 
     GDALJP2Box *CreateJP2GeoTIFF();
     GDALJP2Box *CreateGMLJP2(int nXSize, int nYSize);

@@ -25,6 +25,52 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PCGOGRFilter)
 
+namespace
+{
+// true = inside or on the boundary (holes respected). No GEOS needed.
+bool IntersectsAreal(const OGRGeometry* G, const OGRPoint& P)
+{
+if (!G || G->IsEmpty()) return false;
+switch (wkbFlatten(G->getGeometryType()))
+{
+case wkbPolygon:
+{
+const OGRPolygon* Poly = G->toPolygon();
+const OGRLinearRing* Ext = Poly->getExteriorRing();
+if (!Ext || Ext->IsEmpty()) return false;
+if (!Ext->isPointInRing(&P) && !Ext->isPointOnRingBoundary(&P)) return false;
+for (int i = 0, n = Poly->getNumInteriorRings(); i < n; ++i)
+{
+const OGRLinearRing* Hole = Poly->getInteriorRing(i);
+if (Hole && !Hole->IsEmpty() && Hole->isPointInRing(&P) && !Hole->isPointOnRingBoundary(&P)) return false;
+}
+return true;
+}
+case wkbCurvePolygon:
+case wkbMultiSurface:
+{
+OGRGeometry* Linear = G->getLinearGeometry();
+if (!Linear) return false;
+const bool bResult = IntersectsAreal(Linear, P);
+OGRGeometryFactory::destroyGeometry(Linear);
+return bResult;
+}
+case wkbMultiPolygon:
+case wkbGeometryCollection:
+{
+const OGRGeometryCollection* C = G->toGeometryCollection();
+for (int i = 0, n = C->getNumGeometries(); i < n; ++i)
+{
+if (IntersectsAreal(C->getGeometryRef(i), P)) return true;
+}
+return false;
+}
+default:
+return false;
+}
+}
+}
+
 #define LOCTEXT_NAMESPACE "FSplineImporterModule"
 
 FPCGElementPtr UPCGOGRFilterSettings::CreateElement() const
@@ -147,88 +193,39 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 
 		Output.Data = FilteredData;
 
-		TMap<const FVector, FVector2D> PCGPointToPoint;
-		TSet<FVector2D> InsideLocations;
-		OGRMultiPoint *AllPoints = (OGRMultiPoint*) OGRGeometryFactory::createGeometry(OGRwkbGeometryType::wkbMultiPoint);
-		
-		if (!AllPoints)
-		{
-			PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("AllPointsNullPointer", "Couldn't create geometry"));
-			continue;
-		}
-		ON_SCOPE_EXIT { OGRGeometryFactory::destroyGeometry(AllPoints); };
+TArray<bool> bInside;
+bInside.Init(false, PCGPoints.Num());
+int32 NumInside = 0;
 
-		UE_LOG(LogSplineImporter, Log, TEXT("Exploring %d PCG points"), PCGPoints.Num());
-		
-		for (const FPCGPoint& PCGPoint : PCGPoints)
-		{
-			const FVector& Location0 = PCGPoint.Transform.GetLocation();
-			const FVector2D& Location = { Location0.X, Location0.Y };
-			FVector2D Coordinates4326;
+UE_LOG(LogSplineImporter, Log, TEXT("Exploring %d PCG points"), PCGPoints.Num());
 
-			if (!ThisContext->GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(Location, CoordinateTransformation, Coordinates4326))
-			{
-				PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("NoData", "Internal error, unable to convert coordinates, make sure that your LevelCoordinates actor has correct values"));
-				return true;
-			}
-			OGRPoint Point4326(Coordinates4326[0], Coordinates4326[1]);
-			PCGPointToPoint.Add(Location0, Coordinates4326);
-			AllPoints->addGeometry(&Point4326);
-		}
-		UE_LOG(LogSplineImporter, Log, TEXT("Created All Points Geometry"));
-		
-		if (!AllPoints)
-		{
-			PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("AllPointsNullPointer", "Couldn't create geometry"));
-			return true;
-		}
-		OGRGeometry *Intersection = AllPoints->Intersection(Geometry);
-		
-		if (!Intersection)
-		{
-			PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("IntersectionNullPointer", "Couldn't compute intersection"));
-			return true;
-		}
-		ON_SCOPE_EXIT { OGRGeometryFactory::destroyGeometry(Intersection); };
+for (int32 i = 0; i < PCGPoints.Num(); ++i)
+{
+const FVector Location0 = PCGPoints[i].Transform.GetLocation();
+const FVector2D Location = { Location0.X, Location0.Y };
+FVector2D Coordinates4326;
 
-		if (wkbFlatten(Intersection->getGeometryType()) != wkbMultiPoint)
-		{
-			if (!Intersection->IsEmpty() && wkbFlatten(Intersection->getGeometryType()) != wkbPoint)
-			{
-				PCGE_LOG_C(Error, GraphAndLog, Context, FText::Format(LOCTEXT("IntersectionNullPointer", "Unexpected error: Intersection is not a multi-point geometry ({0})"), { wkbFlatten(Intersection->getGeometryType()) }));
-			}
-			UE_LOG(LogSplineImporter, Log, TEXT("Empty Intersection"));
-			return true;
-		}
+if (!ThisContext->GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(Location, CoordinateTransformation, Coordinates4326))
+{
+PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("NoData", "Internal error, unable to convert coordinates, make sure that your LevelCoordinates actor has correct values"));
+return true;
+}
+OGRPoint Point4326(Coordinates4326[0], Coordinates4326[1]);
+if (IntersectsAreal(Geometry, Point4326))
+{
+bInside[i] = true;
+++NumInside;
+}
+}
 
-		OGRMultiPoint* IntersectionPoints = Intersection->toMultiPoint();
-		
-		if (!IntersectionPoints)
-		{
-			PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("IntersectionNotPoints", "Couldn't compute intersection as a set of points"));
-			return true;
-		}
-		UE_LOG(LogSplineImporter, Log, TEXT("Valid Intersection Points with %d geometries"), IntersectionPoints->getNumGeometries());
-		
-		for (int i = 0, n = IntersectionPoints->getNumGeometries(); i < n; ++i)
-		{
-			OGRGeometry* PointGeometry = IntersectionPoints->getGeometryRef(i);
-			if (!PointGeometry) continue;
-			if (wkbFlatten(PointGeometry->getGeometryType()) != wkbPoint) continue;
-			OGRPoint* Point = PointGeometry->toPoint();
-			if (!Point) continue;
-			InsideLocations.Add(FVector2D(Point->getX(), Point->getY()));
-		}
-
-		UE_LOG(LogSplineImporter, Log, TEXT("Starting AsyncPointProcessing, found %d locations inside"), InsideLocations.Num());
+UE_LOG(LogSplineImporter, Log, TEXT("Starting AsyncPointProcessing, found %d locations inside"), NumInside);
 
 		
 		FPCGAsync::AsyncPointProcessing(Context, PCGPoints.Num(), FilteredPoints,
-			[InsideLocations, PCGPointToPoint, PCGPoints](int32 Index, FPCGPoint &OutPoint)
+			[bInside = MoveTemp(bInside), PCGPoints](int32 Index, FPCGPoint &OutPoint)
 			{
 				const FPCGPoint& PCGPoint = PCGPoints[Index];
-				const FVector& Location = PCGPoint.Transform.GetLocation();
-				if (InsideLocations.Contains(PCGPointToPoint[Location]))
+				if (bInside[Index])
 				{
 					OutPoint = PCGPoint;
 					return true;

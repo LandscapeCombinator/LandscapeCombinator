@@ -10,7 +10,7 @@
 #endif
 
 /* --prefix directory for GDAL install */
-#define GDAL_PREFIX "/home/user/miniconda3/envs/gdal3.10.1"
+#define GDAL_PREFIX "C:/Program Files (x86)/gdal"
 
 /* The size of `int', as computed by sizeof. */
 #define SIZEOF_INT 4
@@ -24,6 +24,12 @@
 /* The size of `size_t', as computed by sizeof. */
 #define SIZEOF_SIZE_T 8
 
+/* Whether `std::float16_t` is available (and working). */
+/* #undef HAVE_STD_FLOAT16_T */
+
+/* Whether `_Float16' is supported. */
+/* #undef HAVE__FLOAT16 */
+
 /* Define to 1, if you have LARGEFILE64_SOURCE */
 /* #undef VSI_NEED_LARGEFILE64_SOURCE */
 
@@ -33,18 +39,12 @@
 /* Define to 1 if GCC atomic builtins are available */
 #define HAVE_GCC_ATOMIC_BUILTINS 1
 
-/* Define to 1 if GCC bswap builtins are available */
-#define HAVE_GCC_BSWAP 1
-
 /* Define to 1 if your processor stores words with the most significant byte
    first (like Motorola and SPARC, unlike Intel and VAX). */
 /* #undef WORDS_BIGENDIAN */
 
 /* Define to name of 64bit stat structure */
 #define VSI_STAT64_T stat64
-
-/* Define to 1 if you have the `std::isnan' function. */
-#define HAVE_STD_IS_NAN 1
 
 
 #ifdef GDAL_COMPILATION
@@ -62,19 +62,19 @@
 #define HAVE_PTHREAD_MUTEX_ADAPTIVE_NP 1
 
 /* Define to 1 if you have the `pthread_spin_lock' function. */
-/* #undef HAVE_PTHREAD_SPIN_LOCK */
+#define HAVE_PTHREAD_SPIN_LOCK 1
 
 /* Define to 1 if you have the `pthread_atfork' function. */
-/* #undef HAVE_PTHREAD_ATFORK */
+#define HAVE_PTHREAD_ATFORK 1
 
 /* Define to 1 if you have the 5 args `mremap' function. */
 #define HAVE_5ARGS_MREMAP 1
 
 /* Define to 1 if you have the <sys/random.h> header file. */
-/* #undef HAVE_SYS_RANDOM_H */
+#define HAVE_SYS_RANDOM_H 1
 
 /* Define to 1 if you have the `getrandom' function. */
-/* #undef HAVE_GETRANDOM */
+#define HAVE_GETRANDOM 1
 
 /* Define to 1 if you have the `getrlimit' function. */
 #define HAVE_GETRLIMIT 1
@@ -82,29 +82,26 @@
 /* Define to 1 if you have the `RLIMIT_AS' constant. */
 #define HAVE_RLIMIT_AS 1
 
+/* Define to 1 if you have the `dl_iterate_phdr' function. */
+#define HAVE_DL_ITERATE_PHDR 1
+
 /* Define to 1 if you have the <direct.h> header file. */
 /* #undef HAVE_DIRECT_H */
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #define HAVE_DLFCN_H 1
 
-/* Define to 1 if you have the <fcntl.h> header file. */
-#define HAVE_FCNTL_H 1
-
 /* Define to 1 if you have the `getcwd' function. */
 #define HAVE_GETCWD 1
 
 /* Define if you have the iconv() function and it works. */
-#define HAVE_ICONV 1
+/* #undef HAVE_ICONV */
 
 /* Define to 1 if the system has the type `__uint128_t'. */
 #define HAVE_UINT128_T 1
 
 /* Define to 1 if you have the <locale.h> header file. */
 #define HAVE_LOCALE_H 1
-
-/* Define to 1 if you have the <sys/stat.h> header file. */
-#define HAVE_SYS_STAT_H 1
 
 /* Define to 1 if you have the <sys/types.h> header file. */
 #define HAVE_SYS_TYPES_H 1
@@ -113,13 +110,10 @@
 #define HAVE_UNISTD_H 1
 
 /* Define to 1 if you have the <xlocale.h> header file. */
-#define HAVE_XLOCALE_H 1
+/* #undef HAVE_XLOCALE_H */
 
 /* Define to 1 if you have the `vsnprintf' function. */
 #define HAVE_VSNPRINTF 1
-
-/* Define to 1 if you have the `readlink' function. */
-#define HAVE_READLINK 1
 
 /* Define to 1 if you have the `posix_spawnp' function. */
 #define HAVE_POSIX_SPAWNP 1
@@ -142,9 +136,6 @@
 /* Define to 1 if you have the `statvfs64' function. */
 #define HAVE_STATVFS64 1
 
-/* Define to 1 if you have the `lstat' function. */
-#define HAVE_LSTAT 1
-
 /* For .cpp files, define as const if the declaration of iconv() needs const. */
 #define ICONV_CPP_CONST 
 
@@ -154,17 +145,14 @@
 /* Define to 1 if you have fseek64, ftell64 */
 #define UNIX_STDIO_64 1
 
-/* Define to name of 64bit fopen function */
-#define VSI_FOPEN64 fopen64
+/* Define to name of 64bit open function */
+#define VSI_OPEN64 open64
 
 /* Define to name of 64bit ftruncate function */
 #define VSI_FTRUNCATE64 ftruncate64
 
-/* Define to name of 64bit fseek func */
-#define VSI_FSEEK64 fseeko64
-
-/* Define to name of 64bit ftell func */
-#define VSI_FTELL64 ftello64
+/* Define to name of 64bit lseek func */
+#define VSI_LSEEK64 lseek
 
 /* Define to name of 64bit stat function */
 #define VSI_STAT64 stat64

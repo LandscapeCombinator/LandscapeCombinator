@@ -15,13 +15,14 @@
 
 #include "gdal_priv.h"
 #include "cpl_error.h"
+#include "cpl_float.h"
 
 #include <algorithm>
 #include <array>
 #include <vector>
 
 /************************************************************************/
-/*                      GDALCachedPixelAccessor                         */
+/*                       GDALCachedPixelAccessor                        */
 /************************************************************************/
 
 /** Class to have reasonably fast random pixel access to a raster band, when
@@ -46,7 +47,8 @@ class GDALCachedPixelAccessor
     };
 
     int m_nCachedTileCount = 0;
-    std::array<CachedTile, CACHED_TILE_COUNT> m_aCachedTiles{};
+    std::array<CachedTile, static_cast<size_t>(CACHED_TILE_COUNT)>
+        m_aCachedTiles{};
 
     bool LoadTile(int nTileX, int nTileY);
     bool FlushTile(int iSlot);
@@ -101,7 +103,7 @@ GDALCachedPixelAccessor<Type, TILE_SIZE, CACHED_TILE_COUNT>::
 }
 
 /************************************************************************/
-/*                     ~GDALCachedPixelAccessor()                       */
+/*                      ~GDALCachedPixelAccessor()                      */
 /************************************************************************/
 
 /** Destructor.
@@ -116,7 +118,7 @@ GDALCachedPixelAccessor<Type, TILE_SIZE,
 }
 
 /************************************************************************/
-/*                            Get()                                     */
+/*                                Get()                                 */
 /************************************************************************/
 
 /** Get the value of a pixel.
@@ -147,7 +149,7 @@ inline Type GDALCachedPixelAccessor<Type, TILE_SIZE, CACHED_TILE_COUNT>::Get(
 }
 
 /************************************************************************/
-/*                       GetSlowPath()                                  */
+/*                            GetSlowPath()                             */
 /************************************************************************/
 
 template <class Type, int TILE_SIZE, int CACHED_TILE_COUNT>
@@ -181,7 +183,7 @@ Type GDALCachedPixelAccessor<Type, TILE_SIZE, CACHED_TILE_COUNT>::GetSlowPath(
 }
 
 /************************************************************************/
-/*                            Set()                                     */
+/*                                Set()                                 */
 /************************************************************************/
 
 /** Set the value of a pixel.
@@ -220,7 +222,7 @@ GDALCachedPixelAccessor<Type, TILE_SIZE, CACHED_TILE_COUNT>::Set(int nX, int nY,
 }
 
 /************************************************************************/
-/*                         SetSlowPath()                                */
+/*                            SetSlowPath()                             */
 /************************************************************************/
 
 template <class Type, int TILE_SIZE, int CACHED_TILE_COUNT>
@@ -254,7 +256,7 @@ bool GDALCachedPixelAccessor<Type, TILE_SIZE, CACHED_TILE_COUNT>::SetSlowPath(
 }
 
 /************************************************************************/
-/*                            FlushCache()                              */
+/*                             FlushCache()                             */
 /************************************************************************/
 
 /** Flush content of modified tiles and drop caches
@@ -276,7 +278,7 @@ bool GDALCachedPixelAccessor<Type, TILE_SIZE, CACHED_TILE_COUNT>::FlushCache()
 }
 
 /************************************************************************/
-/*                      ResetModifiedFlag()                             */
+/*                         ResetModifiedFlag()                          */
 /************************************************************************/
 
 /** Reset the modified flag for cached tiles.
@@ -292,7 +294,7 @@ void GDALCachedPixelAccessor<Type, TILE_SIZE,
 }
 
 /************************************************************************/
-/*                 GDALCachedPixelAccessorGetDataType                   */
+/*                  GDALCachedPixelAccessorGetDataType                  */
 /************************************************************************/
 
 /*! @cond Doxygen_Suppress */
@@ -351,6 +353,11 @@ template <> struct GDALCachedPixelAccessorGetDataType<GInt64>
     static constexpr GDALDataType DataType = GDT_Int64;
 };
 
+template <> struct GDALCachedPixelAccessorGetDataType<GFloat16>
+{
+    static constexpr GDALDataType DataType = GDT_Float16;
+};
+
 template <> struct GDALCachedPixelAccessorGetDataType<float>
 {
     static constexpr GDALDataType DataType = GDT_Float32;
@@ -364,7 +371,7 @@ template <> struct GDALCachedPixelAccessorGetDataType<double>
 /*! @endcond */
 
 /************************************************************************/
-/*                          LoadTile()                                  */
+/*                              LoadTile()                              */
 /************************************************************************/
 
 template <class Type, int TILE_SIZE, int CACHED_TILE_COUNT>
@@ -414,7 +421,7 @@ bool GDALCachedPixelAccessor<Type, TILE_SIZE, CACHED_TILE_COUNT>::LoadTile(
 }
 
 /************************************************************************/
-/*                          FlushTile()                                 */
+/*                             FlushTile()                              */
 /************************************************************************/
 
 template <class Type, int TILE_SIZE, int CACHED_TILE_COUNT>

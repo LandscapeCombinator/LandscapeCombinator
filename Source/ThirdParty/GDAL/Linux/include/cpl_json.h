@@ -16,7 +16,12 @@
 #include "cpl_string.h"
 
 #include <cstdint>
+#include <initializer_list>
+#include <iterator>
 #include <string>
+#if __cplusplus >= 201703L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
+#include <string_view>
+#endif
 #include <vector>
 
 /**
@@ -28,9 +33,23 @@
 /*! @cond Doxygen_Suppress */
 typedef void *JSONObjectH;
 
-CPL_C_START
-
+class CPLJSONObject;
 class CPLJSONArray;
+
+class CPLJSONObjectProxy
+{
+    CPLJSONObject &oObj;
+    const std::string osName;
+
+  public:
+    explicit inline CPLJSONObjectProxy(CPLJSONObject &oObjIn,
+                                       const std::string &osNameIn)
+        : oObj(oObjIn), osName(osNameIn)
+    {
+    }
+
+    template <class T> inline CPLJSONObjectProxy &operator=(const T &val);
+};
 
 /*! @endcond */
 
@@ -87,6 +106,7 @@ class CPL_DLL CPLJSONObject
     CPLJSONObject(CPLJSONObject &&other);
     CPLJSONObject &operator=(const CPLJSONObject &other);
     CPLJSONObject &operator=(CPLJSONObject &&other);
+    CPLJSONObject &operator=(CPLJSONArray &&other);
 
     // This method is not thread-safe
     CPLJSONObject Clone() const;
@@ -98,6 +118,11 @@ class CPL_DLL CPLJSONObject
   public:
     // setters
     void Add(const std::string &osName, const std::string &osValue);
+#if defined(DOXYGEN_SKIP) || __cplusplus >= 201703L ||                         \
+    (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
+
+    void Add(const std::string &osName, std::string_view svValue);
+#endif
     void Add(const std::string &osName, const char *pszValue);
     void Add(const std::string &osName, double dfValue);
     void Add(const std::string &osName, int nValue);
@@ -109,16 +134,40 @@ class CPL_DLL CPLJSONObject
     void Add(const std::string &osName, bool bValue);
     void AddNull(const std::string &osName);
 
-    void Set(const std::string &osName, const std::string &osValue);
-    void Set(const std::string &osName, const char *pszValue);
-    void Set(const std::string &osName, double dfValue);
-    void Set(const std::string &osName, int nValue);
-    void Set(const std::string &osName, GInt64 nValue);
-    void Set(const std::string &osName, uint64_t nValue);
-    void Set(const std::string &osName, bool bValue);
+    /** Change value by key */
+    template <class T> void Set(const std::string &osName, const T &val)
+    {
+        Delete(osName);
+        Add(osName, val);
+    }
+
     void SetNull(const std::string &osName);
 
-    /*! @cond Doxygen_Suppress */
+    CPLJSONObject operator[](const std::string &osName);
+
+/*! @cond Doxygen_Suppress */
+
+// GCC 9.4 seems to be confused by the template and doesn't realize it
+// returns *this
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Weffc++"
+#endif
+    template <class T> inline CPLJSONObject &operator=(const T &val)
+    {
+        CPLAssert(!m_osKeyForSet.empty());
+        std::string osKeyForSet = m_osKeyForSet;
+        m_osKeyForSet.clear();
+        Set(osKeyForSet, val);
+        return *this;
+    }
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
+
+    template <class T>
+    inline CPLJSONObject &operator=(std::initializer_list<T> list);
+
     JSONObjectH GetInternalHandle() const
     {
         return m_poJsonObject;
@@ -146,6 +195,7 @@ class CPL_DLL CPLJSONObject
     void DeleteNoSplitName(const std::string &osName);
     CPLJSONArray GetArray(const std::string &osName) const;
     CPLJSONObject GetObj(const std::string &osName) const;
+    CPLJSONObject GetObjNoSplitName(const std::string &osName) const;
     CPLJSONObject operator[](const std::string &osName) const;
     Type GetType() const;
 
@@ -170,6 +220,7 @@ class CPL_DLL CPLJSONObject
   private:
     JSONObjectH m_poJsonObject = nullptr;
     std::string m_osKey{};
+    std::string m_osKeyForSet{};
 };
 
 /**
@@ -186,6 +237,15 @@ class CPL_DLL CPLJSONArray : public CPLJSONObject
     explicit CPLJSONArray(const std::string &osName);
     explicit CPLJSONArray(const CPLJSONObject &other);
 
+    /** Constructor from a list of initial values */
+    template <class T> static CPLJSONArray Build(std::initializer_list<T> list)
+    {
+        CPLJSONArray oArray;
+        for (const auto &val : list)
+            oArray.Add(val);
+        return oArray;
+    }
+
   private:
     explicit CPLJSONArray(const std::string &osName, JSONObjectH poJsonObject);
 
@@ -196,9 +256,28 @@ class CPL_DLL CPLJSONArray : public CPLJSONObject
         mutable CPLJSONObject m_oObj{};
 
       public:
+        using iterator_category = std::input_iterator_tag;
+        using value_type = CPLJSONObject;
+        using difference_type = std::ptrdiff_t;
+        using pointer = CPLJSONObject *;
+        using reference = CPLJSONObject &;
+
         ConstIterator(const CPLJSONArray &oSelf, bool bStart)
             : m_oSelf(oSelf), m_nIdx(bStart ? 0 : oSelf.Size())
         {
+        }
+
+        ConstIterator(const ConstIterator &) = default;
+
+        ConstIterator &operator=(const ConstIterator &other)
+        {
+            if (this != &other)
+            {
+                CPLAssert(&m_oSelf == &(other.m_oSelf));
+                m_nIdx = other.m_nIdx;
+                m_oObj = other.m_oObj;
+            }
+            return *this;
         }
 
         ~ConstIterator() = default;
@@ -229,17 +308,33 @@ class CPL_DLL CPLJSONArray : public CPLJSONObject
     /*! @endcond */
   public:
     int Size() const;
+
+    //! Return the size of the array
+    inline size_t size() const
+    {
+        return static_cast<size_t>(Size());
+    }
+
     void AddNull();
     void Add(const CPLJSONObject &oValue);
     void Add(const std::string &osValue);
+#if defined(DOXYGEN_SKIP) || __cplusplus >= 201703L ||                         \
+    (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
+
+    void Add(std::string_view svValue);
+#endif
     void Add(const char *pszValue);
     void Add(double dfValue);
     void Add(int nValue);
     void Add(GInt64 nValue);
     void Add(uint64_t nValue);
     void Add(bool bValue);
+
     CPLJSONObject operator[](int nIndex);
     const CPLJSONObject operator[](int nIndex) const;
+
+    CPLJSONObject operator[](size_t nIndex);
+    const CPLJSONObject operator[](size_t nIndex) const;
 
     /** Iterator to first element */
     ConstIterator begin() const
@@ -289,13 +384,15 @@ class CPL_DLL CPLJSONDocument
     mutable JSONObjectH m_poRootJsonObject;
 };
 
-CPL_C_END
-
-#if defined(__cplusplus) && !defined(CPL_SUPRESS_CPLUSPLUS)
-extern "C++"
+/*! @cond Doxygen_Suppress */
+template <class T>
+inline CPLJSONObject &CPLJSONObject::operator=(std::initializer_list<T> list)
 {
-    CPLStringList CPLParseKeyValueJson(const char *pszJson);
+    return operator=(CPLJSONArray::Build(list));
 }
-#endif
+
+/*! @endcond */
+
+CPLStringList CPLParseKeyValueJson(const char *pszJson);
 
 #endif  // CPL_JSON_H_INCLUDED

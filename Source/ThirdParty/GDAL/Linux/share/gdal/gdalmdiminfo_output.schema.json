@@ -20,6 +20,9 @@
         "name": {
           "type": "string"
         },
+        "full_name": {
+          "type": "string"
+        },
         "type": {
           "type": "string",
           "enum": [
@@ -67,6 +70,9 @@
         },
         "structural_info": {
           "$ref": "#/definitions/structural_info"
+        },
+        "overviews": {
+          "$ref": "#/definitions/overviews"
         }
       },
       "additionalProperties": false
@@ -166,21 +172,54 @@
           "type": "string",
           "enum": [
             "String",
+            "Int8",
             "Byte",
             "Int16",
             "UInt16",
             "Int32",
             "UInt32",
+            "Int64",
+            "UInt64",
+            "Float16",
             "Float32",
             "Float64",
             "CInt16",
             "CInt32",
+            "CFloat16",
             "CFloat32",
             "CFloat64"
           ]
         },
         {
           "$ref": "#/definitions/compound_datatype"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "Int8",
+                "Byte",
+                "Int16",
+                "UInt16",
+                "Int32",
+                "UInt32",
+                "Int64",
+                "UInt64"
+              ]
+            },
+            "attribute_table": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            }
+          },
+          "additionalProperties": false
         }
       ]
     },
@@ -204,7 +243,17 @@
           "type": "string"
         },
         "indexing_variable": {
-          "type": "string"
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/definitions/array"
+              }
+            }
+          ]
         }
       },
       "additionalProperties": false
@@ -234,6 +283,9 @@
         "name": {
           "type": "string"
         },
+        "full_name": {
+          "type": "string"
+        },
         "type": {
           "type": "string",
           "enum": [
@@ -242,6 +294,12 @@
         },
         "dimensions": {
           "$ref": "#/definitions/dimensions"
+        },
+        "datatypes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/datatype"
+          }
         },
         "arrays": {
           "$ref": "#/definitions/arrays"
@@ -275,6 +333,20 @@
           }
         }
       ]
+    },
+
+    "overviews": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "$ref": "#/definitions/array"
+          }
+        ]
+      }
     },
 
     "srs": {

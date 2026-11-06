@@ -1,5 +1,4 @@
 /**********************************************************************
- * $Id$
  *
  * Name:     cpl_string.h
  * Project:  CPL - Common Portability Library
@@ -77,7 +76,7 @@ char CPL_DLL **CSLTokenizeString2(const char *pszString,
 #define CSLT_PRESERVEESCAPES 0x0008
 /** Flag for CSLTokenizeString2() to strip leading spaces */
 #define CSLT_STRIPLEADSPACES 0x0010
-/** Flag for CSLTokenizeString2() to strip trailaing spaces */
+/** Flag for CSLTokenizeString2() to strip trailing spaces */
 #define CSLT_STRIPENDSPACES 0x0020
 
 int CPL_DLL CSLPrint(CSLConstList papszStrList, FILE *fpOut);
@@ -111,7 +110,22 @@ int CPL_DLL CPLTestBoolean(const char *pszValue);
 bool CPL_DLL CPLTestBool(const char *pszValue);
 bool CPL_DLL CPLFetchBool(CSLConstList papszStrList, const char *pszKey,
                           bool bDefault);
+#ifdef __cplusplus
+CPL_C_END
 
+/*! @cond Doxygen_Suppress */
+inline bool CPLFetchBool(CSLConstList papszStrList, const char *pszKey,
+                         int bDefault)
+{
+    return CPLFetchBool(papszStrList, pszKey, bDefault != 0);
+}
+
+bool CPLFetchBool(CSLConstList papszStrList, const char *pszKey,
+                  const char *) = delete;
+
+/*! @endcond */
+CPL_C_START
+#endif
 CPLErr CPL_DLL CPLParseMemorySize(const char *pszValue, GIntBig *pnValue,
                                   bool *pbUnitSpecified);
 
@@ -265,10 +279,24 @@ char CPL_DLL *CPLForceToASCII(const char *pabyData, int nLen,
                               char chReplacementChar) CPL_WARN_UNUSED_RESULT;
 char CPL_DLL *CPLUTF8ForceToASCII(const char *pszStr, char chReplacementChar)
     CPL_WARN_UNUSED_RESULT;
-int CPL_DLL CPLStrlenUTF8(const char *pszUTF8Str);
+int CPL_DLL CPLStrlenUTF8(const char *pszUTF8Str)
+    /*! @cond Doxygen_Suppress */
+    CPL_WARN_DEPRECATED("Use CPLStrlenUTF8Ex() instead")
+    /*! @endcond */
+    ;
+size_t CPL_DLL CPLStrlenUTF8Ex(const char *pszUTF8Str);
 int CPL_DLL CPLCanRecode(const char *pszTestStr, const char *pszSrcEncoding,
                          const char *pszDstEncoding) CPL_WARN_UNUSED_RESULT;
 CPL_C_END
+
+#if defined(__cplusplus) && !defined(CPL_SUPRESS_CPLUSPLUS)
+
+extern "C++"
+{
+    std::string CPL_DLL CPLRemoveSQLComments(const std::string &osInput);
+}
+
+#endif
 
 /************************************************************************/
 /*                              CPLString                               */
@@ -281,6 +309,9 @@ extern "C++"
 #ifndef DOXYGEN_SKIP
 #include <string>
 #include <vector>
+#if __cplusplus >= 201703L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
+#include <string_view>
+#endif
 #endif
 
 // VC++ implicitly applies __declspec(dllexport) to template base classes
@@ -409,6 +440,15 @@ extern "C++"
         CPLSTRING_METHOD_DLL CPLString &tolower(void);
 
         CPLSTRING_METHOD_DLL bool endsWith(const std::string &osStr) const;
+
+        CPLSTRING_METHOD_DLL CPLString URLEncode() const;
+
+        CPLSTRING_METHOD_DLL CPLString SQLQuotedIdentifier() const;
+
+        CPLSTRING_METHOD_DLL CPLString SQLQuotedLiteral() const;
+
+      private:
+        operator void *(void) = delete;
     };
 
 #undef CPLSTRING_CLASS_DLL
@@ -479,7 +519,25 @@ extern "C++"
         }
 
         CPLStringList &AddString(const char *pszNewString);
+        CPLStringList &AddString(const std::string &newString);
         CPLStringList &AddStringDirectly(char *pszNewString);
+
+        /** Add a string to the list */
+        void push_back(const char *pszNewString)
+        {
+            AddString(pszNewString);
+        }
+
+        /** Add a string to the list */
+        void push_back(const std::string &osStr)
+        {
+            AddString(osStr.c_str());
+        }
+
+#if defined(DOXYGEN_SKIP) || __cplusplus >= 201703L ||                         \
+    (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
+        void push_back(std::string_view svStr);
+#endif
 
         CPLStringList &InsertString(int nInsertAtLineNo, const char *pszNewLine)
         {
@@ -490,8 +548,10 @@ extern "C++"
                                             char *pszNewLine);
 
         // CPLStringList &InsertStrings( int nInsertAtLineNo, char
-        // **papszNewLines ); CPLStringList &RemoveStrings( int
-        // nFirstLineToDelete, int nNumToRemove=1 );
+        // **papszNewLines );
+
+        CPLStringList &RemoveStrings(int nFirstLineToDelete,
+                                     int nNumToRemove = 1);
 
         /** Return index of pszTarget in the list, or -1 */
         int FindString(const char *pszTarget) const
@@ -515,6 +575,10 @@ extern "C++"
                                       const char *pszDefault) const;
         CPLStringList &AddNameValue(const char *pszKey, const char *pszValue);
         CPLStringList &SetNameValue(const char *pszKey, const char *pszValue);
+
+        CPLStringList &SetString(int pos, const char *pszString);
+        CPLStringList &SetString(int pos, const std::string &osString);
+        CPLStringList &SetStringDirectly(int pos, char *pszString);
 
         CPLStringList &Assign(char **papszListIn, int bTakeOwnership = TRUE);
 
@@ -618,12 +682,16 @@ extern "C++"
         {
             return std::vector<std::string>{begin(), end()};
         }
+
+      private:
+        operator void *(void) = delete;
     };
 
 #ifdef GDAL_COMPILATION
 
 #include <iterator>  // For std::input_iterator_tag
 #include <memory>
+#include <string_view>
 #include <utility>  // For std::pair
 
     /*! @cond Doxygen_Suppress */
@@ -648,6 +716,60 @@ extern "C++"
     {
 
     /*! @cond Doxygen_Suppress */
+
+    /** Equivalent of C++20 std::string::starts_with(const char*) */
+    template <class StringType>
+    inline bool starts_with(const StringType &str, const char *prefix)
+    {
+        const size_t prefixLen = strlen(prefix);
+        return str.size() >= prefixLen &&
+               str.compare(0, prefixLen, prefix, prefixLen) == 0;
+    }
+
+    /** Equivalent of C++20 std::string::starts_with(const std::string &) */
+    template <class StringType>
+    inline bool starts_with(const StringType &str, const std::string &prefix)
+    {
+        return str.size() >= prefix.size() &&
+               str.compare(0, prefix.size(), prefix) == 0;
+    }
+
+    /** Equivalent of C++20 std::string::starts_with(std::string_view) */
+    template <class StringType>
+    inline bool starts_with(const StringType &str, std::string_view prefix)
+    {
+        return str.size() >= prefix.size() &&
+               str.compare(0, prefix.size(), prefix) == 0;
+    }
+
+    /** Equivalent of C++20 std::string::ends_with(const char*) */
+    template <class StringType>
+    inline bool ends_with(const StringType &str, const char *suffix)
+    {
+        const size_t suffixLen = strlen(suffix);
+        return str.size() >= suffixLen &&
+               str.compare(str.size() - suffixLen, suffixLen, suffix,
+                           suffixLen) == 0;
+    }
+
+    /** Equivalent of C++20 std::string::ends_with(const std::string &) */
+    template <class StringType>
+    inline bool ends_with(const StringType &str, const std::string &suffix)
+    {
+        return str.size() >= suffix.size() &&
+               str.compare(str.size() - suffix.size(), suffix.size(), suffix) ==
+                   0;
+    }
+
+    /** Equivalent of C++20 std::string::ends_with(std::string_view) */
+    template <class StringType>
+    inline bool ends_with(const StringType &str, std::string_view suffix)
+    {
+        return str.size() >= suffix.size() &&
+               str.compare(str.size() - suffix.size(), suffix.size(), suffix) ==
+                   0;
+    }
+
     /** Iterator for a CSLConstList */
     struct CPL_DLL CSLIterator
     {

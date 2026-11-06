@@ -1,5 +1,4 @@
 /******************************************************************************
- * $Id$
  *
  * Project:  OpenGIS Simple Features Reference Implementation
  * Purpose:  C API and constant declarations for OGR Spatial References.
@@ -19,6 +18,7 @@
 
 #ifndef SWIG
 #include "ogr_core.h"
+#include "gdal_fwd.h"
 
 CPL_C_START
 
@@ -421,22 +421,6 @@ const char CPL_DLL *OSRAxisEnumToName(OGRAxisOrientation eOrientation);
 /* -------------------------------------------------------------------- */
 /*      C Wrappers for C++ objects and methods.                         */
 /* -------------------------------------------------------------------- */
-#ifndef DEFINED_OGRSpatialReferenceH
-/*! @cond Doxygen_Suppress */
-#define DEFINED_OGRSpatialReferenceH
-/*! @endcond */
-
-#ifdef DEBUG
-typedef struct OGRSpatialReferenceHS *OGRSpatialReferenceH;
-typedef struct OGRCoordinateTransformationHS *OGRCoordinateTransformationH;
-#else
-/** Opaque type for a Spatial Reference object */
-typedef void *OGRSpatialReferenceH;
-/** Opaque type for a coordinate transformation object */
-typedef void *OGRCoordinateTransformationH;
-#endif
-
-#endif
 
 void CPL_DLL OSRSetPROJSearchPaths(const char *const *papszPaths);
 char CPL_DLL **OSRGetPROJSearchPaths(void);
@@ -512,6 +496,7 @@ OGRSpatialReferenceH CPL_DLL OSRConvertToOtherProjection(
     const char *const *papszOptions);
 
 const char CPL_DLL *OSRGetName(OGRSpatialReferenceH hSRS);
+const char CPL_DLL *OSRGetCelestialBodyName(OGRSpatialReferenceH hSRS);
 
 OGRErr CPL_DLL CPL_STDCALL OSRSetAttrValue(OGRSpatialReferenceH hSRS,
                                            const char *pszNodePath,
@@ -630,7 +615,7 @@ OGRErr CPL_DLL OSRSetStatePlaneWithUnits(OGRSpatialReferenceH hSRS, int nZone,
 OGRErr CPL_DLL OSRAutoIdentifyEPSG(OGRSpatialReferenceH hSRS);
 
 OGRSpatialReferenceH CPL_DLL *OSRFindMatches(OGRSpatialReferenceH hSRS,
-                                             char **papszOptions,
+                                             CSLConstList papszOptions,
                                              int *pnEntries,
                                              int **ppanMatchConfidence);
 void CPL_DLL OSRFreeSRSArray(OGRSpatialReferenceH *pahSRS);
@@ -728,7 +713,7 @@ OGRErr CPL_DLL OSRSetEquirectangular2(OGRSpatialReferenceH hSRS,
                                       double dfFalseEasting,
                                       double dfFalseNorthing);
 
-/** Gall Stereograpic */
+/** Gall Stereographic */
 OGRErr CPL_DLL OSRSetGS(OGRSpatialReferenceH hSRS, double dfCentralMeridian,
                         double dfFalseEasting, double dfFalseNorthing);
 
@@ -911,7 +896,7 @@ OGRErr CPL_DLL OSRSetTPED(OGRSpatialReferenceH hSRS, double dfLat1,
 OGRErr CPL_DLL OSRSetVDG(OGRSpatialReferenceH hSRS, double dfCenterLong,
                          double dfFalseEasting, double dfFalseNorthing);
 
-/** Wagner I -- VII */
+/** Wagner I \-- VII */
 OGRErr CPL_DLL OSRSetWagner(OGRSpatialReferenceH hSRS, int nVariation,
                             double dfCenterLat, double dfFalseEasting,
                             double dfFalseNorthing);
@@ -989,6 +974,10 @@ typedef struct
     /** Name of the projection method for a projected CRS. Might be NULL even
      *for projected CRS in some cases. */
     char *pszProjectionMethod;
+    /** Name of the celestial body of the CRS (e.g. "Earth").
+     * @since GDAL 3.12, and filled only if PROJ >= 8.1
+     */
+    char *pszCelestialBodyName;
 } OSRCRSInfo;
 
 /** \brief Structure to describe optional parameters to
@@ -1012,10 +1001,6 @@ char CPL_DLL **OSRGetAuthorityListFromDatabase(void);
 /* -------------------------------------------------------------------- */
 OGRCoordinateTransformationH CPL_DLL CPL_STDCALL OCTNewCoordinateTransformation(
     OGRSpatialReferenceH hSourceSRS, OGRSpatialReferenceH hTargetSRS);
-
-/** Coordinate transformation options. */
-typedef struct OGRCoordinateTransformationOptions
-    *OGRCoordinateTransformationOptionsH;
 
 OGRCoordinateTransformationOptionsH CPL_DLL
 OCTNewCoordinateTransformationOptions(void);

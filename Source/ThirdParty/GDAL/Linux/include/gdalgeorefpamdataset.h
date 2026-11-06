@@ -1,5 +1,4 @@
 /******************************************************************************
- * $Id$
  *
  * Project:  GDAL
  * Purpose:  GDALPamDataset with internal storage for georeferencing, with
@@ -23,14 +22,14 @@ class CPL_DLL GDALGeorefPamDataset : public GDALPamDataset
 {
   protected:
     bool bGeoTransformValid;
-    double adfGeoTransform[6];
+    GDALGeoTransform m_gt{};
     OGRSpatialReference m_oSRS{};
     int nGCPCount;
     GDAL_GCP *pasGCPList;
     char **m_papszRPC;
     bool m_bPixelIsPoint;
 
-    int m_nGeoTransformGeorefSrcIndex;
+    mutable int m_nGeoTransformGeorefSrcIndex;
     int m_nGCPGeorefSrcIndex;
     int m_nProjectionGeorefSrcIndex;
     int m_nRPCGeorefSrcIndex;
@@ -51,7 +50,7 @@ class CPL_DLL GDALGeorefPamDataset : public GDALPamDataset
 
     CPLErr TryLoadXML(CSLConstList papszSiblingFiles = nullptr) override;
 
-    CPLErr GetGeoTransform(double *) override;
+    CPLErr GetGeoTransform(GDALGeoTransform &gt) const override;
 
     const OGRSpatialReference *GetSpatialRef() const override;
 
@@ -59,10 +58,10 @@ class CPL_DLL GDALGeorefPamDataset : public GDALPamDataset
     const OGRSpatialReference *GetGCPSpatialRef() const override;
     const GDAL_GCP *GetGCPs() override;
 
-    char **GetMetadata(const char *pszDomain = "") override;
+    CSLConstList GetMetadata(const char *pszDomain = "") override;
     const char *GetMetadataItem(const char *pszName,
                                 const char *pszDomain = "") override;
-    CPLErr SetMetadata(char **papszMetadata,
+    CPLErr SetMetadata(CSLConstList papszMetadata,
                        const char *pszDomain = "") override;
     CPLErr SetMetadataItem(const char *pszName, const char *pszValue,
                            const char *pszDomain = "") override;

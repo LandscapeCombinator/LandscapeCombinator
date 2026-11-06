@@ -15,6 +15,42 @@
 
 #define LOCTEXT_NAMESPACE "FSplineImporterModule"
 
+namespace
+{
+// Appends every polygon found in G (recursing into multis/collections/curves) to Dest. No GEOS needed.
+int AppendPolygons(OGRMultiPolygon* Dest, const OGRGeometry* G)
+{
+if (!Dest || !G || G->IsEmpty()) return 0;
+switch (wkbFlatten(G->getGeometryType()))
+{
+case wkbPolygon:
+return Dest->addGeometry(G) == OGRERR_NONE ? 1 : 0;
+case wkbCurvePolygon:
+case wkbMultiSurface:
+{
+OGRGeometry* Linear = G->getLinearGeometry();
+if (!Linear) return 0;
+const int N = AppendPolygons(Dest, Linear);
+OGRGeometryFactory::destroyGeometry(Linear);
+return N;
+}
+case wkbMultiPolygon:
+case wkbGeometryCollection:
+{
+const OGRGeometryCollection* C = G->toGeometryCollection();
+int N = 0;
+for (int i = 0, n = C->getNumGeometries(); i < n; ++i)
+{
+N += AppendPolygons(Dest, C->getGeometryRef(i));
+}
+return N;
+}
+default:
+return 0;
+}
+}
+}
+
 AOGRGeometry::AOGRGeometry()
 {
 	PreviewDecal = CreateDefaultSubobject<UDecalComponent>(TEXT("PreviewDecal"));
@@ -104,9 +140,19 @@ bool AOGRGeometry::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIniti
 		return false;
 	}
 	
+{
+// a geometry restored from older serialized data may not be a MultiPolygon
+FScopeLock Lock(&GeometryLock);
+if (wkbFlatten(Geometry->getGeometryType()) != wkbMultiPolygon)
+{
+OGRMultiPolygon* Normalized = OGRGeometryFactory::createGeometry(OGRwkbGeometryType::wkbMultiPolygon)->toMultiPolygon();
+AppendPolygons(Normalized, Geometry);
+OGRGeometryFactory::destroyGeometry(Geometry);
+Geometry = Normalized;
+}
+}
 	int n = Dataset->GetLayerCount();
 	int NumGeometries = 0;
-	bool bAnyUnion = false;
 
 	for (int i = 0; i < n; i++)
 	{
@@ -123,38 +169,12 @@ bool AOGRGeometry::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIniti
 			OGRGeometry* NewGeometry = Feature->GetGeometryRef();
 			if (!NewGeometry) continue;
 
-			OGRGeometry* MadeValidGeometry = nullptr;
-			if (!NewGeometry->IsValid())
-			{
-				UE_LOG(LogSplineImporter, Warning, TEXT("%s"), *FString(CPLGetLastErrorMsg()));
-				UE_LOG(LogSplineImporter, Warning, TEXT("Obtained invalid geometry from feature, we'll make it valid and continue anyway"));
-				MadeValidGeometry = NewGeometry->MakeValid();
-				NewGeometry = MadeValidGeometry;
-				if (!NewGeometry)
-				{
-					UE_LOG(LogSplineImporter, Warning, TEXT("MakeValid() returned null, skipping this feature"));
-					continue;
-				}
-			}
-
-			OGRGeometry* NewUnion = Geometry->Union(NewGeometry);
-			if (MadeValidGeometry) OGRGeometryFactory::destroyGeometry(MadeValidGeometry);
-
-			if (NewUnion)
-			{
-				{
-					FScopeLock Lock(&GeometryLock);
-					OGRGeometryFactory::destroyGeometry(Geometry);
-					Geometry = NewUnion;
-				}
-				NumGeometries++;
-				bAnyUnion = true;
-			}
-			else
-			{
-				UE_LOG(LogSplineImporter, Warning, TEXT("Error: %s"), *FString(CPLGetLastErrorMsg()));
-				UE_LOG(LogSplineImporter, Warning, TEXT("There was an error while taking union of geometries in OGR, we'll skip a geometry"))
-			}
+int Added = 0;
+{
+FScopeLock Lock(&GeometryLock);
+Added = AppendPolygons(Geometry->toMultiPolygon(), NewGeometry);
+}
+if (Added > 0) NumGeometries++;
 		}
 	}
 

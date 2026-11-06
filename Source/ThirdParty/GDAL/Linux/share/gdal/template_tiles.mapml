@@ -1,0 +1,26 @@
+<mapml- xmlns="http://www.w3.org/1999/xhtml">
+    <map-head>
+        <map-title>${TITLE}</map-title>
+        <map-meta charset="utf-8" ></map-meta>
+        <!--
+        <map-link href="http://localhost:8080/myservice/mapml/WGS84?style=" rel="alternate" projection="WGS84" ></map-link>
+        <map-link href="http://localhost:8080/myservice/mapml/OSMTILE?style=" rel="alternate" projection="OSMTILE" ></map-link>
+        <map-link href="http://localhost:8080/myservice/mapml/CBMTILE?style=" rel="alternate" projection="CBMTILE" ></map-link>
+        <map-link href="http://localhost:8080/myservice/mapml/APSTILE?style=" rel="alternate" projection="APSTILE" ></map-link>
+        -->
+    </map-head>
+    <map-body>
+        <map-extent units="${TILING_SCHEME}" checked="checked">
+            <map-input name="z" type="zoom" value="${CURZOOM}" min="${MINZOOM}" max="${MAXZOOM}" ></map-input>
+            <map-input name="x" type="location" axis="column" units="tilematrix" min="${MINTILEX}" max="${MAXTILEX}" ></map-input>
+            <map-input name="y" type="location" axis="row" units="tilematrix" min="${MINTILEY}" max="${MAXTILEY}" ></map-input>
+            <map-link tref="${URL}{z}/{x}/{y}.${TILEEXT}" rel="tile" ></map-link>
+            <!--<map-link tref="http://localhost:8080/myservice/wmts?layer=MYLAYER&amp;style=&amp;tilematrixset=${TILING_SCHEME}&amp;service=WMTS&amp;request=GetTile&amp;version=1.0.0&amp;tilematrix={z}&amp;TileCol={x}&amp;TileRow={y}&amp;format=image/png" rel="tile" ></map-link>-->
+            <!--
+            <map-input name="i" type="location" axis="i" units="tile" ></map-input>
+            <map-input name="j" type="location" axis="j" units="tile" ></map-input>
+            <map-link tref="http://localhost:8080/myservice/wmts/?LAYER=MYLAYER&amp;TILEMATRIX={z}&amp;TileCol={x}&amp;TileRow={y}&amp;TILEMATRIXSET=WGS84&amp;SERVICE=WMTS&amp;VERSION=1.0.0&amp;REQUEST=GetFeatureInfo&amp;FEATURE_COUNT=50&amp;FORMAT=image/png&amp;STYLE=&amp;INFOFORMAT=text/mapml&amp;I={i}&amp;J={j}" rel="query" ></map-link>
+            -->
+        </map-extent>
+    </map-body>
+</mapml->

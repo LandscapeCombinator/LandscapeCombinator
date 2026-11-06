@@ -10,7 +10,7 @@
 #endif
 
 /* --prefix directory for GDAL install */
-#define GDAL_PREFIX "C:/Users/user/miniconda3/Library"
+#define GDAL_PREFIX "C:/gdal-build/env/Library"
 
 /* The size of `int', as computed by sizeof. */
 #define SIZEOF_INT 4
@@ -95,7 +95,7 @@
 #define HAVE_GETCWD 1
 
 /* Define if you have the iconv() function and it works. */
-#define HAVE_ICONV 1
+/* #undef HAVE_ICONV */
 
 /* Define to 1 if the system has the type `__uint128_t'. */
 /* #undef HAVE_UINT128_T */
@@ -145,17 +145,14 @@
 /* Define to 1 if you have fseek64, ftell64 */
 /* #undef UNIX_STDIO_64 */
 
-/* Define to name of 64bit fopen function */
-/* #undef VSI_FOPEN64 */
+/* Define to name of 64bit open function */
+/* #undef VSI_OPEN64 */
 
 /* Define to name of 64bit ftruncate function */
 /* #undef VSI_FTRUNCATE64 */
 
-/* Define to name of 64bit fseek func */
-/* #undef VSI_FSEEK64 */
-
-/* Define to name of 64bit ftell func */
-/* #undef VSI_FTELL64 */
+/* Define to name of 64bit lseek func */
+/* #undef VSI_LSEEK64 */
 
 /* Define to name of 64bit stat function */
 #define VSI_STAT64 _stat64
@@ -190,7 +187,7 @@
 /* #undef CPL_DISABLE_DLL */
 
 /* Define to 1 if you have the <atlbase.h> header file. */
-#define HAVE_ATLBASE_H 1
+/* #undef HAVE_ATLBASE_H */
 
 /* Define to 1 if you have the `ctime_r' function. */
 /* #undef HAVE_CTIME_R */

@@ -1,5 +1,4 @@
 /******************************************************************************
- * $Id$
  *
  * Project:  CPL - Common Portability Library
  * Author:   Frank Warmerdam, warmerdam@pobox.com
@@ -21,15 +20,22 @@
 
 #include <stdbool.h>
 
+#if defined(__cplusplus) && !defined(CPL_SUPRESS_CPLUSPLUS)
+extern "C++"
+{
+#include <string>
+}
+#endif
+
 /**
  * \file cpl_vsi.h
  *
  * Standard C Covers
  *
- * The VSI functions are intended to be hookable aliases for Standard C
- * I/O, memory allocation and other system functions. They are intended
- * to allow virtualization of disk I/O so that non file data sources
- * can be made to appear as files, and so that additional error trapping
+ * The VSI (Virtual System Interface) functions are intended to be hookable
+ * aliases for Standard C I/O, memory allocation and other system functions.
+ * They are intended to allow virtualization of disk I/O so that non file data
+ * sources can be made to appear as files, and so that additional error trapping
  * and reporting can be interested.  The memory access API is aliased
  * so that special application memory management services can be used.
  *
@@ -103,9 +109,9 @@ int CPL_DLL VSIStat(const char *, VSIStatBuf *) CPL_WARN_UNUSED_RESULT;
 
 #ifdef _WIN32
 #define VSI_ISLNK(x) (0) /* N/A on Windows */
-#define VSI_ISREG(x) ((x)&S_IFREG)
-#define VSI_ISDIR(x) ((x)&S_IFDIR)
-#define VSI_ISCHR(x) ((x)&S_IFCHR)
+#define VSI_ISREG(x) ((x) & S_IFREG)
+#define VSI_ISDIR(x) ((x) & S_IFDIR)
+#define VSI_ISCHR(x) ((x) & S_IFCHR)
 #define VSI_ISBLK(x) (0) /* N/A on Windows */
 #else
 /** Test if the file is a symbolic link */
@@ -142,6 +148,43 @@ VSILFILE CPL_DLL *VSIFOpenEx2L(const char *, const char *, int,
 int CPL_DLL VSIFCloseL(VSILFILE *) EXPERIMENTAL_CPL_WARN_UNUSED_RESULT;
 int CPL_DLL VSIFSeekL(VSILFILE *, vsi_l_offset,
                       int) EXPERIMENTAL_CPL_WARN_UNUSED_RESULT;
+#ifdef GDAL_COMPILATION
+#ifdef __cplusplus
+
+/*! @cond Doxygen_Suppress */
+CPL_C_END
+
+int VSIFSeekL(VSILFILE *, int &, int) = delete;
+int VSIFSeekL(VSILFILE *, const int &, int) = delete;
+int VSIFSeekL(VSILFILE *, unsigned &, int) = delete;
+int VSIFSeekL(VSILFILE *, const unsigned &, int) = delete;
+
+inline int VSIFSeekL(VSILFILE *f, int &&nOffset, int nWhence)
+{
+    return VSIFSeekL(f, static_cast<vsi_l_offset>(nOffset), nWhence);
+}
+
+template <typename T>
+inline std::enable_if_t<
+    std::is_same_v<T, uint64_t> && !std::is_same_v<uint64_t, vsi_l_offset>, int>
+VSIFSeekL(VSILFILE *f, T nOffset, int nWhence)
+{
+    return VSIFSeekL(f, static_cast<vsi_l_offset>(nOffset), nWhence);
+}
+
+template <typename T>
+inline std::enable_if_t<std::is_same_v<T, size_t> &&
+                            !std::is_same_v<T, uint64_t> &&
+                            !std::is_same_v<size_t, unsigned> &&
+                            !std::is_same_v<size_t, vsi_l_offset>,
+                        int>
+VSIFSeekL(VSILFILE *f, T, int) = delete;
+
+CPL_C_START
+
+/*! @endcond */
+#endif
+#endif
 vsi_l_offset CPL_DLL VSIFTellL(VSILFILE *) CPL_WARN_UNUSED_RESULT;
 void CPL_DLL VSIRewindL(VSILFILE *);
 size_t CPL_DLL VSIFReadL(void *, size_t, size_t,
@@ -278,7 +321,7 @@ void CPL_DLL VSIFree(void *);
 void CPL_DLL *VSIRealloc(void *, size_t) CPL_WARN_UNUSED_RESULT;
 char CPL_DLL *VSIStrdup(const char *) CPL_WARN_UNUSED_RESULT;
 
-#if defined(__cplusplus) && defined(GDAL_COMPILATION)
+#if defined(__cplusplus)
 extern "C++"
 {
     /*! @cond Doxygen_Suppress */
@@ -381,6 +424,8 @@ char CPL_DLL **VSIReadDir(const char *);
 char CPL_DLL **VSIReadDirRecursive(const char *pszPath);
 char CPL_DLL **VSIReadDirEx(const char *pszPath, int nMaxFiles);
 char CPL_DLL **VSISiblingFiles(const char *pszPath);
+char CPL_DLL **VSIGlob(const char *pszPattern, const char *const *papszOptions,
+                       GDALProgressFunc pProgressFunc, void *pProgressData);
 
 const char CPL_DLL *VSIGetDirectorySeparator(const char *pszPath);
 
@@ -435,6 +480,9 @@ int CPL_DLL VSIRmdirRecursive(const char *pszDirname);
 int CPL_DLL VSIUnlink(const char *pszFilename);
 int CPL_DLL *VSIUnlinkBatch(CSLConstList papszFiles);
 int CPL_DLL VSIRename(const char *oldpath, const char *newpath);
+int CPL_DLL VSIMove(const char *oldpath, const char *newpath,
+                    const char *const *papszOptions,
+                    GDALProgressFunc pProgressFunc, void *pProgressData);
 int CPL_DLL VSICopyFile(const char *pszSource, const char *pszTarget,
                         VSILFILE *fpSource, vsi_l_offset nSourceSize,
                         const char *const *papszOptions,
@@ -479,6 +527,13 @@ GIntBig CPL_DLL VSIGetDiskFreeSpace(const char *pszDirname);
 
 void CPL_DLL VSINetworkStatsReset(void);
 char CPL_DLL *VSINetworkStatsGetAsSerializedJSON(char **papszOptions);
+
+#if defined(__cplusplus) && !defined(CPL_SUPRESS_CPLUSPLUS)
+extern "C++"
+{
+    std::string CPL_DLL VSIURIToVSIPath(const std::string &osURI);
+}
+#endif
 
 /* ==================================================================== */
 /*      Install special file access handlers.                           */

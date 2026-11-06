@@ -1,5 +1,4 @@
 /******************************************************************************
- * $Id$
  *
  * Project:  CPL - Common Portability Library
  * Author:   Frank Warmerdam, warmerdam@pobox.com
@@ -124,14 +123,17 @@
 #include <strings.h>
 #endif
 
+#ifdef __cplusplus
+extern "C++"
+{
+#include <cmath>
+}
+#endif
+
 /* ==================================================================== */
 /*      Base portability stuff ... this stuff may need to be            */
 /*      modified for new platforms.                                     */
 /* ==================================================================== */
-
-/* -------------------------------------------------------------------- */
-/*      Which versions of C++ are available.                            */
-/* -------------------------------------------------------------------- */
 
 /* MSVC fails to define a decent value of __cplusplus. Try to target VS2015*/
 /* as a minimum */
@@ -139,12 +141,6 @@
 #if defined(__cplusplus) && !defined(CPL_SUPRESS_CPLUSPLUS)
 #if !(__cplusplus >= 201103L || (defined(_MSC_VER) && _MSC_VER >= 1900))
 #error Must have C++11 or newer.
-#endif
-#if __cplusplus >= 201402L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201402L)
-#define HAVE_CXX14 1
-#endif
-#if __cplusplus >= 201703L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
-#define HAVE_CXX17 1
 #endif
 #endif /* __cplusplus */
 
@@ -351,23 +347,24 @@ typedef uintptr_t GUIntptr_t;
 #endif
 /*! @endcond*/
 
-#ifndef MAX
 /** Macro to compute the minimum of 2 values */
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define CPL_MIN(a, b) (((a) < (b)) ? (a) : (b))
 /** Macro to compute the maximum of 2 values */
-#define MAX(a, b) (((a) > (b)) ? (a) : (b))
-#endif
+#define CPL_MAX(a, b) (((a) > (b)) ? (a) : (b))
 
-#ifndef ABS
 /** Macro to compute the absolute value */
-#define ABS(x) (((x) < 0) ? (-1 * (x)) : (x))
-#endif
+#define CPL_ABS(x) (((x) < 0) ? (-1 * (x)) : (x))
 
+/*! @cond Doxygen_Suppress */
+
+#if defined(GDAL_COMPILATION)
 #ifndef M_PI
-/** PI definition */
 #define M_PI 3.14159265358979323846
 /* 3.1415926535897932384626433832795 */
 #endif
+
+#endif
+/*! @endcond*/
 
 /* -------------------------------------------------------------------- */
 /*      Macro to test equality of two floating point values.            */
@@ -552,8 +549,8 @@ static inline char *CPL_afl_friendly_strstr(const char *haystack,
 #endif
 /*! @endcond */
 
-#ifndef GDAL_COMPILATION
 /*! @cond Doxygen_Suppress */
+#ifndef __cplusplus
 /* -------------------------------------------------------------------- */
 /*      Handle isnan() and isinf().  Note that isinf() and isnan()      */
 /*      are supposed to be macros according to C99, defined in math.h   */
@@ -575,99 +572,25 @@ static inline char *CPL_afl_friendly_strstr(const char *haystack,
 #define CPLIsNan(x) __builtin_isnan(x)
 #define CPLIsInf(x) __builtin_isinf(x)
 #define CPLIsFinite(x) __builtin_isfinite(x)
-#elif defined(__cplusplus) && defined(HAVE_STD_IS_NAN) && HAVE_STD_IS_NAN
-extern "C++"
-{
-#ifndef DOXYGEN_SKIP
-#include <cmath>
-#endif
-    static inline int CPLIsNan(float f)
-    {
-        return std::isnan(f);
-    }
-
-    static inline int CPLIsNan(double f)
-    {
-        return std::isnan(f);
-    }
-
-    static inline int CPLIsInf(float f)
-    {
-        return std::isinf(f);
-    }
-
-    static inline int CPLIsInf(double f)
-    {
-        return std::isinf(f);
-    }
-
-    static inline int CPLIsFinite(float f)
-    {
-        return std::isfinite(f);
-    }
-
-    static inline int CPLIsFinite(double f)
-    {
-        return std::isfinite(f);
-    }
-}
-#else
-/** Return whether a floating-pointer number is NaN */
-#if defined(__cplusplus) && defined(__GNUC__) && defined(__linux) &&           \
-    !defined(__ANDROID__) && !defined(CPL_SUPRESS_CPLUSPLUS)
-/* so to not get warning about conversion from double to float with */
-/* gcc -Wfloat-conversion when using isnan()/isinf() macros */
-extern "C++"
-{
-    static inline int CPLIsNan(float f)
-    {
-        return __isnanf(f);
-    }
-
-    static inline int CPLIsNan(double f)
-    {
-        return __isnan(f);
-    }
-
-    static inline int CPLIsInf(float f)
-    {
-        return __isinff(f);
-    }
-
-    static inline int CPLIsInf(double f)
-    {
-        return __isinf(f);
-    }
-
-    static inline int CPLIsFinite(float f)
-    {
-        return !__isnanf(f) && !__isinff(f);
-    }
-
-    static inline int CPLIsFinite(double f)
-    {
-        return !__isnan(f) && !__isinf(f);
-    }
-}
-#else
+#elif defined(isinf) || defined(__FreeBSD__)
+/** Return whether a floating-pointer number is nan */
 #define CPLIsNan(x) isnan(x)
-#if defined(isinf) || defined(__FreeBSD__)
 /** Return whether a floating-pointer number is +/- infinity */
 #define CPLIsInf(x) isinf(x)
 /** Return whether a floating-pointer number is finite */
 #define CPLIsFinite(x) (!isnan(x) && !isinf(x))
 #elif defined(__sun__)
 #include <ieeefp.h>
+#define CPLIsNan(x) isnan(x)
 #define CPLIsInf(x) (!finite(x) && !isnan(x))
 #define CPLIsFinite(x) finite(x)
 #else
+#define CPLIsNan(x) ((x) != (x))
 #define CPLIsInf(x) (0)
 #define CPLIsFinite(x) (!isnan(x))
 #endif
 #endif
-#endif
 /*! @endcond */
-#endif  // GDAL_COMPILATION
 
 /*! @cond Doxygen_Suppress */
 /*---------------------------------------------------------------------
@@ -730,7 +653,7 @@ extern "C++"
     CPL_STATIC_CAST(GUInt16, (CPL_STATIC_CAST(GUInt16, x) << 8) |              \
                                  (CPL_STATIC_CAST(GUInt16, x) >> 8))
 
-#if defined(HAVE_GCC_BSWAP)
+#ifdef __GNUC__
 /** Byte-swap a 32bit unsigned integer */
 #define CPL_SWAP32(x)                                                          \
     CPL_STATIC_CAST(GUInt32, __builtin_bswap32(CPL_STATIC_CAST(GUInt32, x)))
@@ -879,6 +802,180 @@ extern "C++"
  */
 #define CPL_LSBUINT32PTR(x) CPL_STATIC_CAST(GUInt32, CPL_LSBINT32PTR(x))
 
+#if defined(__cplusplus) && !defined(CPL_SUPRESS_CPLUSPLUS)
+
+extern "C++"
+{
+#include <cstddef>
+#include <cstdint>
+
+    /*! @cond Doxygen_Suppress */
+    // workaround before CWG2518/P2593R1
+    template <class T> struct CPL_T_IsAlwaysFalse
+    {
+        static const bool value = false;
+    };
+
+    /*! @endcond */
+
+    /** Return the provided value as a LSB ordered one.
+     *
+     * Only available for primitive types: [u]int[8|16|32|64], float and double.
+     */
+    template <class T> T CPL_AS_LSB(T)
+    {
+        // See https://youtu.be/b6j6SZiXmoo?t=1659 for rationale for CPL_T_IsAlwaysFalse
+        static_assert(CPL_T_IsAlwaysFalse<T>::value, "Unsupported value for T");
+    }
+
+    /*! @cond Doxygen_Suppress */
+    template <> inline int8_t CPL_AS_LSB<int8_t>(int8_t x)
+    {
+        return x;
+    }
+
+    template <> inline uint8_t CPL_AS_LSB<uint8_t>(uint8_t x)
+    {
+        return x;
+    }
+
+    template <> inline int16_t CPL_AS_LSB<int16_t>(int16_t x)
+    {
+        CPL_LSBPTR16(&x);
+        return x;
+    }
+
+    template <> inline uint16_t CPL_AS_LSB<uint16_t>(uint16_t x)
+    {
+        CPL_LSBPTR16(&x);
+        return x;
+    }
+
+    template <> inline int32_t CPL_AS_LSB<int32_t>(int32_t x)
+    {
+        CPL_LSBPTR32(&x);
+        return x;
+    }
+
+    template <> inline uint32_t CPL_AS_LSB<uint32_t>(uint32_t x)
+    {
+        CPL_LSBPTR32(&x);
+        return x;
+    }
+
+    template <> inline int64_t CPL_AS_LSB<int64_t>(int64_t x)
+    {
+        CPL_LSBPTR64(&x);
+        return x;
+    }
+
+    template <> inline uint64_t CPL_AS_LSB<uint64_t>(uint64_t x)
+    {
+        CPL_LSBPTR64(&x);
+        return x;
+    }
+
+    template <> inline float CPL_AS_LSB<float>(float x)
+    {
+        CPL_LSBPTR32(&x);
+        return x;
+    }
+
+    template <> inline double CPL_AS_LSB<double>(double x)
+    {
+        CPL_LSBPTR64(&x);
+        return x;
+    }
+
+    /*! @endcond */
+
+    /** Return a primitive type from a memory buffer containing its LSB
+     * ordered byte sequence
+     *
+     * Only available for primitive types: [u]int[8|16|32|64], float and double.
+     */
+    template <class T> inline T CPL_FROM_LSB(const void *ptr)
+    {
+        T x;
+        memcpy(&x, ptr, sizeof(x));
+        return CPL_AS_LSB(x);
+    }
+
+    /** Return the byte swapped version of the provided value.
+     *
+     * Only available for primitive types: [u]int[8|16|32|64], float and double.
+     */
+    template <class T> T CPL_SWAP(T)
+    {
+        // See https://youtu.be/b6j6SZiXmoo?t=1659 for rationale for CPL_T_IsAlwaysFalse
+        static_assert(CPL_T_IsAlwaysFalse<T>::value, "Unsupported value for T");
+    }
+
+    /*! @cond Doxygen_Suppress */
+    template <> inline int8_t CPL_SWAP<int8_t>(int8_t x)
+    {
+        return x;
+    }
+
+    template <> inline uint8_t CPL_SWAP<uint8_t>(uint8_t x)
+    {
+        return x;
+    }
+
+    template <> inline uint16_t CPL_SWAP<uint16_t>(uint16_t x)
+    {
+        return CPL_SWAP16(x);
+    }
+
+    template <> inline int16_t CPL_SWAP<int16_t>(int16_t x)
+    {
+        uint16_t ux = CPL_SWAP16(x);
+        memcpy(&x, &ux, sizeof(x));
+        return x;
+    }
+
+    template <> inline uint32_t CPL_SWAP<uint32_t>(uint32_t x)
+    {
+        return CPL_SWAP32(x);
+    }
+
+    template <> inline int32_t CPL_SWAP<int32_t>(int32_t x)
+    {
+        uint32_t ux = CPL_SWAP32(x);
+        memcpy(&x, &ux, sizeof(x));
+        return x;
+    }
+
+    template <> inline uint64_t CPL_SWAP<uint64_t>(uint64_t x)
+    {
+        return CPL_SWAP64(x);
+    }
+
+    template <> inline int64_t CPL_SWAP<int64_t>(int64_t x)
+    {
+        uint64_t ux = CPL_SWAP64(x);
+        memcpy(&x, &ux, sizeof(x));
+        return x;
+    }
+
+    template <> inline float CPL_SWAP<float>(float x)
+    {
+        float ret = x;
+        CPL_SWAP32PTR(&ret);
+        return ret;
+    }
+
+    template <> inline double CPL_SWAP<double>(double x)
+    {
+        double ret = x;
+        CPL_SWAP64PTR(&ret);
+        return ret;
+    }
+
+    /*! @endcond */
+}
+#endif  // defined(__cplusplus) && defined(GDAL_COMPILATION)
+
 /*! @cond Doxygen_Suppress */
 /* Utility macro to explicitly mark intentionally unreferenced parameters. */
 #ifndef UNREFERENCED_PARAM
@@ -888,32 +985,6 @@ extern "C++"
 #define UNREFERENCED_PARAM(param) ((void)param)
 #endif /* UNREFERENCED_PARAMETER */
 #endif /* UNREFERENCED_PARAM */
-/*! @endcond */
-
-/***********************************************************************
- * Define CPL_CVSID() macro.  It can be disabled during a build by
- * defining DISABLE_CVSID in the compiler options.
- *
- * The cvsid_aw() function is just there to prevent reports of cpl_cvsid()
- * being unused.
- */
-
-/*! @cond Doxygen_Suppress */
-#ifndef DISABLE_CVSID
-#if defined(__GNUC__) && __GNUC__ >= 4
-#define CPL_CVSID(string)                                                      \
-    static const char cpl_cvsid[] __attribute__((used)) = string;
-#else
-#define CPL_CVSID(string)                                                      \
-    static const char cpl_cvsid[] = string;                                    \
-    static const char *cvsid_aw()                                              \
-    {                                                                          \
-        return (cvsid_aw() ? NULL : cpl_cvsid);                                \
-    }
-#endif
-#else
-#define CPL_CVSID(string)
-#endif
 /*! @endcond */
 
 /* We exclude mingw64 4.6 which seems to be broken regarding this */
@@ -1033,7 +1104,9 @@ extern "C++"
 
 #endif /* __cplusplus */
 
-#if !defined(DOXYGEN_SKIP) && !defined(CPL_WARN_DEPRECATED)
+#ifdef CPL_DISABLE_WARN_DEPRECATED
+#define CPL_WARN_DEPRECATED(x)
+#elif !defined(DOXYGEN_SKIP) && !defined(CPL_WARN_DEPRECATED)
 #if defined(__has_extension)
 #if __has_extension(attribute_deprecated_with_message)
 /* Clang extension */
@@ -1177,6 +1250,17 @@ typedef const char *const *CSLConstList;
 /** Type of a constant null-terminated list of nul terminated strings.
  * Seen as char** from C and const char* const* from C++ */
 typedef char **CSLConstList;
+#endif
+
+#if defined(__cplusplus) && defined(GDAL_COMPILATION)
+#if defined(__GNUC__) && !defined(DOXYGEN_SKIP)
+/** Macro that evaluates to (cond), and possibly gives a hint to the compiler
+ * than (cond) is unlikely to be true.
+ */
+#define CPL_UNLIKELY(cond) __builtin_expect(static_cast<bool>(cond), 0)
+#else
+#define CPL_UNLIKELY(cond) (cond)
+#endif
 #endif
 
 #endif /* ndef CPL_BASE_H_INCLUDED */

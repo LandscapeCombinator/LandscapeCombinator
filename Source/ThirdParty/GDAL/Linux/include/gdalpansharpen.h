@@ -23,7 +23,6 @@ CPL_C_START
  *
  * GDAL pansharpening related entry points and definitions.
  *
- * @since GDAL 2.1
  */
 
 /** Pansharpening algorithms.
@@ -140,29 +139,32 @@ typedef struct
     CPLErr eErr;
 } GDALPansharpenJob;
 
-typedef struct
+struct GDALPansharpenResampleJob
 {
-    GDALDataset *poMEMDS;
-    int nXOff;
-    int nYOff;
-    int nXSize;
-    int nYSize;
-    double dfXOff;
-    double dfYOff;
-    double dfXSize;
-    double dfYSize;
-    void *pBuffer;
-    GDALDataType eDT;
-    int nBufXSize;
-    int nBufYSize;
-    int nBandCount;
-    GDALRIOResampleAlg eResampleAlg;
-    GSpacing nBandSpace;
+    GDALDataset *poMEMDS = nullptr;
+    int nXOff = 0;
+    int nYOff = 0;
+    int nXSize = 0;
+    int nYSize = 0;
+    double dfXOff = 0;
+    double dfYOff = 0;
+    double dfXSize = 0;
+    double dfYSize = 0;
+    void *pBuffer = nullptr;
+    GDALDataType eDT = GDT_Unknown;
+    int nBufXSize = 0;
+    int nBufYSize = 0;
+    int nBandCount = 0;
+    GDALRIOResampleAlg eResampleAlg = GRIORA_NearestNeighbour;
+    GSpacing nBandSpace = 0;
 
 #ifdef DEBUG_TIMING
-    struct timeval *ptv;
+    struct timeval *ptv = nullptr;
 #endif
-} GDALPansharpenResampleJob;
+
+    CPLErr eErr = CE_Failure;
+    std::string osLastErrorMsg{};
+};
 
 class CPLWorkerThreadPool;
 
@@ -182,7 +184,7 @@ class GDALPansharpenOperation
     int bPositiveWeights = TRUE;
     CPLWorkerThreadPool *poThreadPool = nullptr;
     int nKernelRadius = 0;
-    std::array<double, 6> m_adfPanToMSGT = {{0.0, 1.0, 0, 0.0, 0.0, 1.0}};
+    GDALGeoTransform m_panToMSGT{};
 
     static void PansharpenJobThreadFunc(void *pUserData);
     static void PansharpenResampleJobThreadFunc(void *pUserData);

@@ -1,5 +1,4 @@
 /******************************************************************************
- * $Id$
  *
  * Project:  OpenGIS Simple Features Reference Implementation
  * Purpose:  C API for OGR Geometry, Feature, Layers, DataSource and drivers.
@@ -27,6 +26,7 @@
 #include "cpl_progress.h"
 #include "cpl_minixml.h"
 #include "ogr_core.h"
+#include "gdal_fwd.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -39,36 +39,6 @@ bool CPL_DLL OGRGetGEOSVersion(int *pnMajor, int *pnMinor, int *pnPatch);
 /* -------------------------------------------------------------------- */
 /*      Geometry related functions (ogr_geometry.h)                     */
 /* -------------------------------------------------------------------- */
-#ifndef DEFINEH_OGRGeometryH
-/*! @cond Doxygen_Suppress */
-#define DEFINEH_OGRGeometryH
-/*! @endcond */
-#ifdef DEBUG
-typedef struct OGRGeometryHS *OGRGeometryH;
-#else
-/** Opaque type for a geometry */
-typedef void *OGRGeometryH;
-#endif
-#endif /* DEFINEH_OGRGeometryH */
-
-#ifndef DEFINED_OGRSpatialReferenceH
-/*! @cond Doxygen_Suppress */
-#define DEFINED_OGRSpatialReferenceH
-/*! @endcond */
-
-#ifndef DOXYGEN_XML
-#ifdef DEBUG
-typedef struct OGRSpatialReferenceHS *OGRSpatialReferenceH;
-typedef struct OGRCoordinateTransformationHS *OGRCoordinateTransformationH;
-#else
-/** Opaque type for a spatial reference system */
-typedef void *OGRSpatialReferenceH;
-/** Opaque type for a coordinate transformation object */
-typedef void *OGRCoordinateTransformationH;
-#endif
-#endif
-
-#endif /* DEFINED_OGRSpatialReferenceH */
 
 struct _CPLXMLNode;
 
@@ -76,9 +46,6 @@ struct _CPLXMLNode;
 
 /** Value for a unknown coordinate precision. */
 #define OGR_GEOM_COORD_PRECISION_UNKNOWN 0
-
-/** Opaque type for OGRGeomCoordinatePrecision */
-typedef struct OGRGeomCoordinatePrecision *OGRGeomCoordinatePrecisionH;
 
 OGRGeomCoordinatePrecisionH CPL_DLL OGRGeomCoordinatePrecisionCreate(void);
 void CPL_DLL OGRGeomCoordinatePrecisionDestroy(OGRGeomCoordinatePrecisionH);
@@ -115,6 +82,8 @@ OGRErr CPL_DLL OGR_G_CreateFromWkt(char **, OGRSpatialReferenceH,
                                    OGRGeometryH *);
 OGRErr CPL_DLL OGR_G_CreateFromFgf(const void *, OGRSpatialReferenceH,
                                    OGRGeometryH *, int, int *);
+OGRGeometryH CPL_DLL OGR_G_CreateFromEnvelope(double, double, double, double,
+                                              OGRSpatialReferenceH);
 void CPL_DLL OGR_G_DestroyGeometry(OGRGeometryH);
 OGRGeometryH
     CPL_DLL OGR_G_CreateGeometry(OGRwkbGeometryType) CPL_WARN_UNUSED_RESULT;
@@ -132,9 +101,9 @@ OGRGeometryH
     CPL_DLL OGR_G_ForceToMultiPoint(OGRGeometryH) CPL_WARN_UNUSED_RESULT;
 OGRGeometryH
     CPL_DLL OGR_G_ForceToMultiLineString(OGRGeometryH) CPL_WARN_UNUSED_RESULT;
-OGRGeometryH CPL_DLL OGR_G_ForceTo(OGRGeometryH hGeom,
-                                   OGRwkbGeometryType eTargetType,
-                                   char **papszOptions) CPL_WARN_UNUSED_RESULT;
+OGRGeometryH CPL_DLL
+OGR_G_ForceTo(OGRGeometryH hGeom, OGRwkbGeometryType eTargetType,
+              CSLConstList papszOptions) CPL_WARN_UNUSED_RESULT;
 OGRGeometryH CPL_DLL OGR_G_RemoveLowerDimensionSubGeoms(
     const OGRGeometryH hGeom) CPL_WARN_UNUSED_RESULT;
 
@@ -154,9 +123,6 @@ OGRErr CPL_DLL OGR_G_ExportToWkb(OGRGeometryH, OGRwkbByteOrder,
                                  unsigned char *);
 OGRErr CPL_DLL OGR_G_ExportToIsoWkb(OGRGeometryH, OGRwkbByteOrder,
                                     unsigned char *);
-
-/** Opaque type for WKB export options */
-typedef struct OGRwkbExportOptions OGRwkbExportOptions;
 
 OGRwkbExportOptions CPL_DLL *OGRwkbExportOptionsCreate(void);
 void CPL_DLL OGRwkbExportOptionsDestroy(OGRwkbExportOptions *);
@@ -182,8 +148,8 @@ void CPL_DLL OGR_G_CloseRings(OGRGeometryH);
 
 OGRGeometryH CPL_DLL OGR_G_CreateFromGML(const char *) CPL_WARN_UNUSED_RESULT;
 char CPL_DLL *OGR_G_ExportToGML(OGRGeometryH) CPL_WARN_UNUSED_RESULT;
-char CPL_DLL *OGR_G_ExportToGMLEx(OGRGeometryH,
-                                  char **papszOptions) CPL_WARN_UNUSED_RESULT;
+char CPL_DLL *OGR_G_ExportToGMLEx(OGRGeometryH, CSLConstList papszOptions)
+    CPL_WARN_UNUSED_RESULT;
 
 OGRGeometryH CPL_DLL OGR_G_CreateFromGMLTree(const CPLXMLNode *)
     CPL_WARN_UNUSED_RESULT;
@@ -195,8 +161,8 @@ char CPL_DLL *OGR_G_ExportToKML(OGRGeometryH, const char *pszAltitudeMode)
     CPL_WARN_UNUSED_RESULT;
 
 char CPL_DLL *OGR_G_ExportToJson(OGRGeometryH) CPL_WARN_UNUSED_RESULT;
-char CPL_DLL *OGR_G_ExportToJsonEx(OGRGeometryH,
-                                   char **papszOptions) CPL_WARN_UNUSED_RESULT;
+char CPL_DLL *OGR_G_ExportToJsonEx(OGRGeometryH, CSLConstList papszOptions)
+    CPL_WARN_UNUSED_RESULT;
 /** Create a OGR geometry from a GeoJSON geometry object */
 OGRGeometryH CPL_DLL OGR_G_CreateGeometryFromJson(const char *)
     CPL_WARN_UNUSED_RESULT;
@@ -209,8 +175,6 @@ OGRSpatialReferenceH CPL_DLL OGR_G_GetSpatialReference(OGRGeometryH);
 OGRErr CPL_DLL OGR_G_Transform(OGRGeometryH, OGRCoordinateTransformationH);
 OGRErr CPL_DLL OGR_G_TransformTo(OGRGeometryH, OGRSpatialReferenceH);
 
-/** Opaque type for a geometry transformer. */
-typedef struct OGRGeomTransformer *OGRGeomTransformerH;
 OGRGeomTransformerH CPL_DLL
 OGR_GeomTransformer_Create(OGRCoordinateTransformationH,
                            CSLConstList papszOptions) CPL_WARN_UNUSED_RESULT;
@@ -226,6 +190,8 @@ OGRGeometryH CPL_DLL OGR_G_SimplifyPreserveTopology(
 OGRGeometryH CPL_DLL
 OGR_G_DelaunayTriangulation(OGRGeometryH hThis, double dfTolerance,
                             int bOnlyEdges) CPL_WARN_UNUSED_RESULT;
+OGRGeometryH CPL_DLL OGR_G_ConstrainedDelaunayTriangulation(OGRGeometryH hThis)
+    CPL_WARN_UNUSED_RESULT;
 
 void CPL_DLL OGR_G_Segmentize(OGRGeometryH hGeom, double dfMaxLength);
 int CPL_DLL OGR_G_Intersects(OGRGeometryH, OGRGeometryH);
@@ -242,6 +208,9 @@ OGRGeometryH CPL_DLL OGR_G_Boundary(OGRGeometryH) CPL_WARN_UNUSED_RESULT;
 OGRGeometryH CPL_DLL OGR_G_ConvexHull(OGRGeometryH) CPL_WARN_UNUSED_RESULT;
 OGRGeometryH CPL_DLL OGR_G_ConcaveHull(OGRGeometryH, double dfRatio,
                                        bool bAllowHoles) CPL_WARN_UNUSED_RESULT;
+OGRGeometryH CPL_DLL
+OGR_G_ConcaveHullOfPolygons(OGRGeometryH, double dfLengthRatio, bool bIsTight,
+                            bool bAllowHoles) CPL_WARN_UNUSED_RESULT;
 OGRGeometryH CPL_DLL OGR_G_Buffer(OGRGeometryH, double dfDist,
                                   int nQuadSegs) CPL_WARN_UNUSED_RESULT;
 OGRGeometryH CPL_DLL OGR_G_BufferEx(OGRGeometryH, double dfDist,
@@ -276,7 +245,7 @@ OGRGeometryH CPL_DLL OGR_G_Value(OGRGeometryH,
 void CPL_DLL OGR_G_Empty(OGRGeometryH);
 int CPL_DLL OGR_G_IsEmpty(OGRGeometryH);
 int CPL_DLL OGR_G_IsValid(OGRGeometryH);
-/*char    CPL_DLL *OGR_G_IsValidReason( OGRGeometryH );*/
+char CPL_DLL *OGR_G_GetInvalidityReason(OGRGeometryH) CPL_WARN_UNUSED_RESULT;
 OGRGeometryH CPL_DLL OGR_G_MakeValid(OGRGeometryH) CPL_WARN_UNUSED_RESULT;
 OGRGeometryH CPL_DLL OGR_G_MakeValidEx(OGRGeometryH,
                                        CSLConstList) CPL_WARN_UNUSED_RESULT;
@@ -296,6 +265,7 @@ OGRGeometryH CPL_DLL OGR_G_SetPrecision(OGRGeometryH, double dfGridSize,
                                         int nFlags) CPL_WARN_UNUSED_RESULT;
 
 OGRGeometryH CPL_DLL OGR_G_Polygonize(OGRGeometryH) CPL_WARN_UNUSED_RESULT;
+OGRGeometryH CPL_DLL OGR_G_BuildArea(OGRGeometryH) CPL_WARN_UNUSED_RESULT;
 
 /*! @cond Doxygen_Suppress */
 /* backward compatibility (non-standard methods) */
@@ -328,24 +298,26 @@ void CPL_DLL OGR_G_GetPoint(OGRGeometryH, int iPoint, double *, double *,
                             double *);
 void CPL_DLL OGR_G_GetPointZM(OGRGeometryH, int iPoint, double *, double *,
                               double *, double *);
-void CPL_DLL OGR_G_SetPointCount(OGRGeometryH hGeom, int nNewPointCount);
-void CPL_DLL OGR_G_SetPoint(OGRGeometryH, int iPoint, double, double, double);
-void CPL_DLL OGR_G_SetPoint_2D(OGRGeometryH, int iPoint, double, double);
-void CPL_DLL OGR_G_SetPointM(OGRGeometryH, int iPoint, double, double, double);
-void CPL_DLL OGR_G_SetPointZM(OGRGeometryH, int iPoint, double, double, double,
-                              double);
-void CPL_DLL OGR_G_AddPoint(OGRGeometryH, double, double, double);
-void CPL_DLL OGR_G_AddPoint_2D(OGRGeometryH, double, double);
-void CPL_DLL OGR_G_AddPointM(OGRGeometryH, double, double, double);
-void CPL_DLL OGR_G_AddPointZM(OGRGeometryH, double, double, double, double);
-void CPL_DLL OGR_G_SetPoints(OGRGeometryH hGeom, int nPointsIn,
-                             const void *pabyX, int nXStride, const void *pabyY,
-                             int nYStride, const void *pabyZ, int nZStride);
-void CPL_DLL OGR_G_SetPointsZM(OGRGeometryH hGeom, int nPointsIn,
+OGRErr CPL_DLL OGR_G_SetPointCount(OGRGeometryH hGeom, int nNewPointCount);
+OGRErr CPL_DLL OGR_G_SetPoint(OGRGeometryH, int iPoint, double, double, double);
+OGRErr CPL_DLL OGR_G_SetPoint_2D(OGRGeometryH, int iPoint, double, double);
+OGRErr CPL_DLL OGR_G_SetPointM(OGRGeometryH, int iPoint, double, double,
+                               double);
+OGRErr CPL_DLL OGR_G_SetPointZM(OGRGeometryH, int iPoint, double, double,
+                                double, double);
+OGRErr CPL_DLL OGR_G_AddPoint(OGRGeometryH, double, double, double);
+OGRErr CPL_DLL OGR_G_AddPoint_2D(OGRGeometryH, double, double);
+OGRErr CPL_DLL OGR_G_AddPointM(OGRGeometryH, double, double, double);
+OGRErr CPL_DLL OGR_G_AddPointZM(OGRGeometryH, double, double, double, double);
+OGRErr CPL_DLL OGR_G_SetPoints(OGRGeometryH hGeom, int nPointsIn,
                                const void *pabyX, int nXStride,
                                const void *pabyY, int nYStride,
-                               const void *pabyZ, int nZStride,
-                               const void *pabyM, int nMStride);
+                               const void *pabyZ, int nZStride);
+OGRErr CPL_DLL OGR_G_SetPointsZM(OGRGeometryH hGeom, int nPointsIn,
+                                 const void *pabyX, int nXStride,
+                                 const void *pabyY, int nYStride,
+                                 const void *pabyZ, int nZStride,
+                                 const void *pabyM, int nMStride);
 void CPL_DLL OGR_G_SwapXY(OGRGeometryH hGeom);
 
 /* Methods for getting/setting rings and members collections */
@@ -359,9 +331,9 @@ OGRErr CPL_DLL OGR_G_RemoveGeometry(OGRGeometryH, int, int);
 int CPL_DLL OGR_G_HasCurveGeometry(OGRGeometryH, int bLookForNonLinear);
 OGRGeometryH CPL_DLL
 OGR_G_GetLinearGeometry(OGRGeometryH hGeom, double dfMaxAngleStepSizeDegrees,
-                        char **papszOptions) CPL_WARN_UNUSED_RESULT;
+                        CSLConstList papszOptions) CPL_WARN_UNUSED_RESULT;
 OGRGeometryH CPL_DLL OGR_G_GetCurveGeometry(
-    OGRGeometryH hGeom, char **papszOptions) CPL_WARN_UNUSED_RESULT;
+    OGRGeometryH hGeom, CSLConstList papszOptions) CPL_WARN_UNUSED_RESULT;
 
 OGRGeometryH CPL_DLL OGRBuildPolygonFromEdges(
     OGRGeometryH hLinesAsCollection, int bBestEffort, int bAutoClose,
@@ -377,9 +349,6 @@ int CPL_DLL OGRGetGenerate_DB2_V72_BYTE_ORDER(void);
 void CPL_DLL OGRSetNonLinearGeometriesEnabledFlag(int bFlag);
 int CPL_DLL OGRGetNonLinearGeometriesEnabledFlag(void);
 
-/** Opaque type for a prepared geometry */
-typedef struct _OGRPreparedGeometry *OGRPreparedGeometryH;
-
 int CPL_DLL OGRHasPreparedGeometrySupport(void);
 OGRPreparedGeometryH CPL_DLL OGRCreatePreparedGeometry(OGRGeometryH hGeom);
 void CPL_DLL OGRDestroyPreparedGeometry(OGRPreparedGeometryH hPreparedGeom);
@@ -391,32 +360,6 @@ int CPL_DLL OGRPreparedGeometryContains(OGRPreparedGeometryH hPreparedGeom,
 /* -------------------------------------------------------------------- */
 /*      Feature related (ogr_feature.h)                                 */
 /* -------------------------------------------------------------------- */
-
-#ifndef DEFINE_OGRFeatureH
-/*! @cond Doxygen_Suppress */
-#define DEFINE_OGRFeatureH
-/*! @endcond */
-#ifdef DEBUG
-typedef struct OGRFieldDefnHS *OGRFieldDefnH;
-typedef struct OGRFeatureDefnHS *OGRFeatureDefnH;
-typedef struct OGRFeatureHS *OGRFeatureH;
-typedef struct OGRStyleTableHS *OGRStyleTableH;
-#else
-/** Opaque type for a field definition (OGRFieldDefn) */
-typedef void *OGRFieldDefnH;
-/** Opaque type for a feature definition (OGRFeatureDefn) */
-typedef void *OGRFeatureDefnH;
-/** Opaque type for a feature (OGRFeature) */
-typedef void *OGRFeatureH;
-/** Opaque type for a style table (OGRStyleTable) */
-typedef void *OGRStyleTableH;
-#endif
-/** Opaque type for a geometry field definition (OGRGeomFieldDefn) */
-typedef struct OGRGeomFieldDefnHS *OGRGeomFieldDefnH;
-
-/** Opaque type for a field domain definition (OGRFieldDomain) */
-typedef struct OGRFieldDomainHS *OGRFieldDomainH;
-#endif /* DEFINE_OGRFeatureH */
 
 /* OGRFieldDefn */
 
@@ -446,6 +389,8 @@ int CPL_DLL OGR_Fld_IsIgnored(OGRFieldDefnH hDefn);
 void CPL_DLL OGR_Fld_SetIgnored(OGRFieldDefnH hDefn, int);
 int CPL_DLL OGR_Fld_IsNullable(OGRFieldDefnH hDefn);
 void CPL_DLL OGR_Fld_SetNullable(OGRFieldDefnH hDefn, int);
+void CPL_DLL OGR_Fld_SetGenerated(OGRFieldDefnH hDefn, int);
+int CPL_DLL OGR_Fld_IsGenerated(OGRFieldDefnH hDefn);
 int CPL_DLL OGR_Fld_IsUnique(OGRFieldDefnH hDefn);
 void CPL_DLL OGR_Fld_SetUnique(OGRFieldDefnH hDefn, int);
 const char CPL_DLL *OGR_Fld_GetDefault(OGRFieldDefnH hDefn);
@@ -457,7 +402,9 @@ const char CPL_DLL *OGR_Fld_GetComment(OGRFieldDefnH hDefn);
 void CPL_DLL OGR_Fld_SetComment(OGRFieldDefnH hDefn, const char *);
 
 const char CPL_DLL *OGR_GetFieldTypeName(OGRFieldType);
+OGRFieldType CPL_DLL OGR_GetFieldTypeByName(const char *);
 const char CPL_DLL *OGR_GetFieldSubTypeName(OGRFieldSubType);
+OGRFieldSubType CPL_DLL OGR_GetFieldSubTypeByName(const char *);
 int CPL_DLL OGR_AreTypeSubTypeCompatible(OGRFieldType eType,
                                          OGRFieldSubType eSubType);
 
@@ -624,7 +571,7 @@ const char CPL_DLL *OGR_F_GetNativeMediaType(OGRFeatureH);
 void CPL_DLL OGR_F_SetNativeMediaType(OGRFeatureH, const char *);
 
 void CPL_DLL OGR_F_FillUnsetWithDefault(OGRFeatureH hFeat, int bNotNullableOnly,
-                                        char **papszOptions);
+                                        CSLConstList papszOptions);
 int CPL_DLL OGR_F_Validate(OGRFeatureH, int nValidateFlags, int bEmitError);
 
 /* OGRFieldDomain */
@@ -667,19 +614,6 @@ const char CPL_DLL *OGR_GlobFldDomain_GetGlob(OGRFieldDomainH);
 /*      ogrsf_frmts.h                                                   */
 /* -------------------------------------------------------------------- */
 
-#ifdef DEBUG
-typedef struct OGRLayerHS *OGRLayerH;
-typedef struct OGRDataSourceHS *OGRDataSourceH;
-typedef struct OGRDriverHS *OGRSFDriverH;
-#else
-/** Opaque type for a layer (OGRLayer) */
-typedef void *OGRLayerH;
-/** Opaque type for a OGR datasource (OGRDataSource) */
-typedef void *OGRDataSourceH;
-/** Opaque type for a OGR driver (OGRSFDriver) */
-typedef void *OGRSFDriverH;
-#endif
-
 /* OGRLayer */
 
 const char CPL_DLL *OGR_L_GetName(OGRLayerH);
@@ -721,6 +655,7 @@ void CPL_DLL OGR_L_SetSpatialFilterRectEx(OGRLayerH, int iGeomField,
                                           double dfMinX, double dfMinY,
                                           double dfMaxX, double dfMaxY);
 OGRErr CPL_DLL OGR_L_SetAttributeFilter(OGRLayerH, const char *);
+const char CPL_DLL *OGR_L_GetAttributeFilter(OGRLayerH);
 void CPL_DLL OGR_L_ResetReading(OGRLayerH);
 OGRFeatureH CPL_DLL OGR_L_GetNextFeature(OGRLayerH) CPL_WARN_UNUSED_RESULT;
 
@@ -748,7 +683,6 @@ OGRFeatureH CPL_DLL OGR_L_GetNextFeature(OGRLayerH) CPL_WARN_UNUSED_RESULT;
  *              inside the macro body.
  * @param hLayer layer to iterate over.
  *
- * @since GDAL 2.3
  */
 #define OGR_FOR_EACH_FEATURE_BEGIN(hFeat, hLayer)                              \
     {                                                                          \
@@ -774,7 +708,7 @@ struct ArrowArrayStream;
 
 bool CPL_DLL OGR_L_GetArrowStream(OGRLayerH hLayer,
                                   struct ArrowArrayStream *out_stream,
-                                  char **papszOptions);
+                                  CSLConstList papszOptions);
 
 /** Data type for a Arrow C schema. Include ogr_recordbatch.h to get the
  * definition. */
@@ -782,11 +716,11 @@ struct ArrowSchema;
 
 bool CPL_DLL OGR_L_IsArrowSchemaSupported(OGRLayerH hLayer,
                                           const struct ArrowSchema *schema,
-                                          char **papszOptions,
+                                          CSLConstList papszOptions,
                                           char **ppszErrorMsg);
 bool CPL_DLL OGR_L_CreateFieldFromArrowSchema(OGRLayerH hLayer,
                                               const struct ArrowSchema *schema,
-                                              char **papszOptions);
+                                              CSLConstList papszOptions);
 
 /** Data type for a Arrow C array. Include ogr_recordbatch.h to get the
  * definition. */
@@ -795,7 +729,7 @@ struct ArrowArray;
 bool CPL_DLL OGR_L_WriteArrowBatch(OGRLayerH hLayer,
                                    const struct ArrowSchema *schema,
                                    struct ArrowArray *array,
-                                   char **papszOptions);
+                                   CSLConstList papszOptions);
 
 OGRErr CPL_DLL OGR_L_SetNextByIndex(OGRLayerH, GIntBig);
 OGRFeatureH CPL_DLL OGR_L_GetFeature(OGRLayerH, GIntBig) CPL_WARN_UNUSED_RESULT;
@@ -859,19 +793,19 @@ void CPL_DLL OGR_L_SetStyleTableDirectly(OGRLayerH, OGRStyleTableH);
 /** Set style table */
 void CPL_DLL OGR_L_SetStyleTable(OGRLayerH, OGRStyleTableH);
 OGRErr CPL_DLL OGR_L_SetIgnoredFields(OGRLayerH, const char **);
-OGRErr CPL_DLL OGR_L_Intersection(OGRLayerH, OGRLayerH, OGRLayerH, char **,
+OGRErr CPL_DLL OGR_L_Intersection(OGRLayerH, OGRLayerH, OGRLayerH, CSLConstList,
                                   GDALProgressFunc, void *);
-OGRErr CPL_DLL OGR_L_Union(OGRLayerH, OGRLayerH, OGRLayerH, char **,
+OGRErr CPL_DLL OGR_L_Union(OGRLayerH, OGRLayerH, OGRLayerH, CSLConstList,
                            GDALProgressFunc, void *);
-OGRErr CPL_DLL OGR_L_SymDifference(OGRLayerH, OGRLayerH, OGRLayerH, char **,
-                                   GDALProgressFunc, void *);
-OGRErr CPL_DLL OGR_L_Identity(OGRLayerH, OGRLayerH, OGRLayerH, char **,
+OGRErr CPL_DLL OGR_L_SymDifference(OGRLayerH, OGRLayerH, OGRLayerH,
+                                   CSLConstList, GDALProgressFunc, void *);
+OGRErr CPL_DLL OGR_L_Identity(OGRLayerH, OGRLayerH, OGRLayerH, CSLConstList,
                               GDALProgressFunc, void *);
-OGRErr CPL_DLL OGR_L_Update(OGRLayerH, OGRLayerH, OGRLayerH, char **,
+OGRErr CPL_DLL OGR_L_Update(OGRLayerH, OGRLayerH, OGRLayerH, CSLConstList,
                             GDALProgressFunc, void *);
-OGRErr CPL_DLL OGR_L_Clip(OGRLayerH, OGRLayerH, OGRLayerH, char **,
+OGRErr CPL_DLL OGR_L_Clip(OGRLayerH, OGRLayerH, OGRLayerH, CSLConstList,
                           GDALProgressFunc, void *);
-OGRErr CPL_DLL OGR_L_Erase(OGRLayerH, OGRLayerH, OGRLayerH, char **,
+OGRErr CPL_DLL OGR_L_Erase(OGRLayerH, OGRLayerH, OGRLayerH, CSLConstList,
                            GDALProgressFunc, void *);
 
 /* OGRDataSource */
@@ -941,23 +875,13 @@ OGRDataSourceH CPL_DLL OGRGetOpenDS(int iDS);
 
 void CPL_DLL OGRRegisterAll(void);
 
-/** Clean-up all drivers (including raster ones starting with GDAL 2.0.
+/** Clean-up all drivers, including raster ones.
  * See GDALDestroyDriverManager() */
 void CPL_DLL OGRCleanupAll(void);
 
 /* -------------------------------------------------------------------- */
 /*      ogrsf_featurestyle.h                                            */
 /* -------------------------------------------------------------------- */
-
-#ifdef DEBUG
-typedef struct OGRStyleMgrHS *OGRStyleMgrH;
-typedef struct OGRStyleToolHS *OGRStyleToolH;
-#else
-/** Style manager opaque type */
-typedef void *OGRStyleMgrH;
-/** Style tool opaque type */
-typedef void *OGRStyleToolH;
-#endif
 
 /* OGRStyleMgr */
 
