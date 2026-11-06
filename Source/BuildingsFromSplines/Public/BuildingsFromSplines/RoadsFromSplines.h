@@ -226,6 +226,14 @@ public:
 	bool bShowDebugJunctionFill = false;
 
 
+	/** Collision */
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Collision",
+		meta = (DisplayPriority = "0")
+	)
+	/* Disable collision on the spawned road meshes. */
+	bool bDisableCollision = false;
+
 	/** Push Out Of Collision */
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|PushOutOfCollision",

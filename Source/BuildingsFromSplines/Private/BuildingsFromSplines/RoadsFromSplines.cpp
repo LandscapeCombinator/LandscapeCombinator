@@ -358,7 +358,7 @@ void ARoadsFromSplines::FillJunctionInterior(int32 JunctionNode, TArray<FVector>
 		FillComponent->SetRelativeLocation(FVector(Pivot2D.X, Pivot2D.Y, 0.0));
 		FillComponent->CreationMethod = EComponentCreationMethod::Instance;
 		FillComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-		FillComponent->SetCollisionProfileName(TEXT("BlockAll"));
+		FillComponent->SetCollisionProfileName(bDisableCollision ? TEXT("NoCollision") : TEXT("BlockAll"));
 		FillComponent->bEnableComplexCollision = true;
 		FillComponent->SetComplexAsSimpleCollisionEnabled(true);
 		FillComponent->SetTangentsType(EDynamicMeshComponentTangentsMode::AutoCalculated);
@@ -442,7 +442,7 @@ void ARoadsFromSplines::FillJunctionInterior(int32 JunctionNode, TArray<FVector>
 				Fill->SetMaterial(0, StrongThis->JunctionFillMaterial);
 
 			Fill->NotifyMeshUpdated();
-			Fill->UpdateCollision(false);
+			if (Fill->GetCollisionEnabled() != ECollisionEnabled::NoCollision) Fill->UpdateCollision(false);
 		});
 	});
 
@@ -644,11 +644,16 @@ bool ARoadsFromSplines::GenerateRoads(bool bIsUserInitiated)
 			}
 		}
 
-		TArray<int32> NewEdgeIndices;
-		const bool bBuilt = BuildEdgesForSpline(SplineComponent, Points, Tangents, bClosedLoop, NewEdgeIndices);
-
-		if (bBuilt)
-			CreateMeshesForNewEdges(NewEdgeIndices);
+		if (!Concurrency::RunOnGameThreadAndWait([&, WeakThis]() {
+			if (!WeakThis.IsValid() || !IsValid(WeakThis->GetWorld())) return false;
+			TArray<int32> NewEdgeIndices;
+			if (BuildEdgesForSpline(SplineComponent, Points, Tangents, bClosedLoop, NewEdgeIndices))
+				CreateMeshesForNewEdges(NewEdgeIndices);
+			return true;
+		}))
+		{
+			return false;
+		}
 	}
 
 	if (bShowDebugGraph) DebugDrawGraph();
@@ -712,7 +717,7 @@ USplineMeshComponent* ARoadsFromSplines::SpawnSplineMeshComponent(const FEdgeSpl
 	ApplyLandscapeRoll(MeshComponent, Points);
 	MeshComponent->SetStartScale(FVector2D(WidthScale, HeightScale), false);
 	MeshComponent->SetEndScale(FVector2D(WidthScale, HeightScale), false);
-	MeshComponent->SetCollisionProfileName("BlockAll");
+	MeshComponent->SetCollisionProfileName(bDisableCollision ? TEXT("NoCollision") : TEXT("BlockAll"));
 	MeshComponent->SetGenerateOverlapEvents(true);
 	MeshComponent->MarkRenderStateDirty();
 	MeshComponent->CreationMethod = EComponentCreationMethod::Instance;
