@@ -1470,8 +1470,13 @@ bool GDALInterface::RasterizeGeometry(OGRGeometry* Geometry, int Resolution, TAr
 
 	TArray<uint8> Mask;
 	Mask.SetNumUninitialized(OutWidth * OutHeight);
-    Mem->GetRasterBand(1)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, Mask.GetData(), OutWidth, OutHeight, GDT_Byte, 0, 0);
+	bool bReadOk = Mem->GetRasterBand(1)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, Mask.GetData(), OutWidth, OutHeight, GDT_Byte, 0, 0) == CE_None;
 	GDALClose(Mem);
+	if (!bReadOk)
+	{
+		UE_LOG(LogGDALInterface, Warning, TEXT("RasterIO failed"));
+		return false;
+	}
 
 	OutColors.SetNumUninitialized(Mask.Num());
 	for (int i = 0; i < Mask.Num(); i++)

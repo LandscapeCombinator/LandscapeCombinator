@@ -21,6 +21,7 @@
 #include "LandscapeSubsystem.h"
 #include "Misc/MessageDialog.h"
 #include "Engine/World.h"
+#include "Materials/MaterialInterface.h"
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 

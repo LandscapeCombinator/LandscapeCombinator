@@ -42,7 +42,7 @@ bool FPCGOGRFilterElement::PrepareDataInternal(FPCGContext* Context) const
 	{
 		UWorld* World = nullptr;
 
-#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 5)
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 6)
 		if (Context && Context->ExecutionSource.IsValid())
 		{
 			World = Context->ExecutionSource->GetExecutionState().GetWorld();

@@ -14,6 +14,7 @@
 #include "Stats/Stats.h"
 #include "Misc/Paths.h"
 #include "Misc/MessageDialog.h"
+#include "Materials/Material.h"
 
 #define LOCTEXT_NAMESPACE "FCoordinatesModule"
 

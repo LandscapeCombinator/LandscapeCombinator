@@ -17,6 +17,7 @@
 #include "Materials/MaterialInterface.h"
 #include "Engine/World.h"
 #include "TextureResource.h"
+#include "UObject/Package.h"
 
 #define LOCTEXT_NAMESPACE "FCoordinatesModule"
 
