@@ -537,81 +537,81 @@ FString GDALInterface::GetColorInterpretation(const FString &File)
 
 bool GDALInterface::ConvertToPNG(FString SourceFile, FString TargetFile, int MinAltitude, int MaxAltitude, int PrecisionPercent, bool bHideNoDataFlag)
 {
-    FString InputFile = SourceFile;
-    FString RamVirtualFile = TEXT("/vsimem/temp_strip_nodata.vrt");
-    
-    // 1. Optionally create a RAM-only Virtual Dataset (VRT) that hides the NoData flag
-    if (bHideNoDataFlag)
-    {
-        TArray<FString> VrtArgs;
-        VrtArgs.Add("-of");
-        VrtArgs.Add("VRT");
-        VrtArgs.Add("-a_nodata");
-        VrtArgs.Add("none");
+	FString InputFile = SourceFile;
+	FString RamVirtualFile = TEXT("/vsimem/temp_strip_nodata.vrt");
+	
+	// 1. Optionally create a RAM-only Virtual Dataset (VRT) that hides the NoData flag
+	if (bHideNoDataFlag)
+	{
+		TArray<FString> VrtArgs;
+		VrtArgs.Add("-of");
+		VrtArgs.Add("VRT");
+		VrtArgs.Add("-a_nodata");
+		VrtArgs.Add("none");
 
-        if (!Translate(SourceFile, RamVirtualFile, VrtArgs)) return false;
-        
-        InputFile = RamVirtualFile;
-    }
+		if (!Translate(SourceFile, RamVirtualFile, VrtArgs)) return false;
+		
+		InputFile = RamVirtualFile;
+	}
 
-    // 2. Perform the actual scaling
-    TArray<FString> Args;
-    Args.Add("-scale");
-    Args.Add(FString::SanitizeFloat(MinAltitude));
-    Args.Add(FString::SanitizeFloat(MaxAltitude));
-    Args.Add("0");
-    Args.Add("65535");
-    Args.Add("-outsize");
-    Args.Add(FString::Format(TEXT("{0}%"), { PrecisionPercent }));
-    Args.Add(FString::Format(TEXT("{0}%"), { PrecisionPercent }));
-    Args.Add("-ot");
-    Args.Add("UInt16");
-    Args.Add("-of");
-    Args.Add("PNG");
+	// 2. Perform the actual scaling
+	TArray<FString> Args;
+	Args.Add("-scale");
+	Args.Add(FString::SanitizeFloat(MinAltitude));
+	Args.Add(FString::SanitizeFloat(MaxAltitude));
+	Args.Add("0");
+	Args.Add("65535");
+	Args.Add("-outsize");
+	Args.Add(FString::Format(TEXT("{0}%"), { PrecisionPercent }));
+	Args.Add(FString::Format(TEXT("{0}%"), { PrecisionPercent }));
+	Args.Add("-ot");
+	Args.Add("UInt16");
+	Args.Add("-of");
+	Args.Add("PNG");
 
-    bool bResult = Translate(InputFile, TargetFile, Args);
+	bool bResult = Translate(InputFile, TargetFile, Args);
 
-    // 3. Clean up RAM file if it was created
-    if (bHideNoDataFlag)
-    {
-        VSIUnlink(TCHAR_TO_UTF8(*RamVirtualFile));
-    }
+	// 3. Clean up RAM file if it was created
+	if (bHideNoDataFlag)
+	{
+		VSIUnlink(TCHAR_TO_UTF8(*RamVirtualFile));
+	}
 
-    return bResult;
+	return bResult;
 }
 
 bool GDALInterface::ConvertToPNG(FString SourceFile, FString TargetFile, bool bHideNoDataFlag)
 {
-    FString InputFile = SourceFile;
-    FString RamVirtualFile = TEXT("/vsimem/temp_strip_nodata.vrt");
-    
-    if (bHideNoDataFlag)
-    {
-        TArray<FString> VrtArgs;
-        VrtArgs.Add("-of");
-        VrtArgs.Add("VRT");
-        VrtArgs.Add("-a_nodata");
-        VrtArgs.Add("none");
+	FString InputFile = SourceFile;
+	FString RamVirtualFile = TEXT("/vsimem/temp_strip_nodata.vrt");
+	
+	if (bHideNoDataFlag)
+	{
+		TArray<FString> VrtArgs;
+		VrtArgs.Add("-of");
+		VrtArgs.Add("VRT");
+		VrtArgs.Add("-a_nodata");
+		VrtArgs.Add("none");
 
-        if (!Translate(SourceFile, RamVirtualFile, VrtArgs)) return false;
-        
-        InputFile = RamVirtualFile;
-    }
+		if (!Translate(SourceFile, RamVirtualFile, VrtArgs)) return false;
+		
+		InputFile = RamVirtualFile;
+	}
 
-    TArray<FString> Args;
-    Args.Add("-ot");
-    Args.Add("UInt16");
-    Args.Add("-of");
-    Args.Add("PNG");
+	TArray<FString> Args;
+	Args.Add("-ot");
+	Args.Add("UInt16");
+	Args.Add("-of");
+	Args.Add("PNG");
 
-    bool bResult = Translate(InputFile, TargetFile, Args);
+	bool bResult = Translate(InputFile, TargetFile, Args);
 
-    if (bHideNoDataFlag)
-    {
-        VSIUnlink(TCHAR_TO_UTF8(*RamVirtualFile));
-    }
+	if (bHideNoDataFlag)
+	{
+		VSIUnlink(TCHAR_TO_UTF8(*RamVirtualFile));
+	}
 
-    return bResult;
+	return bResult;
 }
 
 bool GDALInterface::ChangeResolution(FString SourceFile, FString TargetFile, int PrecisionPercent)
@@ -1441,43 +1441,43 @@ bool GDALInterface::AddFeature(TSet<FString> &AlreadyHandledFeatures, OGRFeature
 
 bool GDALInterface::RasterizeGeometry(OGRGeometry* Geometry, int Resolution, TArray<FColor>& OutColors, int& OutWidth, int& OutHeight, FColor BurnColor)
 {
-    if (!Geometry) return false;
+	if (!Geometry) return false;
 
-    OGREnvelope Envelope;
-    Geometry->getEnvelope(&Envelope);
-    double SizeX = Envelope.MaxX - Envelope.MinX;
-    double SizeY = Envelope.MaxY - Envelope.MinY;
-    if (SizeX <= 0 || SizeY <= 0) return false;
+	OGREnvelope Envelope;
+	Geometry->getEnvelope(&Envelope);
+	double SizeX = Envelope.MaxX - Envelope.MinX;
+	double SizeY = Envelope.MaxY - Envelope.MinY;
+	if (SizeX <= 0 || SizeY <= 0) return false;
 
-    double Ratio = SizeX / SizeY;
-    OutWidth  = Ratio >= 1 ? Resolution : FMath::Max(1, FMath::RoundToInt(Resolution * Ratio));
-    OutHeight = Ratio >= 1 ? FMath::Max(1, FMath::RoundToInt(Resolution / Ratio)) : Resolution;
+	double Ratio = SizeX / SizeY;
+	OutWidth  = Ratio >= 1 ? Resolution : FMath::Max(1, FMath::RoundToInt(Resolution * Ratio));
+	OutHeight = Ratio >= 1 ? FMath::Max(1, FMath::RoundToInt(Resolution / Ratio)) : Resolution;
 
-    GDALDataset* Mem = GetGDALDriverManager()->GetDriverByName("MEM")->Create("", OutWidth, OutHeight, 1, GDT_Byte, nullptr);
-    if (!Mem) return false;
+	GDALDataset* Mem = GetGDALDriverManager()->GetDriverByName("MEM")->Create("", OutWidth, OutHeight, 1, GDT_Byte, nullptr);
+	if (!Mem) return false;
 
-    double GeoTransform[6] = { Envelope.MinX, SizeX / OutWidth, 0, Envelope.MaxY, 0, -SizeY / OutHeight };
-    Mem->SetGeoTransform(GeoTransform);
+	double GeoTransform[6] = { Envelope.MinX, SizeX / OutWidth, 0, Envelope.MaxY, 0, -SizeY / OutHeight };
+	Mem->SetGeoTransform(GeoTransform);
 
-    int Band = 1;
-    OGRGeometryH Handle = OGRGeometry::ToHandle(Geometry);
-    double Burn = 255;
-    char** Opts = CSLSetNameValue(nullptr, "ALL_TOUCHED", "TRUE");
+	int Band = 1;
+	OGRGeometryH Handle = OGRGeometry::ToHandle(Geometry);
+	double Burn = 255;
+	char** Opts = CSLSetNameValue(nullptr, "ALL_TOUCHED", "TRUE");
 
-    CPLErr Err = GDALRasterizeGeometries(Mem, 1, &Band, 1, &Handle, nullptr, nullptr, &Burn, Opts, nullptr, nullptr);
-    CSLDestroy(Opts);
-    if (Err != CE_None) { GDALClose(Mem); return false; }
+	CPLErr Err = GDALRasterizeGeometries(Mem, 1, &Band, 1, &Handle, nullptr, nullptr, &Burn, Opts, nullptr, nullptr);
+	CSLDestroy(Opts);
+	if (Err != CE_None) { GDALClose(Mem); return false; }
 
-    TArray<uint8> Mask;
-    Mask.SetNumUninitialized(OutWidth * OutHeight);
+	TArray<uint8> Mask;
+	Mask.SetNumUninitialized(OutWidth * OutHeight);
     Mem->GetRasterBand(1)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, Mask.GetData(), OutWidth, OutHeight, GDT_Byte, 0, 0);
-    GDALClose(Mem);
+	GDALClose(Mem);
 
-    OutColors.SetNumUninitialized(Mask.Num());
-    for (int i = 0; i < Mask.Num(); i++)
-        OutColors[i] = Mask[i] > 0 ? BurnColor : FColor(0, 0, 0, 0);
+	OutColors.SetNumUninitialized(Mask.Num());
+	for (int i = 0; i < Mask.Num(); i++)
+		OutColors[i] = Mask[i] > 0 ? BurnColor : FColor(0, 0, 0, 0);
 
-    return true;
+	return true;
 }
 
 

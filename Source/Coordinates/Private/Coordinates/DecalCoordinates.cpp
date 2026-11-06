@@ -21,27 +21,27 @@
 #define LOCTEXT_NAMESPACE "FCoordinatesModule"
 
 UMaterialInstanceDynamic* UDecalCoordinates::SetDecalTextureFromColors(
-    UDecalComponent* Decal, UMaterialInterface* Material,
-    int Width, int Height, TArray<FColor>& Colors, UObject* Outer, FString TextureName)
+	UDecalComponent* Decal, UMaterialInterface* Material,
+	int Width, int Height, TArray<FColor>& Colors, UObject* Outer, FString TextureName)
 {
-    UMaterialInstanceDynamic* MID = nullptr;
-    TWeakObjectPtr<UDecalComponent> WeakDecal(Decal);
-    TWeakObjectPtr<UMaterialInterface> WeakMaterial(Material);
-    TWeakObjectPtr<UObject> WeakOuter(Outer);
-    Concurrency::RunOnGameThreadThrottledAndWait([&]() {
-        if (!WeakDecal.IsValid() || !WeakMaterial.IsValid() || !WeakOuter.IsValid()) return false;
-        UTexture2D* Texture = UTexture2D::CreateTransient(Width, Height, PF_B8G8R8A8, MakeUniqueObjectName(GetTransientPackage(), UTexture2D::StaticClass(), FName(*TextureName)));
-        FTexture2DMipMap& Mip = Texture->GetPlatformData()->Mips[0];
-        void* Data = Mip.BulkData.Lock(LOCK_READ_WRITE);
-        FMemory::Memcpy(Data, Colors.GetData(), (SIZE_T) Width * Height * sizeof(FColor));
-        Mip.BulkData.Unlock();
-        Texture->UpdateResource();
-        MID = UMaterialInstanceDynamic::Create(WeakMaterial.Get(), WeakOuter.Get());
-        MID->SetTextureParameterValue(FName("Texture"), Texture);
-        WeakDecal->SetDecalMaterial(MID);
-        return true;
-    });
-    return MID;
+	UMaterialInstanceDynamic* MID = nullptr;
+	TWeakObjectPtr<UDecalComponent> WeakDecal(Decal);
+	TWeakObjectPtr<UMaterialInterface> WeakMaterial(Material);
+	TWeakObjectPtr<UObject> WeakOuter(Outer);
+	Concurrency::RunOnGameThreadThrottledAndWait([&]() {
+		if (!WeakDecal.IsValid() || !WeakMaterial.IsValid() || !WeakOuter.IsValid()) return false;
+		UTexture2D* Texture = UTexture2D::CreateTransient(Width, Height, PF_B8G8R8A8, MakeUniqueObjectName(GetTransientPackage(), UTexture2D::StaticClass(), FName(*TextureName)));
+		FTexture2DMipMap& Mip = Texture->GetPlatformData()->Mips[0];
+		void* Data = Mip.BulkData.Lock(LOCK_READ_WRITE);
+		FMemory::Memcpy(Data, Colors.GetData(), (SIZE_T) Width * Height * sizeof(FColor));
+		Mip.BulkData.Unlock();
+		Texture->UpdateResource();
+		MID = UMaterialInstanceDynamic::Create(WeakMaterial.Get(), WeakOuter.Get());
+		MID->SetTextureParameterValue(FName("Texture"), Texture);
+		WeakDecal->SetDecalMaterial(MID);
+		return true;
+	});
+	return MID;
 }
 
 bool UDecalCoordinates::PlaceDecal(UMaterial *Material)

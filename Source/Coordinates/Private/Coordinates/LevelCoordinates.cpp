@@ -26,41 +26,41 @@ ALevelCoordinates::ALevelCoordinates()
 
 TObjectPtr<UGlobalCoordinates> ALevelCoordinates::GetGlobalCoordinates(TWeakObjectPtr<UWorld> World, bool bShowDialog)
 {
-    TArray<TWeakObjectPtr<AActor>> LevelCoordinatesCandidates0;
+	TArray<TWeakObjectPtr<AActor>> LevelCoordinatesCandidates0;
 
-    if (!Concurrency::RunOnGameThreadAndWait([World, &LevelCoordinatesCandidates0]()
-    {
-        if (!World.IsValid()) return false;
+	if (!Concurrency::RunOnGameThreadAndWait([World, &LevelCoordinatesCandidates0]()
+	{
+		if (!World.IsValid()) return false;
 
-        TArray<AActor*> All;
-        UGameplayStatics::GetAllActorsOfClass(World.Get(), ALevelCoordinates::StaticClass(), All);
+		TArray<AActor*> All;
+		UGameplayStatics::GetAllActorsOfClass(World.Get(), ALevelCoordinates::StaticClass(), All);
 
-        for (AActor* Actor : All)
-        {
-            if (IsValid(Actor) && !Actor->IsHidden())
-                LevelCoordinatesCandidates0.Add(Actor);
-        }
-        return true;
-    }))
-    {
-        return nullptr;
-    }
+		for (AActor* Actor : All)
+		{
+			if (IsValid(Actor) && !Actor->IsHidden())
+				LevelCoordinatesCandidates0.Add(Actor);
+		}
+		return true;
+	}))
+	{
+		return nullptr;
+	}
 
-    TArray<TWeakObjectPtr<AActor>> LevelCoordinatesCandidates = LevelCoordinatesCandidates0
-        .FilterByPredicate([](const TWeakObjectPtr<AActor>& Actor) { return Actor.IsValid(); });
+	TArray<TWeakObjectPtr<AActor>> LevelCoordinatesCandidates = LevelCoordinatesCandidates0
+		.FilterByPredicate([](const TWeakObjectPtr<AActor>& Actor) { return Actor.IsValid(); });
 
-    if (LevelCoordinatesCandidates.Num() == 0)
-    {
-        if (bShowDialog) LCReporter::ShowError(LOCTEXT("NoLevelCoordinates", "..."));
-        return nullptr;
-    }
-    if (LevelCoordinatesCandidates.Num() > 1)
-    {
-        if (bShowDialog) LCReporter::ShowError(LOCTEXT("MoreThanOneLevelCoordinates", "..."));
-        return nullptr;
-    }
+	if (LevelCoordinatesCandidates.Num() == 0)
+	{
+		if (bShowDialog) LCReporter::ShowError(LOCTEXT("NoLevelCoordinates", "..."));
+		return nullptr;
+	}
+	if (LevelCoordinatesCandidates.Num() > 1)
+	{
+		if (bShowDialog) LCReporter::ShowError(LOCTEXT("MoreThanOneLevelCoordinates", "..."));
+		return nullptr;
+	}
 
-    return Cast<ALevelCoordinates>(LevelCoordinatesCandidates[0].Get())->GlobalCoordinates;
+	return Cast<ALevelCoordinates>(LevelCoordinatesCandidates[0].Get())->GlobalCoordinates;
 }
 
 
