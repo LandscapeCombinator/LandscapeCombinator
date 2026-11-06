@@ -83,11 +83,19 @@ bool AOGRGeometry::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIniti
 
 	UE_LOG(LogSplineImporter, Log, TEXT("Got a valid dataset to extract geometries, continuing..."));
 
-	if (bClearGeometryBeforeImporting || !Geometry)
+	if (!Concurrency::RunOnGameThreadAndWait([WeakThis]() {
+		if (!WeakThis.IsValid()) return false;
+		FScopeLock Lock(&WeakThis->GeometryLock);
+		if (WeakThis->bClearGeometryBeforeImporting || !WeakThis->Geometry)
+		{
+			if (WeakThis->Geometry) OGRGeometryFactory::destroyGeometry(WeakThis->Geometry);
+			WeakThis->Geometry = OGRGeometryFactory::createGeometry(OGRwkbGeometryType::wkbMultiPolygon);
+		}
+		return true;
+	}))
 	{
-		FScopeLock Lock(&GeometryLock);
-		if (Geometry) OGRGeometryFactory::destroyGeometry(Geometry);
-		Geometry = OGRGeometryFactory::createGeometry(OGRwkbGeometryType::wkbMultiPolygon);
+		UE_LOG(LogSplineImporter, Warning, TEXT("OnGenerate: actor no longer valid before creating geometry -- aborting"));
+		return false;
 	}
 
 	if (!Geometry)
