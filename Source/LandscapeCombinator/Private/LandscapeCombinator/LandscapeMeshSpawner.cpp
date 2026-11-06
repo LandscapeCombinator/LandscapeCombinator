@@ -299,6 +299,8 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 			{
 				LandscapeMesh = ExistingMesh.Get();
 				if (!IsValid(LandscapeMesh)) return false;
+				LandscapeMesh->MeshComponent->SetCollisionProfileName(WeakThis->CollisionProfile.Name.IsNone() ? FName(TEXT("BlockAll")) : WeakThis->CollisionProfile.Name);
+				LandscapeMesh->MeshComponent->SetCollisionEnabled(WeakThis->CollisionEnabled);
 				if (!LandscapeMesh->AddHeightmap(WeakThis->HeightmapPriority, ThisFileCoordinates, GlobalCoordinates, OutputFile, OwnerName)) return false;
 				if (IsValid(WeakThis->LandscapeMaterial)) LandscapeMesh->MeshComponent->SetMaterial(0, WeakThis->LandscapeMaterial);
 				if (!WeakThis->SpawnedLandscapeMeshesTag.IsNone() && !LandscapeMesh->Tags.Contains(WeakThis->SpawnedLandscapeMeshesTag))
@@ -322,6 +324,8 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 #endif
 
 			if (!WeakThis->SpawnedLandscapeMeshesTag.IsNone()) LandscapeMesh->Tags.Add(WeakThis->SpawnedLandscapeMeshesTag);
+			LandscapeMesh->MeshComponent->SetCollisionProfileName(WeakThis->CollisionProfile.Name.IsNone() ? FName(TEXT("BlockAll")) : WeakThis->CollisionProfile.Name);
+			LandscapeMesh->MeshComponent->SetCollisionEnabled(WeakThis->CollisionEnabled);
 			if (!LandscapeMesh->AddHeightmap(WeakThis->HeightmapPriority, ThisFileCoordinates, GlobalCoordinates, OutputFile)) return false;
 			LandscapeMesh->MeshComponent->SetMaterial(0, WeakThis->LandscapeMaterial);
 			return true;

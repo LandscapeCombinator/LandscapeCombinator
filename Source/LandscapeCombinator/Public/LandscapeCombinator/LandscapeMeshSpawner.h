@@ -125,6 +125,19 @@ public:
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
+		meta = (DisplayPriority = "18")
+	)
+	/* Query Only keeps traces (spline importer, reprojection) but removes physical collision. */
+	TEnumAsByte<ECollisionEnabled::Type> CollisionEnabled = ECollisionEnabled::QueryAndPhysics;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
+		meta = (DisplayPriority = "19")
+	)
+	FCollisionProfileName CollisionProfile;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
 		meta = (EditCondition = "!bReuseExistingMesh", EditConditionHides, DisplayPriority = "20")
 	)
 	/* Tag to add on the spawned landscape meshes. */

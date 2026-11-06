@@ -208,6 +208,8 @@ bool ALandscapeMesh::CookCollisionFromCurrentMesh()
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE_STR(__FUNCTION__);
 
+	if (IsValid(MeshComponent) && MeshComponent->GetCollisionEnabled() == ECollisionEnabled::NoCollision) return true;
+
 	FScopeLock Lock(&CookLock);
 
 	TWeakObjectPtr<ALandscapeMesh> WeakThis(this);
