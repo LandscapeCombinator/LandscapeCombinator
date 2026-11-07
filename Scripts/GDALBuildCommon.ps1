@@ -79,7 +79,7 @@ $noBindings = Flags '-DBUILD_{0}_BINDINGS=OFF' 'PYTHON','JAVA','CSHARP'
 
 function Resolve-LatestTag([string]$Repo) {
   $h = @{ 'User-Agent' = 'pwsh' }
-  if ($env:GITHUB_TOKEN) { $h['Authorization'] = "Bearer $env:GITHUB_TOKEN" }
+  if ($env:GITHUB_ACTIONS -and $env:GITHUB_TOKEN) { $h['Authorization'] = "Bearer $env:GITHUB_TOKEN" }
   (Invoke-RestMethod "https://api.github.com/repos/$Repo/releases/latest" -Headers $h).tag_name
 }
 

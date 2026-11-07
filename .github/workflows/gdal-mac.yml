@@ -1,5 +1,7 @@
 name: GDAL for Mac
 on:
+  push:
+    branches: [mac]   # temporary, remove once merged to main
   workflow_dispatch:
     inputs:
       gdal_version:
