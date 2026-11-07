@@ -1,0 +1,58 @@
+name: GDAL for Mac
+on:
+  workflow_dispatch:
+    inputs:
+      gdal_version:
+        description: GDAL version (empty = latest release)
+        required: false
+        default: ''
+      proj_version:
+        description: PROJ version (empty = latest release)
+        required: false
+        default: ''
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: arm64, runner: macos-latest }
+          - { arch: x86_64, runner: macos-15-intel }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: Scripts
+      - run: brew install ninja
+      - name: Build GDAL
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GDAL_VERSION: ${{ inputs.gdal_version }}
+          PROJ_VERSION: ${{ inputs.proj_version }}
+          MAC_ARCH: ${{ matrix.arch }}
+        run: ./Scripts/BuildGDALUnix.ps1 -Platform Mac -MacArch $env:MAC_ARCH -Version $env:GDAL_VERSION -ProjVersion $env:PROJ_VERSION -Work "$env:RUNNER_TEMP/gdal-mac"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gdal-mac-${{ matrix.arch }}
+          path: ${{ runner.temp }}/gdal-mac/out
+          if-no-files-found: error
+  universal:
+    needs: build
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: Scripts
+      - uses: actions/download-artifact@v4
+        with:
+          path: arch
+      - name: Merge into a universal dylib
+        shell: pwsh
+        run: ./Scripts/MergeMacArchs.ps1 -Arm64 arch/gdal-mac-arm64 -X64 arch/gdal-mac-x86_64 -Out universal
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gdal-mac
+          path: universal
+          if-no-files-found: error

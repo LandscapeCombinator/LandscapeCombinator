@@ -45,6 +45,8 @@ void FGDALInterfaceModule::SetGDALPaths()
 	ShareFolder = PluginBaseDir / "Source" / "ThirdParty" / "GDAL" / "Win64" / "share";
 #elif PLATFORM_LINUX
 	ShareFolder = PluginBaseDir / "Source" / "ThirdParty" / "GDAL" / "Linux" / "share";
+#elif PLATFORM_MAC
+	ShareFolder = PluginBaseDir / "Source" / "ThirdParty" / "GDAL" / "Mac" / "share";
 #endif
 
 	if (!FPaths::DirectoryExists(ShareFolder))
@@ -55,6 +57,8 @@ void FGDALInterfaceModule::SetGDALPaths()
 		ShareFolder = ProjectDir / "Binaries" / "Win64" / "ThirdParty" / "GDAL" / "share";
 #elif PLATFORM_LINUX
 		ShareFolder = ProjectDir / "Binaries" / "Linux" / "ThirdParty" / "GDAL" / "share";
+#elif PLATFORM_MAC
+		ShareFolder = ProjectDir / "Binaries" / "Mac" / "ThirdParty" / "GDAL" / "share";
 #endif
 		UE_LOG(LogGDALInterface, Log, TEXT("We will try here instead: %s"), *ShareFolder);
 	}

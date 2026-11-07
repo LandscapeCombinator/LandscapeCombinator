@@ -15,97 +15,97 @@
 			"Name": "GDALInterface",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64", "Linux" ]
+			"WhitelistPlatforms": [ "Win64", "Linux", "Mac" ]
 		},
 		{
 			"Name": "BuildingsFromSplines",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64", "Linux" ]
+			"WhitelistPlatforms": [ "Win64", "Linux", "Mac" ]
 		},
 		{
 			"Name": "Coordinates",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64", "Linux" ]
+			"WhitelistPlatforms": [ "Win64", "Linux", "Mac" ]
 		},
 		{
 			"Name": "FileDownloader",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64", "Linux" ]
+			"WhitelistPlatforms": [ "Win64", "Linux", "Mac" ]
 		},
 		{
 			"Name": "ConcurrencyHelpers",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64", "Linux" ]
+			"WhitelistPlatforms": [ "Win64", "Linux", "Mac" ]
 		},
 		{
 			"Name": "SplineImporter",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64", "Linux" ]
+			"WhitelistPlatforms": [ "Win64", "Linux", "Mac" ]
 		},
 		{
 			"Name": "LandscapeUtils",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64", "Linux" ]
+			"WhitelistPlatforms": [ "Win64", "Linux", "Mac" ]
 		},
 		{
 			"Name": "HeightmapModifier",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64", "Linux" ]
+			"WhitelistPlatforms": [ "Win64", "Linux", "Mac" ]
 		},
 		{
 			"Name": "ImageDownloader",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64", "Linux" ]
+			"WhitelistPlatforms": [ "Win64", "Linux", "Mac" ]
 		},
 		{
 			"Name": "ConsoleHelpers",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64", "Linux" ]
+			"WhitelistPlatforms": [ "Win64", "Linux", "Mac" ]
 		},
 		{
 			"Name": "LandscapeCombinator",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64", "Linux" ]
+			"WhitelistPlatforms": [ "Win64", "Linux", "Mac" ]
 		},
 		{
 			"Name": "OSMUserData",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64", "Linux" ]
+			"WhitelistPlatforms": [ "Win64", "Linux", "Mac" ]
 		},
 		{
 			"Name": "MapboxHelpers",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64", "Linux" ]
+			"WhitelistPlatforms": [ "Win64", "Linux", "Mac" ]
 		},
 		{
 			"Name": "LCCommon",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64", "Linux" ]
+			"WhitelistPlatforms": [ "Win64", "Linux", "Mac" ]
 		},
 		{
 			"Name": "StraightSkeletonWrapper",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64", "Linux" ]
+			"WhitelistPlatforms": [ "Win64", "Linux", "Mac" ]
 		},
 		{
 			"Name": "StraightSkeleton",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64", "Linux" ]
+			"WhitelistPlatforms": [ "Win64", "Linux", "Mac" ]
 		}
 	],
 	"Plugins": [

@@ -94,8 +94,10 @@ function New-Archive {
         New-Item -Path "$TempFolder" -Name "Binaries" -ItemType "directory" | Out-Null
         New-Item -Path "$TempFolder/Binaries" -Name "Win64" -ItemType "directory" | Out-Null
         New-Item -Path "$TempFolder/Binaries" -Name "Linux" -ItemType "directory" | Out-Null
+        New-Item -Path "$TempFolder/Binaries" -Name "Mac" -ItemType "directory" | Out-Null
         Copy-Item -Path Source/ThirdParty/GDAL/Win64/bin/* -Destination "$TempFolder/Binaries/Win64" -Force
         Copy-Item -Path Source/ThirdParty/GDAL/Linux/bin/* -Destination "$TempFolder/Binaries/Linux" -Force
+        Copy-Item -Path Source/ThirdParty/GDAL/Mac/bin/* -Destination "$TempFolder/Binaries/Mac" -Force
     }
 
 
