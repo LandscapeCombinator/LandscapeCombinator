@@ -8,6 +8,15 @@
 
 #include "Components/DecalComponent.h"
 #include "Coordinates/DecalCoordinates.h"
+#include "LandscapeUtils/LandscapeUtils.h"
+#include "Landscape.h"
+#include "Engine/Texture2D.h"
+#include "Misc/PackageName.h"
+#include "Misc/ScopeExit.h"
+#include "UObject/Package.h"
+#if WITH_EDITOR
+#include "AssetRegistry/AssetRegistryModule.h"
+#endif
 #include "Coordinates/GlobalCoordinates.h"
 #include "Coordinates/LevelCoordinates.h"
 
@@ -181,6 +190,7 @@ if (Added > 0) NumGeometries++;
 	UE_LOG(LogSplineImporter, Log, TEXT("Found %d geometries"), NumGeometries);
 	Tags.AddUnique(AreaTag);
 	SetGeometry(Geometry);
+	if (!MaskAssetPath.IsEmpty()) ExportMask(bIsUserInitiated);
 
 	return true;
 }
@@ -353,6 +363,158 @@ void AOGRGeometry::UpdateGeometryPreview()
 
 		Decal->SetVisibility(true);
 	});
+}
+
+bool AOGRGeometry::ExportMask(bool bIsUserInitiated)
+{
+#if WITH_EDITOR
+	if (!FPackageName::IsValidLongPackageName(MaskAssetPath))
+	{
+		LCReporter::ShowError(LOCTEXT("AOGRGeometry::ExportMask::BadPath", "Mask Asset Path must look like /Game/Masks/T_Forest."));
+		return false;
+	}
+
+	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(GetWorld());
+	if (!IsValid(GlobalCoordinates)) return false;
+
+	double WorldMinX = 0, WorldMaxX = 0, WorldMinY = 0, WorldMaxY = 0;
+	int32 SizeX = 0, SizeY = 0;
+	if (BoundingMethod != EBoundingMethod::BoundingActor)
+	{
+		LCReporter::ShowError(LOCTEXT("AOGRGeometry::ExportMask::NeedActor", "Mask export requires Bounding Method = Bounding Actor."));
+		return false;
+	}
+	const FActorSelection Selection = BoundingActorSelection;
+	const int32 Resolution = FMath::Clamp(MaskResolution, 2, 16384);
+
+	if (!Concurrency::RunOnGameThreadAndWait([&]() {
+		AActor* Target = Selection.GetActor(GetWorld());
+		if (!IsValid(Target)) return false;
+
+		if (ALandscape* Landscape = Cast<ALandscape>(Target))
+		{
+			FVector2D MinMaxX, MinMaxY, MinMaxZ;
+			if (!LandscapeUtils::GetLandscapeBounds(Landscape, MinMaxX, MinMaxY, MinMaxZ)) return false;
+			SizeX = Landscape->ComputeComponentCounts().X * Landscape->ComponentSizeQuads + 1;
+			SizeY = Landscape->ComputeComponentCounts().Y * Landscape->ComponentSizeQuads + 1;
+			if (SizeX < 2 || SizeY < 2) return false;
+			const double StepX = (MinMaxX.Y - MinMaxX.X) / (SizeX - 1);
+			const double StepY = (MinMaxY.Y - MinMaxY.X) / (SizeY - 1);
+			WorldMinX = MinMaxX.X - StepX / 2;
+			WorldMaxX = MinMaxX.Y + StepX / 2;
+			WorldMinY = MinMaxY.X - StepY / 2;
+			WorldMaxY = MinMaxY.Y + StepY / 2;
+		}
+		else
+		{
+			const FBox Box = Target->GetComponentsBoundingBox(true);
+			if (!Box.IsValid) return false;
+			WorldMinX = Box.Min.X; WorldMaxX = Box.Max.X;
+			WorldMinY = Box.Min.Y; WorldMaxY = Box.Max.Y;
+			const double DX = WorldMaxX - WorldMinX;
+			const double DY = WorldMaxY - WorldMinY;
+			if (DX <= 0 || DY <= 0) return false;
+			SizeX = DX >= DY ? Resolution : FMath::Max(2, FMath::RoundToInt(Resolution * DX / DY));
+			SizeY = DX >= DY ? FMath::Max(2, FMath::RoundToInt(Resolution * DY / DX)) : Resolution;
+		}
+		return true;
+	}))
+	{
+		LCReporter::ShowError(LOCTEXT("AOGRGeometry::ExportMask::NoBounds", "Could not get the extent of the Bounding Actor."));
+		return false;
+	}
+
+	double MinCX = DBL_MAX, MaxCX = -DBL_MAX, MinCY = DBL_MAX, MaxCY = -DBL_MAX;
+	for (const double X : { WorldMinX, WorldMaxX })
+	{
+		for (const double Y : { WorldMinY, WorldMaxY })
+		{
+			FVector2D C;
+			GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(FVector2D(X, Y), C);
+			MinCX = FMath::Min(MinCX, C.X); MaxCX = FMath::Max(MaxCX, C.X);
+			MinCY = FMath::Min(MinCY, C.Y); MaxCY = FMath::Max(MaxCY, C.Y);
+		}
+	}
+
+	OGRGeometry* Projected = CloneGeometry();
+	if (!Projected)
+	{
+		LCReporter::ShowError(LOCTEXT("AOGRGeometry::ExportMask::NoGeometry", "There is no geometry to export, please generate first."));
+		return false;
+	}
+	ON_SCOPE_EXIT { OGRGeometryFactory::destroyGeometry(Projected); };
+
+	OGRCoordinateTransformation* Transform = GlobalCoordinates->GetCRSTransformer("EPSG:4326");
+	if (!Transform) return false;
+	const OGRErr TransformErr = Projected->transform(Transform);
+	OGRCoordinateTransformation::DestroyCT(Transform);
+	if (TransformErr != OGRERR_NONE)
+	{
+		LCReporter::ShowError(LOCTEXT("AOGRGeometry::ExportMask::Reproject", "Could not reproject the geometry to the coordinate system of the GlobalCoordinates."));
+		return false;
+	}
+
+	TArray<uint8> Mask;
+	if (!GDALInterface::RasterizeGeometryMask(Projected, MinCX, MaxCX, MinCY, MaxCY, SizeX, SizeY, Mask, false))
+	{
+		LCReporter::ShowError(LOCTEXT("AOGRGeometry::ExportMask::Rasterize", "Could not rasterize the geometry."));
+		return false;
+	}
+
+	const FString Path = MaskAssetPath;
+	const bool bSaved = Concurrency::RunOnGameThreadAndWait([&]() {
+		const FString AssetName = FPackageName::GetLongPackageAssetName(Path);
+		UTexture2D* Texture = LoadObject<UTexture2D>(nullptr, *FString::Printf(TEXT("%s.%s"), *Path, *AssetName), nullptr, LOAD_NoWarn | LOAD_Quiet);
+		const bool bNew = !IsValid(Texture);
+		if (bNew)
+		{
+			UPackage* Package = CreatePackage(*Path);
+			if (!Package) return false;
+			Texture = NewObject<UTexture2D>(Package, FName(*AssetName), RF_Public | RF_Standalone | RF_Transactional);
+		}
+		if (!IsValid(Texture)) return false;
+
+		Texture->Modify();
+		Texture->Source.Init(SizeX, SizeY, 1, 1, TSF_G8, Mask.GetData());
+		Texture->SRGB = false;
+		Texture->CompressionSettings = TC_Grayscale;
+		Texture->MipGenSettings = TMGS_FromTextureGroup;
+		Texture->LODGroup = TEXTUREGROUP_World;
+		Texture->UpdateResource();
+		Texture->PostEditChange();
+		Texture->MarkPackageDirty();
+		if (bNew) FAssetRegistryModule::AssetCreated(Texture);
+		return true;
+	});
+
+	if (!bSaved)
+	{
+		LCReporter::ShowError(LOCTEXT("AOGRGeometry::ExportMask::Asset", "Could not create the mask texture asset."));
+		return false;
+	}
+
+	UE_LOG(LogSplineImporter, Log, TEXT("Exported mask %s (%dx%d). World extent: X [%f, %f], Y [%f, %f]. Row 0 is the north row of the CRS."),
+		*Path, SizeX, SizeY, WorldMinX, WorldMaxX, WorldMinY, WorldMaxY);
+
+	if (bIsUserInitiated)
+	{
+		Concurrency::RunOnGameThreadAndWait([&]() {
+			LCReporter::ShowInfo(
+				FText::Format(
+					LOCTEXT("AOGRGeometry::ExportMask::Done", "Exported mask {0} ({1}x{2})."),
+					FText::FromString(Path), FText::AsNumber(SizeX), FText::AsNumber(SizeY)
+				),
+				"SuppressMaskExportInfo",
+				LOCTEXT("AOGRGeometry::ExportMask::DoneTitle", "Mask exported")
+			);
+			return true;
+		});
+	}
+	return true;
+#else
+	UE_LOG(LogSplineImporter, Warning, TEXT("ExportMask is only supported in the editor"));
+	return false;
+#endif
 }
 
 void AOGRGeometry::HideGeometryPreview()

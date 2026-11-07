@@ -54,6 +54,18 @@ public:
 	)
 	TObjectPtr<UDecalComponent> PreviewDecal = nullptr;
 
+	/* Texture asset to create or update, for example /Game/Masks/T_Forest. Leave empty to skip the export. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter|Mask",
+		meta = (DisplayPriority = "21")
+	)
+	FString MaskAssetPath;
+
+	/* Size in pixels of the longer side of the mask, for targets other than a landscape (a landscape uses one pixel per vertex). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter|Mask",
+		meta = (DisplayPriority = "22")
+	)
+	int32 MaskResolution = 4096;
+
 	/* Simple cache, the serialized data is saved in a UPROPERTY */
 	OGRGeometry *Geometry = nullptr;
 
@@ -74,6 +86,9 @@ public:
 #endif
 
 	OGRGeometry* CloneGeometry() const;
+
+	/* Rasterizes Geometry on the extent of the Bounding Actor and saves it as a G8 texture asset at MaskAssetPath. */
+	bool ExportMask(bool bIsUserInitiated);
 
 protected:
 	virtual void SetOverpassShortQuery() override;

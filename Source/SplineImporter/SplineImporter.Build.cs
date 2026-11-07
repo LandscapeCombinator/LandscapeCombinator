@@ -34,6 +34,7 @@ public class SplineImporter : ModuleRules
 				"SlateCore",
 
 				// Landscape Combinator Dependencies
+				"AssetRegistry",
 				"LandscapeUtils",
 				"Coordinates",
 				"GDALInterface",

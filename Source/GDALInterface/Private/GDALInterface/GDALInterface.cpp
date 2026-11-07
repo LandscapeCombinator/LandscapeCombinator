@@ -1439,6 +1439,38 @@ bool GDALInterface::AddFeature(TSet<FString> &AlreadyHandledFeatures, OGRFeature
 	return true;
 }
 
+bool GDALInterface::RasterizeGeometryMask(OGRGeometry* Geometry, double MinX, double MaxX, double MinY, double MaxY, int Width, int Height, TArray<uint8>& OutMask, bool bAllTouched)
+{
+	if (!Geometry || Width <= 0 || Height <= 0 || MaxX <= MinX || MaxY <= MinY) return false;
+
+	GDALDriver* Driver = GetGDALDriverManager()->GetDriverByName("MEM");
+	if (!Driver) return false;
+	GDALDataset* Mem = Driver->Create("", Width, Height, 1, GDT_Byte, nullptr);
+	if (!Mem) return false;
+
+	double GeoTransform[6] = { MinX, (MaxX - MinX) / Width, 0, MaxY, 0, -(MaxY - MinY) / Height };
+	Mem->SetGeoTransform(GeoTransform);
+
+	int Band = 1;
+	OGRGeometryH Handle = OGRGeometry::ToHandle(Geometry);
+	double Burn = 255;
+	char** Opts = CSLSetNameValue(nullptr, "ALL_TOUCHED", bAllTouched ? "TRUE" : "FALSE");
+
+	CPLErr Err = GDALRasterizeGeometries(Mem, 1, &Band, 1, &Handle, nullptr, nullptr, &Burn, Opts, nullptr, nullptr);
+	CSLDestroy(Opts);
+	if (Err != CE_None) { GDALClose(Mem); return false; }
+
+	OutMask.SetNumUninitialized((int64) Width * Height);
+	bool bReadOk = Mem->GetRasterBand(1)->RasterIO(GF_Read, 0, 0, Width, Height, OutMask.GetData(), Width, Height, GDT_Byte, 0, 0) == CE_None;
+	GDALClose(Mem);
+	if (!bReadOk)
+	{
+		UE_LOG(LogGDALInterface, Warning, TEXT("RasterIO failed"));
+		return false;
+	}
+	return true;
+}
+
 bool GDALInterface::RasterizeGeometry(OGRGeometry* Geometry, int Resolution, TArray<FColor>& OutColors, int& OutWidth, int& OutHeight, FColor BurnColor)
 {
 	if (!Geometry) return false;
@@ -1453,30 +1485,8 @@ bool GDALInterface::RasterizeGeometry(OGRGeometry* Geometry, int Resolution, TAr
 	OutWidth  = Ratio >= 1 ? Resolution : FMath::Max(1, FMath::RoundToInt(Resolution * Ratio));
 	OutHeight = Ratio >= 1 ? FMath::Max(1, FMath::RoundToInt(Resolution / Ratio)) : Resolution;
 
-	GDALDataset* Mem = GetGDALDriverManager()->GetDriverByName("MEM")->Create("", OutWidth, OutHeight, 1, GDT_Byte, nullptr);
-	if (!Mem) return false;
-
-	double GeoTransform[6] = { Envelope.MinX, SizeX / OutWidth, 0, Envelope.MaxY, 0, -SizeY / OutHeight };
-	Mem->SetGeoTransform(GeoTransform);
-
-	int Band = 1;
-	OGRGeometryH Handle = OGRGeometry::ToHandle(Geometry);
-	double Burn = 255;
-	char** Opts = CSLSetNameValue(nullptr, "ALL_TOUCHED", "TRUE");
-
-	CPLErr Err = GDALRasterizeGeometries(Mem, 1, &Band, 1, &Handle, nullptr, nullptr, &Burn, Opts, nullptr, nullptr);
-	CSLDestroy(Opts);
-	if (Err != CE_None) { GDALClose(Mem); return false; }
-
 	TArray<uint8> Mask;
-	Mask.SetNumUninitialized(OutWidth * OutHeight);
-	bool bReadOk = Mem->GetRasterBand(1)->RasterIO(GF_Read, 0, 0, OutWidth, OutHeight, Mask.GetData(), OutWidth, OutHeight, GDT_Byte, 0, 0) == CE_None;
-	GDALClose(Mem);
-	if (!bReadOk)
-	{
-		UE_LOG(LogGDALInterface, Warning, TEXT("RasterIO failed"));
-		return false;
-	}
+	if (!RasterizeGeometryMask(Geometry, Envelope.MinX, Envelope.MaxX, Envelope.MinY, Envelope.MaxY, OutWidth, OutHeight, Mask, true)) return false;
 
 	OutColors.SetNumUninitialized(Mask.Num());
 	for (int i = 0; i < Mask.Num(); i++)

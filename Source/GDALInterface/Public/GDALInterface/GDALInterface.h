@@ -83,6 +83,7 @@ public:
 	static bool AddFeature(TSet<FString> &AlreadyHandledFeatures, OGRFeature *Feature);
 
 	static bool RasterizeGeometry(OGRGeometry* Geometry, int Resolution, TArray<FColor>& OutColors, int& OutWidth, int& OutHeight, FColor BurnColor);
+	static bool RasterizeGeometryMask(OGRGeometry* Geometry, double MinX, double MaxX, double MinY, double MaxY, int Width, int Height, TArray<uint8>& OutMask, bool bAllTouched);
 };
 
 #undef LOCTEXT_NAMESPACE
