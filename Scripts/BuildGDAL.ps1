@@ -29,8 +29,8 @@ Run $conda @('install','-y','-p',$envDir,'-c','conda-forge','--override-channels
 $src = Fetch $Work 'gdal' $Version "https://download.osgeo.org/gdal/$Version/gdal-$Version.tar.gz"
 $condaBase = Fwd (& $conda info --base).Trim()
 $pdb = '/PDBALTPATH:%_PDB%'   # keeps the build path out of the PDB reference inside the binaries
-$off = 'GEOS','SPATIALITE','ICONV','LIBXML2','FREEXL','ARCHIVE' | ForEach-Object { "-DGDAL_USE_$($_)=OFF" }
-$noBindings = 'PYTHON','JAVA','CSHARP' | ForEach-Object { "-DBUILD_$($_)_BINDINGS=OFF" }
+$off = Flags '-DGDAL_USE_{0}=OFF' 'GEOS','SPATIALITE','ICONV','LIBXML2','FREEXL','ARCHIVE'
+# $noBindings comes from GDALBuildCommon.ps1
 Run 'cmake' (@('-S',$src,'-B',$build,'-G',$Generator,'-A','x64',
   "-DCMAKE_PREFIX_PATH=$lib","-DCMAKE_INSTALL_PREFIX=$lib","-DCMAKE_IGNORE_PREFIX_PATH=$condaBase",
   '-DGDAL_USE_GEOTIFF_INTERNAL=ON','-DGDAL_IGNORE_FAILED_CONDITIONS=ON','-DBUILD_TESTING=OFF',

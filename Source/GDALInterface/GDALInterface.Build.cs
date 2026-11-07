@@ -22,7 +22,7 @@ public class GDALInterface : ModuleRules
 
 		// GDAL
 
-		string Platform = Target.Platform == UnrealTargetPlatform.Win64 ? "Win64" : "Linux";
+		string Platform = Target.Platform == UnrealTargetPlatform.Win64 ? "Win64" : Target.Platform == UnrealTargetPlatform.Mac ? "Mac" : "Linux";
 		string GDALDirectory = Path.Combine(PluginDirectory, "Source", "ThirdParty", "GDAL", Platform);
 		PublicIncludePaths.Add(Path.Combine(GDALDirectory, "include"));
 
@@ -48,6 +48,13 @@ public class GDALInterface : ModuleRules
 			{
 				RuntimeDependencies.Add(Path.Combine("$(BinaryOutputDir)", Path.GetFileName(SOFile)), SOFile);
 			}
+		}
+
+		if (Target.Platform == UnrealTargetPlatform.Mac)
+		{
+			string Dylib = Path.Combine(GDALDirectory, "bin", "libgdal.dylib");
+			PublicAdditionalLibraries.Add(Dylib);
+			RuntimeDependencies.Add(Path.Combine("$(BinaryOutputDir)", "libgdal.dylib"), Dylib);
 		}
 
 		// copy the share folders so that they can be used at runtime
