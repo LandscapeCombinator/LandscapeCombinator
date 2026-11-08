@@ -62,6 +62,8 @@ public:
 	UImageDownloader();
 
 	bool ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY, int PaddingPx = 0);
+	bool IsTileOutsideCoverage() const { return bTileOutsideCoverage; }
+	bool bTileOutsideCoverage = false;
 
 	/**********************
 	 *  Heightmap Source  *

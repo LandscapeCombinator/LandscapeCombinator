@@ -178,6 +178,9 @@ protected:
 	GDALDataset* LoadGDALDatasetFromShortQuery(FString ShortQuery, bool bIsUserInitiated);
 
 	virtual void SetOverpassShortQuery();
+
+	// Shows an error and returns true if the dataset had features, but all were already handled
+	bool ReportAllFeaturesHandled(bool bHadHandledFeatures);
 };
 
 #undef LOCTEXT_NAMESPACE

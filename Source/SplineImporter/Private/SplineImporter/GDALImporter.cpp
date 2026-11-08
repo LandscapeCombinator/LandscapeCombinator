@@ -183,4 +183,13 @@ void AGDALImporter::PostEditChangeProperty(FPropertyChangedEvent& Event)
 
 #endif
 
+bool AGDALImporter::ReportAllFeaturesHandled(bool bHadHandledFeatures)
+{
+	if (!bHadHandledFeatures) return false;
+	LCReporter::ShowError(
+		LOCTEXT("All features handled", "Warning: All features of the dataset were already handled in a previous run. If you deleted the splines manually, please run Cleanup first.")
+	);
+	return true;
+}
+
 #undef LOCTEXT_NAMESPACE

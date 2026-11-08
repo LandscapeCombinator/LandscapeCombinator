@@ -1125,7 +1125,11 @@ TArray<FPointList> GDALInterface::GetPointLists(GDALDataset *Dataset, TSet<FStri
 			TMap<FString, FString> Fields = FieldsFromFeature(Feature);
 
 			OGRGeometry* Geometry = Feature->GetGeometryRef();
-			if (!Geometry) continue;
+			if (!Geometry) {
+				OGRFeature::DestroyFeature(Feature);
+				Feature = Dataset->GetNextFeature(&Layer, nullptr, nullptr, nullptr);
+				continue;
+			}
 
 			OGRwkbGeometryType GeometryType = wkbFlatten(Geometry->getGeometryType());
 

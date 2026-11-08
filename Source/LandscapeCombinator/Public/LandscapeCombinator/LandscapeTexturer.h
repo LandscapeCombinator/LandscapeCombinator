@@ -28,6 +28,7 @@ public:
 	 * Actions *
 	 ***********/
 	
+	virtual bool IsTileOutsideCoverage() override { return IsValid(ImageDownloader) && ImageDownloader->IsTileOutsideCoverage(); }
 	virtual bool ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY) override
 	{
 		if (IsValid(ImageDownloader)) return ImageDownloader->ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY, 2);

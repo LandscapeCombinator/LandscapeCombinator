@@ -203,11 +203,13 @@ bool ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 	GDALDataset* Dataset = LoadGDALDataset(bIsUserInitiated);
 	if (!Dataset) return false;
 
+	const bool bHadHandledFeatures = !AlreadyHandledFeatures.IsEmpty();
 	TArray<FPointList> PointLists = GDALInterface::GetPointLists(Dataset, AlreadyHandledFeatures, bAddSinglePoints);
 	GDALClose(Dataset);
 
 	if (bIsUserInitiated && PointLists.IsEmpty())
 	{
+		if (ReportAllFeaturesHandled(bHadHandledFeatures)) return false;
 		LCReporter::ShowError(
 			LOCTEXT("No splines", "Warning: The dataset did not contain any spline, please double check your query.")
 		);

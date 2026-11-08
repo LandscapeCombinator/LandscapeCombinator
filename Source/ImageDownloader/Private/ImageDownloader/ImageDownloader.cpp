@@ -59,6 +59,7 @@ UImageDownloader::UImageDownloader()
 
 bool UImageDownloader::ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY, int PaddingPx)
 {
+	bTileOutsideCoverage = false;
 	if (IsXYZ())
 	{
 		XYZ_MinX = MinX;
@@ -105,6 +106,8 @@ bool UImageDownloader::ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY,
 			WMS_MinLat  = FMath::Max(WMS_MinLat, WMS_MinAllowedLat);
 			WMS_MaxLat  = FMath::Min(WMS_MaxLat, WMS_MaxAllowedLat);
 		}
+
+		bTileOutsideCoverage = WMS_MinLong >= WMS_MaxLong || WMS_MinLat >= WMS_MaxLat;
 
 		ParametersSelection.ParametersSelectionMethod = EParametersSelectionMethod::Manual;
 		return true;

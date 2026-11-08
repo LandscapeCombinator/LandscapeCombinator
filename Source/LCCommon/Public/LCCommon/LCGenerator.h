@@ -45,6 +45,8 @@ public:
 	
 	virtual TArray<UObject*> GetGeneratedObjects() const = 0;
 
+	virtual bool IsTileOutsideCoverage() { return false; }
+
 	virtual bool ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY) {
 		return false;
 	}

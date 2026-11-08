@@ -30,6 +30,7 @@ ALandscapeMeshSpawner::ALandscapeMeshSpawner()
 	PrimaryActorTick.bCanEverTick = false;
 
 	HeightmapDownloader = CreateDefaultSubobject<UImageDownloader>(TEXT("HeightmapDownloader"));
+	CollisionProfile.Name = FName(TEXT("BlockAll"));
 	PositionBasedGeneration = CreateDefaultSubobject<ULCPositionBasedGeneration >(TEXT("PositionBasedGeneration"));
 }
 

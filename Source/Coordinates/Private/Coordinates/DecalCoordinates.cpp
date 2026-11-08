@@ -214,8 +214,8 @@ ADecalActor* UDecalCoordinates::CreateDecal(UWorld *World, UMaterial *Material, 
 	}
 	else
 	{
-		Concurrency::RunOnGameThread([&DecalActor]{
-			DecalActor->Destroy();
+		Concurrency::RunOnGameThread([DecalActor]{
+			if (IsValid(DecalActor)) DecalActor->Destroy();
 		});
 		return nullptr;
 	}

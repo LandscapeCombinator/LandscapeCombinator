@@ -126,6 +126,15 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 				CurrentStatus = FailedStatus();
 				return false;
 			}
+
+			if (!bIsUserInitiated && IsTileOutsideCoverage())
+			{
+				UE_LOG(LogLCCommon, Log, TEXT("Tiles from (%d, %d, %d) to (%d, %d, %d) are outside of the source coverage, skipping them"), Zoom, MinX, MinY, Zoom, MaxX, MaxY);
+				MarkTilesGenerated(MissingTiles);
+				CurrentStatus = EGeneratorStatus::Success;
+				GenerationFinished(true);
+				return true;
+			}
 			UE_LOG(LogLCCommon, Log,
 				TEXT("All tiles from (%d, %d, %d) to (%d, %d, %d) are missing, generating them now"),
 				Zoom, MinX, MinY,
@@ -171,6 +180,13 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 				{
 					CurrentStatus = FailedStatus();
 					return false;
+				}
+
+				if (!bIsUserInitiated && IsTileOutsideCoverage())
+				{
+					UE_LOG(LogLCCommon, Log, TEXT("Tile (%d, %d, %d) is outside of the source coverage, skipping it"), Tile.Zoom, Tile.X, Tile.Y);
+					MarkTilesGenerated({ Tile });
+					continue;
 				}
 
 				if (OnGenerate(SpawnedActorsPath, bIsUserInitiated))
