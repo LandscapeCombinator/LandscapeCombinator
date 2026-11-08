@@ -50,7 +50,27 @@ enum class EImageSourceKind : uint8
 
 	LocalFile,
 	LocalFolder,
-	URL
+	URL,
+
+	// non-Earth bodies
+	Mars_Elevation UMETA(DisplayName = "Mars Elevation (USGS MOLA)"),
+	Mars_Imagery UMETA(DisplayName = "Mars Imagery (USGS)"),
+	Mercury_Elevation UMETA(DisplayName = "Mercury Elevation (USGS MESSENGER)"),
+	Mercury_Imagery UMETA(DisplayName = "Mercury Imagery (USGS)"),
+	Venus_Imagery UMETA(DisplayName = "Venus Imagery (USGS Magellan)"),
+	Io_Imagery UMETA(DisplayName = "Io Imagery (USGS)"),
+	Europa_Imagery UMETA(DisplayName = "Europa Imagery (USGS)"),
+	Ganymede_Imagery UMETA(DisplayName = "Ganymede Imagery (USGS)"),
+	Callisto_Imagery UMETA(DisplayName = "Callisto Imagery (USGS)"),
+	Titan_Imagery UMETA(DisplayName = "Titan Imagery (USGS)"),
+	Enceladus_Imagery UMETA(DisplayName = "Enceladus Imagery (USGS)"),
+	Pluto_Imagery UMETA(DisplayName = "Pluto Imagery (USGS)"),
+	Charon_Imagery UMETA(DisplayName = "Charon Imagery (USGS)"),
+	Ceres_Imagery UMETA(DisplayName = "Ceres Imagery (USGS)"),
+	Vesta_Imagery UMETA(DisplayName = "Vesta Imagery (USGS)"),
+	Triton_Imagery UMETA(DisplayName = "Triton Imagery (USGS)"),
+	Moon_Elevation UMETA(DisplayName = "Moon Elevation (USGS LOLA)"),
+	Moon_Imagery UMETA(DisplayName = "Moon Imagery (USGS)"),
 };
 
 UCLASS()

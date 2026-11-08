@@ -582,6 +582,24 @@ bool UImageDownloader::IsWMS()
 {
 	return
 		ImageSourceKind == EImageSourceKind::GenericWMS ||
+		ImageSourceKind == EImageSourceKind::Mars_Elevation ||
+		ImageSourceKind == EImageSourceKind::Mars_Imagery ||
+		ImageSourceKind == EImageSourceKind::Mercury_Elevation ||
+		ImageSourceKind == EImageSourceKind::Mercury_Imagery ||
+		ImageSourceKind == EImageSourceKind::Venus_Imagery ||
+		ImageSourceKind == EImageSourceKind::Io_Imagery ||
+		ImageSourceKind == EImageSourceKind::Europa_Imagery ||
+		ImageSourceKind == EImageSourceKind::Ganymede_Imagery ||
+		ImageSourceKind == EImageSourceKind::Callisto_Imagery ||
+		ImageSourceKind == EImageSourceKind::Titan_Imagery ||
+		ImageSourceKind == EImageSourceKind::Enceladus_Imagery ||
+		ImageSourceKind == EImageSourceKind::Pluto_Imagery ||
+		ImageSourceKind == EImageSourceKind::Charon_Imagery ||
+		ImageSourceKind == EImageSourceKind::Ceres_Imagery ||
+		ImageSourceKind == EImageSourceKind::Vesta_Imagery ||
+		ImageSourceKind == EImageSourceKind::Triton_Imagery ||
+		ImageSourceKind == EImageSourceKind::Moon_Elevation ||
+		ImageSourceKind == EImageSourceKind::Moon_Imagery ||
 		ImageSourceKind == EImageSourceKind::Australia_LiDAR5m || 
 		ImageSourceKind == EImageSourceKind::IGN ||
 		ImageSourceKind == EImageSourceKind::SHOM ||
@@ -937,6 +955,114 @@ void UImageDownloader::OnImageSourceChanged(TFunction<void(bool)> OnComplete)
 		CapabilitiesURL = "https://data.geopf.fr/wms-r?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
 		WMS_X_IsLong = true;
+	}
+	else if (ImageSourceKind == EImageSourceKind::Mars_Elevation)
+	{
+		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/mars/mars_simp_cyl_elev.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_X_IsLong = false;
+	}
+	else if (ImageSourceKind == EImageSourceKind::Mars_Imagery)
+	{
+		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/mars/mars_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_X_IsLong = false;
+	}
+	else if (ImageSourceKind == EImageSourceKind::Mercury_Elevation)
+	{
+		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/mercury/mercury_simp_cyl_elev.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_X_IsLong = false;
+	}
+	else if (ImageSourceKind == EImageSourceKind::Mercury_Imagery)
+	{
+		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/mercury/mercury_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_X_IsLong = false;
+	}
+	else if (ImageSourceKind == EImageSourceKind::Venus_Imagery)
+	{
+		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/venus/venus_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_X_IsLong = false;
+	}
+	else if (ImageSourceKind == EImageSourceKind::Io_Imagery)
+	{
+		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/jupiter/io_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_X_IsLong = false;
+	}
+	else if (ImageSourceKind == EImageSourceKind::Europa_Imagery)
+	{
+		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/jupiter/europa_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_X_IsLong = false;
+	}
+	else if (ImageSourceKind == EImageSourceKind::Ganymede_Imagery)
+	{
+		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/jupiter/ganymede_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_X_IsLong = false;
+	}
+	else if (ImageSourceKind == EImageSourceKind::Callisto_Imagery)
+	{
+		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/jupiter/callisto_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_X_IsLong = false;
+	}
+	else if (ImageSourceKind == EImageSourceKind::Titan_Imagery)
+	{
+		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/saturn/titan_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_X_IsLong = false;
+	}
+	else if (ImageSourceKind == EImageSourceKind::Enceladus_Imagery)
+	{
+		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/saturn/enceladus_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_X_IsLong = false;
+	}
+	else if (ImageSourceKind == EImageSourceKind::Pluto_Imagery)
+	{
+		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/pluto/pluto_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_X_IsLong = false;
+	}
+	else if (ImageSourceKind == EImageSourceKind::Charon_Imagery)
+	{
+		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/pluto/charon_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_X_IsLong = false;
+	}
+	else if (ImageSourceKind == EImageSourceKind::Ceres_Imagery)
+	{
+		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/asteroid_belt/ceres_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_X_IsLong = false;
+	}
+	else if (ImageSourceKind == EImageSourceKind::Vesta_Imagery)
+	{
+		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/asteroid_belt/vesta_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_X_IsLong = false;
+	}
+	else if (ImageSourceKind == EImageSourceKind::Triton_Imagery)
+	{
+		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/neptune/triton_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_X_IsLong = false;
+	}
+	else if (ImageSourceKind == EImageSourceKind::Moon_Elevation)
+	{
+		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/earth/moon_simp_cyl_elev.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_X_IsLong = false;
+	}
+	else if (ImageSourceKind == EImageSourceKind::Moon_Imagery)
+	{
+		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/earth/moon_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_X_IsLong = false;
 	}
 	else if (ImageSourceKind == EImageSourceKind::Australia_LiDAR5m)
 	{
