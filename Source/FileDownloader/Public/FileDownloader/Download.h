@@ -7,7 +7,7 @@
 class FILEDOWNLOADER_API Download {
 public:
 	
-	static bool SynchronousFromURLExpecting(FString URL, FString File, bool bProgress, int32 ExpectedSize);
+	static bool SynchronousFromURLExpecting(FString URL, FString File, bool bProgress, int64 ExpectedSize);
 	static bool SynchronousFromURL(FString URL, FString File, bool bProgress);
 
 	static void FromURLExpecting(FString URL, FString File, bool bProgress, int64 ExpectedSize, TFunction<void(bool)> OnComplete);
@@ -19,7 +19,7 @@ public:
 	static TArray<FString> DownloadManyAndWait(TArray<FString> URLs, TArray<FString> Files, bool bProgress);
 	static TArray<FString> DownloadManyAndWait(TArray<FString> URLs, FString Directory, bool bProgress);
 
-	static void AddExpectedSize(FString URL, int32 ExpectedSize);
+	static void AddExpectedSize(FString URL, int64 ExpectedSize);
 	static FString ExpectedSizeCacheFile();
 	static void LoadExpectedSizeCache();
 	static void SaveExpectedSizeCache();

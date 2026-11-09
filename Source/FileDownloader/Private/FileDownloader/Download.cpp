@@ -26,7 +26,7 @@
 
 // FIXME: implement proper critical section instead of bTriggered
 
-TMap<FString, int> ExpectedSizeCache; 
+TMap<FString, int64> ExpectedSizeCache; 
 
 FString Shorten(FString Input)
 {
@@ -54,7 +54,7 @@ bool Download::SynchronousFromURL(FString URL, FString File, bool bProgress)
 
 	if (ExpectedSizeCache.Contains(URL))
 	{
-		UE_LOG(LogFileDownloader, Log, TEXT("Cache says expected size for '%s' is '%d'"), *URL, ExpectedSizeCache[URL]);
+		UE_LOG(LogFileDownloader, Log, TEXT("Cache says expected size for '%s' is '%lld'"), *URL, ExpectedSizeCache[URL]);
 		return SynchronousFromURLExpecting(URL, File, bProgress, ExpectedSizeCache[URL]);
 	}
 	else
@@ -76,7 +76,7 @@ bool Download::SynchronousFromURL(FString URL, FString File, bool bProgress)
 			return false;
 		}
 
-		int32 ExpectedSize = 0;
+		int64 ExpectedSize = 0;
 
 		bool *bTriggered = new bool(false);
 		Request->OnProcessRequestComplete().BindLambda([URL, File, bTriggered, &ExpectedSize, SyncEvent](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful) {
@@ -85,7 +85,7 @@ bool Download::SynchronousFromURL(FString URL, FString File, bool bProgress)
 
 			if (bWasSuccessful && Response.IsValid() && EHttpResponseCodes::IsOk(Response->GetResponseCode()))
 			{
-				ExpectedSize = FCString::Atoi(*Response->GetHeader("Content-Length"));
+				ExpectedSize = FCString::Atoi64(*Response->GetHeader("Content-Length"));
 			}
 			SyncEvent->Trigger();
 		});
@@ -102,7 +102,7 @@ bool Download::SynchronousFromURL(FString URL, FString File, bool bProgress)
 	}
 }
 
-bool Download::SynchronousFromURLExpecting(FString URL, FString File, bool bProgress, int32 ExpectedSize)
+bool Download::SynchronousFromURLExpecting(FString URL, FString File, bool bProgress, int64 ExpectedSize)
 {
 	if (IsInGameThread())
 	{
@@ -190,7 +190,7 @@ void Download::FromURL(FString URL, FString File, bool bProgress, TFunction<void
 
 	if (ExpectedSizeCache.Contains(URL))
 	{
-		UE_LOG(LogFileDownloader, Log, TEXT("Cache says expected size for '%s' is '%d'"), *URL, ExpectedSizeCache[URL]);
+		UE_LOG(LogFileDownloader, Log, TEXT("Cache says expected size for '%s' is '%lld'"), *URL, ExpectedSizeCache[URL]);
 		FromURLExpecting(URL, File, bProgress, ExpectedSizeCache[URL], OnComplete);
 	}
 	else
@@ -324,7 +324,7 @@ void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64
 {
 	auto Action = [=]()
 	{
-		double *Downloaded = new double();
+		TSharedPtr<int64> Downloaded = MakeShared<int64>(0);
 
 		IPlatformFile &PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 
@@ -339,7 +339,7 @@ void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64
 			}
 			else
 			{
-				UE_LOG(LogFileDownloader, Log, TEXT("File already exists with size %ld but the expected size is %ld. Redownloading"), FileSize, ExpectedSize);
+				UE_LOG(LogFileDownloader, Log, TEXT("File already exists with size %lld but the expected size is %lld. Redownloading"), FileSize, ExpectedSize);
 			}
 		}
 
@@ -437,8 +437,8 @@ void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64
 						[
 							SNew(SProgressBar)
 								.Percent_Lambda([Downloaded, ExpectedSize, Request]() {
-										if (ExpectedSize) return *Downloaded / ExpectedSize;
-										return *Downloaded / MAX_int32;
+										if (ExpectedSize) return (double)*Downloaded / ExpectedSize;
+										return (double)*Downloaded / MAX_int32;
 									})
 						]
 						+SVerticalBox::Slot().AutoHeight().HAlign(EHorizontalAlignment::HAlign_Center)
@@ -479,7 +479,7 @@ void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64
 	else Action();
 }
 
-void Download::AddExpectedSize(FString URL, int32 ExpectedSize)
+void Download::AddExpectedSize(FString URL, int64 ExpectedSize)
 {
 	if (!ExpectedSizeCache.Contains(URL))
 	{
@@ -491,7 +491,7 @@ void Download::AddExpectedSize(FString URL, int32 ExpectedSize)
 FString Download::ExpectedSizeCacheFile()
 {
 	IPlatformFile::GetPlatformPhysical().CreateDirectory(*FPaths::ProjectSavedDir());
-	return FPaths::Combine(FPaths::ProjectSavedDir(), "ExpectedSizeCache"); 
+	return FPaths::Combine(FPaths::ProjectSavedDir(), "ExpectedSizeCache64"); 
 }
 
 void Download::LoadExpectedSizeCache()

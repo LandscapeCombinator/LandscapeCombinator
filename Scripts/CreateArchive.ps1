@@ -126,6 +126,7 @@ function New-Archive {
         Write-Output "UPlugin Path: $UPluginPath"
         Write-Output "Package Path: $PackagePath"
         & (Join-Path $UEFolder "Engine\Build\BatchFiles\RunUAT.bat") BuildPlugin -TargetPlatforms=Win64+Linux -Plugin="$UPluginPath" -Package="$PackagePath" -Rocket
+        if ($LASTEXITCODE -ne 0) { throw "BuildPlugin failed with exit code $LASTEXITCODE" }
         $Attempts = 0
         while ($Attempts -lt 6)
         {
@@ -149,6 +150,7 @@ function New-Archive {
 
     Write-Output "Running: 7z -snl a $plugin-v$PluginVersion-UE$EngineVersion.zip $(Resolve-Path "$TempFolder/*" | Select-Object -ExpandProperty Path)"
     & 7z -snl a "$plugin-v$PluginVersion-UE$EngineVersion.zip" (Resolve-Path "$TempFolder/*" | Select-Object -ExpandProperty Path)
+    if ($LASTEXITCODE -ne 0) { throw "7z failed with exit code $LASTEXITCODE" }
 
     Remove-Item -Force -Recurse $TempFolder
 }
