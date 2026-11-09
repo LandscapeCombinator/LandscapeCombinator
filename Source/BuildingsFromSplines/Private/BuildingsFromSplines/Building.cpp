@@ -1692,25 +1692,28 @@ bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)
 
 	SetReceivesDecals();
 
-	if (ResolvedBCfg->bEnableComplexCollision)
-	{
-		DynamicMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-		DynamicMeshComponent->SetCollisionProfileName("BlockAll");
-		DynamicMeshComponent->bEnableComplexCollision = true;
-		DynamicMeshComponent->SetComplexAsSimpleCollisionEnabled(true);
-	}
-	else if (ResolvedBCfg->bAttemptToPushOutOfCollision)
-	{
-		DynamicMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-		DynamicMeshComponent->SetCollisionProfileName("OverlapAll");
-		DynamicMeshComponent->bEnableComplexCollision = true;
-		DynamicMeshComponent->SetComplexAsSimpleCollisionEnabled(true);
-	}
-	else
-	{
-		DynamicMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	}
-	DynamicMeshComponent->SetGenerateOverlapEvents(ResolvedBCfg->bAttemptToPushOutOfCollision);
+	Concurrency::RunOnGameThreadAndWait([&]() {
+		if (ResolvedBCfg->bEnableComplexCollision)
+		{
+			DynamicMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+			DynamicMeshComponent->SetCollisionProfileName("BlockAll");
+			DynamicMeshComponent->bEnableComplexCollision = true;
+			DynamicMeshComponent->SetComplexAsSimpleCollisionEnabled(true);
+		}
+		else if (ResolvedBCfg->bAttemptToPushOutOfCollision)
+		{
+			DynamicMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+			DynamicMeshComponent->SetCollisionProfileName("OverlapAll");
+			DynamicMeshComponent->bEnableComplexCollision = true;
+			DynamicMeshComponent->SetComplexAsSimpleCollisionEnabled(true);
+		}
+		else
+		{
+			DynamicMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		}
+		DynamicMeshComponent->SetGenerateOverlapEvents(ResolvedBCfg->bAttemptToPushOutOfCollision);
+		return true;
+	});
 
 	if (TryPushOutOfCollision())
 	{
