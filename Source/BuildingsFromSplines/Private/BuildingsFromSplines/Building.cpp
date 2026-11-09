@@ -1692,6 +1692,7 @@ bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)
 
 	SetReceivesDecals();
 
+	bool bPushedOutOfCollision = false;
 	Concurrency::RunOnGameThreadAndWait([&]() {
 		if (ResolvedBCfg->bEnableComplexCollision)
 		{
@@ -1712,10 +1713,11 @@ bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)
 			DynamicMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		}
 		DynamicMeshComponent->SetGenerateOverlapEvents(ResolvedBCfg->bAttemptToPushOutOfCollision);
+		bPushedOutOfCollision = TryPushOutOfCollision();
 		return true;
 	});
 
-	if (TryPushOutOfCollision())
+	if (bPushedOutOfCollision)
 	{
 		bIsGenerating = false; // so that `GenerateBuilding_Internal` can continue
 		return GenerateBuilding_Internal(SpawnedActorsPathOverride);
