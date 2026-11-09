@@ -444,25 +444,27 @@ bool FWMSProvider::CreateURL(
 	}
 	FileExt = bGeoTiff || bTiff ? "tif" : "png";
 
+	// WMS 1.1.x long, lat axis order while 1.3.0 uses CRS axis order
+	const FString WMSVersion = (XIsLong && CapabilitiesContent.Contains(TEXT("WMT_MS_Capabilities"))) ? TEXT("1.1.1") : TEXT("1.3.0");
 	if (XIsLong)
 	{
 		URL = FString::Format(
-			TEXT("{0}LAYERS={1}&FORMAT={2}&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&CRS={3}&srs={3}&STYLES=&BBOX={4},{5},{6},{7}&WIDTH={8}&HEIGHT={9}"),
+			TEXT("{0}LAYERS={1}&FORMAT={2}&SERVICE=WMS&VERSION={10}&REQUEST=GetMap&CRS={3}&srs={3}&STYLES=&BBOX={4},{5},{6},{7}&WIDTH={8}&HEIGHT={9}"),
 			{
 				GetMapURL, Name, ImageFormat, CRS,
 				MinLong, MinLat, MaxLong, MaxLat,
-				Width, Height
+				Width, Height, WMSVersion
 			}
 		);
 	}
 	else
 	{
 		URL = FString::Format(
-			TEXT("{0}LAYERS={1}&FORMAT={2}&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&CRS={3}&srs={3}&STYLES=&BBOX={4},{5},{6},{7}&WIDTH={8}&HEIGHT={9}"),
+			TEXT("{0}LAYERS={1}&FORMAT={2}&SERVICE=WMS&VERSION={10}&REQUEST=GetMap&CRS={3}&srs={3}&STYLES=&BBOX={4},{5},{6},{7}&WIDTH={8}&HEIGHT={9}"),
 			{
 				GetMapURL, Name, ImageFormat, CRS,
 				MinLat, MinLong, MaxLat, MaxLong,
-				Width, Height
+				Width, Height, WMSVersion
 			}
 		);
 	}

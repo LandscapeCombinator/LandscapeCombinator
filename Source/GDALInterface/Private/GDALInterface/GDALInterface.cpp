@@ -991,23 +991,39 @@ bool GDALInterface::Warp(FString SourceFile, FString TargetFile, FString InCRS, 
 	Args.Add(TCHAR_TO_UTF8(*FString::SanitizeFloat(NoData)));
 	if (!bCrop) Args.Add("-dstalpha");
 
-	if (bCrop)
+	FVector4d Coordinates, Converted;
+	OGRSpatialReference InRs, OutRs;
+	const bool bOutOk = SetCRSFromUserInput(OutRs, OutCRS);
+	if (bCrop && !bOutOk) return false;
+	const bool bOutGeographic = bOutOk && OutRs.IsGeographic();
+
+	if (bCrop || bOutGeographic)
 	{
-		FVector4d Coordinates;
-		FVector4d ConvertedCoordinates;
 		if (!GDALInterface::GetCoordinates(Coordinates, { SourceFile })) return false;
-
-		OGRSpatialReference InRs, OutRs;
-
-		if (!SetCRSFromUserInput(OutRs, OutCRS)) return false;
 		if (!SetCRSFromUserInput(InRs, InCRS, false) && !SetCRSFromFile(InRs, SourceFile, true)) return false;
-		if (!GDALInterface::ConvertCoordinates(Coordinates, true, ConvertedCoordinates, InRs, OutRs)) return false;
+		if (!GDALInterface::ConvertCoordinates(Coordinates, bCrop, Converted, InRs, OutRs)) return false;
+		bool bAddExtent = bCrop;
 
-		Args.Add("-te");
-		Args.Add(TCHAR_TO_UTF8(*FString::SanitizeFloat(FMath::Min(ConvertedCoordinates[0], ConvertedCoordinates[1]))));
-		Args.Add(TCHAR_TO_UTF8(*FString::SanitizeFloat(FMath::Min(ConvertedCoordinates[2], ConvertedCoordinates[3]))));
-		Args.Add(TCHAR_TO_UTF8(*FString::SanitizeFloat(FMath::Max(ConvertedCoordinates[0], ConvertedCoordinates[1]))));
-		Args.Add(TCHAR_TO_UTF8(*FString::SanitizeFloat(FMath::Max(ConvertedCoordinates[2], ConvertedCoordinates[3]))));
+		// antimeridian: an edge at +-180 can come back with the opposite sign, which makes the target extent span the whole globe
+		if (bOutGeographic)
+		{
+			if (Converted[0] > Converted[1])
+			{
+				if (Converted[1] <= -179.999) Converted[1] += 360;
+				else if (Converted[0] >= 179.999) Converted[0] -= 360;
+				bAddExtent = true;
+			}
+			else if (Converted[1] >= 179.999 || Converted[0] <= -179.999) bAddExtent = true;
+		}
+
+		if (bAddExtent)
+		{
+			Args.Add("-te");
+			Args.Add(TCHAR_TO_UTF8(*FString::SanitizeFloat(FMath::Min(Converted[0], Converted[1]))));
+			Args.Add(TCHAR_TO_UTF8(*FString::SanitizeFloat(FMath::Min(Converted[2], Converted[3]))));
+			Args.Add(TCHAR_TO_UTF8(*FString::SanitizeFloat(FMath::Max(Converted[0], Converted[1]))));
+			Args.Add(TCHAR_TO_UTF8(*FString::SanitizeFloat(FMath::Max(Converted[2], Converted[3]))));
+		}
 	}
 
 	return Warp(SourceFile, TargetFile, Args);

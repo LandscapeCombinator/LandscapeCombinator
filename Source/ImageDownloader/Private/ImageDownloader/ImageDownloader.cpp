@@ -94,6 +94,10 @@ bool UImageDownloader::ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY,
 			return false;
 		}
 
+		// The 3857 -> WMS CRS conversion can return the antimeridian with the wrong sign (+180 for the west edge, -180 for the east edge)
+		if (CoordinatesWMS[0] > CoordinatesWMS[1] && CoordinatesWMS[0] >= 179.999) CoordinatesWMS[0] -= 360;
+		if (CoordinatesWMS[0] >= CoordinatesWMS[1] && CoordinatesWMS[1] <= -179.999) CoordinatesWMS[1] += 360;
+
 		WMS_MinLong = CoordinatesWMS[0] - PaddingUnits;
 		WMS_MaxLong = CoordinatesWMS[1] + PaddingUnits;
 		WMS_MinLat  = CoordinatesWMS[2] - PaddingUnits;
