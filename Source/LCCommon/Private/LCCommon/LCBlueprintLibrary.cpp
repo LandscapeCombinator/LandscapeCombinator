@@ -206,11 +206,13 @@ bool ULCBlueprintLibrary::FindPushOffset(TWeakObjectPtr<AActor> Actor, UPrimitiv
 		{ -0.7071f, 0.7071f }, { -0.7071f, -0.7071f }
 	};
 
+	const FQuat Tilt = FQuat::FindBetweenNormals(FVector::UpVector, Rotation.GetUpVector());
+
 	for (int Step = 1; Step <= MaxSteps; Step++)
 	{
 		for (const FVector2D& D2 : Directions)
 		{
-			const FVector Dir(D2.X, D2.Y, 0);
+			const FVector Dir = Tilt.RotateVector(FVector(D2.X, D2.Y, 0));
 			const FVector Candidate = Origin + Dir * (StepSize * Step);
 			const bool bCandidateOverlap = HasOverlap(Candidate);
 			DrawShape(Candidate, bCandidateOverlap ? FColor::Red : FColor::Green);

@@ -1817,10 +1817,11 @@ bool ABuilding::AddAttachments(int FloorIndex, ULevelDescription* LevelDescripti
 					TargetThickness = Attachment.OverrideThickness;
 				}
 
-				FVector AttachmentLocation = BaseClockwiseSplineComponent->GetLocationAtDistanceAlongSpline(CurrentDistance, ESplineCoordinateSpace::World);
-				FVector AttachmentTangent = BaseClockwiseSplineComponent->GetTangentAtDistanceAlongSpline(CurrentDistance, ESplineCoordinateSpace::World);
-				FQuat AttachmentRotation = FQuat::FindBetweenVectors(FVector(1, 0, 0), AttachmentTangent);
-				double AttachmentTangentAngle = AttachmentRotation.Rotator().Yaw;
+				FVector LocalLocation = BaseClockwiseSplineComponent->GetLocationAtDistanceAlongSpline(CurrentDistance, ESplineCoordinateSpace::Local);
+				FVector LocalTangent = BaseClockwiseSplineComponent->GetTangentAtDistanceAlongSpline(CurrentDistance, ESplineCoordinateSpace::Local);
+				double AttachmentTangentAngle = FMath::RadiansToDegrees(FMath::Atan2(LocalTangent.Y, LocalTangent.X));
+				FQuat LocalRotation(FVector::UpVector, FMath::DegreesToRadians(AttachmentTangentAngle));
+				const FTransform ActorTransform = GetActorTransform();
 
 
 				switch (Attachment.AttachmentKind)
@@ -1869,8 +1870,8 @@ bool ABuilding::AddAttachments(int FloorIndex, ULevelDescription* LevelDescripti
 						FVector RotatedOffset = Offset.RotateAngleAxis(AttachmentTangentAngle, FVector(0, 0, 1));
 
 						FTransform Transform;
-						Transform.SetLocation(AttachmentLocation + RotatedOffset + FVector(0, 0, ZOffset));
-						Transform.SetRotation(AttachmentRotation * FQuat(Attachment.ExtraRotation));
+						Transform.SetLocation(ActorTransform.TransformPosition(LocalLocation + RotatedOffset + FVector(0, 0, ZOffset)));
+						Transform.SetRotation(ActorTransform.GetRotation() * LocalRotation * FQuat(Attachment.ExtraRotation));
 						Transform.SetScale3D(Scale);
 						ISM->AddInstance(Transform, true);
 						break;
@@ -1918,8 +1919,8 @@ bool ABuilding::AddAttachments(int FloorIndex, ULevelDescription* LevelDescripti
 						FVector RotatedOffset = Offset.RotateAngleAxis(AttachmentTangentAngle, FVector(0, 0, 1));
 
 						NewActor->SetActorScale3D(Scale);
-						NewActor->SetActorLocation(AttachmentLocation + RotatedOffset + FVector(0, 0, ZOffset));
-						NewActor->SetActorRotation(AttachmentRotation * FQuat(Attachment.ExtraRotation));
+						NewActor->SetActorLocation(ActorTransform.TransformPosition(LocalLocation + RotatedOffset + FVector(0, 0, ZOffset)));
+						NewActor->SetActorRotation(ActorTransform.GetRotation() * LocalRotation * FQuat(Attachment.ExtraRotation));
 						break;
 					}
 				}

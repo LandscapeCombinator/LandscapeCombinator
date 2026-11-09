@@ -444,7 +444,7 @@ bool FWMSProvider::CreateURL(
 	}
 	FileExt = bGeoTiff || bTiff ? "tif" : "png";
 
-	// WMS 1.1.x long, lat axis order while 1.3.0 uses CRS axis order
+	// WMS 1.1.x uses long, lat axis order while 1.3.0 uses CRS axis order
 	const FString WMSVersion = (XIsLong && CapabilitiesContent.Contains(TEXT("WMT_MS_Capabilities"))) ? TEXT("1.1.1") : TEXT("1.3.0");
 	if (XIsLong)
 	{
