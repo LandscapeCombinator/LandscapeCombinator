@@ -607,6 +607,7 @@ bool UImageDownloader::IsWMS()
 		ImageSourceKind == EImageSourceKind::Australia_LiDAR5m || 
 		ImageSourceKind == EImageSourceKind::IGN ||
 		ImageSourceKind == EImageSourceKind::SHOM ||
+		ImageSourceKind == EImageSourceKind::EOX_Satellite ||
 		ImageSourceKind == EImageSourceKind::USGS_Imagery ||
 		ImageSourceKind == EImageSourceKind::USGS_Topo ||
 		ImageSourceKind == EImageSourceKind::USGS_3DEPElevation;
@@ -1089,6 +1090,12 @@ void UImageDownloader::OnImageSourceChanged(TFunction<void(bool)> OnComplete)
 	else if (ImageSourceKind == EImageSourceKind::USGS_Topo)
 	{
 		CapabilitiesURL = "https://basemap.nationalmap.gov/arcgis/services/USGSTopo/MapServer/WMSServer?request=GetCapabilities&service=WMS";
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		WMS_X_IsLong = true;
+	}
+	else if (ImageSourceKind == EImageSourceKind::EOX_Satellite)
+	{
+		CapabilitiesURL = "https://tiles.maps.eox.at/wms?service=WMS&version=1.1.1&request=GetCapabilities";
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
 		WMS_X_IsLong = true;
 	}

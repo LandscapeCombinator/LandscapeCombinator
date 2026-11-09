@@ -27,6 +27,7 @@ enum class EImageSourceKind : uint8
 	USGS_3DEPElevation,
 	USGS_Topo,
 	USGS_Imagery,
+	EOX_Satellite UMETA(DisplayName = "EOX Satellite (Sentinel-2 / Blue Marble)"),
 	SHOM,
 	Australia_LiDAR5m UMETA(DisplayName = "Australia LiDAR 5m"),
 	GenericWMS,
