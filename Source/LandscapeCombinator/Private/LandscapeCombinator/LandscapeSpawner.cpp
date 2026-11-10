@@ -85,10 +85,8 @@ TArray<UObject*> ALandscapeSpawner::GetGeneratedObjects() const
 		}
 	}
 	ALandscape *LoadedLandscape = SpawnedLandscape.LoadSynchronous();
-	if (LoadedLandscape)
+	if (IsValid(LoadedLandscape))
 		Result.Add(LoadedLandscape);
-	else
-		UE_LOG(LogLandscapeCombinator, Warning, TEXT("GetGeneratedObjects: SpawnedLandscape soft pointer is stale in spawner %s"), *GetActorNameOrLabel());
 
 	return Result;
 }
