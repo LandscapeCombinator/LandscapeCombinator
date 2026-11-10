@@ -57,8 +57,15 @@ public:
 
 	void GenerateFromGameThread(FName SpawnedActorsPath, bool bIsUserInitiated, TFunction<void(bool)> OnComplete = nullptr)
 	{
-		Async(EAsyncExecution::Thread, [this, SpawnedActorsPath, bIsUserInitiated, OnComplete]() {
-			bool bSuccess = Generate(SpawnedActorsPath, bIsUserInitiated);
+		TWeakObjectPtr<AActor> WeakThis(Cast<AActor>(this));
+		Async(EAsyncExecution::Thread, [WeakThis, SpawnedActorsPath, bIsUserInitiated, OnComplete]() {
+			ILCGenerator* Generator = Cast<ILCGenerator>(WeakThis.Get());
+			if (!Generator)
+			{
+				if (OnComplete) OnComplete(false);
+				return;
+			}
+			bool bSuccess = Generator->Generate(SpawnedActorsPath, bIsUserInitiated);
 			if (OnComplete) OnComplete(bSuccess);
 		});
 	}
