@@ -35,7 +35,7 @@ public:
 	UFUNCTION(CallInEditor, Category = "LandscapeCombination", meta = (DisplayPriority = "0"))
 	virtual void GenerateActors() { GenerateFromGameThread(SpawnedActorsPath, true); }
 
-	UFUNCTION(CallInEditor, Category = "LandscapeCombination", meta = (DisplayPriority = "0"))
+	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeCombination", meta = (DisplayPriority = "0"))
 	virtual void GenerateActorsNoPrompt() { GenerateFromGameThread(SpawnedActorsPath, false); }
 
 	UFUNCTION(CallInEditor, Category = "LandscapeCombination", meta = (DisplayPriority = "1"))
