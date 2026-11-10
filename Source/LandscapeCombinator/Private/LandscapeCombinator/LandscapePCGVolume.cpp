@@ -43,10 +43,19 @@ bool ALandscapePCGVolume::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUs
 
 	Concurrency::RunOnGameThreadAndWait([this]() {
 		SetPositionAndBounds();
+		PCGComponent->bActivated = true;
 		return true;
 	});
 	PCGComponent->Generate(true);
 	return true;
+}
+
+void ALandscapePCGVolume::PostRegisterAllComponents()
+{
+	Super::PostRegisterAllComponents();
+
+	if (IsValid(PCGComponent) && PCGComponent->GenerationTrigger == EPCGComponentGenerationTrigger::GenerateAtRuntime)
+		PCGComponent->bActivated = false;
 }
 
 bool ALandscapePCGVolume::Cleanup_Implementation(bool bSkipPrompt)
@@ -57,6 +66,7 @@ bool ALandscapePCGVolume::Cleanup_Implementation(bool bSkipPrompt)
 	if (!IsValid(PCGComponent)) return false;
 
 	PCGComponent->Cleanup();
+	if (PCGComponent->GenerationTrigger == EPCGComponentGenerationTrigger::GenerateAtRuntime) PCGComponent->bActivated = false;
 	return true;
 }
 

@@ -53,6 +53,8 @@ public:
 
 	virtual bool Cleanup_Implementation(bool bSkipPrompt) override;
 
+	virtual void PostRegisterAllComponents() override;
+
 #if WITH_EDITOR
 	virtual AActor* Duplicate(FName FromName, FName ToName) override;
 #endif
