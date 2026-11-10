@@ -126,7 +126,7 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 	{
 		PCGE_LOG_C(Warning, GraphAndLog, Context,
 			LOCTEXT("NoGeometry", "Unable to get OGR Geometry. Please make sure the OGRGeometry actor is valid")
-		);
+			);
 		return true;
 	}
 
@@ -151,17 +151,17 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 
 	OGRGeometry *Geometry = Settings->GeometryActor->CloneGeometry();
 
-	ON_SCOPE_EXIT { 
-		if (Geometry) OGRGeometryFactory::destroyGeometry(Geometry); 
+	ON_SCOPE_EXIT {
+		if (Geometry) OGRGeometryFactory::destroyGeometry(Geometry);
 	};
 	if (!Geometry)
 	{
 		PCGE_LOG_C(Warning, GraphAndLog, Context,
 			FText::Format(
-				LOCTEXT("NoGeometry", "Unable to get OGR Geometry. Please make sure the OGRGeometry actor {0} is initialized"),
-				FText::FromString(Settings->GeometryActor->GetActorNameOrLabel())
+			LOCTEXT("NoGeometry", "Unable to get OGR Geometry. Please make sure the OGRGeometry actor {0} is initialized"),
+			FText::FromString(Settings->GeometryActor->GetActorNameOrLabel())
 			)
-		);
+			);
 		return true;
 	}
 
@@ -193,55 +193,55 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 
 		Output.Data = FilteredData;
 
-TArray<bool> bInside;
-bInside.Init(false, PCGPoints.Num());
-int32 NumInside = 0;
+		TArray<bool> bInside;
+		bInside.Init(false, PCGPoints.Num());
+		int32 NumInside = 0;
 
-UE_LOG(LogSplineImporter, Log, TEXT("Exploring %d PCG points"), PCGPoints.Num());
+		UE_LOG(LogSplineImporter, Log, TEXT("Exploring %d PCG points"), PCGPoints.Num());
 
-for (int32 i = 0; i < PCGPoints.Num(); ++i)
-{
-const FVector Location0 = PCGPoints[i].Transform.GetLocation();
-const FVector2D Location = { Location0.X, Location0.Y };
-FVector2D Coordinates4326;
+		for (int32 i = 0; i < PCGPoints.Num(); ++i)
+		{
+			const FVector Location0 = PCGPoints[i].Transform.GetLocation();
+			const FVector2D Location = { Location0.X, Location0.Y };
+			FVector2D Coordinates4326;
 
-if (!ThisContext->GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(Location, CoordinateTransformation, Coordinates4326))
-{
-PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("NoData", "Internal error, unable to convert coordinates, make sure that your LevelCoordinates actor has correct values"));
-return true;
-}
-OGRPoint Point4326(Coordinates4326[0], Coordinates4326[1]);
-if (IntersectsAreal(Geometry, Point4326))
-{
-bInside[i] = true;
-++NumInside;
-}
-}
+			if (!ThisContext->GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(Location, CoordinateTransformation, Coordinates4326))
+			{
+				PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("NoData", "Internal error, unable to convert coordinates, make sure that your LevelCoordinates actor has correct values"));
+				return true;
+			}
+			OGRPoint Point4326(Coordinates4326[0], Coordinates4326[1]);
+			if (IntersectsAreal(Geometry, Point4326))
+			{
+				bInside[i] = true;
+				++NumInside;
+			}
+		}
 
-UE_LOG(LogSplineImporter, Log, TEXT("Starting AsyncPointProcessing, found %d locations inside"), NumInside);
+		UE_LOG(LogSplineImporter, Log, TEXT("Starting AsyncPointProcessing, found %d locations inside"), NumInside);
 
 		
 		FPCGAsync::AsyncPointProcessing(Context, PCGPoints.Num(), FilteredPoints,
 			[bInside = MoveTemp(bInside), PCGPoints](int32 Index, FPCGPoint &OutPoint)
+		{
+			const FPCGPoint& PCGPoint = PCGPoints[Index];
+			if (bInside[Index])
 			{
-				const FPCGPoint& PCGPoint = PCGPoints[Index];
-				if (bInside[Index])
-				{
-					OutPoint = PCGPoint;
-					return true;
-				}
-				else
-				{
-					return false;
-				}
+				OutPoint = PCGPoint;
+				return true;
 			}
-		);
+			else
+			{
+				return false;
+			}
+		}
+			);
 
 		PCGE_LOG_C(Verbose, LogOnly, Context, FText::Format(
 			LOCTEXT("GenerateReport", "Generated {0} points out of {1} source points"),
 			FilteredPoints.Num(),
 			PCGPoints.Num()
-		));
+			));
 		UE_LOG(LogSplineImporter, Log, TEXT("Generated %d filtered points out of %d source points"),
 			FilteredPoints.Num(),
 			PCGPoints.Num());
