@@ -11,6 +11,7 @@ struct FOpeningHandle
 {
 	TWeakObjectPtr<ULevelDescription> Level;
 	int32 OpeningIndex = INDEX_NONE;
+	bool bFromExpression = false;
 	FVector WorldLocation = FVector::ZeroVector;
 };
 

@@ -131,6 +131,12 @@ public:
 
 #if WITH_EDITOR
 	void GetOpeningHandles(TArray<FOpeningHandle>& Out) const;
+
+	/* Holes produced by the Wall Segments Expression of the level at the given floor, as fixed openings (from the last generation) */
+	void GetExpressionOpenings(int FloorIndex, ULevelDescription* Level, TArray<FWallOpening>& Out) const;
+
+	/* Replaces the Wall Segments Expression of the level by fixed Openings (same holes, gaps filled by the filler) */
+	bool ConvertExpressionToOpenings(ULevelDescription* Level);
 	void OnOpeningsEdited() { if (bGenerateWhenModified) GenerateBuilding(); }
 #endif
 
@@ -149,6 +155,7 @@ protected:
 	TArray<FString> ExpandedLevelDescriptionsKeys;
 
 	TArray<TArray<TArray<UWallSegment*>>> WallSegmentsAtFloorAndSplinePoint;
+	TArray<TArray<TArray<FString>>> WallSegmentKeysAtFloorAndSplinePoint; // same shape as above; lets GetExpressionOpenings skip the pointer-to-key lookup
 	TArray<TArray<double>> FillersSizeAtFloorAndSplinePoint;
 	bool InitializeWallSegments();
 

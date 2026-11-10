@@ -15,11 +15,12 @@
 struct HOpeningProxy : public HComponentVisProxy
 {
 	DECLARE_HIT_PROXY();
-	HOpeningProxy(const UActorComponent* InComponent, ULevelDescription* InLevel, int32 InIndex)
-		: HComponentVisProxy(InComponent, HPP_UI), Level(InLevel), Index(InIndex) {}
+	HOpeningProxy(const UActorComponent* InComponent, ULevelDescription* InLevel, int32 InIndex, bool bInFromExpression)
+		: HComponentVisProxy(InComponent, HPP_UI), Level(InLevel), Index(InIndex), bFromExpression(bInFromExpression) {}
 
 	TWeakObjectPtr<ULevelDescription> Level;
 	int32 Index;
+	bool bFromExpression;
 };
 IMPLEMENT_HIT_PROXY(HOpeningProxy, HComponentVisProxy)
 
@@ -37,7 +38,7 @@ ABuilding* FOpeningsVisualizer::GetBuilding() const
 
 void FOpeningsVisualizer::TrackingStopped(FEditorViewportClient* VC, bool bDidMove)
 {
-	bAllowDuplication = true;
+	bAllowDuplication = true; PendingDelta = FVector::ZeroVector;
 }
 
 bool FOpeningsVisualizer::IsSelectionValid() const
@@ -64,7 +65,7 @@ void FOpeningsVisualizer::DrawVisualization(const UActorComponent* Component, co
 	for (const FOpeningHandle& H : Handles)
 	{
 		const bool bSelected = H.Level == SelectedLevel && H.OpeningIndex == SelectedIndex;
-		PDI->SetHitProxy(new HOpeningProxy(Component, H.Level.Get(), H.OpeningIndex));
+		PDI->SetHitProxy(new HOpeningProxy(Component, H.Level.Get(), H.OpeningIndex, H.bFromExpression));
 		PDI->DrawPoint(H.WorldLocation, bSelected ? FLinearColor::Yellow : FLinearColor(0.2f, 0.6f, 1.f), bSelected ? 32.f : 26.f, SDPG_Foreground);
 		PDI->SetHitProxy(nullptr);
 	}
@@ -84,6 +85,12 @@ bool FOpeningsVisualizer::VisProxyHandleClick(FEditorViewportClient* VC, HCompon
 	const HOpeningProxy* Proxy = static_cast<HOpeningProxy*>(VisProxy);
 
 	EditedComponent = const_cast<UOpeningsVisualizerComponent*>(Cast<UOpeningsVisualizerComponent>(VisProxy->Component.Get()));
+	if (Proxy->bFromExpression)
+	{
+		ABuilding* Building = GetBuilding();
+		const FScopedTransaction Transaction(LOCTEXT("ConvertToOpenings", "Convert Wall Segments Expression To Openings"));
+		if (!Building || !Building->ConvertExpressionToOpenings(Proxy->Level.Get())) return false;
+	}
 	SelectedLevel = Proxy->Level;
 	SelectedIndex = Proxy->Index;
 	bStairsSelected = false;
@@ -126,6 +133,10 @@ bool FOpeningsVisualizer::HandleInputDelta(FEditorViewportClient* VC, FViewport*
 	if (!IsSelectionValid() || VC->GetCurrentWidgetAxis() == EAxisList::None) return false;
 
 	ABuilding* Building = GetBuilding();
+	PendingDelta += DeltaTranslate; // accumulate while regenerating (spline is cleared), instead of dropping the drag
+	if (Building->GetGeneratorStatus() == EGeneratorStatus::Generating || !IsValid(Building->BaseClockwiseSplineComponent) || Building->BaseClockwiseSplineComponent->GetSplineLength() <= 0) return true;
+	const FVector Delta = PendingDelta;
+	PendingDelta = FVector::ZeroVector;
 	ULevelDescription* Level = SelectedLevel.Get();
 	Level->Modify();
 
@@ -141,13 +152,13 @@ bool FOpeningsVisualizer::HandleInputDelta(FEditorViewportClient* VC, FViewport*
 
 	const USplineComponent* Spline = Building->BaseClockwiseSplineComponent;
 	const double ScaleZ = FMath::Max(KINDA_SMALL_NUMBER, (double)Building->GetActorScale3D().Z);
-	Segment->HoleDistanceToFloor = FMath::Max(0.0, Segment->HoleDistanceToFloor + DeltaTranslate.Z / ScaleZ);
+	Segment->HoleDistanceToFloor = FMath::Max(0.0, Segment->HoleDistanceToFloor + Delta.Z / ScaleZ);
 
 	const FVector LocalTangent = Spline->GetTangentAtDistanceAlongSpline(Opening.Position, ESplineCoordinateSpace::Local).GetSafeNormal();
 	const FVector WorldTangent = Spline->GetComponentTransform().TransformVector(LocalTangent); // length = world units per local unit
 	const double Ratio = FMath::Max(KINDA_SMALL_NUMBER, WorldTangent.Size());
 	const double MaxPosition = FMath::Max(0.0, Spline->GetSplineLength() - Segment->SegmentLength);
-	Opening.Position = FMath::Clamp(Opening.Position + FVector::DotProduct(DeltaTranslate, WorldTangent / Ratio) / Ratio, 0.0, MaxPosition);
+	Opening.Position = FMath::Clamp(Opening.Position + FVector::DotProduct(Delta, WorldTangent / Ratio) / Ratio, 0.0, MaxPosition);
 
 	Building->OnOpeningsEdited();
 	return true;

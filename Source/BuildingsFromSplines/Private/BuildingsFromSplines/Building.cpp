@@ -128,6 +128,7 @@ bool ABuilding::Cleanup_Implementation(bool bSkipPrompt)
 		BaseClockwiseSplineComponent->ClearSplinePoints();
 
 	WallSegmentsAtFloorAndSplinePoint.Empty();
+	WallSegmentKeysAtFloorAndSplinePoint.Empty();
 	GeneratedSegments.Empty();
 	FillersSizeAtFloorAndSplinePoint.Empty();
 	Volume = nullptr;
@@ -1492,6 +1493,7 @@ bool ABuilding::InitializeWallSegments()
 
 	int NumFloors = ExpandedLevelDescriptionsKeys.Num();
 	WallSegmentsAtFloorAndSplinePoint.SetNum(NumFloors);
+	WallSegmentKeysAtFloorAndSplinePoint.SetNum(NumFloors);
 	FillersSizeAtFloorAndSplinePoint.SetNum(NumFloors);
 
 	for (int FloorIndex = 0; FloorIndex < NumFloors; FloorIndex++)
@@ -1510,6 +1512,9 @@ bool ABuilding::InitializeWallSegments()
 		TArray<TArray<UWallSegment*>> ThisFloorWallSegmentsAtSplinePoint;
 		ThisFloorWallSegmentsAtSplinePoint.SetNum(NumSplinePoints);
 		WallSegmentsAtFloorAndSplinePoint[FloorIndex] = ThisFloorWallSegmentsAtSplinePoint;
+		TArray<TArray<FString>> ThisFloorWallSegmentKeysAtSplinePoint;
+		ThisFloorWallSegmentKeysAtSplinePoint.SetNum(NumSplinePoints);
+		WallSegmentKeysAtFloorAndSplinePoint[FloorIndex] = ThisFloorWallSegmentKeysAtSplinePoint;
 
 		TArray<double> ThisFloorFillersSizeAtSplinePoint;
 		ThisFloorFillersSizeAtSplinePoint.SetNum(NumSplinePoints);
@@ -1575,12 +1580,14 @@ bool ABuilding::InitializeWallSegments()
 
 			// Copy the actual wall segments in the array
 			WallSegmentsAtFloorAndSplinePoint[FloorIndex][SplinePointIndex].SetNum(NumExpandedWallSegments);
+			WallSegmentKeysAtFloorAndSplinePoint[FloorIndex][SplinePointIndex].SetNum(NumExpandedWallSegments);
 			for (int j = 0; j < NumExpandedWallSegments; j++)
 			{
 				if (!LevelDescription->RequireSegment(ExpandedWallSegmentsKeys[j], LevelDescriptionKey)) return false;
 
 				WallSegmentsAtFloorAndSplinePoint[FloorIndex][SplinePointIndex][j] =
 					LevelDescription->GetSegment(ExpandedWallSegmentsKeys[j]);
+				WallSegmentKeysAtFloorAndSplinePoint[FloorIndex][SplinePointIndex][j] = ExpandedWallSegmentsKeys[j];
 			}
 			
 			// we then recount the number of fillers, as well as the non-fillers segments size
@@ -1599,9 +1606,16 @@ bool ABuilding::InitializeWallSegments()
 					NonFillersSegmentsSize, Length
 				);
 
-				WallSegmentsAtFloorAndSplinePoint[FloorIndex][SplinePointIndex].RemoveAll(
-					[](const auto& WallSegment) { return !WallSegment->bAutoExpand; }
-				);
+				TArray<UWallSegment*>& ThisWallSegments = WallSegmentsAtFloorAndSplinePoint[FloorIndex][SplinePointIndex];
+				TArray<FString>& ThisWallSegmentKeys = WallSegmentKeysAtFloorAndSplinePoint[FloorIndex][SplinePointIndex];
+				for (int j = ThisWallSegments.Num() - 1; j >= 0; j--)
+				{
+					if (!ThisWallSegments[j]->bAutoExpand)
+					{
+						ThisWallSegments.RemoveAt(j);
+						ThisWallSegmentKeys.RemoveAt(j);
+					}
+				}
 
 				NonFillersSegmentsSize = 0;
 			}
@@ -2303,9 +2317,9 @@ void ABuilding::GetOpeningHandles(TArray<FOpeningHandle>& Out) const
 
 	TSet<ULevelDescription*> SeenLevels;
 	double Z = EffectiveExtraWallBottom;
-	for (const FString& Key : ExpandedLevelDescriptionsKeys)
+	for (int FloorIndex = 0; FloorIndex < ExpandedLevelDescriptionsKeys.Num(); FloorIndex++)
 	{
-		ULevelDescription* Level = ResolvedBCfg->GetLevel(Key);
+		ULevelDescription* Level = ResolvedBCfg->GetLevel(ExpandedLevelDescriptionsKeys[FloorIndex]);
 		if (!IsValid(Level)) continue;
 
 		bool bAlreadySeen;
@@ -2313,9 +2327,14 @@ void ABuilding::GetOpeningHandles(TArray<FOpeningHandle>& Out) const
 
 		if (!bAlreadySeen)
 		{
-			for (int i = 0; i < Level->Openings.Num(); i++)
+			TArray<FWallOpening> ExpressionOpenings;
+			const bool bFromExpression = Level->Openings.IsEmpty();
+			if (bFromExpression) GetExpressionOpenings(FloorIndex, Level, ExpressionOpenings);
+			const TArray<FWallOpening>& Openings = bFromExpression ? ExpressionOpenings : Level->Openings;
+
+			for (int i = 0; i < Openings.Num(); i++)
 			{
-				const FWallOpening& Opening = Level->Openings[i];
+				const FWallOpening& Opening = Openings[i];
 				if (!Level->HasSegment(Opening.SegmentKey)) continue;
 
 				const UWallSegment* Segment = Level->GetSegment(Opening.SegmentKey);
@@ -2324,6 +2343,7 @@ void ABuilding::GetOpeningHandles(TArray<FOpeningHandle>& Out) const
 				FOpeningHandle Handle;
 				Handle.Level = Level;
 				Handle.OpeningIndex = i;
+				Handle.bFromExpression = bFromExpression;
 				Handle.WorldLocation = P + GetActorTransform().TransformVector(FVector(0, 0, Z + Segment->HoleDistanceToFloor));
 				Out.Add(Handle);
 			}
@@ -2331,6 +2351,85 @@ void ABuilding::GetOpeningHandles(TArray<FOpeningHandle>& Out) const
 
 		Z += Level->LevelHeight;
 	}
+}
+
+void ABuilding::GetExpressionOpenings(int FloorIndex, ULevelDescription* Level, TArray<FWallOpening>& Out) const
+{
+	Out.Reset();
+	if (GetGeneratorStatus() == EGeneratorStatus::Generating) return; // the layout arrays are being rebuilt
+	if (!IsValid(Level) || !WallSegmentKeysAtFloorAndSplinePoint.IsValidIndex(FloorIndex) || !FillersSizeAtFloorAndSplinePoint.IsValidIndex(FloorIndex)) return;
+
+	const TArray<TArray<FString>>& KeysAtPoint = WallSegmentKeysAtFloorAndSplinePoint[FloorIndex];
+	const TArray<double>& FillersAtPoint = FillersSizeAtFloorAndSplinePoint[FloorIndex];
+
+	for (int i = 0; i < KeysAtPoint.Num(); i++)
+	{
+		if (!FillersAtPoint.IsValidIndex(i) || !SplineIndexToBaseSplineIndex.IsValidIndex(i))
+		{
+			Out.Reset();
+			return;
+		}
+
+		double Distance = BaseClockwiseSplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineIndexToBaseSplineIndex[i]);
+		for (const FString& SegmentKey : KeysAtPoint[i])
+		{
+			const UWallSegment* Segment = Level->GetSegment(SegmentKey);
+			if (!IsValid(Segment))
+			{
+				Out.Reset();
+				return;
+			}
+
+			if (Segment->WallSegmentKind == EWallSegmentKind::Hole)
+			{
+				FWallOpening Opening;
+				Opening.SegmentKey = SegmentKey;
+				Opening.Position = Distance;
+				Out.Add(Opening);
+			}
+
+			Distance += Segment->bAutoExpand ? FillersAtPoint[i] : Segment->SegmentLength;
+		}
+	}
+}
+
+bool ABuilding::ConvertExpressionToOpenings(ULevelDescription* Level)
+{
+	if (!IsValid(Level) || !IsValid(ResolvedBCfg)) return false;
+	if (!Level->Openings.IsEmpty()) return true;
+
+	for (int FloorIndex = 0; FloorIndex < ExpandedLevelDescriptionsKeys.Num(); FloorIndex++)
+	{
+		if (ResolvedBCfg->GetLevel(ExpandedLevelDescriptionsKeys[FloorIndex]) != Level) continue;
+
+		TArray<FWallOpening> Converted;
+		GetExpressionOpenings(FloorIndex, Level, Converted);
+		if (Converted.IsEmpty()) return false;
+
+		FString FillerKey = Level->FillerKey;
+		if (!Level->HasSegment(FillerKey))
+		{
+			// the expression itself already has an auto-expand, non-hole segment: use that one as the filler
+			FillerKey.Reset();
+			for (const TArray<FString>& KeysAtPoint : WallSegmentKeysAtFloorAndSplinePoint[FloorIndex])
+			{
+				for (const FString& Key : KeysAtPoint)
+				{
+					const UWallSegment* Segment = Level->GetSegment(Key);
+					if (IsValid(Segment) && Segment->bAutoExpand && Segment->WallSegmentKind != EWallSegmentKind::Hole) { FillerKey = Key; break; }
+				}
+				if (!FillerKey.IsEmpty()) break;
+			}
+		}
+		if (!Level->RequireSegment(FillerKey, ExpandedLevelDescriptionsKeys[FloorIndex])) return false;
+
+		Level->Modify();
+		Level->FillerKey = FillerKey;
+		Level->Openings = Converted;
+		return true;
+	}
+
+	return false;
 }
 
 void ABuilding::GenerateStaticMesh()

@@ -25,6 +25,7 @@ protected:
 	int32 SelectedIndex = INDEX_NONE;
 	bool bStairsSelected = false;
 	bool bAllowDuplication = true; // making sure alt-drag duplicates only once per drag
+	FVector PendingDelta = FVector::ZeroVector; // drag deltas received while the building regenerates
 
 	ABuilding* GetBuilding() const;
 	bool IsSelectionValid() const;
