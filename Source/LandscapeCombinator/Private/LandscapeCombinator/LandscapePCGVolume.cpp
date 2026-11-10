@@ -1,5 +1,6 @@
 // Copyright 2023-2027 LandscapeCombinator. All Rights Reserved.
 
+#include "Misc/EngineVersionComparison.h"
 #include "LandscapeCombinator/LandscapePCGVolume.h"
 #include "LandscapeCombinator/LogLandscapeCombinator.h"
 #include "LCCommon/LCBlueprintLibrary.h"
@@ -54,8 +55,10 @@ void ALandscapePCGVolume::PostRegisterAllComponents()
 {
 	Super::PostRegisterAllComponents();
 
+#if !UE_VERSION_OLDER_THAN(5, 4, 0)
 	if (IsValid(PCGComponent) && PCGComponent->GenerationTrigger == EPCGComponentGenerationTrigger::GenerateAtRuntime)
 		PCGComponent->bActivated = false;
+#endif
 }
 
 bool ALandscapePCGVolume::Cleanup_Implementation(bool bSkipPrompt)
@@ -66,7 +69,9 @@ bool ALandscapePCGVolume::Cleanup_Implementation(bool bSkipPrompt)
 	if (!IsValid(PCGComponent)) return false;
 
 	PCGComponent->Cleanup();
+#if !UE_VERSION_OLDER_THAN(5, 4, 0)
 	if (PCGComponent->GenerationTrigger == EPCGComponentGenerationTrigger::GenerateAtRuntime) PCGComponent->bActivated = false;
+#endif
 	return true;
 }
 
