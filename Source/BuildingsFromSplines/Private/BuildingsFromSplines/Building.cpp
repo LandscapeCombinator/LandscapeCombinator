@@ -1665,9 +1665,11 @@ bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)
 	EffectiveExtraWallBottom = ResolvedBCfg->ExtraWallBottom;
 
 	if (IsValid(DynamicMeshComponent))
-	    DynamicMeshComponent->SetCustomPrimitiveDataFloat(0, FMath::FRand());
+	    Concurrency::RunOnGameThreadAndWait([this]() -> bool { if (IsValid(DynamicMeshComponent)) DynamicMeshComponent->SetCustomPrimitiveDataFloat(0, FMath::FRand()); return true; });
 
-	UOSMUserData *BuildingOSMUserData = Cast<UOSMUserData>(GetRootComponent()->GetAssetUserDataOfClass(UOSMUserData::StaticClass()));
+	USceneComponent* BuildingRoot = GetRootComponent();
+	if (!IsValid(BuildingRoot)) return false;
+	UOSMUserData *BuildingOSMUserData = Cast<UOSMUserData>(BuildingRoot->GetAssetUserDataOfClass(UOSMUserData::StaticClass()));
 	EffectiveNumFloors = ResolvedBCfg->NumFloors;
 	bool bFetchFromUserData = ResolvedBCfg->AutoComputeNumFloors(BuildingOSMUserData, EffectiveNumFloors);
 
@@ -2529,6 +2531,51 @@ void ABuilding::GenerateVolume(FName SpawnedActorsPathOverride)
 	UOSMUserData *VolumeOSMUserData = NewObject<UOSMUserData>(Volume->GetRootComponent());
 	VolumeOSMUserData->Fields = BuildingOSMUserData->Fields;
 	Volume->GetRootComponent()->AddAssetUserData(VolumeOSMUserData);
+}
+
+void ABuilding::PostInitProperties()
+{
+	Super::PostInitProperties();
+	if (!HasAnyFlags(RF_ClassDefaultObject))
+		AssetChangedHandle = FCoreUObjectDelegates::OnObjectPropertyChanged.AddUObject(this, &ABuilding::OnAssetPropertyChanged);
+}
+
+void ABuilding::BeginDestroy()
+{
+	if (AssetChangedHandle.IsValid()) FCoreUObjectDelegates::OnObjectPropertyChanged.Remove(AssetChangedHandle);
+	Super::BeginDestroy();
+}
+
+bool ABuilding::UsesAsset(const UObject* Obj) const
+{
+	UBuildingConfiguration* Cfg = AssetLink::Resolve(BCfg.Get());
+	if (!Cfg) return false;
+	if (bUsedAssetsDirty || UsedAssetsCfg.Get() != Cfg)
+	{
+		UsedAssets.Reset();
+		UsedAssets.Add(Cfg);
+		for (const auto& [LevelKey, LevelPtr] : Cfg->LevelsMap)
+		{
+			ULevelDescription* Level = AssetLink::Resolve(LevelPtr.Get());
+			if (!Level) continue;
+			UsedAssets.Add(Level);
+			for (const auto& [SegmentKey, SegmentPtr] : Level->WallSegmentsMap)
+				if (UWallSegment* Segment = AssetLink::Resolve(SegmentPtr.Get())) UsedAssets.Add(Segment);
+		}
+		UsedAssetsCfg = Cfg;
+		bUsedAssetsDirty = false;
+	}
+
+	const bool bUsed = UsedAssets.Contains(Obj);
+	if (bUsed) bUsedAssetsDirty = true;
+	return bUsed;
+}
+
+void ABuilding::OnAssetPropertyChanged(UObject* Obj, FPropertyChangedEvent& Event)
+{
+	if (!bGenerateWhenModified || !Obj) return;
+	if (!GetWorld() || GetWorld()->IsGameWorld() || !AssetLink::IsLinkable(Obj->GetClass())) return;
+	if (UsesAsset(Obj)) GenerateBuilding();
 }
 
 void ABuilding::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)

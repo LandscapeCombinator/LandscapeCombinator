@@ -137,6 +137,7 @@ public:
 
 	/* Replaces the Wall Segments Expression of the level by fixed Openings (same holes, gaps filled by the filler) */
 	bool ConvertExpressionToOpenings(ULevelDescription* Level);
+
 	void OnOpeningsEdited() { if (bGenerateWhenModified) GenerateBuilding(); }
 #endif
 
@@ -161,6 +162,14 @@ protected:
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent &PropertyChangedEvent) override;
+	virtual void PostInitProperties() override;
+	virtual void BeginDestroy() override;
+	void OnAssetPropertyChanged(UObject* Obj, FPropertyChangedEvent& Event);
+	bool UsesAsset(const UObject* Obj) const;
+	mutable TSet<const UObject*> UsedAssets;
+	mutable TWeakObjectPtr<UBuildingConfiguration> UsedAssetsCfg;
+	mutable bool bUsedAssetsDirty = true;
+	FDelegateHandle AssetChangedHandle;
 #endif
 	
 	UPROPERTY()
