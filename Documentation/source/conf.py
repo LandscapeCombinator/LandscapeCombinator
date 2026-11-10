@@ -1,7 +1,7 @@
 from pathlib import Path
 
 project = 'Landscape Combinator'
-copyright = '2026, Landscape Combinator'
+copyright = '2027, Landscape Combinator'
 author = ''
 version = '0.9.0'
 release = '0.9.0'

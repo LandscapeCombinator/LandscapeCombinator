@@ -1,4 +1,4 @@
-// Copyright 2023-2025 LandscapeCombinator. All Rights Reserved.
+// Copyright 2023-2027 LandscapeCombinator. All Rights Reserved.
 
 // File originally written from the Unreal Engine template for plugins
 
