@@ -448,6 +448,11 @@ void ABuilding::AppendAlongSpline(UDynamicMesh* TargetMesh, bool bInternalWall, 
 		TRACE_CPUPROFILER_EVENT_SCOPE_STR("AppendAlongSpline/MakePolygon");
 		Polygon = MakePolygon(bInternalWall, BeginDistance, Length, Thickness);
 	}
+	if (Polygon.Num() < 3)
+	{
+		UE_LOG(LogBuildingsFromSplines, Verbose, TEXT("%s: skipping a degenerate wall piece (%d vertices, length %f, thickness %f)"), *GetName(), Polygon.Num(), Length, Thickness);
+		return;
+	}
 
 	/* Reuse ScratchWallMesh instead of allocating a new UDynamicMesh per wall piece */
 
@@ -550,6 +555,12 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 		return false;
 	}
 
+	if (BaseVertices2D.Num() < 3)
+	{
+		UE_LOG(LogBuildingsFromSplines, Warning, TEXT("%s has only %d base vertices, skipping its floors"), *GetName(), BaseVertices2D.Num());
+		FloorMesh->MarkAsGarbage();
+		return true;
+	}
 	UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSimpleExtrudePolygon(FloorMesh, FGeometryScriptPrimitiveOptions(), FTransform(), BaseVertices2D, 1);
 
 	{
@@ -937,7 +948,7 @@ bool ABuilding::AppendWallsWithHoles(UDynamicMesh* TargetMesh, bool bInternalWal
 			if (!WallSegment) continue;
 
 			double FinalSegmentLength = WallSegment->bAutoExpand ? FillersSizeAtFloorAndSplinePoint[FloorIndex][i] : WallSegment->SegmentLength;
-			if (FinalSegmentLength <= 0) continue;
+			if (FinalSegmentLength <= MILLIMETER) continue;
 
 			double Thickness = bInternalWall ? ResolvedBCfg->InternalWallThickness : ResolvedBCfg->ExternalWallThickness;
 			if (WallSegment->bOverrideWallThickness)
@@ -1492,6 +1503,8 @@ bool ABuilding::InitializeWallSegments()
 	}
 
 	int NumFloors = ExpandedLevelDescriptionsKeys.Num();
+	int NumShortWalls = 0; // walls shorter than their non-filler segments, reported once at the end
+	double ShortestWall = DBL_MAX;
 	WallSegmentsAtFloorAndSplinePoint.SetNum(NumFloors);
 	WallSegmentKeysAtFloorAndSplinePoint.SetNum(NumFloors);
 	FillersSizeAtFloorAndSplinePoint.SetNum(NumFloors);
@@ -1601,10 +1614,8 @@ bool ABuilding::InitializeWallSegments()
 
 			if (NonFillersSegmentsSize > Length)
 			{
-				UE_LOG(LogBuildingsFromSplines, Warning,
-					TEXT("The size of non-filler segments (%f) is greater than the length of the wall (%f). Deleting all non-fillers segments from that wall"),
-					NonFillersSegmentsSize, Length
-				);
+				NumShortWalls++;
+				ShortestWall = FMath::Min(ShortestWall, Length);
 
 				TArray<UWallSegment*>& ThisWallSegments = WallSegmentsAtFloorAndSplinePoint[FloorIndex][SplinePointIndex];
 				TArray<FString>& ThisWallSegmentKeys = WallSegmentKeysAtFloorAndSplinePoint[FloorIndex][SplinePointIndex];
@@ -1624,6 +1635,8 @@ bool ABuilding::InitializeWallSegments()
 		}
 	}
 
+	if (NumShortWalls > 0)
+		UE_LOG(LogBuildingsFromSplines, Log, TEXT("%s: %d wall(s) shorter than their non-filler segments (shortest: %f), those segments were removed there"), *GetName(), NumShortWalls, ShortestWall);
 	return true;
 }
 
