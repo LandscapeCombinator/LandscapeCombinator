@@ -1,4 +1,4 @@
-// Copyright 2023-2027 LandscapeCombinator. All Rights Reserved.
+﻿// Copyright 2023-2027 LandscapeCombinator. All Rights Reserved.
 
 #include "SplineImporter/SplineImporter.h"
 #include "SplineImporter/LogSplineImporter.h"
@@ -584,17 +584,21 @@ bool ASplineImporter::AddRegularSpline(
 			SplinePoints2D.Add( { Location.X, Location.Y });
 		}
 		else
-		{
 			UE_LOG(LogSplineImporter, Warning, TEXT("No collision for point %f, %f"), UE2DPoint.X, UE2DPoint.Y);
-		}
+
 	}
 
 	int NumSplinePoints = SplinePoints.Num();
 	if (NumSplinePoints < ExpectedNumPoints)
 	{
-		UE_LOG(LogSplineImporter, Warning, TEXT("Got only %d/%d Spline Points"), SplinePoints.Num(), ExpectedNumPoints);
+		UE_LOG(LogSplineImporter, Warning, TEXT("Got only %d/%d spline points (first one without collision: %f, %f, probably outside the landscape)"), SplinePoints.Num(), ExpectedNumPoints, FirstMissed.X, FirstMissed.Y);
 	}
 	if (SplinePoints.IsEmpty()) return false;
+	if (bIsLoop && SplinePoints.Num() < 3)
+	{
+		UE_LOG(LogSplineImporter, Warning, TEXT("Skipping a loop with only %d point(s) after the collision checks"), SplinePoints.Num());
+		return false;
+	}
 
 	if (bSkip2DColinearVertices && SplinePoints2D.Num() >= 3)
 	{
