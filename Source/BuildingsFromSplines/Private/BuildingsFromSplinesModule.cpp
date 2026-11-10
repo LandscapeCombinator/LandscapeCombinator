@@ -19,6 +19,7 @@ IMPLEMENT_MODULE(FBuildingsFromSplinesModule, BuildingsFromSplines)
 #include "Editor/UnrealEdEngine.h"
 #include "BuildingsFromSplines/OpeningsVisualizer.h"
 #include "BuildingsFromSplines/AssetLinkCustomization.h"
+#include "BuildingsFromSplines/WeightedObjectCustomization.h"
 #include "BuildingsFromSplines/AssetLink.h"
 #include "Misc/CoreDelegates.h"
 #include "Misc/EngineVersionComparison.h"
@@ -29,6 +30,8 @@ void FBuildingsFromSplinesModule::StartupModule()
 	PropertyModule.RegisterCustomClassLayout(ABuilding::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FBuildingCustomization::MakeInstance));
 	for (const FName& Name : AssetLink::TypeNames())
 		PropertyModule.RegisterCustomPropertyTypeLayout(Name, FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FAssetLinkCustomization::MakeInstance), FAssetLinkCustomization::Identifier());
+
+	PropertyModule.RegisterCustomPropertyTypeLayout(FWeightedObject::StaticStruct()->GetFName(), FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FWeightedObjectCustomization::MakeInstance));
 
 	if (GUnrealEd) RegisterVisualizer();
 	else
@@ -60,6 +63,7 @@ void FBuildingsFromSplinesModule::ShutdownModule()
 	{
 		FPropertyEditorModule& PropertyModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
 		PropertyModule.UnregisterCustomClassLayout(ABuilding::StaticClass()->GetFName());
+		PropertyModule.UnregisterCustomPropertyTypeLayout(FWeightedObject::StaticStruct()->GetFName());
 		for (const FName& Name : AssetLink::TypeNames())
 			PropertyModule.UnregisterCustomPropertyTypeLayout(Name, FAssetLinkCustomization::Identifier());
 	}

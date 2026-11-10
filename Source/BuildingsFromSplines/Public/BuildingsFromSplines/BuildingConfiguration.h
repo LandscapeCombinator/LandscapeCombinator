@@ -85,7 +85,7 @@ struct FAttachment
 	TSubclassOf<AActor> ActorClass;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment",
-		meta=(EditConditionHides, EditCondition="AttachmentKind != EAttachmentKind::Actor", DisplayPriority = "2"))
+		meta=(EditConditionHides, EditCondition="AttachmentKind != EAttachmentKind::Actor", DisplayPriority = "2", WeightedObjectClass="/Script/Engine.StaticMesh"))
 	TArray<FWeightedObject> MeshSelection;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment", meta=(DisplayPriority = "3"))
