@@ -100,7 +100,7 @@ protected:
 
 	void GenerationFinished(bool bSuccess)
 	{
-        TWeakObjectPtr<AActor> WeakSelf = Self;
+		TWeakObjectPtr<AActor> WeakSelf = Self;
 		Concurrency::RunOnGameThread([this, WeakSelf, bSuccess]() {
 			if (WeakSelf.IsValid())
 			{

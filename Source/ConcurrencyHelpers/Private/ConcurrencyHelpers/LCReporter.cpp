@@ -15,9 +15,9 @@
 
 void LCReporter::ShowError(const FText& Message, const FText& Title)
 {
-    UE_LOG(LogConcurrencyHelpers, Error, TEXT("%s: %s"), *Title.ToString(), *Message.ToString());
+	UE_LOG(LogConcurrencyHelpers, Error, TEXT("%s: %s"), *Title.ToString(), *Message.ToString());
 
-    if (Concurrency::IsCancelRequested()) return;
+	if (Concurrency::IsCancelRequested()) return;
 
 	FMessageDialog::Open(
 		EAppMsgCategory::Error,
@@ -32,7 +32,7 @@ bool LCReporter::ShowMessage(
 	bool bCancellable, const FSlateBrush* Image
 )
 {
-    UE_LOG(LogConcurrencyHelpers, Log, TEXT("%s: %s"), *Title.ToString(), *Message.ToString());
+	UE_LOG(LogConcurrencyHelpers, Log, TEXT("%s: %s"), *Title.ToString(), *Message.ToString());
 
 #if WITH_EDITOR
 

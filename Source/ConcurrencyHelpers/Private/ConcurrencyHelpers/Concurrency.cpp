@@ -213,8 +213,8 @@ bool Concurrency::RunOnThreadAndWait(bool bRunOnGameThread, TFunction<bool()> Ac
 
 	bool bWaited = WaitForEvent(SyncEvent);
 	FPlatformProcess::ReturnSynchEventToPool(SyncEvent);
-    if (!bWaited) return false;
-    return *bSuccess;
+	if (!bWaited) return false;
+	return *bSuccess;
 }
 
 bool Concurrency::RunOnGameThreadThrottledAndWait(TFunction<bool()> Action)
@@ -243,8 +243,8 @@ bool Concurrency::RunOnGameThreadThrottledAndWait(TFunction<bool()> Action)
 
 	bool bWaited = WaitForEvent(SyncEvent);
 	FPlatformProcess::ReturnSynchEventToPool(SyncEvent);
-    if (!bWaited) return false;
-    return *bSuccess;
+	if (!bWaited) return false;
+	return *bSuccess;
 }
 
 bool Concurrency::RunOnGameThreadAndWait(TFunction<bool()> Action)

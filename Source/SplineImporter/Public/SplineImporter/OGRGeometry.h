@@ -101,5 +101,5 @@ protected:
 	void SetGeometry(OGRGeometry* NewGeometry);
 	void RebuildGeometryFromSerialized();
 
-    mutable FCriticalSection GeometryLock;
+	mutable FCriticalSection GeometryLock;
 };

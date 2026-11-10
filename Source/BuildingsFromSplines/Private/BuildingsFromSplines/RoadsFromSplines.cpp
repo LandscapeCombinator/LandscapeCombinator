@@ -82,65 +82,65 @@ ARoadsFromSplines::ARoadsFromSplines()
 
 void ARoadsFromSplines::CreateStraightJunctionMeshes(int32 JunctionNode)
 {
-    if (!IsValid(IntersectionMesh)) return;
-    if (!RoadGraph.Nodes.IsValidIndex(JunctionNode) || !RoadGraph.IsJunctionNode(JunctionNode)) return;
+	if (!IsValid(IntersectionMesh)) return;
+	if (!RoadGraph.Nodes.IsValidIndex(JunctionNode) || !RoadGraph.IsJunctionNode(JunctionNode)) return;
 
-    const FVector Center = RoadGraph.Nodes[JunctionNode].Location;
-    const FTransform& ActorTransform = GetActorTransform();
+	const FVector Center = RoadGraph.Nodes[JunctionNode].Location;
+	const FTransform& ActorTransform = GetActorTransform();
 
-    TArray<int32> ValidEdgeIndices;
-    for (int32 EdgeIndex : RoadGraph.Nodes[JunctionNode].EdgeIndices)
-        if (RoadGraph.Edges.IsValidIndex(EdgeIndex) && RoadGraph.Edges[EdgeIndex].bValid)
-            ValidEdgeIndices.Add(EdgeIndex);
+	TArray<int32> ValidEdgeIndices;
+	for (int32 EdgeIndex : RoadGraph.Nodes[JunctionNode].EdgeIndices)
+		if (RoadGraph.Edges.IsValidIndex(EdgeIndex) && RoadGraph.Edges[EdgeIndex].bValid)
+			ValidEdgeIndices.Add(EdgeIndex);
 
-    const int32 NumArms = ValidEdgeIndices.Num();
-    TArray<FEdgeSplinePoints> ArmPoints;
-    ArmPoints.Reserve(NumArms);
+	const int32 NumArms = ValidEdgeIndices.Num();
+	TArray<FEdgeSplinePoints> ArmPoints;
+	ArmPoints.Reserve(NumArms);
 
-    for (int32 StubIndex = 0; StubIndex < NumArms; StubIndex++)
-    {
-        const int32 EdgeIndex = ValidEdgeIndices[StubIndex];
-        const FRoadEdge& Edge = RoadGraph.Edges[EdgeIndex];
-        const bool bStartIsJunction = (Edge.StartNodeIndex == JunctionNode);
-        const int32 FarNode = bStartIsJunction ? Edge.EndNodeIndex : Edge.StartNodeIndex;
+	for (int32 StubIndex = 0; StubIndex < NumArms; StubIndex++)
+	{
+		const int32 EdgeIndex = ValidEdgeIndices[StubIndex];
+		const FRoadEdge& Edge = RoadGraph.Edges[EdgeIndex];
+		const bool bStartIsJunction = (Edge.StartNodeIndex == JunctionNode);
+		const int32 FarNode = bStartIsJunction ? Edge.EndNodeIndex : Edge.StartNodeIndex;
 
-        FRoadEdgeSplineData* Data = EdgeSplineData.Find(EdgeIndex);
-        const FVector StartTangent = Data ? Data->BlendedStartTangent.Get(Edge.StartTangentWorld) : Edge.StartTangentWorld;
-        const FVector EndTangent   = Data ? Data->BlendedEndTangent.Get(Edge.EndTangentWorld) : Edge.EndTangentWorld;
-        const FVector NearTangent = bStartIsJunction ? StartTangent : -EndTangent;
-        const FVector FarTangent  = bStartIsJunction ? EndTangent : -StartTangent;
-        const float CenterZ = ZOffset;
+		FRoadEdgeSplineData* Data = EdgeSplineData.Find(EdgeIndex);
+		const FVector StartTangent = Data ? Data->BlendedStartTangent.Get(Edge.StartTangentWorld) : Edge.StartTangentWorld;
+		const FVector EndTangent   = Data ? Data->BlendedEndTangent.Get(Edge.EndTangentWorld) : Edge.EndTangentWorld;
+		const FVector NearTangent = bStartIsJunction ? StartTangent : -EndTangent;
+		const FVector FarTangent  = bStartIsJunction ? EndTangent : -StartTangent;
+		const float CenterZ = ZOffset;
 
-        FEdgeSplinePoints Points;
-        Points.StartLocal = ActorTransform.InverseTransformPosition(Center) + FVector(0, 0, CenterZ);
-        Points.EndLocal   = ActorTransform.InverseTransformPosition(RoadGraph.Nodes[FarNode].Location) + FVector(0, 0, ZOffset);
-        Points.StartTangentLocal = ActorTransform.InverseTransformVector(NearTangent);
-        Points.EndTangentLocal   = ActorTransform.InverseTransformVector(FarTangent);
-        ArmPoints.Add(Points);
-    }
+		FEdgeSplinePoints Points;
+		Points.StartLocal = ActorTransform.InverseTransformPosition(Center) + FVector(0, 0, CenterZ);
+		Points.EndLocal   = ActorTransform.InverseTransformPosition(RoadGraph.Nodes[FarNode].Location) + FVector(0, 0, ZOffset);
+		Points.StartTangentLocal = ActorTransform.InverseTransformVector(NearTangent);
+		Points.EndTangentLocal   = ActorTransform.InverseTransformVector(FarTangent);
+		ArmPoints.Add(Points);
+	}
 
-    TWeakObjectPtr<ARoadsFromSplines> WeakThis(this);
-    Concurrency::RunOnGameThreadThrottled([WeakThis, ArmPoints = MoveTemp(ArmPoints), JunctionNode]() {
-        if (!WeakThis.IsValid() || !IsValid(WeakThis->GetWorld())) return;
-        if (!WeakThis->RoadGraph.Nodes.IsValidIndex(JunctionNode) || !WeakThis->RoadGraph.Nodes[JunctionNode].bValid) return;
+	TWeakObjectPtr<ARoadsFromSplines> WeakThis(this);
+	Concurrency::RunOnGameThreadThrottled([WeakThis, ArmPoints = MoveTemp(ArmPoints), JunctionNode]() {
+		if (!WeakThis.IsValid() || !IsValid(WeakThis->GetWorld())) return;
+		if (!WeakThis->RoadGraph.Nodes.IsValidIndex(JunctionNode) || !WeakThis->RoadGraph.Nodes[JunctionNode].bValid) return;
 
-        WeakThis->DestroyJunctionMeshes(JunctionNode);
+		WeakThis->DestroyJunctionMeshes(JunctionNode);
 
-        for (const FEdgeSplinePoints& Points : ArmPoints)
-        {
-            USplineMeshComponent* Mesh = WeakThis->SpawnSplineMeshComponent(
-                Points, WeakThis->IntersectionMesh, WeakThis->DefaultIntersectionMeshLength);
-            if (!IsValid(Mesh)) continue;
+		for (const FEdgeSplinePoints& Points : ArmPoints)
+		{
+			USplineMeshComponent* Mesh = WeakThis->SpawnSplineMeshComponent(
+				Points, WeakThis->IntersectionMesh, WeakThis->DefaultIntersectionMeshLength);
+			if (!IsValid(Mesh)) continue;
 
-            if (!WeakThis->RoadGraph.Nodes.IsValidIndex(JunctionNode) || !WeakThis->RoadGraph.Nodes[JunctionNode].bValid)
-            {
-                Mesh->DestroyComponent();
-                continue;
-            }
-            WeakThis->CornerMeshComponents.Add(Mesh);
-            WeakThis->JunctionMeshComponents.FindOrAdd(JunctionNode).Add(Mesh);
-        }
-    });
+			if (!WeakThis->RoadGraph.Nodes.IsValidIndex(JunctionNode) || !WeakThis->RoadGraph.Nodes[JunctionNode].bValid)
+			{
+				Mesh->DestroyComponent();
+				continue;
+			}
+			WeakThis->CornerMeshComponents.Add(Mesh);
+			WeakThis->JunctionMeshComponents.FindOrAdd(JunctionNode).Add(Mesh);
+		}
+	});
 }
 
 void ARoadsFromSplines::CreateCurvyJunctionMeshes(int32 JunctionNode)

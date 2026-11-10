@@ -49,8 +49,8 @@ public:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> CleanButton;
 
-    UFUNCTION(BlueprintImplementableEvent, Category = "GeneratorStatus")
-    void OnStatusRefreshed(int32 NumTilesGenerated, int32 NumTilesPending, bool bIsGenerating);
+	UFUNCTION(BlueprintImplementableEvent, Category = "GeneratorStatus")
+	void OnStatusRefreshed(int32 NumTilesGenerated, int32 NumTilesPending, bool bIsGenerating);
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "GeneratorStatus")
 	void OnGeneratorClicked();

@@ -310,10 +310,10 @@ public:
 	bool bResetWallSegmentsOnCorners = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LevelDescription", meta = (DisplayPriority = "100"))
-    TMap<FString, TObjectPtr<UWallSegment>> WallSegmentsMap;
+	TMap<FString, TObjectPtr<UWallSegment>> WallSegmentsMap;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LevelDescription", meta = (DisplayPriority = "101"))
-    FString WallSegmentsExpression;
+	FString WallSegmentsExpression;
 
 	/* If not empty, WallSegmentsExpression is ignored and wall segments are not reset on corners */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LevelDescription", meta = (DisplayPriority = "102"))

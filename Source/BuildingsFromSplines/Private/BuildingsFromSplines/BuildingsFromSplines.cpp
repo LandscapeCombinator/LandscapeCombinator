@@ -167,7 +167,7 @@ bool ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent, 
 #endif
 
 		WeakThis->Buildings.Add(Building);
-        Building->BCfg = FWeightedBuildingConfiguration::GetRandomBuildingConfiguration(WeakThis->BuildingConfigurations);
+		Building->BCfg = FWeightedBuildingConfiguration::GetRandomBuildingConfiguration(WeakThis->BuildingConfigurations);
 
 		Building->SplineComponent->ClearSplinePoints();
 		for (int i = 0; i < NumPoints; i++)

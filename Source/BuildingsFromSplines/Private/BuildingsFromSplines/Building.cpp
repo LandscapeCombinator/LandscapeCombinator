@@ -1665,7 +1665,7 @@ bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)
 	EffectiveExtraWallBottom = ResolvedBCfg->ExtraWallBottom;
 
 	if (IsValid(DynamicMeshComponent))
-	    Concurrency::RunOnGameThreadAndWait([this]() -> bool { if (IsValid(DynamicMeshComponent)) DynamicMeshComponent->SetCustomPrimitiveDataFloat(0, FMath::FRand()); return true; });
+		Concurrency::RunOnGameThreadAndWait([this]() -> bool { if (IsValid(DynamicMeshComponent)) DynamicMeshComponent->SetCustomPrimitiveDataFloat(0, FMath::FRand()); return true; });
 
 	USceneComponent* BuildingRoot = GetRootComponent();
 	if (!IsValid(BuildingRoot)) return false;

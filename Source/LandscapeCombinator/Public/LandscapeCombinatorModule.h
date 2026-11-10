@@ -41,8 +41,8 @@ private:
 	FDelegateHandle BeginPIEHandle;
 	FDelegateHandle EndPIEHandle;
 
-    FDelegateHandle ModifyCookDelegateHandle;
-    void GetPackagesToAlwaysCook(TConstArrayView<const ITargetPlatform*> TargetPlatforms, TArray<FName>& OutPackagesToCook, TArray<FName>& OutPackagesToNeverCook);
+	FDelegateHandle ModifyCookDelegateHandle;
+	void GetPackagesToAlwaysCook(TConstArrayView<const ITargetPlatform*> TargetPlatforms, TArray<FName>& OutPackagesToCook, TArray<FName>& OutPackagesToNeverCook);
 
 #endif
 

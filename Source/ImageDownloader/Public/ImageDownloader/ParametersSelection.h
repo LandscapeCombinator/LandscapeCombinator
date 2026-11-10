@@ -18,9 +18,9 @@ enum class EParametersSelectionMethod: uint8
 USTRUCT(BlueprintType)
 struct FParametersSelection
 {
-    GENERATED_BODY()
+	GENERATED_BODY()
 
-    UPROPERTY(
+	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditConditionHides, DisplayPriority = "0")
 	)
