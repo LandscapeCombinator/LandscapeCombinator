@@ -591,7 +591,7 @@ bool ASplineImporter::AddRegularSpline(
 	int NumSplinePoints = SplinePoints.Num();
 	if (NumSplinePoints < ExpectedNumPoints)
 	{
-		UE_LOG(LogSplineImporter, Warning, TEXT("Got only %d/%d spline points (first one without collision: %f, %f, probably outside the landscape)"), SplinePoints.Num(), ExpectedNumPoints, FirstMissed.X, FirstMissed.Y);
+		UE_LOG(LogSplineImporter, Warning, TEXT("Got only %d/%d spline points"), SplinePoints.Num(), ExpectedNumPoints);
 	}
 	if (SplinePoints.IsEmpty()) return false;
 	if (bIsLoop && SplinePoints.Num() < 3)
