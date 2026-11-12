@@ -7,11 +7,11 @@
 
 #define LOCTEXT_NAMESPACE "FGDALInterfaceModule"
 
-#pragma warning(disable: 4668)
+THIRD_PARTY_INCLUDES_START
 #include "gdal.h"
 #include "gdal_priv.h"
 #include "gdal_utils.h"
-#pragma warning(default: 4668)
+THIRD_PARTY_INCLUDES_END
 
 FString GetPluginBaseDir(FString PluginName)
 {

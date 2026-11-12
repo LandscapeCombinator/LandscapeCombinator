@@ -639,8 +639,6 @@ bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 		}
 
 	}
-
-	return true;
 }
 
 #endif

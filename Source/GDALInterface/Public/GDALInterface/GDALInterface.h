@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "DynamicMesh/DynamicMesh3.h"
 
-#pragma warning(disable: 4668)
+THIRD_PARTY_INCLUDES_START
 #include "gdal.h"
 #include "gdal_priv.h"
 #include "gdal_utils.h"
@@ -13,7 +13,7 @@
 #include "cpl_vsi.h"
 #include <ogr_api.h>
 #include <ogrsf_frmts.h>
-#pragma warning(default: 4668)
+THIRD_PARTY_INCLUDES_END
 
 using namespace UE::Geometry;
 

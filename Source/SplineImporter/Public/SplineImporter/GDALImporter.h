@@ -12,10 +12,10 @@
 #include "Landscape.h"
 #include "Components/SplineComponent.h" 
 
-#pragma warning(disable: 4668)
+THIRD_PARTY_INCLUDES_START
 #include "gdal.h"
 #include "gdal_priv.h"
-#pragma warning(default: 4668)
+THIRD_PARTY_INCLUDES_END
 
 #include "GDALImporter.generated.h"
 

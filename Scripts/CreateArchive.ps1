@@ -125,7 +125,7 @@ function New-Archive {
         $PackagePath = Resolve-Path("Package_$Plugin")
         Write-Output "UPlugin Path: $UPluginPath"
         Write-Output "Package Path: $PackagePath"
-        & (Join-Path $UEFolder "Engine\Build\BatchFiles\RunUAT.bat") BuildPlugin -TargetPlatforms=Win64+Linux -Plugin="$UPluginPath" -Package="$PackagePath" -Rocket
+        & (Join-Path $UEFolder "Engine\Build\BatchFiles\RunUAT.bat") BuildPlugin -TargetPlatforms=Win64+Linux -Plugin="$UPluginPath" -Package="$PackagePath" -Rocket -StrictIncludes
         if ($LASTEXITCODE -ne 0) { throw "BuildPlugin failed with exit code $LASTEXITCODE" }
         $Attempts = 0
         while ($Attempts -lt 6)
