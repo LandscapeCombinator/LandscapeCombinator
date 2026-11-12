@@ -125,6 +125,20 @@ function New-Archive {
         $PackagePath = Resolve-Path("Package_$Plugin")
         Write-Output "UPlugin Path: $UPluginPath"
         Write-Output "Package Path: $PackagePath"
+        $SdkFile = Join-Path $UEFolder "Engine\Config\Linux\Linux_SDK.json"
+        $SdkMatch = if (Test-Path $SdkFile) { Select-String -Path $SdkFile -Pattern '"MainVersion"\s*:\s*"([^"]+)"' | Select-Object -First 1 }
+        $ToolchainsFolder = if ($env:LINUX_MULTIARCH_ROOT) { [IO.Path]::GetDirectoryName($env:LINUX_MULTIARCH_ROOT.TrimEnd('\')) } else { "C:\UnrealToolchains" }
+        $SdkVersion = if ($SdkMatch) { $SdkMatch.Matches[0].Groups[1].Value } elseif ($EngineVersion -like "5.3*") { "v22_clang-16.0.6-centos7" }
+        $Toolchain = if ($SdkVersion) { Join-Path $ToolchainsFolder $SdkVersion }
+        if ($Toolchain -and (Test-Path $Toolchain))
+        {
+            Write-Output "LINUX_MULTIARCH_ROOT: $Toolchain"
+            $env:LINUX_MULTIARCH_ROOT = $Toolchain
+        }
+        else
+        {
+            Write-Output "Linux toolchain not found for $UEFolder (expected: $Toolchain), keeping LINUX_MULTIARCH_ROOT=$env:LINUX_MULTIARCH_ROOT"
+        }
         & (Join-Path $UEFolder "Engine\Build\BatchFiles\RunUAT.bat") BuildPlugin -TargetPlatforms=Win64+Linux -Plugin="$UPluginPath" -Package="$PackagePath" -Rocket -StrictIncludes
         if ($LASTEXITCODE -ne 0) { throw "BuildPlugin failed with exit code $LASTEXITCODE" }
         $Attempts = 0
