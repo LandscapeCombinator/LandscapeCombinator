@@ -1,4 +1,5 @@
 #pragma once
+#include "HAL/Platform.h"
 #include <cmath>
 #include <string>
 #include <limits>

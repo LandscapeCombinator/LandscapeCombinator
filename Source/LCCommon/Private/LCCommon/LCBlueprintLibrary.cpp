@@ -14,6 +14,7 @@
 #include "EditorActorFolders.h"
 #include "Editor/EditorEngine.h"
 #include "Editor.h"
+#include "ScopedTransaction.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"

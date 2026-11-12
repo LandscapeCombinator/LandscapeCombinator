@@ -6,6 +6,8 @@
 
 #include "IPropertyTypeCustomization.h"
 
+class IPropertyTypeIdentifier;
+
 /* Header: Linked/Unlinked toggle + the usual class picker.
  * Children: the Blueprint asset's properties when linked, the local copy's properties otherwise. */
 class FAssetLinkCustomization : public IPropertyTypeCustomization

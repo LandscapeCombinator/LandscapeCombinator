@@ -1,4 +1,5 @@
 #pragma once
+#include "HAL/Platform.h"
 #include <vector>
 #include <unordered_set>
 #include <queue>

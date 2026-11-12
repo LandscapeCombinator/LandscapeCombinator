@@ -1,4 +1,5 @@
 #pragma once
+#include "HAL/Platform.h"
 #include <vector>
 #include <map>
 #include "EdgeResult.h"
