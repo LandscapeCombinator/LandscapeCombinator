@@ -139,7 +139,9 @@ function New-Archive {
         {
             Write-Output "Linux toolchain not found for $UEFolder (expected: $Toolchain), keeping LINUX_MULTIARCH_ROOT=$env:LINUX_MULTIARCH_ROOT"
         }
-        & (Join-Path $UEFolder "Engine\Build\BatchFiles\RunUAT.bat") BuildPlugin -TargetPlatforms=Win64+Linux -Plugin="$UPluginPath" -Package="$PackagePath" -Rocket -StrictIncludes
+        # StrictIncludes does not work with UE 5.3
+        $StrictIncludes = @(if ($EngineVersion -notlike "5.3*") { "-StrictIncludes" })
+        & (Join-Path $UEFolder "Engine\Build\BatchFiles\RunUAT.bat") BuildPlugin -TargetPlatforms=Win64+Linux -Plugin="$UPluginPath" -Package="$PackagePath" -Rocket @StrictIncludes
         if ($LASTEXITCODE -ne 0) { throw "BuildPlugin failed with exit code $LASTEXITCODE" }
         $Attempts = 0
         while ($Attempts -lt 6)
