@@ -304,7 +304,7 @@ bool UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 				FAppStyle::GetBrush("Icons.InfoWithColor.Large")
 			);
 		}
-		return false;
+		return true;
 	}
 	else
 	{
@@ -319,8 +319,6 @@ bool UBlendLandscape::BlendWithLandscape(bool bIsUserInitiated)
 		));
 		return false;
 	}
-
-	return true;
 }
 
 #endif
