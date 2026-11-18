@@ -38,17 +38,15 @@ void ALandscapePCGVolume::SetHugeBounds()
 
 bool ALandscapePCGVolume::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated)
 {
-	Modify();
-
 	if (!IsValid(PCGComponent)) return false;
 
-	Concurrency::RunOnGameThreadAndWait([this]() {
+	return Concurrency::RunOnGameThreadAndWait([this]() {
+		Modify();
 		SetPositionAndBounds();
 		PCGComponent->bActivated = true;
+		PCGComponent->Generate(true);
 		return true;
 	});
-	PCGComponent->Generate(true);
-	return true;
 }
 
 void ALandscapePCGVolume::PostRegisterAllComponents()

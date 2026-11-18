@@ -23,7 +23,8 @@ void UNodeGenerator::Activate()
 {
 	if (Generator.GetInterface())
 	{
-		Generator.GetInterface()->GenerateFromGameThread(SpawnedActorsPath, true, [this](bool bSuccess) { TaskComplete(bSuccess); });
+		AddToRoot();
+		Generator.GetInterface()->GenerateFromGameThread(SpawnedActorsPath, true, [this](bool bSuccess) { Concurrency::RunOnGameThread([this, bSuccess]() { TaskComplete(bSuccess); }); });
 	}
 }
 
@@ -31,5 +32,6 @@ void UNodeGenerator::TaskComplete(bool bSuccess)
 {
 	if (bSuccess) OnSuccess.Broadcast();
 	else OnFailure.Broadcast();
+	RemoveFromRoot();
 	SetReadyToDestroy();
 }

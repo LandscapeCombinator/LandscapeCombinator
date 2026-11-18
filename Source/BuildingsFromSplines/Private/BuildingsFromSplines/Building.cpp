@@ -30,6 +30,7 @@
 #include "GeometryScript/MeshSimplifyFunctions.h"
 #include "GeometryScript/MeshUVFunctions.h"
 #include "GeometryScript/PolyPathFunctions.h"
+#include "GeometryScript/PolygonFunctions.h"
 #include "Logging/StructuredLog.h"
 #include "Polygon2.h"
 #include "Algo/Reverse.h"
@@ -54,6 +55,39 @@
 #define MILLIMETER 0.1
 
 using namespace UE::Geometry;
+
+namespace
+{
+#if UE_VERSION_OLDER_THAN(5, 4, 0)
+	void RemoveSelfIntersections(TArray<FVector2D>& Poly) {}
+#else
+	void RemoveSelfIntersections(TArray<FVector2D>& Poly)
+	{
+		FGeometryScriptSimplePolygon SimplePolygon = UGeometryScriptLibrary_SimplePolygonFunctions::Conv_ArrayOfVector2DToGeometryScriptSimplePolygon(Poly);
+		FGeometryScriptGeneralPolygonList PolygonList = UGeometryScriptLibrary_PolygonListFunctions::CreatePolygonListFromSimplePolygons({ SimplePolygon });
+		PolygonList = UGeometryScriptLibrary_PolygonListFunctions::PolygonsUnion(PolygonList);
+
+		int32 BestIndex = -1;
+		double BestArea = -1;
+		for (int32 i = 0; i < UGeometryScriptLibrary_PolygonListFunctions::GetPolygonCount(PolygonList); i++)
+		{
+			bool bValidIndex = false;
+			const double Area = UGeometryScriptLibrary_PolygonListFunctions::GetPolygonArea(PolygonList, bValidIndex, i);
+			if (bValidIndex && Area > BestArea)
+			{
+				BestArea = Area;
+				BestIndex = i;
+			}
+		}
+		if (BestIndex < 0) return;
+
+		bool bValidIndices = false;
+		TArray<FVector2D> NewVertices;
+		UGeometryScriptLibrary_PolygonListFunctions::GetPolygonVertices(PolygonList, NewVertices, bValidIndices, BestIndex, -1);
+		if (bValidIndices && NewVertices.Num() >= 3) Poly = MoveTemp(NewVertices);
+	}
+#endif
+}
 
 ABuilding::ABuilding() : AActor()
 {
@@ -1137,7 +1171,42 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 			OuterRoofVertices.Add(GetShiftedPoint(BaseClockwiseFrames, i, - ResolvedBCfg->OuterRoofDistance, true));
 		}
 
+		TArray<FVector2D> OriginalRoofVertices = OuterRoofVertices;
+		RemoveSelfIntersections(OuterRoofVertices);
+
 		FStraightSkeleton StraightSkeleton;
+
+		auto GetGableBase = [&](const FSkeletonEdgeResult& EdgeResult, FVector2D& OutOrigin, double& OutLength) -> bool
+		{
+			const int N = BaseVertices2D.Num();
+			const FVector MidPoint = FVector((EdgeResult.Begin + EdgeResult.End) / 2, 0.0);
+			int K = 0;
+			double BestDistSq = TNumericLimits<double>::Max();
+			for (int i = 0; i < N; i++)
+			{
+				const double DistSq = FMath::PointDistToSegmentSquared(MidPoint, FVector(OriginalRoofVertices[i], 0.0), FVector(OriginalRoofVertices[(i + 1) % N], 0.0));
+				if (DistSq < BestDistSq)
+				{
+					BestDistSq = DistSq;
+					K = i;
+				}
+			}
+
+			const FVector2D& WallA = BaseVertices2D[K];
+			const FVector2D& WallB = BaseVertices2D[(K + 1) % N];
+			const FVector2D WallDir = (WallB - WallA).GetSafeNormal();
+
+			auto ToWall = [&](const FVector2D& RoofPoint) -> FVector2D
+			{
+				if (RoofPoint.Equals(OriginalRoofVertices[K], 0.1)) return WallA;
+				if (RoofPoint.Equals(OriginalRoofVertices[(K + 1) % N], 0.1)) return WallB;
+				return WallA + WallDir * FVector2D::DotProduct(RoofPoint - WallA, WallDir);
+			};
+
+			OutOrigin = ToWall(EdgeResult.Begin);
+			OutLength = FVector2D::Distance(OutOrigin, ToWall(EdgeResult.End));
+			return OutLength > 1;
+		};
 
 		if (UStraightSkeletonFunctionLibrary::ComputeStraightSkeleton(OuterRoofVertices, StraightSkeleton))
 		{
@@ -1184,18 +1253,16 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 				FTransform BoxTransform = FTransform(EdgeAngleYaw, FVector(), FVector(3*MaxCoordinate, 3*MaxCoordinate, 3*MaxCoordinate));
 
 				// build gable
-				if (ResolvedBCfg->RoofKind == ERoofKind::Gable && EdgeResult.Polygon.Num() == 3)
+				FVector2D GableOrigin;
+				double OriginalEdgeLength = 0;
+				if (ResolvedBCfg->RoofKind == ERoofKind::Gable && EdgeResult.Polygon.Num() == 3 && GetGableBase(EdgeResult, GableOrigin, OriginalEdgeLength))
 				{
-					const double OriginalEdgeLength = FVector2D::Distance(
-						BaseVertices2D[(EdgeIndex+1) % StraightSkeleton.Edges.Num()],
-						BaseVertices2D[(EdgeIndex+2) % StraightSkeleton.Edges.Num()]
-					);
 					double TopVertexHeight = 0;
 					for (auto &P: EdgeResult.Polygon)
 						if (P != EdgeResult.Begin && P != EdgeResult.End) TopVertexHeight = (StraightSkeleton.Distances.FindRef(P) - (ResolvedBCfg->OuterRoofDistance - LastFloorExternalWallThickness)) * TanAngle;
 
 					FVector GablePosition =
-						To3D(BaseVertices2D[(EdgeIndex+1) % StraightSkeleton.Edges.Num()]) +
+						To3D(GableOrigin) +
 						FVector(0, 0, WallTopHeight);
 
 					UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSimpleExtrudePolygon(
@@ -1678,7 +1745,14 @@ bool ABuilding::GenerateBuilding_Internal(FName SpawnedActorsPathOverride)
 	EffectiveExtraWallBottom = ResolvedBCfg->ExtraWallBottom;
 
 	if (IsValid(DynamicMeshComponent))
-		Concurrency::RunOnGameThreadAndWait([this]() -> bool { if (IsValid(DynamicMeshComponent)) DynamicMeshComponent->SetCustomPrimitiveDataFloat(0, FMath::FRand()); return true; });
+		Concurrency::RunOnGameThreadAndWait([this]() -> bool {
+			if (IsValid(DynamicMeshComponent))
+			{
+				DynamicMeshComponent->SetCustomPrimitiveDataFloat(0, FMath::FRand());
+				DynamicMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			}
+			return true;
+		});
 
 	USceneComponent* BuildingRoot = GetRootComponent();
 	if (!IsValid(BuildingRoot)) return false;
@@ -2183,11 +2257,14 @@ void ABuilding::AppendStairs(UDynamicMesh* TargetMesh)
 			UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(HoleMesh, 0, MaterialID);
 		}
 
-		UGeometryScriptLibrary_MeshBooleanFunctions::ApplyMeshBoolean(
-			TargetMesh, FTransform(), HoleMesh, StairsTransformAt(UpperBottom),
-			EGeometryScriptBooleanOperation::Subtract, BoolOptions
-		);
-		UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(TargetMesh, StairsMesh, StairsTransformAt(LowerTop), true);
+		Concurrency::RunOnGameThreadAndWait([&]() {
+			UGeometryScriptLibrary_MeshBooleanFunctions::ApplyMeshBoolean(
+				TargetMesh, FTransform(), HoleMesh, StairsTransformAt(UpperBottom),
+				EGeometryScriptBooleanOperation::Subtract, BoolOptions
+			);
+			UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(TargetMesh, StairsMesh, StairsTransformAt(LowerTop), true);
+			return true;
+		});
 	}
 
 	StairsMesh->MarkAsGarbage();

@@ -35,6 +35,21 @@ bool UStraightSkeletonFunctionLibrary::ComputeStraightSkeleton(const TArray<FVec
 		for (auto& Pair : *(Skel.Distances))
 			OutSkeleton.Distances.Add(FVector2D(Pair.first.X, Pair.first.Y), static_cast<float>(Pair.second));
 
+		FBox2D Box(Polygon);
+		Box = Box.ExpandBy(1e-3 * Box.GetSize().Size() + 1);
+		auto CheckInside = [&](const FVector2D& P)
+		{
+			if (Box.IsInside(P)) return true;
+			UE_LOG(LogTemp, Warning, TEXT("StraightSkeleton produced the vertex %s outside of the polygon bounds. Polygon: %s"),
+				*P.ToString(), *FString::JoinBy(Polygon, TEXT(","), [](const FVector2D& V) { return V.ToString(); }));
+			return false;
+		};
+		for (const FSkeletonEdgeResult& EdgeResult : OutSkeleton.Edges)
+			for (const FVector2D& P : EdgeResult.Polygon)
+				if (!CheckInside(P)) return false;
+		for (const auto& Pair : OutSkeleton.Distances)
+			if (!CheckInside(Pair.Key)) return false;
+
 		return true;
 	}
 	catch (...) {

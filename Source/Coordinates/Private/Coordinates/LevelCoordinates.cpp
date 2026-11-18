@@ -52,12 +52,12 @@ TObjectPtr<UGlobalCoordinates> ALevelCoordinates::GetGlobalCoordinates(TWeakObje
 
 	if (LevelCoordinatesCandidates.Num() == 0)
 	{
-		if (bShowDialog) LCReporter::ShowError(LOCTEXT("NoLevelCoordinates", "..."));
+		if (bShowDialog) LCReporter::ShowError(LOCTEXT("NoLevelCoordinates", "Could not find a visible Level Coordinates actor in the level. Please add one, or unhide the existing one."));
 		return nullptr;
 	}
 	if (LevelCoordinatesCandidates.Num() > 1)
 	{
-		if (bShowDialog) LCReporter::ShowError(LOCTEXT("MoreThanOneLevelCoordinates", "..."));
+		if (bShowDialog) LCReporter::ShowError(LOCTEXT("MoreThanOneLevelCoordinates", "Found more than one visible Level Coordinates actor in the level. Please keep only one."));
 		return nullptr;
 	}
 
