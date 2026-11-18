@@ -104,7 +104,7 @@ ULevelDescription* UBuildingConfiguration::GetLevel(const FString& Key) const
 	return AssetLink::Resolve(LevelsMap.FindRef(Key).Get());
 }
 
-UWallSegment* ULevelDescription::GetSegment(const FString& Key) const
+UBuildingWallSegment* ULevelDescription::GetSegment(const FString& Key) const
 {
 	return AssetLink::Resolve(WallSegmentsMap.FindRef(Key).Get());
 }

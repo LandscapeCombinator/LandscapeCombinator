@@ -161,7 +161,7 @@ enum class EWallSegmentKind : uint8
 };
 
 UCLASS(BlueprintType, Blueprintable, EditInlineNew, DefaultToInstanced)
-class UWallSegment : public UObject
+class UBuildingWallSegment : public UObject
 {
 	GENERATED_BODY()
 
@@ -310,7 +310,7 @@ public:
 	bool bResetWallSegmentsOnCorners = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LevelDescription", meta = (DisplayPriority = "100"))
-	TMap<FString, TObjectPtr<UWallSegment>> WallSegmentsMap;
+	TMap<FString, TObjectPtr<UBuildingWallSegment>> WallSegmentsMap;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LevelDescription", meta = (DisplayPriority = "101"))
 	FString WallSegmentsExpression;
@@ -325,7 +325,7 @@ public:
 
 	bool ResetsOnCorners() const { return bResetWallSegmentsOnCorners && Openings.IsEmpty(); }
 
-	UWallSegment* GetSegment(const FString& Key) const;
+	UBuildingWallSegment* GetSegment(const FString& Key) const;
 
 	bool HasSegment(const FString& Key) const { return HasKeyInMap(WallSegmentsMap, Key); }
 

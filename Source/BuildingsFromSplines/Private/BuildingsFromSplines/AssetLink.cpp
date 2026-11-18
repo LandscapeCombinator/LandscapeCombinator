@@ -9,7 +9,7 @@ namespace
 
 	TArray<const UClass*> LinkableClasses()
 	{
-		return { UBuildingConfiguration::StaticClass(), ULevelDescription::StaticClass(), UWallSegment::StaticClass() };
+		return { UBuildingConfiguration::StaticClass(), ULevelDescription::StaticClass(), UBuildingWallSegment::StaticClass() };
 	}
 }
 

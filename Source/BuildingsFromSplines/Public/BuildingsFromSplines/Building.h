@@ -155,7 +155,7 @@ protected:
 	UDataTable *WallSegmentsTable;
 	TArray<FString> ExpandedLevelDescriptionsKeys;
 
-	TArray<TArray<TArray<UWallSegment*>>> WallSegmentsAtFloorAndSplinePoint;
+	TArray<TArray<TArray<UBuildingWallSegment*>>> WallSegmentsAtFloorAndSplinePoint;
 	TArray<TArray<TArray<FString>>> WallSegmentKeysAtFloorAndSplinePoint; // same shape as above; lets GetExpressionOpenings skip the pointer-to-key lookup
 	TArray<TArray<double>> FillersSizeAtFloorAndSplinePoint;
 	bool InitializeWallSegments();
@@ -198,14 +198,14 @@ protected:
 	FString StaticMeshPath;
 
 	UPROPERTY(Transient)
-	TArray<TObjectPtr<UWallSegment>> GeneratedSegments;
+	TArray<TObjectPtr<UBuildingWallSegment>> GeneratedSegments;
 
 	void ReprojectSplineOnLandscape();
 	void PushActor(const FVector& Offset);
 
 	// wall segments of a level that has Openings, along a wall of the given Length: each opening at its Position, filler segments in between
-	bool BuildOpeningSegments(ULevelDescription* LevelDescription, const FString& LevelDescriptionKey, double Length, TArray<UWallSegment*>& Out);
-	bool AddFillerSegment(ULevelDescription* LevelDescription, const FString& LevelDescriptionKey, double GapLength, TArray<UWallSegment*>& Out);
+	bool BuildOpeningSegments(ULevelDescription* LevelDescription, const FString& LevelDescriptionKey, double Length, TArray<UBuildingWallSegment*>& Out);
+	bool AddFillerSegment(ULevelDescription* LevelDescription, const FString& LevelDescriptionKey, double GapLength, TArray<UBuildingWallSegment*>& Out);
 
 	TArray<FTransform> BaseClockwiseFrames;
 	TArray<double> BaseClockwiseFramesTimes;

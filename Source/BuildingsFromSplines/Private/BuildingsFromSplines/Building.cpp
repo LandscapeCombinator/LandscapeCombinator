@@ -322,7 +322,7 @@ void ABuilding::ComputeOffsetPolygons()
 		if (!ResolvedBCfg->HasLevel(LevelDescriptionKey)) continue;
 		for (auto &[_, Ptr]: ResolvedBCfg->GetLevel(LevelDescriptionKey)->WallSegmentsMap)
 		{
-			UWallSegment* WallSegment = AssetLink::Resolve(Ptr.Get());
+			UBuildingWallSegment* WallSegment = AssetLink::Resolve(Ptr.Get());
 			if (IsValid(WallSegment) && WallSegment->bOverrideWallThickness)
 			{
 				if (i == ExpandedLevelDescriptionsKeys.Num() - 1)
@@ -1497,16 +1497,16 @@ void ABuilding::SetReceivesDecals()
 	}
 }
 
-bool ABuilding::AddFillerSegment(ULevelDescription* LevelDescription, const FString& LevelDescriptionKey, double GapLength, TArray<UWallSegment*>& Out)
+bool ABuilding::AddFillerSegment(ULevelDescription* LevelDescription, const FString& LevelDescriptionKey, double GapLength, TArray<UBuildingWallSegment*>& Out)
 {
 	if (GapLength <= MILLIMETER) return true;
 	if (!LevelDescription->RequireSegment(LevelDescription->FillerKey, LevelDescriptionKey)) return false;
 
-	UWallSegment* FillerTemplate = LevelDescription->GetSegment(LevelDescription->FillerKey);
-	UWallSegment* Gap = nullptr;
+	UBuildingWallSegment* FillerTemplate = LevelDescription->GetSegment(LevelDescription->FillerKey);
+	UBuildingWallSegment* Gap = nullptr;
 
 	if (!Concurrency::RunOnGameThreadAndWait([this, FillerTemplate, GapLength, &Gap]() -> bool {
-		Gap = DuplicateObject<UWallSegment>(FillerTemplate, this);
+		Gap = DuplicateObject<UBuildingWallSegment>(FillerTemplate, this);
 		if (!IsValid(Gap)) return false;
 
 		Gap->bAutoExpand = false;
@@ -1525,7 +1525,7 @@ bool ABuilding::AddFillerSegment(ULevelDescription* LevelDescription, const FStr
 	return true;
 }
 
-bool ABuilding::BuildOpeningSegments(ULevelDescription* LevelDescription, const FString& LevelDescriptionKey, double Length, TArray<UWallSegment*>& Out)
+bool ABuilding::BuildOpeningSegments(ULevelDescription* LevelDescription, const FString& LevelDescriptionKey, double Length, TArray<UBuildingWallSegment*>& Out)
 {
 	TArray<FWallOpening> Sorted = LevelDescription->Openings;
 	Sorted.Sort([](const FWallOpening& A, const FWallOpening& B) { return A.Position < B.Position; });
@@ -1534,7 +1534,7 @@ bool ABuilding::BuildOpeningSegments(ULevelDescription* LevelDescription, const 
 	for (const FWallOpening& Opening : Sorted)
 	{
 		if (!LevelDescription->RequireSegment(Opening.SegmentKey, LevelDescriptionKey)) return false;
-		UWallSegment* Segment = LevelDescription->GetSegment(Opening.SegmentKey);
+		UBuildingWallSegment* Segment = LevelDescription->GetSegment(Opening.SegmentKey);
 
 		if (Opening.Position < Cursor - MILLIMETER)
 		{
@@ -1589,7 +1589,7 @@ bool ABuilding::InitializeWallSegments()
 			return false;
 		}
 
-		TArray<TArray<UWallSegment*>> ThisFloorWallSegmentsAtSplinePoint;
+		TArray<TArray<UBuildingWallSegment*>> ThisFloorWallSegmentsAtSplinePoint;
 		ThisFloorWallSegmentsAtSplinePoint.SetNum(NumSplinePoints);
 		WallSegmentsAtFloorAndSplinePoint[FloorIndex] = ThisFloorWallSegmentsAtSplinePoint;
 		TArray<TArray<FString>> ThisFloorWallSegmentKeysAtSplinePoint;
@@ -1684,7 +1684,7 @@ bool ABuilding::InitializeWallSegments()
 				NumShortWalls++;
 				ShortestWall = FMath::Min(ShortestWall, Length);
 
-				TArray<UWallSegment*>& ThisWallSegments = WallSegmentsAtFloorAndSplinePoint[FloorIndex][SplinePointIndex];
+				TArray<UBuildingWallSegment*>& ThisWallSegments = WallSegmentsAtFloorAndSplinePoint[FloorIndex][SplinePointIndex];
 				TArray<FString>& ThisWallSegmentKeys = WallSegmentKeysAtFloorAndSplinePoint[FloorIndex][SplinePointIndex];
 				for (int j = ThisWallSegments.Num() - 1; j >= 0; j--)
 				{
@@ -2429,7 +2429,7 @@ void ABuilding::GetOpeningHandles(TArray<FOpeningHandle>& Out) const
 				const FWallOpening& Opening = Openings[i];
 				if (!Level->HasSegment(Opening.SegmentKey)) continue;
 
-				const UWallSegment* Segment = Level->GetSegment(Opening.SegmentKey);
+				const UBuildingWallSegment* Segment = Level->GetSegment(Opening.SegmentKey);
 				const FVector P = BaseClockwiseSplineComponent->GetLocationAtDistanceAlongSpline(Opening.Position, ESplineCoordinateSpace::World);
 
 				FOpeningHandle Handle;
@@ -2465,7 +2465,7 @@ void ABuilding::GetExpressionOpenings(int FloorIndex, ULevelDescription* Level, 
 		double Distance = BaseClockwiseSplineComponent->GetDistanceAlongSplineAtSplinePoint(SplineIndexToBaseSplineIndex[i]);
 		for (const FString& SegmentKey : KeysAtPoint[i])
 		{
-			const UWallSegment* Segment = Level->GetSegment(SegmentKey);
+			const UBuildingWallSegment* Segment = Level->GetSegment(SegmentKey);
 			if (!IsValid(Segment))
 			{
 				Out.Reset();
@@ -2507,7 +2507,7 @@ bool ABuilding::ConvertExpressionToOpenings(ULevelDescription* Level)
 			{
 				for (const FString& Key : KeysAtPoint)
 				{
-					const UWallSegment* Segment = Level->GetSegment(Key);
+					const UBuildingWallSegment* Segment = Level->GetSegment(Key);
 					if (IsValid(Segment) && Segment->bAutoExpand && Segment->WallSegmentKind != EWallSegmentKind::Hole) { FillerKey = Key; break; }
 				}
 				if (!FillerKey.IsEmpty()) break;
@@ -2650,7 +2650,7 @@ bool ABuilding::UsesAsset(const UObject* Obj) const
 			if (!Level) continue;
 			UsedAssets.Add(Level);
 			for (const auto& [SegmentKey, SegmentPtr] : Level->WallSegmentsMap)
-				if (UWallSegment* Segment = AssetLink::Resolve(SegmentPtr.Get())) UsedAssets.Add(Segment);
+				if (UBuildingWallSegment* Segment = AssetLink::Resolve(SegmentPtr.Get())) UsedAssets.Add(Segment);
 		}
 		UsedAssetsCfg = Cfg;
 		bUsedAssetsDirty = false;

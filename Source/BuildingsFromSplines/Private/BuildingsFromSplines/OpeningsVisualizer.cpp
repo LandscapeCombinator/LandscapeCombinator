@@ -147,7 +147,7 @@ bool FOpeningsVisualizer::HandleInputDelta(FEditorViewportClient* VC, FViewport*
 	}
 
 	FWallOpening& Opening = Level->Openings[SelectedIndex];
-	UWallSegment* Segment = Level->GetSegment(Opening.SegmentKey);
+	UBuildingWallSegment* Segment = Level->GetSegment(Opening.SegmentKey);
 	Segment->Modify(); // shared definition: all openings/floors using this key change
 
 	const USplineComponent* Spline = Building->BaseClockwiseSplineComponent;
