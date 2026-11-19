@@ -16,6 +16,9 @@
 #include "ImageDownloader/Downloaders/HMXYZ.h"
 #include "ImageDownloader/Downloaders/HMNapoli.h"
 #include "ImageDownloader/Downloaders/HMWMS.h"
+#include "ImageDownloader/Downloaders/HMWorldElevation3D.h"
+#include "ImageDownloader/Downloaders/HMRescale.h"
+#include "ImageDownloader/Downloaders/HMCreateSeabed.h"
 
 #include "ImageDownloader/Transformers/HMSwissALTI3DRenamer.h"
 #include "ImageDownloader/Transformers/HMLitto3DGuadeloupeRenamer.h"
@@ -29,7 +32,6 @@
 #include "ImageDownloader/Transformers/HMEnsureOneBand.h"
 #include "ImageDownloader/Transformers/HMCrop.h"
 #include "ImageDownloader/Transformers/HMResolution.h"
-#include "ImageDownloader/Transformers/HMPercentResolution.h"
 #include "ImageDownloader/Transformers/HMToPNG.h"
 #include "ImageDownloader/Transformers/HMMerge.h"
 #include "ImageDownloader/Transformers/HMReadCRS.h"
@@ -263,6 +265,19 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(bool bIsUserInitiated, FString
 
 				return new HMDebugFetcher("WMS_Download", WMSFetcher, true);
 			}
+			// World Elevation 3D has global tiles through zoom 16; MapTiler and Mapbox elevation tiles stop at zoom 14.
+			else if (IsWorldElevation3D())
+			{
+				if (XYZ_Zoom < 0 || XYZ_Zoom > 16)
+				{
+					LCReporter::ShowError(LOCTEXT("ArcGISZoom", "ArcGIS World Elevation 3D supports zoom levels 0 through 16."));
+					return nullptr;
+				}
+				if (!SetSourceParametersBool(true)) return nullptr;
+				return new HMDebugFetcher("WorldElevation3D_Download", new HMWorldElevation3D(
+					bAllowInvalidTiles, bEnableXYZParallelDownload, Name,
+					XYZ_Zoom, XYZ_MinX, XYZ_MaxX, XYZ_MinY, XYZ_MaxY), true);
+			}
 			else if (IsXYZ())
 			{
 
@@ -451,6 +466,11 @@ HMFetcher* UImageDownloader::CreateFetcher(
 	{
 		Result = Result->AndThen(new HMDebugFetcher("EnsureOneBand", new HMEnsureOneBand()));
 	}
+	if (bCreateSeabed)
+	{
+		Result = Result->AndThen(new HMDebugFetcher("CreateSeabed",
+			new HMCreateSeabed(Name, SeabedMaxDepthMeters, SeabedShoreTransitionPixels)));
+	}
 
 	if (GlobalCoordinates)
 	{
@@ -522,7 +542,8 @@ HMFetcher* UImageDownloader::CreateFetcher(
 
 	if (bScaleResolution)
 	{
-		Result = Result->AndThen(new HMDebugFetcher("PercentResolution", new HMPercentResolution(Name, PrecisionPercent)));
+		Result = Result->AndThen(new HMDebugFetcher("Rescale",
+			new HMRescale(Name, PrecisionPercent, ResamplingMethod)));
 	}
 
 	return Result;
@@ -636,7 +657,13 @@ bool UImageDownloader::IsNextZen()
 
 bool UImageDownloader::IsXYZ()
 {
-	return IsMapbox() || IsMapTiler() || IsNextZen() || ImageSourceKind == EImageSourceKind::GenericXYZ;
+	return IsMapbox() || IsMapTiler() || IsNextZen() || IsWorldElevation3D() ||
+		ImageSourceKind == EImageSourceKind::GenericXYZ;
+}
+
+bool UImageDownloader::IsWorldElevation3D()
+{
+	return ImageSourceKind == EImageSourceKind::ArcGIS_WorldElevation3D;
 }
 
 bool UImageDownloader::HasMultipleLayers()
@@ -1104,6 +1131,12 @@ void UImageDownloader::OnImageSourceChanged(TFunction<void(bool)> OnComplete)
 		CapabilitiesURL = "https://basemap.nationalmap.gov/arcgis/services/USGSImageryOnly/MapServer/WMSServer?request=GetCapabilities&service=WMS";
 		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
 		WMS_X_IsLong = true;
+	}
+	else if (IsWorldElevation3D())
+	{
+		CapabilitiesURL.Empty();
+		XYZ_Zoom = FMath::Clamp(XYZ_Zoom, 0, 16);
+		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
 	}
 	else if (IsMapbox())
 	{

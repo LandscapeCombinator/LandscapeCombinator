@@ -4,6 +4,7 @@
 
 #include "ImageDownloader/WMSProvider.h"
 #include "ImageDownloader/HMFetcher.h"
+#include "ImageDownloader/Downloaders/HMRescale.h"
 #include "ImageDownloader/ParametersSelection.h"
 #include "ConsoleHelpers/ExternalTool.h"
 #include "Coordinates/LevelCoordinates.h"
@@ -72,6 +73,7 @@ enum class EImageSourceKind : uint8
 	Triton_Imagery UMETA(DisplayName = "Triton Imagery (USGS)"),
 	Moon_Elevation UMETA(DisplayName = "Moon Elevation (USGS LOLA)"),
 	Moon_Imagery UMETA(DisplayName = "Moon Imagery (USGS)"),
+	ArcGIS_WorldElevation3D UMETA(DisplayName = "ArcGIS World Elevation 3D (LERC Tiles)"),
 };
 
 UCLASS()
@@ -790,6 +792,23 @@ public:
 	/* When different than 100%, your heightmap resolution will be scaled up or down using GDAL. */
 	int PrecisionPercent = 100;
 
+	/** GDAL resampling algorithm used when scaling the heightmap resolution. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resolution",
+		meta = (EditCondition = "bScaleResolution", EditConditionHides, DisplayPriority = "22"))
+	EMapResamplingMethod ResamplingMethod = EMapResamplingMethod::Nearest;
+
+	/** Replace valid elevations at or below zero metres with a sloping seabed. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Seabed")
+	bool bCreateSeabed = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Seabed",
+		meta = (EditCondition = "bCreateSeabed", EditConditionHides, ClampMin = "0.01"))
+	double SeabedMaxDepthMeters = 20.0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Seabed",
+		meta = (EditCondition = "bCreateSeabed", EditConditionHides, ClampMin = "1"))
+	int32 SeabedShoreTransitionPixels = 20;
+
 
 	/**********************
 	 * Adapt to Landscape *
@@ -899,6 +918,9 @@ public:
 
 	UFUNCTION()
 	bool IsXYZ();
+
+	UFUNCTION()
+	bool IsWorldElevation3D();
 
 	UFUNCTION()
 	bool AllowsParametersSelection();
