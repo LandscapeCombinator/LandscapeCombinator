@@ -19,6 +19,8 @@
 #include "UObject/StrongObjectPtr.h"
 #include "Stats/StatsMisc.h"
 #include "HAL/Event.h"
+#include "HAL/PlatformProcess.h"
+#include "Misc/Guid.h"
 
 using namespace UE::Geometry;
 

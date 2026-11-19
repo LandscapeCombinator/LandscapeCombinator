@@ -4,6 +4,7 @@
 #include "ImageDownloader/Directories.h"
 #include "ImageDownloader/LogImageDownloader.h"
 #include "GDALInterface/GDALInterface.h"
+#include "Misc/Paths.h"
 
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"

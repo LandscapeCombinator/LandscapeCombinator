@@ -32,44 +32,22 @@ public class GDALInterface : ModuleRules
 		if (Target.Platform == UnrealTargetPlatform.Win64)
 		{
 			PublicAdditionalLibraries.Add(Path.Combine(GDALDirectory, "lib", "gdal.lib"));
-
-			foreach (string DLLFile in Directory.GetFiles(Path.Combine(GDALDirectory, "bin")))
-			{
-				RuntimeDependencies.Add(Path.Combine("$(BinaryOutputDir)", Path.GetFileName(DLLFile)), DLLFile);
-			}
+			PublicDelayLoadDLLs.Add("gdal.dll");
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		else if (Target.Platform == UnrealTargetPlatform.Mac)
 		{
-			foreach (string SOFile in Directory.GetFiles(Path.Combine(GDALDirectory, "bin"), "*.so"))
-			{
-				if (SOFile.Contains("gdal"))
-				{
-					PublicAdditionalLibraries.Add(SOFile);
-				}
-			}
-			foreach (string SOFile in Directory.GetFiles(Path.Combine(GDALDirectory, "bin"), "*.so*"))
-			{
-				RuntimeDependencies.Add(Path.Combine("$(BinaryOutputDir)", Path.GetFileName(SOFile)), SOFile);
-			}
+			PublicAdditionalLibraries.Add(Path.Combine(GDALDirectory, "bin", "libgdal.dylib"));
 		}
-
-		if (Target.Platform == UnrealTargetPlatform.Mac)
+		else
 		{
-			string Dylib = Path.Combine(GDALDirectory, "bin", "libgdal.dylib");
-			PublicAdditionalLibraries.Add(Dylib);
-			RuntimeDependencies.Add(Path.Combine("$(BinaryOutputDir)", "libgdal.dylib"), Dylib);
+			string SOFile = Path.Combine(GDALDirectory, "bin", "libgdal.so");
+			PublicAdditionalLibraries.Add(SOFile);
+			PublicRuntimeLibraryPaths.Add(Path.Combine(GDALDirectory, "bin"));
 		}
 
+		RuntimeDependencies.Add("$(PluginDir)/Source/ThirdParty/GDAL/" + Platform + "/bin/*");
 		// copy the share folders so that they can be used at runtime
-		foreach (string File in Directory.GetFiles(Path.Combine(GDALDirectory, "share", "gdal")))
-		{
-			RuntimeDependencies.Add(Path.Combine("$(BinaryOutputDir)", "ThirdParty", "GDAL", "share", "gdal", Path.GetFileName(File)), File);
-		}
-
-		foreach (string File in Directory.GetFiles(Path.Combine(GDALDirectory, "share", "proj")))
-		{
-			RuntimeDependencies.Add(Path.Combine("$(BinaryOutputDir)", "ThirdParty", "GDAL", "share", "proj", Path.GetFileName(File)), File);
-		}
+		RuntimeDependencies.Add("$(PluginDir)/Source/ThirdParty/GDAL/" + Platform + "/share/...");
 
 		PublicDependencyModuleNames.AddRange(
 			new string[]

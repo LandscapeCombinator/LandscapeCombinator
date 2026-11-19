@@ -5,6 +5,7 @@
 #include "ConcurrencyHelpers/Concurrency.h"
 #include "HeightmapModifier/BlendLandscape.h"
 #include "Kismet/GameplayStatics.h"
+#include "Modules/ModuleManager.h"
 
 #if WITH_EDITOR
 #include "FileHelpers.h"

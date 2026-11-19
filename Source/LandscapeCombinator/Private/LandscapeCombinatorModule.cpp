@@ -3,6 +3,8 @@
 #include "LandscapeCombinatorModule.h"
 #include "ConcurrencyHelpers/LCReporter.h"
 #include "LandscapeCombinator/GeneratorsStatusOverlayManager.h"
+#include "HAL/IConsoleManager.h"
+#include "Modules/ModuleManager.h"
 
 #if WITH_EDITOR
 

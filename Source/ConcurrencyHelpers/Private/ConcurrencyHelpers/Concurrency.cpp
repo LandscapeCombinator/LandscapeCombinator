@@ -13,6 +13,7 @@
 #include "Containers/Ticker.h"
 #include "Containers/Queue.h"
 #include "HAL/PlatformTime.h"
+#include "HAL/PlatformProcess.h"
 
 #define LOCTEXT_NAMESPACE "FConcurrencyHelpersModule"
 

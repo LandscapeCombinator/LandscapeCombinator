@@ -25,6 +25,7 @@
 #include "Misc/MessageDialog.h"
 #include "Misc/EngineVersionComparison.h"
 #include "HAL/ThreadManager.h"
+#include "Misc/Paths.h"
 
 #if WITH_EDITOR
 

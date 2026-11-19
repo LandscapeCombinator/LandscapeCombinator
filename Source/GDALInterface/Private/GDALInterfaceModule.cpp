@@ -4,6 +4,7 @@
 #include "GDALInterface/LogGDALInterface.h"
 #include "Interfaces/IPluginManager.h"
 #include "Misc/Paths.h"
+#include "HAL/PlatformProcess.h"
 
 #define LOCTEXT_NAMESPACE "FGDALInterfaceModule"
 
@@ -13,6 +14,17 @@ THIRD_PARTY_INCLUDES_START
 #include "gdal_utils.h"
 THIRD_PARTY_INCLUDES_END
 
+#if PLATFORM_WINDOWS
+static const TCHAR* GDALModulePlatform = TEXT("Win64");
+static const TCHAR* GDALModuleLibrary = TEXT("gdal.dll");
+#elif PLATFORM_MAC
+static const TCHAR* GDALModulePlatform = TEXT("Mac");
+static const TCHAR* GDALModuleLibrary = TEXT("libgdal.dylib");
+#else
+static const TCHAR* GDALModulePlatform = TEXT("Linux");
+static const TCHAR* GDALModuleLibrary = TEXT("libgdal.so");
+#endif
+
 FString GetPluginBaseDir(FString PluginName)
 {
 	TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(PluginName);
@@ -21,9 +33,8 @@ FString GetPluginBaseDir(FString PluginName)
 	else return "";
 }
 
-void FGDALInterfaceModule::SetGDALPaths()
+static FString GetGDALThirdPartyDir()
 {
-	UE_LOG(LogGDALInterface, Log, TEXT("Starting GDALInterface module"));
 	FString PluginBaseDir = "";
 	PluginBaseDir = GetPluginBaseDir("LandscapeCombinator");
 	if (PluginBaseDir.IsEmpty()) PluginBaseDir = GetPluginBaseDir("ImageDownloader");
@@ -34,37 +45,23 @@ void FGDALInterfaceModule::SetGDALPaths()
 	if (PluginBaseDir.IsEmpty())
 	{
 		UE_LOG(LogGDALInterface, Error, TEXT("Could not find plugin base directory."));
-		return;
+		return "";
 	}
 
-	PluginBaseDir = FPaths::ConvertRelativePathToFull(PluginBaseDir);
+	return FPaths::ConvertRelativePathToFull(PluginBaseDir) / "Source" / "ThirdParty" / "GDAL" / GDALModulePlatform;
+}
 
-	FString ShareFolder = "";
+void FGDALInterfaceModule::SetGDALPaths()
+{
+	UE_LOG(LogGDALInterface, Log, TEXT("Starting GDALInterface module"));
+	FString GDALDirectory = GetGDALThirdPartyDir();
+	if (GDALDirectory.IsEmpty()) return;
 
-#if PLATFORM_WINDOWS
-	ShareFolder = PluginBaseDir / "Source" / "ThirdParty" / "GDAL" / "Win64" / "share";
-#elif PLATFORM_LINUX
-	ShareFolder = PluginBaseDir / "Source" / "ThirdParty" / "GDAL" / "Linux" / "share";
-#elif PLATFORM_MAC
-	ShareFolder = PluginBaseDir / "Source" / "ThirdParty" / "GDAL" / "Mac" / "share";
-#endif
+	FString ShareFolder = GDALDirectory / "share";
 
 	if (!FPaths::DirectoryExists(ShareFolder))
 	{
-		FString ProjectDir = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir());
-		UE_LOG(LogGDALInterface, Log, TEXT("The share folder is not here: %s"), *ShareFolder);
-#if PLATFORM_WINDOWS
-		ShareFolder = ProjectDir / "Binaries" / "Win64" / "ThirdParty" / "GDAL" / "share";
-#elif PLATFORM_LINUX
-		ShareFolder = ProjectDir / "Binaries" / "Linux" / "ThirdParty" / "GDAL" / "share";
-#elif PLATFORM_MAC
-		ShareFolder = ProjectDir / "Binaries" / "Mac" / "ThirdParty" / "GDAL" / "share";
-#endif
-		UE_LOG(LogGDALInterface, Log, TEXT("We will try here instead: %s"), *ShareFolder);
-	}
-
-	if (!FPaths::DirectoryExists(ShareFolder))
-	{
+		UE_LOG(LogGDALInterface, Error, TEXT("The share folder is not here: %s"), *ShareFolder);
 		UE_LOG(LogGDALInterface, Error, TEXT("Failed to load GDALInterface module"));
 		return;
 	}
@@ -78,7 +75,7 @@ void FGDALInterfaceModule::SetGDALPaths()
 	PROJData = PROJData.Replace(TEXT("/"), TEXT("\\"));
 	OSMConf = OSMConf.Replace(TEXT("/"), TEXT("\\"));
 #endif
-	
+
 	if (!FPaths::FileExists(OSMConf))
 	{
 		UE_LOG(LogGDALInterface, Error, TEXT("Could not find OSM configuration file: %s"), *OSMConf);
@@ -108,9 +105,23 @@ void FGDALInterfaceModule::SetGDALPaths()
 
 void FGDALInterfaceModule::StartupModule()
 {
+	FString GDALDirectory = GetGDALThirdPartyDir();
+	if (GDALDirectory.IsEmpty()) return;
+
+	FString BinDirectory = GDALDirectory / "bin";
+	FPlatformProcess::PushDllDirectory(*BinDirectory);
+	void* GDALHandle = FPlatformProcess::GetDllHandle(*(BinDirectory / GDALModuleLibrary));
+	FPlatformProcess::PopDllDirectory(*BinDirectory);
+
+	if (!GDALHandle)
+	{
+		UE_LOG(LogGDALInterface, Error, TEXT("Failed to load %s from %s"), GDALModuleLibrary, *BinDirectory);
+		return;
+	}
+
 	SetGDALPaths();
 }
 
 #undef LOCTEXT_NAMESPACE
-	
+
 IMPLEMENT_MODULE(FGDALInterfaceModule, GDALInterface)

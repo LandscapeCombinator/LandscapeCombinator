@@ -17,6 +17,7 @@
 #include "Misc/EngineVersionComparison.h"
 #include "Engine/World.h"
 #include "Framework/Docking/TabManager.h"
+#include "Misc/Guid.h"
 
 #if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 6)
 #include "LandscapeEditLayer.h"

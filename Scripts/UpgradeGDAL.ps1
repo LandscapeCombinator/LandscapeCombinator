@@ -37,12 +37,4 @@ Copy-Item "$winStage\share\gdal" "$win\share\gdal" -Recurse
 Copy-Item "$lib\share\proj" "$win\share\proj" -Recurse
 foreach ($dest in $unix.Keys) { Install-UnixTree $unix[$dest] $dest }
 
-# UE does not overwrite newer-dated DLLs in Binaries\Win64: delete old copies (names from git HEAD + new set)
-$names = @(git -C $ThirdPartyGDAL ls-tree -r --name-only HEAD Win64/bin | ForEach-Object { Split-Path $_ -Leaf }) + $cl.Copy
-foreach ($bd in "$PSScriptRoot\..\Binaries\Win64", "$PSScriptRoot\..\..\..\Binaries\Win64") {
-  if (Test-Path $bd) { Get-ChildItem $bd -Filter *.dll | Where-Object { $names -contains $_.Name } | Remove-Item -Force }
-}
-
-# UBT caches the build plan, and Build.cs lists the DLLs
-(Get-Item (Join-Path $PSScriptRoot '..\Source\GDALInterface\GDALInterface.Build.cs')).LastWriteTime = Get-Date
 "done: $($cl.Copy.Count) Windows DLLs, Linux $([math]::Round((Get-Item (Join-Path $LinuxWork 'out\bin\libgdal.so')).Length / 1MB, 1)) MB" + $(if ($MacOut) { ', Mac updated' } else { '' })

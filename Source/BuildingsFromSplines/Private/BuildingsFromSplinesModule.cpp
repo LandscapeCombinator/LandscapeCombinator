@@ -4,6 +4,7 @@
 
 #include "BuildingsFromSplines/Building.h"
 #include "BuildingsFromSplines/BuildingCustomization.h"
+#include "Modules/ModuleManager.h"
 
 
 #define LOCTEXT_NAMESPACE "FBuildingsFromSplinesModule"

@@ -82,22 +82,12 @@ function New-Archive {
         # Remove GDAL from FilterPlugin.ini for plugins that do not depend on GDAL
         $FilterPlugin = Get-Content "$TempFolder/Config/FilterPlugin.ini" -Raw
         $FilterPlugin = $FilterPlugin -replace ".*ThirdParty.*\n.*\n", ""
-        $FilterPlugin = $FilterPlugin -replace ".*Binaries.*\n.*\n", ""
         Set-Content "$TempFolder/Config/FilterPlugin.ini" $FilterPlugin    
     }
     else
     {
         # Copy ThirdParty/GDAL for plugins that depend on it
         Copy-Item -Path "Source/ThirdParty" -Destination "$TempFolder/Source/ThirdParty" -Force -Recurse
-
-        # And the GDAL DLLs from the Binaries folder, otherwise they don't appear in the Engine package
-        New-Item -Path "$TempFolder" -Name "Binaries" -ItemType "directory" | Out-Null
-        New-Item -Path "$TempFolder/Binaries" -Name "Win64" -ItemType "directory" | Out-Null
-        New-Item -Path "$TempFolder/Binaries" -Name "Linux" -ItemType "directory" | Out-Null
-        New-Item -Path "$TempFolder/Binaries" -Name "Mac" -ItemType "directory" | Out-Null
-        Copy-Item -Path Source/ThirdParty/GDAL/Win64/bin/* -Destination "$TempFolder/Binaries/Win64" -Force
-        Copy-Item -Path Source/ThirdParty/GDAL/Linux/bin/* -Destination "$TempFolder/Binaries/Linux" -Force
-        Copy-Item -Path Source/ThirdParty/GDAL/Mac/bin/* -Destination "$TempFolder/Binaries/Mac" -Force
     }
 
 

@@ -5,6 +5,7 @@
 #include "ImageDownloader/LogImageDownloader.h"
 
 #include "HAL/FileManagerGeneric.h"
+#include "Misc/Paths.h"
 
 bool HMTilesRenamer::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 {

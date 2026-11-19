@@ -1,6 +1,7 @@
 // Copyright 2023-2027 LandscapeCombinator. All Rights Reserved.
 
 #include "ImageDownloaderModule.h"
+#include "Modules/ModuleManager.h"
 	
 IMPLEMENT_MODULE(FImageDownloaderModule, ImageDownloader)
 

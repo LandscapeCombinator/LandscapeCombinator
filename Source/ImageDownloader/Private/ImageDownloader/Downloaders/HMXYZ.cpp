@@ -17,6 +17,7 @@
 #include "HAL/FileManagerGeneric.h"
 #include "Logging/StructuredLog.h"
 #include "Containers/Queue.h"
+#include "HAL/FileManager.h"
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
