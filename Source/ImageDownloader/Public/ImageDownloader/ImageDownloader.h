@@ -4,6 +4,7 @@
 
 #include "ImageDownloader/WMSProvider.h"
 #include "ImageDownloader/HMFetcher.h"
+#include "ImageDownloader/Transformers/HMPercentResolution.h"
 #include "ImageDownloader/ParametersSelection.h"
 #include "ConsoleHelpers/ExternalTool.h"
 #include "Coordinates/LevelCoordinates.h"
@@ -791,6 +792,10 @@ public:
 	/* When different than 100%, your heightmap resolution will be scaled up or down using GDAL. */
 	int PrecisionPercent = 100;
 
+	/** GDAL resampling method used when scaling the heightmap resolution. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resolution",
+		meta = (EditCondition = "bScaleResolution", EditConditionHides, DisplayPriority = "22"))
+	EGDALResamplingMethod ScaleResamplingMethod = EGDALResamplingMethod::Nearest;
 
 	/**********************
 	 * Adapt to Landscape *

@@ -49,7 +49,7 @@ public:
 	static bool GetMinMax(FVector2D &MinMax, TArray<FString> Files);
 	static bool ConvertToPNG(FString SourceFile, FString TargetFile, int MinAltitude, int MaxAltitude, int PrecisionPercent, bool bHideNoDataFlag);
 	static bool ConvertToPNG(FString SourceFile, FString TargetFile, bool bHideNoDataFlag);
-	static bool ChangeResolution(FString SourceFile, FString TargetFile, int PrecisionPercent);
+	static bool ChangeResolution(FString SourceFile, FString TargetFile, int PrecisionPercent, FString ResamplingMethod);
 	static bool Translate(FString SourceFile, FString TargetFile, TArray<FString> Args);
 	static bool Warp(FString SourceFile, FString TargetFile, FString InCRS, FString OutCRS, bool bCrop, int NoData);
 	static bool Warp(TArray<FString> SourceFiles, FString TargetFolder, FString InCRS, FString OutCRS, bool bCrop, int NoData);
