@@ -88,7 +88,7 @@ public:
 	virtual bool IsTileOutsideCoverage() override { return IsValid(HeightmapDownloader) && HeightmapDownloader->IsTileOutsideCoverage(); }
 	virtual bool ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY) override
 	{
-		if (IsValid(HeightmapDownloader)) return HeightmapDownloader->ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY);
+		if (IsValid(HeightmapDownloader)) return HeightmapDownloader->ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY, 0, bGeodeticTiles);
 		else
 		{
 			LCReporter::ShowError(LOCTEXT("Error", "HeightmapDownloader is not set"));
@@ -103,41 +103,41 @@ public:
 	 ********************/
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "General",
-		meta = (DisplayPriority = "-100")
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner",
+		meta = (DisplayPriority = "1")
 	)
 	ESpawnMethod SpawnMethod = ESpawnMethod::CreateFreshLandscape;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "General",
-		meta = (EditCondition = "SpawnMethod == ESpawnMethod::ExtendExistingLandscape", EditConditionHides, DisplayPriority = "-50")
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner",
+		meta = (EditCondition = "SpawnMethod == ESpawnMethod::ExtendExistingLandscape", EditConditionHides, DisplayPriority = "2")
 	)
 	FActorSelection LandscapeToExtendSelection;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "General",
-		meta = (EditCondition = "SpawnMethod != ESpawnMethod::ExtendExistingLandscape", EditConditionHides, DisplayPriority = "-50")
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner",
+		meta = (EditCondition = "SpawnMethod != ESpawnMethod::ExtendExistingLandscape", EditConditionHides, DisplayPriority = "2")
 	)
 	/* Label of the landscape to create. */
 	FString LandscapeLabel = "SpawnedLandscape";
 
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "General",
-		meta = (EditCondition = "SpawnMethod != ESpawnMethod::ExtendExistingLandscape", EditConditionHides, DisplayPriority = "-49")
+	UPROPERTY(AdvancedDisplay,
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner",
+		meta = (EditCondition = "SpawnMethod != ESpawnMethod::ExtendExistingLandscape", EditConditionHides, DisplayPriority = "5")
 	)
 	/* Tag to add on the spawned landscape. */
 	FName LandscapeTag = "lc";
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "General",
-		meta = (EditCondition = "SpawnMethod != ESpawnMethod::ExtendExistingLandscape", EditConditionHides, DisplayPriority = "-48")
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner",
+		meta = (EditCondition = "SpawnMethod != ESpawnMethod::ExtendExistingLandscape", EditConditionHides, DisplayPriority = "3")
 	)
 	/* Material to apply to the landscape */
 	TObjectPtr<UMaterialInterface> LandscapeMaterial = nullptr;
 
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "General",
-		meta = (EditCondition = "SpawnMethod != ESpawnMethod::ExtendExistingLandscape", EditConditionHides, DisplayPriority = "-47")
+	UPROPERTY(AdvancedDisplay,
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner",
+		meta = (EditCondition = "SpawnMethod != ESpawnMethod::ExtendExistingLandscape", EditConditionHides, DisplayPriority = "6")
 	)
 	/**
 	 * If you are using World Partition, check this option if you want to create landscape streaming proxies.
@@ -147,16 +147,16 @@ public:
 	 */
 	bool bCreateLandscapeStreamingProxies = false;
 
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "General",
-		meta = (DisplayPriority = "4")
+	UPROPERTY(AdvancedDisplay,
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner",
+		meta = (DisplayPriority = "7")
 	)
 	/* Folder used to spawn the actors. This setting is unused when generating from a combination or from blueprints. */
 	FName SpawnedActorsPath;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "General",
-		meta = (DisplayPriority = "5")
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner",
+		meta = (DisplayPriority = "3")
 	)
 	/* The scale in the Z-axis of your heightmap, ZScale = 1 corresponds to real-world size. */
 	double ZScale = 1;
@@ -166,8 +166,8 @@ public:
 	 * Blending *
 	 ************/
 
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Blending",
+	UPROPERTY(AdvancedDisplay,
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Blending",
 		meta = (DisplayPriority = "0")
 	)
 	/**
@@ -177,7 +177,7 @@ public:
 	bool bBlendLandscapeWithAnotherLandscape = false;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Blending",
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Blending",
 		meta = (EditCondition = "bBLendLandscapeWithAnotherLandscape", EditConditionHides, DisplayPriority = "1", ShowOnlyInnerProperties)
 	)
 	TObjectPtr<UBlendLandscape> BlendLandscape;
@@ -187,17 +187,17 @@ public:
 	 **********/
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Decals",
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Decals",
 		meta = (DisplayPriority = "-10")
 	)
 	EDecalCreation DecalCreation = EDecalCreation::None;
 
 	
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Decals",
+	UPROPERTY(AdvancedDisplay,
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Decals",
 		meta = (EditCondition = "DecalCreation != EDecalCreation::None", EditConditionHides, DisplayPriority = "-9")
 	)
-	TObjectPtr<UMaterial> DecalMaterial =
+	TObjectPtr<UMaterialInterface> DecalMaterial =
 		Cast<UMaterial>(
 			StaticLoadObject(
 				UMaterial::StaticClass(),
@@ -206,44 +206,44 @@ public:
 			)
 		);
 
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Decals",
+	UPROPERTY(AdvancedDisplay,
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Decals",
 		meta = (EditCondition = "DecalCreation != EDecalCreation::None", EditConditionHides, DisplayPriority = "-5")
 	)
 	bool bDecalMergeImages = false;
 
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Decals",
+	UPROPERTY(AdvancedDisplay,
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Decals",
 		meta = (EditCondition = "DecalCreation != EDecalCreation::None", EditConditionHides, DisplayPriority = "0")
 	)
 	int DecalsSortOrder = 0;
 
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Decals",
+	UPROPERTY(AdvancedDisplay,
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Decals",
 		meta = (EditCondition = "DecalCreation == EDecalCreation::Mapbox && !HasMapboxToken()", EditConditionHides, DisplayPriority = "1")
 	)
 	FString Decals_Mapbox_Token = "";
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Decals",
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Decals",
 		meta = (EditCondition = "DecalCreation == EDecalCreation::Mapbox", EditConditionHides, DisplayPriority = "2")
 	)
 	int Decals_Mapbox_Zoom = 9;
 
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Decals",
+	UPROPERTY(AdvancedDisplay,
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Decals",
 		meta = (EditCondition = "DecalCreation == EDecalCreation::Mapbox", EditConditionHides, DisplayPriority = "3")
 	)
 	bool Decals_Mapbox_2x = false;
 
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Decals",
+	UPROPERTY(AdvancedDisplay,
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Decals",
 		meta = (EditCondition = "DecalCreation == EDecalCreation::MapTiler && !HasMapTilerToken()", EditConditionHides, DisplayPriority = "1")
 	)
 	FString Decals_MapTiler_Token = "";
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "Decals",
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Decals",
 		meta = (EditCondition = "DecalCreation == EDecalCreation::MapTiler", EditConditionHides, DisplayPriority = "2")
 	)
 	int Decals_MapTiler_Zoom = 9;
@@ -254,8 +254,8 @@ public:
 	 * Components Count *
 	 ********************/	
 
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ComponentCount",
+	UPROPERTY(AdvancedDisplay,
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Components",
 		meta = (
 			EditCondition = "SpawnMethod != ESpawnMethod::ExtendExistingLandscape",
 			EditConditionHides, DisplayPriority = "3"
@@ -263,8 +263,8 @@ public:
 	)
 	EComponentsMethod ComponentsMethod = EComponentsMethod::AutoWithoutBorder;
 	
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ComponentCount",
+	UPROPERTY(AdvancedDisplay,
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Components",
 		meta = (
 			EditCondition = "SpawnMethod != ESpawnMethod::ExtendExistingLandscape && ComponentsMethod != EComponentsMethod::Auto && ComponentsMethod != EComponentsMethod::AutoWithoutBorder",
 			EditConditionHides, DisplayPriority = "4"
@@ -272,8 +272,8 @@ public:
 	)
 	int QuadsPerSubsection;
 	
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ComponentCount",
+	UPROPERTY(AdvancedDisplay,
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Components",
 		meta = (
 			EditCondition = "SpawnMethod != ESpawnMethod::ExtendExistingLandscape && ComponentsMethod != EComponentsMethod::Auto && ComponentsMethod != EComponentsMethod::AutoWithoutBorder",
 			EditConditionHides, DisplayPriority = "5"
@@ -281,8 +281,8 @@ public:
 	)
 	int SectionsPerComponent;
 	
-	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "ComponentCount",
+	UPROPERTY(AdvancedDisplay,
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Components",
 		meta = (
 			EditCondition = "SpawnMethod != ESpawnMethod::ExtendExistingLandscape && ComponentsMethod != EComponentsMethod::Auto && ComponentsMethod != EComponentsMethod::AutoWithoutBorder",
 			EditConditionHides, DisplayPriority = "6"

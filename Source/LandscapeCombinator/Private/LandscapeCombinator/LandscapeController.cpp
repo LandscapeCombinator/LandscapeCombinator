@@ -32,6 +32,14 @@ void ULandscapeController::AdjustLandscape()
 	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(Landscape->GetWorld());
 	if (!IsValid(GlobalCoordinates)) return;
 
+	if (GlobalCoordinates->IsSphere())
+	{
+		LCReporter::ShowError(
+			LOCTEXT("ULandscapeController::AdjustLandscape::Sphere", "The LandscapeController does not support the sphere model. Set the BodyModel of the LevelCoordinates to Flat.")
+		);
+		return;
+	}
+
 	if (CRS != GlobalCoordinates->CRS)
 	{
 		LCReporter::ShowError(FText::Format(

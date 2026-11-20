@@ -27,6 +27,8 @@ public:
 	static bool GetZ(UWorld* World, FCollisionQueryParams CollisionQueryParams, double x, double y, double &OutZ, bool bDrawDebugLine = false);
 	static bool GetZ(AActor* Actor, double x, double y, double &OutZ, bool bDrawDebugLine = false);
 
+	static bool GetSurfaceLocation(UWorld* World, FCollisionQueryParams CollisionQueryParams, const UGlobalCoordinates* G, const FVector& Location, FVector &OutLocation, bool bDrawDebugLine = false);
+
 	static bool CreateMeshFromHeightmap(
 		int Width, int Height, const TArray<float>& Heightmap, const FVector2D & TopLeftCorner, const FVector2D & BottomRightCorner, double ZScale,
 		TArray<FVector> &OutVertices, TArray<FIndex3i> &OutTriangles

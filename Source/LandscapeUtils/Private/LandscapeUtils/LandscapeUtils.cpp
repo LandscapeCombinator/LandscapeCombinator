@@ -261,10 +261,14 @@ bool LandscapeUtils::CustomCollisionQueryParams(const UWorld *World, const FActo
 	return CustomCollisionQueryParams(ActorSelection.GetAllActors(World), CollisionQueryParams);
 }
 
-bool LandscapeUtils::GetZ(UWorld* World, FCollisionQueryParams CollisionQueryParams, double x, double y, double &OutZ, bool bDrawDebugLine)
+bool LandscapeUtils::GetSurfaceLocation(UWorld* World, FCollisionQueryParams CollisionQueryParams, const UGlobalCoordinates* G, const FVector& Location, FVector &OutLocation, bool bDrawDebugLine)
 {
-	FVector StartLocation = FVector(x, y, HALF_WORLD_MAX);
-	FVector EndLocation = FVector(x, y, -HALF_WORLD_MAX);
+	const bool bSphere = UGlobalCoordinates::IsSphere(G);
+	const FVector Up = UGlobalCoordinates::Up(G, Location);
+	const FVector Base = bSphere ? Location : FVector(Location.X, Location.Y, 0);
+	const double RayHalfLength = bSphere ? 10000000.0 : HALF_WORLD_MAX;
+	const FVector StartLocation = Base + Up * RayHalfLength;
+	const FVector EndLocation = Base - Up * RayHalfLength;
 
 	// ignore BSPs
 	for (ULevel* Level : World->GetLevels())
@@ -307,13 +311,22 @@ bool LandscapeUtils::GetZ(UWorld* World, FCollisionQueryParams CollisionQueryPar
 
 	if (bHit)
 	{
-		OutZ = HitResult.ImpactPoint.Z;
+		OutLocation = HitResult.ImpactPoint;
 		return true;
 	}
 	else
 	{
 		return false;
 	}
+}
+
+bool LandscapeUtils::GetZ(UWorld* World, FCollisionQueryParams CollisionQueryParams, double x, double y, double &OutZ, bool bDrawDebugLine)
+{
+	FVector Location;
+	if (!GetSurfaceLocation(World, CollisionQueryParams, nullptr, FVector(x, y, 0), Location, bDrawDebugLine)) return false;
+
+	OutZ = Location.Z;
+	return true;
 }
 
 bool LandscapeUtils::GetZ(AActor *Actor, double x, double y, double &OutZ, bool bDrawDebugLine)

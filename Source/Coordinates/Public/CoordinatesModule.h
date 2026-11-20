@@ -5,4 +5,12 @@
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
 
-class FCoordinatesModule : public IModuleInterface {};
+class FCoordinatesModule : public IModuleInterface
+{
+public:
+	virtual void StartupModule() override;
+	virtual void ShutdownModule() override;
+
+private:
+	void RegisterMenus();
+};

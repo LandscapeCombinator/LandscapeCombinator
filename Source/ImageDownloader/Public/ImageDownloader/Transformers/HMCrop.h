@@ -8,11 +8,12 @@
 class IMAGEDOWNLOADER_API HMCrop : public HMFetcher
 {
 public:
-	HMCrop(FString Name0, bool bCropFollowingParametersSelection0, FParametersSelection ParametersSelection0, AActor *CroppingActor0) :
+	HMCrop(FString Name0, bool bCropFollowingParametersSelection0, FParametersSelection ParametersSelection0, AActor *CroppingActor0, double SphereRadiusCm0 = 0) :
 		Name(Name0),
 		bCropFollowingParametersSelection(bCropFollowingParametersSelection0),
 		ParametersSelection(ParametersSelection0),
-		CroppingActor(CroppingActor0)
+		CroppingActor(CroppingActor0),
+		SphereRadiusCm(SphereRadiusCm0)
 	{
 	};
 
@@ -27,4 +28,5 @@ protected:
 	bool bCropFollowingParametersSelection;
 	FParametersSelection ParametersSelection;
 	AActor *CroppingActor;
+	double SphereRadiusCm;
 };

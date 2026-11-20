@@ -1,6 +1,7 @@
 // Copyright 2023-2027 LandscapeCombinator. All Rights Reserved.
 
 #include "LandscapeCombinator/LandscapeMesh.h"
+#include "Coordinates/LevelCoordinates.h"
 #include "LandscapeCombinator/LandscapeMeshSpawner.h"
 #include "LandscapeCombinator/LogLandscapeCombinator.h"
 #include "GDALInterface/GDALInterface.h"
@@ -147,10 +148,18 @@ bool ALandscapeMesh::AddHeightmap(int InPriority, FVector4d Coordinates, UGlobal
 			{
 				double X = LeftCoord + (i + 0.5) * (RightCoord - LeftCoord) / InWidth;
 				double Y = TopCoord - (j + 0.5) * (TopCoord - BottomCoord) / InHeight;
-				FVector2D UnrealCoordinates;
-				GlobalCoordinates->GetUnrealCoordinatesFromCRS(X, Y, UnrealCoordinates);
 				float Z = Data[j * InWidth + i] * 100;
-				FVector Point(UnrealCoordinates.X, UnrealCoordinates.Y, Z);
+				FVector Point;
+				if (UGlobalCoordinates::IsSphere(GlobalCoordinates))
+				{
+					Point = GlobalCoordinates->ToWorld(X, Y, Z);
+				}
+				else
+				{
+					FVector2D UnrealCoordinates;
+					GlobalCoordinates->GetUnrealCoordinatesFromCRS(X, Y, UnrealCoordinates);
+					Point = FVector(UnrealCoordinates.X, UnrealCoordinates.Y, Z);
+				}
 				NewPoints[i + j * InWidth] = Point;
 
 				NewRect[0] = FMath::Min(NewRect[0], Point.X);
@@ -162,6 +171,13 @@ bool ALandscapeMesh::AddHeightmap(int InPriority, FVector4d Coordinates, UGlobal
 	}
 
 	if (!WeakThis.IsValid()) return false;
+
+	if (UGlobalCoordinates::IsSphere(GlobalCoordinates))
+	{
+		const double HalfPixelLong = 0.5 * (RightCoord - LeftCoord) / InWidth;
+		const double HalfPixelLat = 0.5 * (TopCoord - BottomCoord) / InHeight;
+		NewRect = FVector4d(LeftCoord + HalfPixelLong, RightCoord - HalfPixelLong, BottomCoord + HalfPixelLat, TopCoord - HalfPixelLat);
+	}
 
 	FLandscapeMeshHeightmap NewHeightmap;
 	NewHeightmap.Owner = OwnerName;
@@ -436,12 +452,21 @@ bool ALandscapeMesh::IsCoveredBySiblingHeightmap(const TArray<FLandscapeMeshHeig
 	return false;
 }
 
-void ALandscapeMesh::ComputeCoverage(FLandscapeMeshGrid& Grid, int32 HeightmapIndex, const TArray<FLandscapeMeshHeightmap>& Siblings)
+static FVector2D GetRectPoint(const UGlobalCoordinates* GlobalCoordinates, const FVector& World)
+{
+	if (!UGlobalCoordinates::IsSphere(GlobalCoordinates)) return FVector2D(World.X, World.Y);
+
+	double Long, Lat, Alt;
+	GlobalCoordinates->FromWorld(World, Long, Lat, Alt);
+	return FVector2D(Long, Lat);
+}
+
+void ALandscapeMesh::ComputeCoverage(FLandscapeMeshGrid& Grid, int32 HeightmapIndex, const TArray<FLandscapeMeshHeightmap>& Siblings, const UGlobalCoordinates* GlobalCoordinates)
 {
 	const TArray<FVector>& Points = Grid.Heightmap.Points;
 	for (int32 Index = 0; Index < Points.Num(); ++Index)
 	{
-		const FVector2D Point2D(Points[Index].X, Points[Index].Y);
+		const FVector2D Point2D = GetRectPoint(GlobalCoordinates, Points[Index]);
 		Grid.bCovered[Index] =
 			IsPointCoveredByHigherOrEqualPriority(Point2D, Grid.Heightmap.Priority, this) ||
 			IsCoveredBySiblingHeightmap(Siblings, HeightmapIndex, Point2D);
@@ -491,7 +516,7 @@ void ALandscapeMesh::BuildGridForHeightmap(FDynamicMesh3& Mesh, FLandscapeMeshGr
 	}
 }
 
-void ALandscapeMesh::BuildApronForHeightmap(FDynamicMesh3& Mesh, FLandscapeMeshGrid& Grid, const FTransform& WorldToMesh, double ApronWidth, double ApronDepth)
+void ALandscapeMesh::BuildApronForHeightmap(FDynamicMesh3& Mesh, FLandscapeMeshGrid& Grid, const FTransform& WorldToMesh, double ApronWidth, double ApronDepth, const UGlobalCoordinates* GlobalCoordinates)
 {
 	const TArray<FVector>& Points = Grid.Heightmap.Points;
 	const int32 Width = Grid.Heightmap.Width;
@@ -510,43 +535,45 @@ void ALandscapeMesh::BuildApronForHeightmap(FDynamicMesh3& Mesh, FLandscapeMeshG
 	struct FBoundaryEdge { int32 VaGrid; int32 VbGrid; };
 	TArray<FBoundaryEdge> BoundaryEdges;
 
-	TArray<int8> OutwardXSign, OutwardYSign;
-	OutwardXSign.Init(0, Points.Num());
-	OutwardYSign.Init(0, Points.Num());
+	TArray<FVector> OutwardSum;
+	OutwardSum.Init(FVector::ZeroVector, Points.Num());
+	TArray<int32> OutwardCount;
+	OutwardCount.Init(0, Points.Num());
 
 	auto AddBoundaryEdge = [&](int32 qi, int32 qj, int32 VaGrid, int32 VbGrid)
 	{
 		const FVector& Va = Points[VaGrid];
 		const FVector& Vb = Points[VbGrid];
 
-		FVector2D EdgeDir(Vb.X - Va.X, Vb.Y - Va.Y);
+		const FVector Mid = 0.5 * (Va + Vb);
+		const FVector Up = UGlobalCoordinates::Up(GlobalCoordinates, Mid);
+		FVector EdgeDir = Vb - Va;
+		EdgeDir -= FVector::DotProduct(EdgeDir, Up) * Up;
 		if (!EdgeDir.Normalize()) return;
 
-		FVector2D Perp(-EdgeDir.Y, EdgeDir.X);
+		FVector Perp = FVector::CrossProduct(Up, EdgeDir);
 
 		FVector QuadCenter = 0.25 * (
 			Points[qi + qj * Width] + Points[(qi + 1) + qj * Width] +
 			Points[qi + (qj + 1) * Width] + Points[(qi + 1) + (qj + 1) * Width]);
-		FVector2D Mid = 0.5 * (FVector2D(Va.X, Va.Y) + FVector2D(Vb.X, Vb.Y));
-		FVector2D ToCenter = FVector2D(QuadCenter.X, QuadCenter.Y) - Mid;
+		FVector ToCenter = QuadCenter - Mid;
 
-		FVector2D Outward = (FVector2D::DotProduct(Perp, ToCenter) > 0.0) ? -Perp : Perp;
+		FVector Outward = (FVector::DotProduct(Perp, ToCenter) > 0.0) ? -Perp : Perp;
 
-		int8 SignX = (Outward.X > 0.5) ? 1 : (Outward.X < -0.5) ? -1 : 0;
-		int8 SignY = (Outward.Y > 0.5) ? 1 : (Outward.Y < -0.5) ? -1 : 0;
-
-		double Cross2D = EdgeDir.X * Outward.Y - EdgeDir.Y * Outward.X;
+		double Cross = FVector::DotProduct(FVector::CrossProduct(EdgeDir, Outward), Up);
 		int32 FinalVaGrid = VaGrid;
 		int32 FinalVbGrid = VbGrid;
-		if (Cross2D <= 0.0)
+		if (Cross <= 0.0)
 		{
 			FinalVaGrid = VbGrid;
 			FinalVbGrid = VaGrid;
 		}
 
 		BoundaryEdges.Add({ FinalVaGrid, FinalVbGrid });
-		if (SignX != 0) { OutwardXSign[VaGrid] = SignX; OutwardXSign[VbGrid] = SignX; }
-		if (SignY != 0) { OutwardYSign[VaGrid] = SignY; OutwardYSign[VbGrid] = SignY; }
+		OutwardSum[VaGrid] += Outward;
+		OutwardSum[VbGrid] += Outward;
+		OutwardCount[VaGrid]++;
+		OutwardCount[VbGrid]++;
 	};
 
 	for (int32 j = 0; j < Height - 1; ++j)
@@ -574,9 +601,13 @@ void ALandscapeMesh::BuildApronForHeightmap(FDynamicMesh3& Mesh, FLandscapeMeshG
 	{
 		if (ApronVertexIds[GridIndex] == -1)
 		{
-			FVector2D Dir(OutwardXSign[GridIndex], OutwardYSign[GridIndex]);
-			if (Dir.IsNearlyZero()) Dir = FVector2D(1, 0);
-			FVector ApronPos = Points[GridIndex] + FVector(Dir.X, Dir.Y, 0.0) * ApronWidth - FVector(0, 0, ApronDepth);
+			const FVector Up = UGlobalCoordinates::Up(GlobalCoordinates, Points[GridIndex]);
+			FVector Outward = OutwardSum[GridIndex];
+			if (Outward.IsNearlyZero()) Outward = FVector::XAxisVector;
+			Outward -= FVector::DotProduct(Outward, Up) * Up;
+			const double L2 = Outward.SizeSquared();
+			Outward = (OutwardCount[GridIndex] == 2 && L2 > 0.5) ? Outward * (2.0 / L2) : Outward.GetSafeNormal();
+			FVector ApronPos = Points[GridIndex] + Outward * ApronWidth - Up * ApronDepth;
 			ApronVertexIds[GridIndex] = Mesh.AppendVertex(WorldToMesh.TransformPosition(ApronPos));
 		}
 		return ApronVertexIds[GridIndex];
@@ -594,7 +625,7 @@ void ALandscapeMesh::BuildApronForHeightmap(FDynamicMesh3& Mesh, FLandscapeMeshG
 	}
 }
 
-void ALandscapeMesh::FillGapsWithCDT(FDynamicMesh3& Mesh, const FTransform& WorldToMesh, const TArray<FLandscapeMeshHeightmap>& AllHeightmaps)
+void ALandscapeMesh::FillGapsWithCDT(FDynamicMesh3& Mesh, const FTransform& WorldToMesh, const TArray<FLandscapeMeshHeightmap>& AllHeightmaps, const UGlobalCoordinates* GlobalCoordinates)
 {
 	if (Mesh.TriangleCount() == 0) return;
 
@@ -645,7 +676,7 @@ void ALandscapeMesh::FillGapsWithCDT(FDynamicMesh3& Mesh, const FTransform& Worl
 	{
 		const FVector3d Centroid = (Mesh.GetVertex(T.A) + Mesh.GetVertex(T.B) + Mesh.GetVertex(T.C)) / 3.0;
 		const FVector World = WorldToMesh.InverseTransformPosition(Centroid);
-		return !IsPointCoveredByHigherOrEqualPriority(FVector2D(World.X, World.Y), MinPriority, this);
+		return !IsPointCoveredByHigherOrEqualPriority(GetRectPoint(GlobalCoordinates, World), MinPriority, this);
 	});
 
 	if (!bCDTSuccess)
@@ -699,8 +730,21 @@ bool ALandscapeMesh::RegenerateMesh(double SplitNormalsAngle, EGridSplitDirectio
 	if (bMultiHeightmap) ApronWidth = 0;
 
 	FTransform WorldToMesh;
-	bool bGotTransform = Concurrency::RunOnGameThreadAndWait([WeakThis, &WorldToMesh]() {
+	UGlobalCoordinates* GlobalCoordinates = nullptr;
+	bool bGotTransform = Concurrency::RunOnGameThreadAndWait([&]() {
 		if (!WeakThis.IsValid() || !IsValid(WeakThis->MeshComponent)) return false;
+		GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(WeakThis->GetWorld(), false);
+		if (UGlobalCoordinates::IsSphere(GlobalCoordinates))
+		{
+			FVector2D Center(0, 0);
+			for (const FLandscapeMeshHeightmap& Heightmap : LocalHeightmaps)
+			{
+				Center += FVector2D(Heightmap.Rect[0] + Heightmap.Rect[1], Heightmap.Rect[2] + Heightmap.Rect[3]) / 2;
+			}
+			Center /= LocalHeightmaps.Num();
+			const FVector NewLocation = GlobalCoordinates->ToWorld(Center.X, Center.Y);
+			WeakThis->SetActorLocationAndRotation(NewLocation, GlobalCoordinates->Alignment(NewLocation));
+		}
 		WorldToMesh = WeakThis->MeshComponent->GetComponentTransform().Inverse();
 		return true;
 	});
@@ -711,12 +755,12 @@ bool ALandscapeMesh::RegenerateMesh(double SplitNormalsAngle, EGridSplitDirectio
 	for (int32 HeightmapIndex = 0; HeightmapIndex < LocalHeightmaps.Num(); ++HeightmapIndex)
 	{
 		FLandscapeMeshGrid Grid(LocalHeightmaps[HeightmapIndex]);
-		ComputeCoverage(Grid, HeightmapIndex, LocalHeightmaps);
+		ComputeCoverage(Grid, HeightmapIndex, LocalHeightmaps, GlobalCoordinates);
 		BuildGridForHeightmap(NewMesh, Grid, WorldToMesh, SplitDirection);
-		BuildApronForHeightmap(NewMesh, Grid, WorldToMesh, ApronWidth, ApronDepth);
+		BuildApronForHeightmap(NewMesh, Grid, WorldToMesh, ApronWidth, ApronDepth, GlobalCoordinates);
 	}
 
-	if (bMultiHeightmap) FillGapsWithCDT(NewMesh, WorldToMesh, LocalHeightmaps);
+	if (bMultiHeightmap) FillGapsWithCDT(NewMesh, WorldToMesh, LocalHeightmaps, GlobalCoordinates);
 
 	ALandscapeMesh* StrongThis = WeakThis.Get();
 	if (!IsValid(StrongThis) || !IsValid(StrongThis->MeshComponent) || !IsValid(StrongThis->MeshComponent->GetDynamicMesh()))

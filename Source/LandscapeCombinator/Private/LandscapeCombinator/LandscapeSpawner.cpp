@@ -181,6 +181,13 @@ bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 	}
 
 	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false);
+	if (IsValid(GlobalCoordinates) && GlobalCoordinates->IsSphere())
+	{
+		LCReporter::ShowError(
+			LOCTEXT("ALandscapeSpawner::OnGenerate::Sphere", "The LandscapeSpawner does not support the sphere model. Use a LandscapeMeshSpawner, or set the BodyModel of the LevelCoordinates to Flat.")
+		);
+		return false;
+	}
 	if (IsValid(GlobalCoordinates))
 	{
 		if (bIsUserInitiated && !Concurrency::RunOnGameThreadAndWait([&]() { return LCReporter::ShowMessage(

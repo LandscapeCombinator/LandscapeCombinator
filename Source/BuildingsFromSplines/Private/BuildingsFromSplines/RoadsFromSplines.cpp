@@ -9,6 +9,7 @@
 #include "ConcurrencyHelpers/Concurrency.h"
 #include "ConcurrencyHelpers/LCReporter.h"
 #include "LandscapeUtils/LandscapeUtils.h"
+#include "Coordinates/LevelCoordinates.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Components/DynamicMeshComponent.h"
 #include "GeometryScript/MeshPrimitiveFunctions.h"
@@ -33,7 +34,7 @@
 
 namespace
 {
-	void GetSortedJunctionArms(const FRoadGraph& RoadGraph, const TMap<int32, FRoadEdgeSplineData>& EdgeSplineData,
+	void GetSortedJunctionArms(const FRoadGraph& RoadGraph, const TMap<int32, FRoadEdgeSplineData>& EdgeSplineData, const UGlobalCoordinates* GlobalCoordinates,
 		int32 JunctionNode, TArray<TPair<int32, FVector>>& OutArms, TArray<FVector>& OutTangents)
 	{
 		TRACE_CPUPROFILER_EVENT_SCOPE_STR(__FUNCTION__);
@@ -59,10 +60,13 @@ namespace
 			Tangents.Add(FarTangentAway);
 		}
 
+		const FQuat Alignment = UGlobalCoordinates::Alignment(GlobalCoordinates, Center);
 		TArray<int32> Order;
 		for (int32 i = 0; i < Arms.Num(); i++) Order.Add(i);
 		Order.Sort([&](int32 A, int32 B) {
-			return FMath::Atan2(Arms[A].Value.Y, Arms[A].Value.X) < FMath::Atan2(Arms[B].Value.Y, Arms[B].Value.X);
+			const FVector DirA = Alignment.UnrotateVector(Arms[A].Value);
+			const FVector DirB = Alignment.UnrotateVector(Arms[B].Value);
+			return FMath::Atan2(DirA.Y, DirA.X) < FMath::Atan2(DirB.Y, DirB.X);
 		});
 
 		for (int32 i : Order) { OutArms.Add(Arms[i]); OutTangents.Add(Tangents[i]); }
@@ -112,8 +116,8 @@ void ARoadsFromSplines::CreateStraightJunctionMeshes(int32 JunctionNode)
 		const float CenterZ = ZOffset;
 
 		FEdgeSplinePoints Points;
-		Points.StartLocal = ActorTransform.InverseTransformPosition(Center) + FVector(0, 0, CenterZ);
-		Points.EndLocal   = ActorTransform.InverseTransformPosition(RoadGraph.Nodes[FarNode].Location) + FVector(0, 0, ZOffset);
+		Points.StartLocal = ActorTransform.InverseTransformPosition(Center) + LocalUp(Center) * CenterZ;
+		Points.EndLocal   = ActorTransform.InverseTransformPosition(RoadGraph.Nodes[FarNode].Location) + LocalUp(RoadGraph.Nodes[FarNode].Location) * ZOffset;
 		Points.StartTangentLocal = ActorTransform.InverseTransformVector(NearTangent);
 		Points.EndTangentLocal   = ActorTransform.InverseTransformVector(FarTangent);
 		ArmPoints.Add(Points);
@@ -152,7 +156,7 @@ void ARoadsFromSplines::CreateCurvyJunctionMeshes(int32 JunctionNode)
 
 	TArray<TPair<int32, FVector>> Arms;
 	TArray<FVector> Tangents;
-	GetSortedJunctionArms(RoadGraph, EdgeSplineData, JunctionNode, Arms, Tangents);
+	GetSortedJunctionArms(RoadGraph, EdgeSplineData, GlobalCoordinates.Get(), JunctionNode, Arms, Tangents);
 	if (Arms.Num() < 2) return;
 
 	for (int32 i = 0; i < Arms.Num(); i++)
@@ -202,8 +206,8 @@ void ARoadsFromSplines::CreateCurvyJunctionMeshes(int32 JunctionNode)
 		const FVector StartTangentWorld = -StartDir * ChordDist * 0.5 * CornerStraightness;
 		const FVector EndTangentWorld   =  EndDir   * ChordDist * 0.5 * CornerStraightness;
 
-		Corner.Points.StartLocal = ActorTransform.InverseTransformPosition(StartWorld) + FVector(0, 0, ZOffset);
-		Corner.Points.EndLocal   = ActorTransform.InverseTransformPosition(EndWorld)   + FVector(0, 0, ZOffset);
+		Corner.Points.StartLocal = ActorTransform.InverseTransformPosition(StartWorld) + LocalUp(StartWorld) * ZOffset;
+		Corner.Points.EndLocal   = ActorTransform.InverseTransformPosition(EndWorld)   + LocalUp(EndWorld) * ZOffset;
 		Corner.Points.StartTangentLocal = ActorTransform.InverseTransformVector(StartTangentWorld);
 		Corner.Points.EndTangentLocal   = ActorTransform.InverseTransformVector(EndTangentWorld);
 		Corners.Add(Corner);
@@ -315,16 +319,23 @@ void ARoadsFromSplines::FillJunctionInterior(int32 JunctionNode, TArray<FVector>
 
 	const FTransform& ActorTransform = GetActorTransform();
 
+	FVector Pivot = FVector::ZeroVector;
+	for (const FVector& World : BoundaryWorld) Pivot += ActorTransform.InverseTransformPosition(World);
+	Pivot /= BoundaryWorld.Num();
+	const FQuat ActorRotation = ActorTransform.GetRotation();
+	const FQuat Frame = ActorRotation.Inverse() * UGlobalCoordinates::Alignment(GlobalCoordinates.Get(), ActorTransform.TransformPosition(Pivot)) * ActorRotation;
+	auto ToFrame = [&](const FVector& World) { return Frame.UnrotateVector(ActorTransform.InverseTransformPosition(World) - Pivot); };
+
 	TArray<FVector2D> Boundary2D;
 	TArray<double> Heights;
 	double MinZ = MAX_dbl;
 
 	for (const FVector& World : BoundaryWorld)
-		MinZ = FMath::Min(MinZ, ActorTransform.InverseTransformPosition(World).Z);
+		MinZ = FMath::Min(MinZ, ToFrame(World).Z);
 
 	for (const FVector& World : BoundaryWorld)
 	{
-		const FVector Local = ActorTransform.InverseTransformPosition(World);
+		const FVector Local = ToFrame(World);
 		const FVector2D Point2D(Local.X, Local.Y);
 		Boundary2D.Add(Point2D);
 		Heights.Add(Local.Z - MinZ);
@@ -345,17 +356,11 @@ void ARoadsFromSplines::FillJunctionInterior(int32 JunctionNode, TArray<FVector>
 		Algo::Reverse(Heights);
 	}
 
-	FVector2D Pivot2D(0, 0);
-	for (const FVector2D& P : Boundary2D) Pivot2D += P;
-	Pivot2D /= FMath::Max(1, Boundary2D.Num());
-	for (FVector2D& P : Boundary2D) P -= Pivot2D;
-
 	if (!JunctionFillMeshComponents.Contains(JunctionNode))
 	{
 		UDynamicMeshComponent* FillComponent = NewObject<UDynamicMeshComponent>(RootComponent);
 		FillComponent->SetMobility(EComponentMobility::Static);
 		FillComponent->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
-		FillComponent->SetRelativeLocation(FVector(Pivot2D.X, Pivot2D.Y, 0.0));
 		FillComponent->CreationMethod = EComponentCreationMethod::Instance;
 		FillComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		FillComponent->SetCollisionProfileName(bDisableCollision ? TEXT("NoCollision") : TEXT("BlockAll"));
@@ -368,6 +373,7 @@ void ARoadsFromSplines::FillJunctionInterior(int32 JunctionNode, TArray<FVector>
 	}
 
 	UDynamicMeshComponent* FillComponent = JunctionFillMeshComponents[JunctionNode];
+	FillComponent->SetRelativeLocationAndRotation(Pivot, Frame);
 
 	TStrongObjectPtr<UDynamicMesh> ScratchMesh(NewObject<UDynamicMesh>());
 	const uint32 ThisGeneration = ++JunctionFillGeneration.FindOrAdd(JunctionNode);
@@ -612,6 +618,8 @@ bool ARoadsFromSplines::GenerateRoads(bool bIsUserInitiated)
 		return false;
 	}
 
+	GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World, false).Get();
+
 	if (bDeleteOldRoadsWhenCreatingRoads)
 	{
 		if (!Execute_Cleanup(this, !bIsUserInitiated)) return false;
@@ -661,6 +669,17 @@ bool ARoadsFromSplines::GenerateRoads(bool bIsUserInitiated)
 	UE_LOG(LogBuildingsFromSplines, Log, TEXT("Road graph now has %d nodes and %d edges"), RoadGraph.Nodes.Num(), RoadGraph.Edges.Num());
 
 	return true;
+}
+
+FVector ARoadsFromSplines::LocalUp(const FVector& World) const
+{
+	const UGlobalCoordinates* CurrentGlobalCoordinates = GlobalCoordinates.Get();
+	if (!CurrentGlobalCoordinates)
+	{
+		if (UWorld* CurrentWorld = GetWorld()) CurrentGlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(CurrentWorld, false);
+	}
+	if (!UGlobalCoordinates::IsSphere(CurrentGlobalCoordinates)) return FVector::UpVector;
+	return GetActorTransform().InverseTransformVectorNoScale(UGlobalCoordinates::Up(CurrentGlobalCoordinates, World));
 }
 
 bool ARoadsFromSplines::EdgeTouchesJunction(int32 EdgeIndex) const
@@ -713,6 +732,7 @@ USplineMeshComponent* ARoadsFromSplines::SpawnSplineMeshComponent(const FEdgeSpl
 	MeshComponent->SetForwardAxis(RoadMeshAxis, false);
 	const FVector Pivot = (Points.StartLocal + Points.EndLocal) * 0.5;
 	MeshComponent->SetRelativeLocation(Pivot);
+	if (UGlobalCoordinates::IsSphere(GlobalCoordinates.Get())) MeshComponent->SetSplineUpDir(LocalUp(GetActorTransform().TransformPosition(Pivot)), false);
 	MeshComponent->SetStartAndEnd(Points.StartLocal - Pivot, Points.StartTangentLocal, Points.EndLocal - Pivot, Points.EndTangentLocal, false);
 	ApplyLandscapeRoll(MeshComponent, Points);
 	MeshComponent->SetStartScale(FVector2D(WidthScale, HeightScale), false);
@@ -833,8 +853,8 @@ bool ARoadsFromSplines::CreateSplineMeshForEdge(int32 EdgeIndex, float ZStagger)
 	EndTangentWorld   = EndTangentWorld.GetSafeNormal()   * EdgeLength;
 
 	FEdgeSplinePoints Points;
-	Points.StartLocal = ActorTransform.InverseTransformPosition(StartWorld) + FVector(0, 0, ZStagger);
-	Points.EndLocal   = ActorTransform.InverseTransformPosition(EndWorld) + FVector(0, 0, ZStagger);
+	Points.StartLocal = ActorTransform.InverseTransformPosition(StartWorld) + LocalUp(StartWorld) * ZStagger;
+	Points.EndLocal   = ActorTransform.InverseTransformPosition(EndWorld) + LocalUp(EndWorld) * ZStagger;
 	Points.StartTangentLocal = ActorTransform.InverseTransformVector(StartTangentWorld);
 	Points.EndTangentLocal   = ActorTransform.InverseTransformVector(EndTangentWorld);
 
@@ -918,8 +938,12 @@ bool ARoadsFromSplines::ComputeLandscapeRoll(const FVector& LocationWorld, const
 	UWorld* World = GetWorld();
 	if (!IsValid(World)) return false;
 
-	const FVector TraceStart(LocationWorld.X, LocationWorld.Y, HALF_WORLD_MAX);
-	const FVector TraceEnd(LocationWorld.X, LocationWorld.Y, -HALF_WORLD_MAX);
+	const bool bSphere = UGlobalCoordinates::IsSphere(GlobalCoordinates.Get());
+	const FVector Up = UGlobalCoordinates::Up(GlobalCoordinates.Get(), LocationWorld);
+	const FVector TraceBase = bSphere ? LocationWorld : FVector(LocationWorld.X, LocationWorld.Y, 0);
+	const double RayHalfLength = bSphere ? 10000000.0 : HALF_WORLD_MAX;
+	const FVector TraceStart = TraceBase + Up * RayHalfLength;
+	const FVector TraceEnd = TraceBase - Up * RayHalfLength;
 
 	FHitResult HitResult;
 	if (!World->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECollisionChannel::ECC_Visibility, LandscapeCollisionQueryParams))
@@ -927,8 +951,8 @@ bool ARoadsFromSplines::ComputeLandscapeRoll(const FVector& LocationWorld, const
 
 	if (HitResult.Normal.IsZero()) return false;
 
-	const float MaxRoll = FMath::Acos(HitResult.Normal.Z);
-	const FVector TiltAxis = FVector::CrossProduct(HitResult.Normal, FVector::UpVector).GetSafeNormal();
+	const float MaxRoll = FMath::Acos(FVector::DotProduct(HitResult.Normal, Up));
+	const FVector TiltAxis = FVector::CrossProduct(HitResult.Normal, Up).GetSafeNormal();
 	const float Factor = FVector::DotProduct(TangentWorld.GetSafeNormal(), TiltAxis);
 	OutRoll = AdaptSplineMeshRollAlpha * MaxRoll * Factor;
 	OutRoll = FMath::Clamp(OutRoll, -FMath::DegreesToRadians(AdaptSplineMeshMaxAngle), FMath::DegreesToRadians(AdaptSplineMeshMaxAngle));

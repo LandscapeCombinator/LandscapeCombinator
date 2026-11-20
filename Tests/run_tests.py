@@ -3,7 +3,7 @@ Usage: python Tests/run_tests.py <engine folder> [--full] [--nobuild]"""
 import os, platform, re, subprocess, sys
 from pathlib import Path
 
-MAPS = ["/LandscapeCombinator/L_LandscapeCombinatorExamples", "/LandscapeCombinator/L_PositionBased_France"]
+MAPS = ["/LandscapeCombinator/L_LandscapeCombinatorExamples", "/LandscapeCombinator/L_PositionBased_France", "/LandscapeCombinator/L_PositionBased_Sphere"]
 
 os.system("")  # enables ANSI colors in the Windows console
 RELEVANT = re.compile(r"Starting Generation with|Generation for")

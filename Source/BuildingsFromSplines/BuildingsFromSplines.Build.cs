@@ -35,6 +35,7 @@ public class BuildingsFromSplines : ModuleRules
 
 				// Landscape Combinator Dependencies
 				"OSMUserData",
+				"Coordinates",
 				"LCCommon",
 				"ConcurrencyHelpers",
 				"StraightSkeletonWrapper",

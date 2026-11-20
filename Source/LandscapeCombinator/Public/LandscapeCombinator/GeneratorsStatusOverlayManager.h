@@ -3,22 +3,21 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Blueprint/UserWidget.h"
+
+class SWidget;
+class UWorld;
 
 class LANDSCAPECOMBINATOR_API FGeneratorsStatusOverlayManager
 {
 public:
-	// Shared by both editor and runtime attach paths.
-	static UUserWidget* CreateOverlayWidget(UWorld* World);
+	static TSharedRef<SWidget> CreateOverlayWidget(UWorld* World);
 
-	// Runtime path
 	static void ShowInGameViewport(UWorld* World);
 	static void HideFromGameViewport();
 	static void ToggleInGameViewport(UWorld* World);
 
-	static bool IsVisibleInGameViewport() { return GameViewportOverlayInstance.IsValid(); }
+	static bool IsVisibleInGameViewport() { return GameViewportOverlay.IsValid(); }
 
 private:
-	static const TCHAR* OverlayClassPath;
-	static TWeakObjectPtr<UUserWidget> GameViewportOverlayInstance;
+	static TWeakPtr<SWidget> GameViewportOverlay;
 };

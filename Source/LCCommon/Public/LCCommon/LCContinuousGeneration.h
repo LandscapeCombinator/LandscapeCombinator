@@ -11,17 +11,17 @@ class LCCOMMON_API ULCContinuousGeneration : public UActorComponent
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(EditAnywhere, Category = "ContinuousGeneration", meta=(DisplayPriority=100))
+	UPROPERTY(AdvancedDisplay, EditAnywhere, Category = "ContinuousGeneration", meta=(DisplayPriority=100))
 	double ContinuousGenerationSeconds = 10;
 
-	UPROPERTY(EditAnywhere, Category = "ContinuousGeneration", meta=(DisplayPriority=101))
+	UPROPERTY(AdvancedDisplay, EditAnywhere, Category = "ContinuousGeneration", meta=(DisplayPriority=101))
 	bool bStartContinuousGenerationOnBeginPlay = false;
 
 	// delay to let the world start, start continuous generation after n seconds
-	UPROPERTY(EditAnywhere, Category = "ContinuousGeneration", meta=(DisplayPriority=102))
+	UPROPERTY(AdvancedDisplay, EditAnywhere, Category = "ContinuousGeneration", meta=(DisplayPriority=102))
 	double StartupDelay = 2;
 
-	UPROPERTY(EditAnywhere, Category = "ContinuousGeneration", meta=(DisplayPriority=103))
+	UPROPERTY(AdvancedDisplay, EditAnywhere, Category = "ContinuousGeneration", meta=(DisplayPriority=103))
 	bool bStopOnError = true;
 
 	UFUNCTION(CallInEditor, BlueprintCallable, Category = "ContinuousGeneration")

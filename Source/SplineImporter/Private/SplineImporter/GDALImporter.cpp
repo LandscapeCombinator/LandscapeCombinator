@@ -121,10 +121,8 @@ GDALDataset* AGDALImporter::LoadGDALDatasetFromShortQuery(FString ShortQuery, bo
 		const double n = 1 << BoundingZoneZoom;
 		const double West = BoundingZoneMinX / n * 360.0 - 180;
 		const double East = (BoundingZoneMaxX + 1) / n * 360.0 - 180;
-		const double NorthRad = FMath::Atan(FMath::Sinh(UE_PI * (1 - 2 * BoundingZoneMinY / n)));
-		const double SouthRad = FMath::Atan(FMath::Sinh(UE_PI * (1 - 2 * (BoundingZoneMaxY + 1) / n)));
-		const double North = FMath::RadiansToDegrees(NorthRad);
-		const double South = FMath::RadiansToDegrees(SouthRad);
+		const double North = bBoundingZoneGeodetic ? 90.0 - BoundingZoneMinY / n * 360.0 : FMath::RadiansToDegrees(FMath::Atan(FMath::Sinh(UE_PI * (1 - 2 * BoundingZoneMinY / n))));
+		const double South = bBoundingZoneGeodetic ? 90.0 - (BoundingZoneMaxY + 1) / n * 360.0 : FMath::RadiansToDegrees(FMath::Atan(FMath::Sinh(UE_PI * (1 - 2 * (BoundingZoneMaxY + 1) / n))));
 
 		return GDALInterface::LoadGDALVectorDatasetFromQuery(Overpass::QueryFromShortQuery(OverpassServer, South, West, North, East, ShortQuery), bIsUserInitiated);
 	}

@@ -25,7 +25,7 @@ public:
 		ContinuousGeneration = CreateDefaultSubobject<ULCContinuousGeneration >(TEXT("ContinuousGeneration"));
 	};
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeCombination",
 		meta = (DisplayPriority = "0")
 	)
@@ -59,19 +59,19 @@ public:
 #endif
 
 #if WITH_EDITORONLY_DATA
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeCombination",meta = (DisplayPriority = "0"))
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "LandscapeCombination",meta = (DisplayPriority = "0"))
 	/* Save level when one generator finishes successfully */
 	bool bSaveAfterEachGenerator = false;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Duplication", meta = (DisplayPriority = "1"))
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "Duplication", meta = (DisplayPriority = "1"))
 	FName RenameLabelsAndTagsContaining = "OldCombination";
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Duplication", meta = (DisplayPriority = "2"))
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "Duplication", meta = (DisplayPriority = "2"))
 	FName NewCombinationName = "NewCombination";
 #endif
 
 	UPROPERTY(
-		VisibleAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner",
+		VisibleAnywhere, BlueprintReadWrite, Category = "LandscapeCombination",
 		meta = (DisplayPriority = "11", ShowOnlyInnerProperties)
 	)
 	TObjectPtr<ULCContinuousGeneration> ContinuousGeneration = nullptr;

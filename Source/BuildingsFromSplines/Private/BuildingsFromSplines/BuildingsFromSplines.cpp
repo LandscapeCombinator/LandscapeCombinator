@@ -5,6 +5,7 @@
 
 #include "OSMUserData/OSMUserData.h"
 #include "LCCommon/LCBlueprintLibrary.h"
+#include "Coordinates/LevelCoordinates.h"
 #include "ConcurrencyHelpers/Concurrency.h"
 #include "ConcurrencyHelpers/LCReporter.h"
 
@@ -92,6 +93,8 @@ bool ABuildingsFromSplines::GenerateBuildings(FName SpawnedActorsPathOverride, b
 
 	if (!IsValid(GetWorld())) return false; // fail silently because the world has ended
 	
+	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(GetWorld(), false);
+
 	const int NumComponents = SplineComponents.Num();
 	UE_LOG(LogBuildingsFromSplines, Log, TEXT("Found %d spline components to create buildings"), NumComponents);
 
@@ -99,7 +102,7 @@ bool ABuildingsFromSplines::GenerateBuildings(FName SpawnedActorsPathOverride, b
 	{
 		if (bSkipExistingBuildings && ProcessedSplines.Contains(SplineComponent)) continue;
 
-		if (GenerateBuilding(SplineComponent, SpawnedActorsPathOverride, bIsUserInitiated))
+		if (GenerateBuilding(SplineComponent, GlobalCoordinates, SpawnedActorsPathOverride, bIsUserInitiated))
 			ProcessedSplines.Add(SplineComponent);
 		else if (!bContinueDespiteErrors)
 			return false;
@@ -113,7 +116,7 @@ void ABuildingsFromSplines::ClearBuildings()
 	Execute_Cleanup(this, false);
 }
 
-bool ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent, FName SpawnedActorsPathOverride, bool bIsUserInitiated)
+bool ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent, const UGlobalCoordinates* GlobalCoordinates, FName SpawnedActorsPathOverride, bool bIsUserInitiated)
 {
 	TWeakObjectPtr<ABuildingsFromSplines> WeakThis(this);
 
@@ -125,6 +128,7 @@ bool ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent, 
 	}
 
 	FVector Location = SplineComponent->GetWorldLocationAtSplinePoint(0);
+	const FQuat Alignment = UGlobalCoordinates::Alignment(GlobalCoordinates, Location);
 
 	/* Determine the rotation of the longest segment */
 	/* This allows us to set the actor rotation, and we can then use Local Position */
@@ -137,23 +141,24 @@ bool ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent, 
 	{
 		FVector Point1 = SplineComponent->GetWorldLocationAtSplinePoint(i);
 		FVector Point2 = SplineComponent->GetWorldLocationAtSplinePoint((i + 1) % NumPoints);
-		Point1[2] = 0;
-		Point2[2] = 0;
-		double Distance = FVector::Distance(Point1, Point2);
+		FVector Direction = Alignment.UnrotateVector(Point2 - Point1);
+		Direction.Z = 0;
+		double Distance = Direction.Size();
 		if (Distance > MaxDistance)
 		{
 			MaxDistance = Distance;
 			MaxDistanceIndex = i;
-			RotatorForLargestSegment = FQuat::FindBetweenVectors(FVector(1, 0, 0), Point2 - Point1).Rotator();
+			RotatorForLargestSegment = FQuat::FindBetweenVectors(FVector(1, 0, 0), Direction).Rotator();
 		}
 	}
 
+	const FRotator SpawnRotator = (Alignment * RotatorForLargestSegment.Quaternion()).Rotator();
 	ABuilding* Building = nullptr;
 	
-	return Concurrency::RunOnGameThreadThrottledAndWait([WeakThis, &Building, &Location, &RotatorForLargestSegment, &SpawnedActorsPathOverride, NumPoints, SplineComponent]() -> bool
+	return Concurrency::RunOnGameThreadThrottledAndWait([WeakThis, &Building, &Location, &SpawnRotator, &SpawnedActorsPathOverride, NumPoints, SplineComponent]() -> bool
 	{
 		if (!WeakThis.IsValid() || !IsValid(WeakThis->GetWorld())) return false; // fail silently, the game has probably ended
-		Building = WeakThis->GetWorld()->SpawnActor<ABuilding>(Location, RotatorForLargestSegment);
+		Building = WeakThis->GetWorld()->SpawnActor<ABuilding>(Location, SpawnRotator);
 		if (!IsValid(Building))
 		{
 			LCReporter::ShowError(

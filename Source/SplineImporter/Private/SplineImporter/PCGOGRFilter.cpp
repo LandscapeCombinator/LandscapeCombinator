@@ -2,6 +2,7 @@
 
 #include "SplineImporter/PCGOGRFilter.h"
 #include "SplineImporter/LogSplineImporter.h"
+#include "SplineImporter/OGRArealIndex.h"
 #include "SplineImporter/Overpass.h"
 #include "FileDownloader/Download.h"
 #include "Coordinates/LevelCoordinates.h"
@@ -24,52 +25,6 @@
 #include "HAL/ThreadManager.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PCGOGRFilter)
-
-namespace
-{
-// true = inside or on the boundary (holes respected). No GEOS needed.
-bool IntersectsAreal(const OGRGeometry* G, const OGRPoint& P)
-{
-if (!G || G->IsEmpty()) return false;
-switch (wkbFlatten(G->getGeometryType()))
-{
-case wkbPolygon:
-{
-const OGRPolygon* Poly = G->toPolygon();
-const OGRLinearRing* Ext = Poly->getExteriorRing();
-if (!Ext || Ext->IsEmpty()) return false;
-if (!Ext->isPointInRing(&P) && !Ext->isPointOnRingBoundary(&P)) return false;
-for (int i = 0, n = Poly->getNumInteriorRings(); i < n; ++i)
-{
-const OGRLinearRing* Hole = Poly->getInteriorRing(i);
-if (Hole && !Hole->IsEmpty() && Hole->isPointInRing(&P) && !Hole->isPointOnRingBoundary(&P)) return false;
-}
-return true;
-}
-case wkbCurvePolygon:
-case wkbMultiSurface:
-{
-OGRGeometry* Linear = G->getLinearGeometry();
-if (!Linear) return false;
-const bool bResult = IntersectsAreal(Linear, P);
-OGRGeometryFactory::destroyGeometry(Linear);
-return bResult;
-}
-case wkbMultiPolygon:
-case wkbGeometryCollection:
-{
-const OGRGeometryCollection* C = G->toGeometryCollection();
-for (int i = 0, n = C->getNumGeometries(); i < n; ++i)
-{
-if (IntersectsAreal(C->getGeometryRef(i), P)) return true;
-}
-return false;
-}
-default:
-return false;
-}
-}
-}
 
 #define LOCTEXT_NAMESPACE "FSplineImporterModule"
 
@@ -149,23 +104,25 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 		return true;
 	}
 
-	OGRGeometry *Geometry = Settings->GeometryActor->CloneGeometry();
-
-	ON_SCOPE_EXIT {
-		if (Geometry) OGRGeometryFactory::destroyGeometry(Geometry);
-	};
-	if (!Geometry)
+	if (!IsValid(ThisContext->GlobalCoordinates))
 	{
-		PCGE_LOG_C(Warning, GraphAndLog, Context,
-			FText::Format(
-			LOCTEXT("NoGeometry", "Unable to get OGR Geometry. Please make sure the OGRGeometry actor {0} is initialized"),
-			FText::FromString(Settings->GeometryActor->GetActorNameOrLabel())
-			)
-			);
+		PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("NoGlobalCoordinates", "Unable to find the LevelCoordinates of this level."));
 		return true;
 	}
 
+	const TSharedPtr<const FOGRArealIndex> AreaIndex = Settings->GeometryActor->GetArealIndex();
+	if (!AreaIndex.IsValid())
+	{
+		PCGE_LOG_C(Warning, GraphAndLog, Context,
+			FText::Format(
+				LOCTEXT("NoGeometryData", "Unable to get OGR Geometry. Please make sure the OGRGeometry actor {0} is initialized"),
+				FText::FromString(Settings->GeometryActor->GetActorNameOrLabel())
+			)
+		);
+		return true;
+	}
 	OGRCoordinateTransformation *CoordinateTransformation = GDALInterface::MakeTransform(ThisContext->GlobalCoordinates->CRS, "EPSG:4326");
+	ON_SCOPE_EXIT { if (CoordinateTransformation) OGRCoordinateTransformation::DestroyCT(CoordinateTransformation); };
 
 	for (const FPCGTaggedData& Input : Context->InputData.GetInputsByPin(PCGPinConstants::DefaultInputLabel))
 	{
@@ -205,13 +162,17 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 			const FVector2D Location = { Location0.X, Location0.Y };
 			FVector2D Coordinates4326;
 
-			if (!ThisContext->GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(Location, CoordinateTransformation, Coordinates4326))
+			if (ThisContext->GlobalCoordinates->IsSphere())
 			{
-				PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("NoData", "Internal error, unable to convert coordinates, make sure that your LevelCoordinates actor has correct values"));
+				double AltCm;
+				ThisContext->GlobalCoordinates->FromWorld(Location0, Coordinates4326.X, Coordinates4326.Y, AltCm);
+			}
+			else if (!ThisContext->GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(Location, CoordinateTransformation, Coordinates4326))
+			{
+				PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("CoordinateConversionFailed", "Internal error, unable to convert coordinates, make sure that your LevelCoordinates actor has correct values"));
 				return true;
 			}
-			OGRPoint Point4326(Coordinates4326[0], Coordinates4326[1]);
-			if (IntersectsAreal(Geometry, Point4326))
+			if (AreaIndex->ContainsLonLat(Coordinates4326.X, Coordinates4326.Y))
 			{
 				bInside[i] = true;
 				++NumInside;
@@ -234,8 +195,7 @@ bool FPCGOGRFilterElement::ExecuteInternal(FPCGContext* Context) const
 			{
 				return false;
 			}
-		}
-			);
+		});
 
 		PCGE_LOG_C(Verbose, LogOnly, Context, FText::Format(
 			LOCTEXT("GenerateReport", "Generated {0} points out of {1} source points"),

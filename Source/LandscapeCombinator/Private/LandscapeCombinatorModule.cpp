@@ -1,8 +1,8 @@
 // Copyright 2023-2027 LandscapeCombinator. All Rights Reserved.
 
 #include "LandscapeCombinatorModule.h"
-#include "ConcurrencyHelpers/LCReporter.h"
 #include "LandscapeCombinator/GeneratorsStatusOverlayManager.h"
+#include "LandscapeCombinator/LCIcons.h"
 #include "HAL/IConsoleManager.h"
 #include "Modules/ModuleManager.h"
 
@@ -15,9 +15,10 @@
 #include "LandscapeCombinator/LandscapeTexturerCustomization.h"
 #include "LandscapeCombinator/LandscapeMesh.h"
 #include "LandscapeCombinator/LandscapeMeshCustomization.h"
+#include "LandscapeCombinator/AdvancedSubCategoriesCustomization.h"
 #include "LandscapeCombinator/LogLandscapeCombinator.h"
 #include "LandscapeCombinator/GeneratorWrapper.h"
-#include "LandscapeCombinator/GeneratorsStatus.h"
+#include "LandscapeCombinator/SGeneratorsDock.h"
 
 #include "PropertyEditorDelegates.h"
 #include "PropertyEditorModule.h"
@@ -27,10 +28,9 @@
 #include "Editor.h"
 #include "LevelEditor.h"
 #include "SLevelViewport.h"
-#include "Blueprint/UserWidget.h"
-#include "Engine/World.h"
-#include "Engine/AssetManager.h"
-#include "Engine/AssetManagerTypes.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/Docking/TabManager.h"
+#include "Widgets/Docking/SDockTab.h"
 
 #endif
 
@@ -41,7 +41,7 @@ IMPLEMENT_MODULE(FLandscapeCombinatorModule, LandscapeCombinator)
 #if WITH_EDITOR
 namespace
 {
-	FDelegateHandle WorldCleanupHandle;
+	const FName GeneratorsTabName(TEXT("LandscapeCombinatorGenerators"));
 }
 #endif
 
@@ -58,6 +58,7 @@ void FLandscapeCombinatorModule::StartupModule()
 	PropertyModule.RegisterCustomClassLayout(ALandscapeMesh::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FLandscapeMeshCustomization::MakeInstance));
 	PropertyModule.RegisterCustomClassLayout(ALandscapeSpawner::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FLandscapeSpawnerCustomization::MakeInstance));
 	PropertyModule.RegisterCustomClassLayout(ALandscapeTexturer::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FLandscapeTexturerCustomization::MakeInstance));
+	for (const TCHAR* Name : { TEXT("RoadsFromSplines"), TEXT("OGRGeometry"), TEXT("BuildingConfiguration") }) PropertyModule.RegisterCustomClassLayout(Name, FOnGetDetailCustomizationInstance::CreateStatic(&FAdvancedSubCategoriesCustomization::MakeInstance));
 
 	PropertyModule.RegisterCustomPropertyTypeLayout("GeneratorWrapper", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FGeneratorWrapperCustomization::MakeInstance));
 
@@ -73,26 +74,12 @@ void FLandscapeCombinatorModule::StartupModule()
 		FExecuteAction::CreateRaw(this, &FLandscapeCombinatorModule::PluginButtonClicked),
 		FCanExecuteAction());
 
+
 	UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateRaw(this, &FLandscapeCombinatorModule::RegisterMenus));
 
-	BeginPIEHandle = FEditorDelegates::PostPIEStarted.AddRaw(this, &FLandscapeCombinatorModule::OnPIEStateChanged);
-	EndPIEHandle   = FEditorDelegates::EndPIE.AddRaw(this, &FLandscapeCombinatorModule::OnPIEStateChanged);
-
-	// The overlay widget lives in the editor world. Before that world is destroyed (map load),
-	// detach the overlay so the world can be garbage collected, then bring it back in the new world.
-	WorldCleanupHandle = FWorldDelegates::OnWorldCleanup.AddLambda([this](UWorld* World, bool bSessionEnded, bool bCleanupResources)
-	{
-		UUserWidget* Overlay = GeneratorStatusOverlayInstance.Get();
-		if (!bGeneratorStatusOverlayVisible || !Overlay || Overlay->GetWorld() != World) return;
-
-		HideGeneratorStatusOverlay();
-		if (IsEngineExitRequested() || !GEditor) return;
-
-		GEditor->GetTimerManager()->SetTimerForNextTick([this]()
-		{
-			if (!bGeneratorStatusOverlayVisible) ShowGeneratorStatusOverlay();
-		});
-	});
+	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(GeneratorsTabName, FOnSpawnTab::CreateRaw(this, &FLandscapeCombinatorModule::SpawnGeneratorsTab))
+		.SetDisplayName(LOCTEXT("GeneratorsTabTitle", "Landscape Combinator Generators"))
+		.SetMenuType(ETabSpawnerMenuType::Hidden);
 
 	ModifyCookDelegateHandle = FGameDelegates::Get().GetModifyCookDelegate().AddRaw(this, &FLandscapeCombinatorModule::GetPackagesToAlwaysCook);
 
@@ -103,14 +90,11 @@ void FLandscapeCombinatorModule::ShutdownModule()
 {
 #if WITH_EDITOR
 
-	FWorldDelegates::OnWorldCleanup.Remove(WorldCleanupHandle);
-
-	FEditorDelegates::PostPIEStarted.Remove(BeginPIEHandle);
-	FEditorDelegates::EndPIE.Remove(EndPIEHandle);
-
 	FGameDelegates::Get().GetModifyCookDelegate().Remove(ModifyCookDelegateHandle);
 
 	HideGeneratorStatusOverlay();
+
+	if (FSlateApplication::IsInitialized()) FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(GeneratorsTabName);
 
 	UToolMenus::UnRegisterStartupCallback(this);
 
@@ -121,32 +105,39 @@ void FLandscapeCombinatorModule::ShutdownModule()
 	FLandscapeCombinatorCommands::Unregister();
 
 #endif
+
+	LCIcons::Shutdown();
 }
 
 #if WITH_EDITOR
 
 void FLandscapeCombinatorModule::PluginButtonClicked()
 {
-	ToggleGeneratorStatusOverlay();
+	TSharedPtr<SDockTab> Tab = FGlobalTabmanager::Get()->FindExistingLiveTab(GeneratorsTabName);
+	if (Tab.IsValid())
+	{
+		Tab->RequestCloseTab();
+		return;
+	}
+	if (GeneratorStatusOverlay.IsValid())
+	{
+		HideGeneratorStatusOverlay();
+		OpenGeneratorsTab();
+		return;
+	}
+	ShowGeneratorStatusOverlay();
 }
 
 void FLandscapeCombinatorModule::GetPackagesToAlwaysCook(TConstArrayView<const ITargetPlatform*> TargetPlatforms, TArray<FName>& OutPackagesToCook, TArray<FName>& OutPackagesToNeverCook)
 {
-	OutPackagesToCook.AddUnique(TEXT("/LandscapeCombinator/UI/W_GeneratorsStatus"));
 	OutPackagesToCook.AddUnique(TEXT("/LandscapeCombinator/Materials/M_GeoDecal"));
-}
-
-void FLandscapeCombinatorModule::ToggleGeneratorStatusOverlay()
-{
-	if (bGeneratorStatusOverlayVisible) HideGeneratorStatusOverlay();
-	else ShowGeneratorStatusOverlay();
+	OutPackagesToCook.AddUnique(TEXT("/LandscapeCombinator/Materials/M_GeoSphere"));
+	OutPackagesToCook.AddUnique(TEXT("/LandscapeCombinator/Materials/MPC_LCBody"));
 }
 
 void FLandscapeCombinatorModule::ShowGeneratorStatusOverlay()
 {
-	// only set to true once the overlay is actually attached
-	bGeneratorStatusOverlayVisible = false;
-
+	if (GeneratorStatusOverlay.IsValid()) return;
 	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
 	TSharedPtr<SLevelViewport> ActiveViewport = LevelEditorModule.GetFirstActiveLevelViewport();
 	if (!ActiveViewport.IsValid())
@@ -155,46 +146,41 @@ void FLandscapeCombinatorModule::ShowGeneratorStatusOverlay()
 		return;
 	}
 
-	UUserWidget* OverlayWidget = FGeneratorsStatusOverlayManager::CreateOverlayWidget(GEditor->GetEditorWorldContext().World());
-	if (!OverlayWidget)
-	{
-		LCReporter::ShowError(LOCTEXT("MissingOverlayWidget", "Could not load the generator status overlay widget."));
-		return;
-	}
+	TSharedRef<SWidget> Overlay = FGeneratorsStatusOverlayManager::CreateOverlayWidget(GEditor->GetEditorWorldContext().World());
 
-	ActiveViewport->AddOverlayWidget(OverlayWidget->TakeWidget());
-	GeneratorStatusOverlayInstance = OverlayWidget;
+	ActiveViewport->AddOverlayWidget(Overlay);
+	GeneratorStatusOverlay = Overlay;
 	GeneratorStatusOverlayViewport = ActiveViewport;
-	bGeneratorStatusOverlayVisible = true;
 }
 
 void FLandscapeCombinatorModule::HideGeneratorStatusOverlay()
 {
 	TSharedPtr<SLevelViewport> Viewport = GeneratorStatusOverlayViewport.Pin();
-	UUserWidget* OverlayWidget = GeneratorStatusOverlayInstance.Get();
-
-	if (OverlayWidget)
+	if (Viewport.IsValid() && GeneratorStatusOverlay.IsValid())
 	{
-		if (Viewport.IsValid()) Viewport->RemoveOverlayWidget(OverlayWidget->TakeWidget());
-		OverlayWidget->ReleaseSlateResources(true);
+		Viewport->RemoveOverlayWidget(GeneratorStatusOverlay.ToSharedRef());
 	}
 
-	GeneratorStatusOverlayInstance.Reset();
+	GeneratorStatusOverlay.Reset();
 	GeneratorStatusOverlayViewport.Reset();
-	bGeneratorStatusOverlayVisible = false;
 }
 
-void FLandscapeCombinatorModule::OnPIEStateChanged(bool bIsSimulating)
+void FLandscapeCombinatorModule::OpenGeneratorsTab()
 {
-	// PIE start/stop switches the target world: drop the rows of the old world now,
-	// the widget rebuilds itself on its next tick
-	UGeneratorsStatus* Status = Cast<UGeneratorsStatus>(GeneratorStatusOverlayInstance.Get());
-	if (IsValid(Status)) Status->InvalidateGeneratorsList();
+	FGlobalTabmanager::Get()->TryInvokeTab(GeneratorsTabName);
+}
+
+TSharedRef<SDockTab> FLandscapeCombinatorModule::SpawnGeneratorsTab(const FSpawnTabArgs& Args)
+{
+	return SNew(SDockTab)
+	.TabRole(ETabRole::NomadTab)
+	[
+		SNew(SGeneratorsDock)
+	];
 }
 
 void FLandscapeCombinatorModule::RegisterMenus()
 {
-	// Owner will be used for cleanup in call to UToolMenus::UnregisterOwner
 	FToolMenuOwnerScoped OwnerScoped(this);
 
 	UToolMenu* Menu = UToolMenus::Get()->ExtendMenu("LevelEditor.MainMenu.Window");

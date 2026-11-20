@@ -1,0 +1,57 @@
+// Copyright 2023-2027 LandscapeCombinator. All Rights Reserved.
+
+#pragma once
+
+float3 LC_WorldToLonLatUV(float3 P, float4 Body, float3 BoundsMin, float3 BoundsMax)
+{
+	float3 V = float3(P.x, -P.y, P.z + Body.x);
+	V = normalize(V);
+	float p0 = radians(Body.y);
+	float s0 = sin(p0);
+	float c0 = cos(p0);
+	float lat = degrees(asin(clamp(V.y * c0 + V.z * s0, -1.0, 1.0)));
+	float lon = Body.z + degrees(atan2(V.x, V.z * c0 - V.y * s0));
+	lon -= 360.0 * floor((lon - 0.5 * (BoundsMin.x + BoundsMax.x) + 180.0) / 360.0);
+	float u = (lon - BoundsMin.x) / (BoundsMax.x - BoundsMin.x);
+	float v = (BoundsMax.y - lat) / (BoundsMax.y - BoundsMin.y);
+	float inside = (u >= 0.0 && u <= 1.0 && v >= 0.0 && v <= 1.0) ? 1.0 : 0.0;
+	return float3(u, v, inside);
+}
+
+float4 LC_UpAndAltitude(float3 P, float4 Body)
+{
+	if (Body.w < 0.5) return float4(0.0, 0.0, 1.0, P.z);
+	float3 D = float3(P.x, P.y, P.z + Body.x);
+	float L = max(length(D), 1.0);
+	float Altitude = (dot(P, P) + 2.0 * P.z * Body.x) / (L + Body.x);
+	return float4(D / L, Altitude);
+}
+
+float3 LC_WorldToLonLatUV_Local(float3 Prel, float3 East, float3 North, float3 Up, float3 RefLonLatR, float4 RelBounds)
+{
+	float a = dot(Prel, East);
+	float b = dot(Prel, North);
+	float Rh = RefLonLatR.z + dot(Prel, Up);
+
+	float L = sqrt(a * a + b * b + Rh * Rh);
+	float we = a / L;
+	float wn = b / L;
+	float wu = Rh / L;
+
+	float sp = sin(radians(RefLonLatR.y));
+	float cp = cos(radians(RefLonLatR.y));
+
+	float Q = wu * cp - wn * sp;
+	float C = sqrt(Q * Q + we * we);
+	float S = wn * cp + wu * sp;
+
+	float dLon = degrees(atan2(we, Q));
+	float SinD = wn - sp * we * we / max(Q + C, 1e-6);
+	float CosD = C * cp + S * sp;
+	float dLat = degrees(atan2(SinD, CosD));
+
+	float u = (dLon - RelBounds.x) / (RelBounds.y - RelBounds.x);
+	float v = (RelBounds.w - dLat) / (RelBounds.w - RelBounds.z);
+	float inside = (u >= 0.0 && u <= 1.0 && v >= 0.0 && v <= 1.0) ? 1.0 : 0.0;
+	return float3(u, v, inside);
+}

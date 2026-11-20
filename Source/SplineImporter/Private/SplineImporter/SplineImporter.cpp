@@ -228,6 +228,17 @@ bool ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 	UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), true);
 	if (!GlobalCoordinates) return false;
 
+	if (GlobalCoordinates->IsSphere())
+	{
+		if (bUseLandscapeSplines || bSkipCoordinateConversion)
+		{
+			LCReporter::ShowError(
+				LOCTEXT("SphereSplines", "In the sphere model, the Spline Importer does not support landscape splines nor skipping the coordinate conversion.")
+			);
+			return false;
+		}
+	}
+
 	OGRCoordinateTransformation *OGRTransform = GlobalCoordinates->GetCRSTransformer("EPSG:4326");
 
 	if (!OGRTransform)
@@ -501,7 +512,7 @@ bool ASplineImporter::AddRegularSpline(
 	int ExpectedNumPoints = NumPoints;
 	if (bIsLoop) ExpectedNumPoints--;  // don't add last point in case the spline is a closed loop
 
-	TArray<FVector2D> UE2DPoints;
+	TArray<FVector> UEPoints;
 	for (int i = 0; i < ExpectedNumPoints; i++)
 	{
 		OGRPoint Point = PointList.Points[i];
@@ -511,9 +522,15 @@ bool ASplineImporter::AddRegularSpline(
 		double x = 0;
 		double y = 0;
 
+		if (GlobalCoordinates->IsSphere())
+		{
+			UEPoints.Add(GlobalCoordinates->ToWorld(Longitude, Latitude));
+			continue;
+		}
+
 		if (!GetUECoordinates(Longitude, Latitude, OGRTransform, GlobalCoordinates, x, y)) return false;
 		
-		UE2DPoints.Add({ x, y });
+		UEPoints.Add(FVector(x, y, 0));
 	}
 
 	if (bResamplePointsAtDistance)
@@ -526,16 +543,16 @@ bool ASplineImporter::AddRegularSpline(
 
 		TObjectPtr<USplineComponent> TemporarySpline = NewObject<USplineComponent>();
 		TemporarySpline->ClearSplinePoints();
-		for (auto &UE2DPoint: UE2DPoints)
+		for (auto &UEPoint: UEPoints)
 		{
-			TemporarySpline->AddSplinePoint( { UE2DPoint.X, UE2DPoint.Y, 0 }, ESplineCoordinateSpace::World, false);
+			TemporarySpline->AddSplinePoint(UEPoint, ESplineCoordinateSpace::World, false);
 		}
 
 		TemporarySpline->UpdateSpline();
 		SetChordLengthTangents(TemporarySpline, bIsLoop);
 
 		float SplineLength = TemporarySpline->GetSplineLength();
-		UE2DPoints.Empty(SplineLength / ResampleDistance + 1);
+		UEPoints.Empty(SplineLength / ResampleDistance + 1);
 
 		float CurrentDistance = 0;
 
@@ -544,7 +561,7 @@ bool ASplineImporter::AddRegularSpline(
 			while (CurrentDistance <= SplineLength)
 			{
 				FVector V = TemporarySpline->GetLocationAtDistanceAlongSpline(CurrentDistance, ESplineCoordinateSpace::World);
-				UE2DPoints.Add({ V.X, V.Y });
+				UEPoints.Add(V);
 				CurrentDistance += ResampleDistance;
 			}
 
@@ -552,7 +569,7 @@ bool ASplineImporter::AddRegularSpline(
 			if (CurrentDistance - ResampleDistance < SplineLength)
 			{
 				FVector V = TemporarySpline->GetLocationAtDistanceAlongSpline(SplineLength, ESplineCoordinateSpace::World);
-				UE2DPoints.Add({ V.X, V.Y });
+				UEPoints.Add(V);
 			}
 		}
 		else
@@ -562,7 +579,7 @@ bool ASplineImporter::AddRegularSpline(
 			for (int i = 0; i < n; i++)
 			{
 				FVector V = TemporarySpline->GetLocationAtDistanceAlongSpline(i * Interval, ESplineCoordinateSpace::World);
-				UE2DPoints.Add({ V.X, V.Y });
+				UEPoints.Add(V);
 			}
 		}
 
@@ -574,18 +591,19 @@ bool ASplineImporter::AddRegularSpline(
 	TArray<FVector> SplinePoints;
 	TArray<FVector2D> SplinePoints2D;
 
-	for (auto &UE2DPoint: UE2DPoints)
+	for (auto &UEPoint: UEPoints)
 	{
-		double z = 0;
-		if (LandscapeUtils::GetZ(World, CollisionQueryParams, UE2DPoint.X, UE2DPoint.Y, z, bDebugLineTraces))
+		FVector SurfaceLocation;
+		if (LandscapeUtils::GetSurfaceLocation(World, CollisionQueryParams, GlobalCoordinates, UEPoint, SurfaceLocation, bDebugLineTraces))
 		{
-			FVector Location = FVector(UE2DPoint.X, UE2DPoint.Y, z) + SplinePointsOffset;
+			FVector Location = SurfaceLocation + GlobalCoordinates->Alignment(SurfaceLocation).RotateVector(SplinePointsOffset);
 			SplinePoints.Add(Location);
 			SplinePoints2D.Add( { Location.X, Location.Y });
 		}
 		else
-			UE_LOG(LogSplineImporter, Warning, TEXT("No collision for point %f, %f"), UE2DPoint.X, UE2DPoint.Y);
-
+		{
+			UE_LOG(LogSplineImporter, Warning, TEXT("No collision for point %f, %f"), UEPoint.X, UEPoint.Y);
+		}
 	}
 
 	int NumSplinePoints = SplinePoints.Num();

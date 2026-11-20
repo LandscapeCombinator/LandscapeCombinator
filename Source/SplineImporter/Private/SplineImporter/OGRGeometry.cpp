@@ -7,6 +7,7 @@
 #include "ConcurrencyHelpers/Concurrency.h"
 
 #include "Components/DecalComponent.h"
+#include "Engine/Texture2D.h"
 #include "Coordinates/DecalCoordinates.h"
 #include "LandscapeUtils/LandscapeUtils.h"
 #include "Landscape.h"
@@ -65,6 +66,7 @@ AOGRGeometry::AOGRGeometry()
 	PreviewDecal = CreateDefaultSubobject<UDecalComponent>(TEXT("PreviewDecal"));
 	PreviewDecal->SetupAttachment(RootComponent);
 	PreviewDecal->SetVisibility(false);
+	PreviewDecal->SetSortOrder(100);
 }
 
 void AOGRGeometry::SetOverpassShortQuery()
@@ -135,6 +137,8 @@ bool AOGRGeometry::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIniti
 		{
 			if (WeakThis->Geometry) OGRGeometryFactory::destroyGeometry(WeakThis->Geometry);
 			WeakThis->Geometry = OGRGeometryFactory::createGeometry(OGRwkbGeometryType::wkbMultiPolygon);
+			WeakThis->ArealIndexCache.Reset();
+			WeakThis->ArealIndexSource = nullptr;
 		}
 		return true;
 	}))
@@ -158,6 +162,8 @@ OGRMultiPolygon* Normalized = OGRGeometryFactory::createGeometry(OGRwkbGeometryT
 AppendPolygons(Normalized, Geometry);
 OGRGeometryFactory::destroyGeometry(Geometry);
 Geometry = Normalized;
+ArealIndexCache.Reset();
+ArealIndexSource = nullptr;
 }
 }
 	int n = Dataset->GetLayerCount();
@@ -204,6 +210,8 @@ void AOGRGeometry::SetGeometry(OGRGeometry* NewGeometry)
 			OGRGeometryFactory::destroyGeometry(Geometry);
 		}
 		Geometry = NewGeometry;
+		ArealIndexCache.Reset();
+		ArealIndexSource = nullptr;
 	}
 
 	SerializedGeometry.Reset();
@@ -243,7 +251,11 @@ void AOGRGeometry::RebuildGeometryFromSerialized()
 		return;
 	}
 
+	FScopeLock GeometryAssignLock(&GeometryLock);
+if (Geometry) OGRGeometryFactory::destroyGeometry(Geometry);
 	Geometry = NewGeometry;
+	ArealIndexCache.Reset();
+	ArealIndexSource = nullptr;
 }
 
 void AOGRGeometry::UpdateGeometryPreview()
@@ -260,6 +272,7 @@ void AOGRGeometry::UpdateGeometryPreview()
 	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(GetWorld());
 	if (!IsValid(GlobalCoordinates))
 	{
+		UE_LOG(LogSplineImporter, Warning, TEXT("UpdateGeometryPreview: no LevelCoordinates found, hiding preview"));
 		OGRGeometryFactory::destroyGeometry(ProjectedGeometry);
 		HideGeometryPreview();
 		return;
@@ -303,9 +316,10 @@ void AOGRGeometry::UpdateGeometryPreview()
 
 	FVector2D XY0 = FVector2D::ZeroVector;
 	FVector2D XY1 = FVector2D::ZeroVector;
-	bool bOk =
+	const bool bSphere = GlobalCoordinates->IsSphere();
+	bool bOk = bSphere || (
 		GlobalCoordinates->GetUnrealCoordinatesFromCRS(Envelope.MinX, Envelope.MinY, GlobalCoordinates->CRS, XY0) &&
-		GlobalCoordinates->GetUnrealCoordinatesFromCRS(Envelope.MaxX, Envelope.MaxY, GlobalCoordinates->CRS, XY1);
+		GlobalCoordinates->GetUnrealCoordinatesFromCRS(Envelope.MaxX, Envelope.MaxY, GlobalCoordinates->CRS, XY1));
 
 	OGRGeometryFactory::destroyGeometry(ProjectedGeometry);
 
@@ -322,8 +336,15 @@ void AOGRGeometry::UpdateGeometryPreview()
 	double HalfExtentX = (Max.X - Min.X) / 2;
 	double HalfExtentY = (Max.Y - Min.Y) / 2;
 
+	const FVector2D BoundsMin(Envelope.MinX, Envelope.MinY);
+	const FVector2D BoundsMax(Envelope.MaxX, Envelope.MaxY);
+	FVector SphereCenter = FVector::ZeroVector;
+	FQuat SphereRotation = FQuat::Identity;
+	FVector SphereSize = FVector::ZeroVector;
+	if (bSphere) UGlobalCoordinates::ComputeSphereDecalPlacement(GlobalCoordinates, BoundsMin, BoundsMax, SphereCenter, SphereRotation, SphereSize);
+
 	TWeakObjectPtr<AOGRGeometry> WeakThis(this);
-	Concurrency::RunOnGameThreadThrottled([WeakThis, Colors = MoveTemp(Colors), Width, Height, Center, HalfExtentX, HalfExtentY]() mutable
+	Concurrency::RunOnGameThreadThrottled([WeakThis, Colors = MoveTemp(Colors), Width, Height, Center, HalfExtentX, HalfExtentY, bSphere, SphereCenter, SphereRotation, SphereSize, BoundsMin, BoundsMax]() mutable
 	{
 		if (!WeakThis.IsValid())
 		{
@@ -347,18 +368,26 @@ void AOGRGeometry::UpdateGeometryPreview()
 			UE_LOG(LogSplineImporter, Error, TEXT("UpdateGeometryPreview: Invalid Decal"));
 			return;
 		}
-		Decal->SetWorldLocation(Center);
-		Decal->SetWorldRotation(FRotator(-90, 0, 0));
-		Decal->DecalSize = FVector(1000000, HalfExtentY, HalfExtentX);
+		Decal->SetWorldLocation(bSphere ? SphereCenter : Center);
+		Decal->SetWorldRotation(bSphere ? SphereRotation : FRotator(-90, 0, 0).Quaternion());
+		Decal->DecalSize = bSphere ? SphereSize : FVector(1000000, HalfExtentY, HalfExtentX);
 
-		UMaterialInstanceDynamic* MID = UDecalCoordinates::SetDecalTextureFromColors(
-			Decal, WeakThis->PreviewMaterial, Width, Height, Colors, WeakThis.Get(), TEXT("T_OGRPreview")
-		);
+		WeakThis->Modify();
+		WeakThis->PreviewTexture = UDecalCoordinates::CreateDecalTexture(Width, Height, Colors, WeakThis.Get(), TEXT("T_OGRPreview"), true);
+		WeakThis->bPreviewSphere = bSphere;
+		WeakThis->PreviewBoundsMin = BoundsMin;
+		WeakThis->PreviewBoundsMax = BoundsMax;
+		UMaterialInstanceDynamic* MID = IsValid(WeakThis->PreviewTexture) ? UDecalCoordinates::SetDecalTexture(Decal, WeakThis->PreviewMaterial, WeakThis->PreviewTexture, WeakThis.Get()) : nullptr;
 
 		if (!IsValid(MID))
 		{
 			UE_LOG(LogSplineImporter, Error, TEXT("UpdateGeometryPreview: SetDecalTextureFromColors returned null — decal material was NOT set"));
 			return;
+		}
+
+		if (bSphere)
+		{
+			if (const UGlobalCoordinates* G = ALevelCoordinates::GetGlobalCoordinates(WeakThis->GetWorld(), false)) G->SetSphereMappingParameters(MID, BoundsMin, BoundsMax);
 		}
 
 		Decal->SetVisibility(true);
@@ -376,6 +405,12 @@ bool AOGRGeometry::ExportMask(bool bIsUserInitiated)
 
 	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(GetWorld());
 	if (!IsValid(GlobalCoordinates)) return false;
+
+	if (GlobalCoordinates->IsSphere())
+	{
+		LCReporter::ShowError(LOCTEXT("AOGRGeometry::ExportMask::Sphere", "Mask export is not supported in the sphere model."));
+		return false;
+	}
 
 	double WorldMinX = 0, WorldMaxX = 0, WorldMinY = 0, WorldMaxY = 0;
 	int32 SizeX = 0, SizeY = 0;
@@ -554,6 +589,22 @@ bool AOGRGeometry::Cleanup_Implementation(bool bSkipPrompt)
 	}
 }
 
+void AOGRGeometry::ApplyPreviewTexture()
+{
+	if (!bShowGeometryPreview || !IsValid(PreviewDecal) || !IsValid(PreviewMaterial) || !IsValid(PreviewTexture)) return;
+
+	UMaterialInstanceDynamic* MID = UDecalCoordinates::SetDecalTexture(PreviewDecal, PreviewMaterial, PreviewTexture, this);
+	if (!IsValid(MID) || !bPreviewSphere) return;
+
+	const UGlobalCoordinates* G = ALevelCoordinates::GetGlobalCoordinates(GetWorld(), false);
+	if (!G)
+	{
+		UE_LOG(LogSplineImporter, Warning, TEXT("ApplyPreviewTexture: no LevelCoordinates found, the sphere mapping parameters were not set"));
+		return;
+	}
+	G->SetSphereMappingParameters(MID, PreviewBoundsMin, PreviewBoundsMax);
+}
+
 void AOGRGeometry::PostLoad()
 {
 	Super::PostLoad();
@@ -566,7 +617,9 @@ void AOGRGeometry::PostInitializeComponents()
 	Super::PostInitializeComponents();
 
 	RebuildGeometryFromSerialized();
-	UpdateGeometryPreview();
+
+	if (IsValid(PreviewTexture)) ApplyPreviewTexture();
+	else UpdateGeometryPreview();
 }
 
 void AOGRGeometry::BeginDestroy()
@@ -586,6 +639,19 @@ OGRGeometry* AOGRGeometry::CloneGeometry() const
 {
 	FScopeLock Lock(&GeometryLock);
 	return Geometry ? Geometry->clone() : nullptr;
+}
+
+TSharedPtr<const FOGRArealIndex> AOGRGeometry::GetArealIndex() const
+{
+	FScopeLock Lock(&GeometryLock);
+	if (!Geometry) return nullptr;
+
+	if (!ArealIndexCache.IsValid() || ArealIndexSource != Geometry)
+	{
+		ArealIndexCache = FOGRArealIndex::Create(Geometry);
+		ArealIndexSource = Geometry;
+	}
+	return ArealIndexCache;
 }
 
 #if WITH_EDITOR

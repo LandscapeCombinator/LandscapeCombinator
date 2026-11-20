@@ -52,22 +52,25 @@ class LCCOMMON_API ULCPositionBasedGeneration : public UActorComponent
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta=(DisplayPriority=1))
+	UPROPERTY(AdvancedDisplay, EditAnywhere, Category = "PositionBasedGeneration", meta=(DisplayPriority=1))
 	bool bEnablePositionBasedGeneration = false;
 
-	UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta=(DisplayPriority=4))
+	UPROPERTY(AdvancedDisplay, EditAnywhere, Category = "PositionBasedGeneration", meta=(DisplayPriority=4))
 	int ZoomLevel = 14;
 
-	UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta=(DisplayPriority=5))
+	UPROPERTY(AdvancedDisplay, EditAnywhere, Category = "PositionBasedGeneration", meta=(DisplayPriority=5))
 	// Distance 0 means 1 tile, Distance 1 means 3x3=9 tiles, Distance 2 means 5x5=25 tiles, etc.
 	int GenerateAllTilesAtDistance = 1;
 
-	UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta=(DisplayPriority=6))
+	UPROPERTY(AdvancedDisplay, EditAnywhere, Category = "PositionBasedGeneration", meta=(DisplayPriority=6))
 	bool bShowGenerationState = true;
 
-	UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta=(DisplayPriority=7))
+	UPROPERTY(AdvancedDisplay, EditAnywhere, Category = "PositionBasedGeneration", meta=(DisplayPriority=7))
 	// group the first group of tiles as a single rectangle
 	bool bGroupFirstTiles = true;
+
+	UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta = (ToolTip = "Use a longitude/latitude tile grid that reaches the poles, instead of Web Mercator. Supported for WMS, and for XYZ sources with Georeference Slippy Tiles enabled."))
+	bool bGeodeticTiles = false;
 
 	UPROPERTY()
 	TSet<FTile> GeneratedTiles;

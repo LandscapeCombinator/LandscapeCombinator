@@ -7,6 +7,7 @@
 #include "LCCommon/LCGenerator.h"
 #include "LCCommon/ActorSelection.h"
 #include "ConcurrencyHelpers/LCReporter.h"
+#include "Coordinates/GlobalCoordinates.h"
 
 #include "Components/SplineComponent.h"
 #include "Components/SplineMeshComponent.h"
@@ -52,7 +53,7 @@ public:
 
 	/** Components */
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Components",
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Other",
 		meta = (DisplayPriority = "0")
 	)
 	TObjectPtr<USceneComponent> EmptySceneComponent;
@@ -71,7 +72,7 @@ public:
 	)
 	TObjectPtr<UStaticMesh> IntersectionMesh;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Meshes",
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Meshes",
 		meta = (DisplayPriority = "2")
 	)
 	TEnumAsByte<ESplineMeshAxis::Type> RoadMeshAxis = ESplineMeshAxis::X;
@@ -94,24 +95,24 @@ public:
 	/* Name of a scalar material parameter that multiplies UV tiling along the road,
 		so dashes/markings stay evenly spaced even when a segment stretches or compresses.
 		Leave "None" to disable. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Meshes",
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Meshes",
 		meta = (DisplayPriority = "6")
 	)
 	FName UVTilingParameterName = "TilingY";
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Meshes",
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Meshes",
 		meta = (DisplayPriority = "7")
 	)
 	FName TilingOffsetParameterName = "TilingOffsetY";
 
 	/* Get the default tiling */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Meshes",
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Meshes",
 		meta = (DisplayPriority = "8")
 	)
 	double DefaultRoadMeshLength = 800.0;
 
 	/* Get the default tiling */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Meshes",
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Meshes",
 		meta = (DisplayPriority = "9")
 	)
 	double DefaultIntersectionMeshLength = 800.0;
@@ -150,17 +151,17 @@ public:
 	FName SplinesTag;
 
 	/* The tag of the Spline Components to use to generate roads. If None, all spline components will be used. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Graph",
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Graph",
 		meta = (DisplayPriority = "1")
 	)
 	FName SplineComponentsTag;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Graph",
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Graph",
 		meta = (DisplayPriority = "2")
 	)
 	bool bResampleSplines = true;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Graph",
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Graph",
 		meta = (EditCondition = "bResampleSplines", EditConditionHides, DisplayPriority = "3")
 	)
 	double SplineMaxSpacing = 500.0;
@@ -192,7 +193,7 @@ public:
 	double IntersectionSize = 500.0f;
 
 	/* How much the corner arcs bulge into the junction. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Junctions",
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Junctions",
 		meta = (DisplayPriority = "4")
 	)
 	double CornerStraightness = 3;
@@ -209,18 +210,18 @@ public:
 	)
 	TObjectPtr<UMaterialInterface> JunctionFillMaterial;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Junctions",
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Junctions",
 		meta = (DisplayPriority = "8", EditCondition = "bFillJunctions", EditConditionHides)
 	)
 	double FillJunctionUVScale = 1.0f;
 
 	/* Vertical thickness of the junction fill slab. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Junctions",
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Junctions",
 		meta = (DisplayPriority = "10", EditCondition = "bFillJunctions", EditConditionHides)
 	)
 	float JunctionFillHeight = 5.f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Junctions",
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Junctions",
 		meta = (DisplayPriority = "100", EditCondition = "bFillJunctions", EditConditionHides)
 	)
 	bool bShowDebugJunctionFill = false;
@@ -228,7 +229,7 @@ public:
 
 	/** Collision */
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Collision",
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Other",
 		meta = (DisplayPriority = "0")
 	)
 	/* Disable collision on the spawned road meshes. */
@@ -236,7 +237,7 @@ public:
 
 	/** Push Out Of Collision */
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|PushOutOfCollision",
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Other",
 		meta = (DisplayPriority = "0")
 	)
 	bool bPushBuildingsOnSpawn = true;
@@ -244,7 +245,7 @@ public:
 
 	/** Debug */
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Debug",
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RoadsFromSplines|Other",
 		meta = (DisplayPriority = "0")
 	)
 	bool bShowDebugGraph = false;
@@ -309,6 +310,8 @@ protected:
 
 	FCollisionQueryParams LandscapeCollisionQueryParams;
 
+	TWeakObjectPtr<UGlobalCoordinates> GlobalCoordinates;
+
 
 	/** Graph & Edge Mesh Building */
 
@@ -349,4 +352,6 @@ protected:
 
 	void PushOverlappingBuildings(UPrimitiveComponent* MeshComponent) const;
 	void DebugDrawGraph();
+
+	FVector LocalUp(const FVector& World) const;
 };

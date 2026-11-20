@@ -57,11 +57,31 @@ UImageDownloader::UImageDownloader()
 	PreprocessingTool = CreateDefaultSubobject<UExternalTool>(TEXT("Preprocessing Tool"));
 }
 
-bool UImageDownloader::ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY, int PaddingPx)
+bool UImageDownloader::ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY, int PaddingPx, bool bGeodetic)
 {
 	bTileOutsideCoverage = false;
+	bCropToGeodeticTile = false;
 	if (IsXYZ())
 	{
+		if (bGeodetic)
+		{
+			if (!bGeoreferenceSlippyTiles)
+			{
+				LCReporter::ShowError(NSLOCTEXT("FImageDownloaderModule", "ConfigureForTilesGeodeticXYZNotGeoreferenced", "The geodetic tile grid of Position Based Generation requires XYZ sources with Georeference Slippy Tiles enabled."));
+				return false;
+			}
+			const double TileDegrees = 360.0 / (1 << Zoom);
+			const double MaxMercatorLat = 85.0511;
+			ParametersSelection.MinLong = -180.0 + MinX * TileDegrees + 1e-9;
+			ParametersSelection.MaxLong = -180.0 + (MaxX + 1) * TileDegrees - 1e-9;
+			ParametersSelection.MinLat = FMath::Max(90.0 - (MaxY + 1) * TileDegrees, -MaxMercatorLat) + 1e-9;
+			ParametersSelection.MaxLat = FMath::Min(90.0 - MinY * TileDegrees, MaxMercatorLat);
+			bTileOutsideCoverage = ParametersSelection.MinLat >= ParametersSelection.MaxLat;
+			bCropToGeodeticTile = true;
+			XYZ_Zoom = Zoom;
+			ParametersSelection.ParametersSelectionMethod = EParametersSelectionMethod::FromEPSG4326Box;
+			return true;
+		}
 		XYZ_MinX = MinX;
 		XYZ_MaxX = MaxX;
 		XYZ_MinY = MinY;
@@ -72,20 +92,29 @@ bool UImageDownloader::ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY,
 	}
 	else if (IsWMS())
 	{
-		double MinLong3857, MaxLat3857, MaxLong3857, MinLat3857;
-		GDALInterface::XYZTileToEPSG3857(MinX, MinY, Zoom, MinLong3857, MaxLat3857);
-		GDALInterface::XYZTileToEPSG3857(MaxX + 1, MaxY + 1, Zoom, MaxLong3857, MinLat3857);
-
-		FVector4d Coordinates3857(MinLong3857, MaxLong3857, MinLat3857, MaxLat3857);
+		const FString GridCRS = bGeodetic ? TEXT("EPSG:4326") : TEXT("EPSG:3857");
+		FVector4d GridCoordinates;
+		if (bGeodetic)
+		{
+			const double TileDegrees = 360.0 / (1 << Zoom);
+			GridCoordinates = FVector4d(-180.0 + MinX * TileDegrees, -180.0 + (MaxX + 1) * TileDegrees, 90.0 - (MaxY + 1) * TileDegrees, 90.0 - MinY * TileDegrees);
+		}
+		else
+		{
+			double MinLong3857, MaxLat3857, MaxLong3857, MinLat3857;
+			GDALInterface::XYZTileToEPSG3857(MinX, MinY, Zoom, MinLong3857, MaxLat3857);
+			GDALInterface::XYZTileToEPSG3857(MaxX + 1, MaxY + 1, Zoom, MaxLong3857, MinLat3857);
+			GridCoordinates = FVector4d(MinLong3857, MaxLong3857, MinLat3857, MaxLat3857);
+		}
 		FVector4d CoordinatesWMS;
 		const double PaddingUnits = WMS_ResolutionPixelsPerUnit > 0 ? PaddingPx / WMS_ResolutionPixelsPerUnit : 0;
 
-		if (!GDALInterface::ConvertCoordinates(Coordinates3857, /*bCrop=*/false, CoordinatesWMS, "EPSG:3857", WMS_CRS))
+		if (!GDALInterface::ConvertCoordinates(GridCoordinates, /*bCrop=*/false, CoordinatesWMS, GridCRS, WMS_CRS))
 		{
 			LCReporter::ShowError(
 				FText::Format(
 					NSLOCTEXT("FImageDownloaderModule", "ConfigureForTilesWMSConvertFailed",
-						"Failed to convert tile coordinates from EPSG:3857 to the WMS layer's CRS ('{0}'). "
+						"Failed to convert tile coordinates from the tile grid CRS to the WMS layer's CRS ('{0}'). "
 						"Please check that the layer's CRS is valid."
 					),
 					FText::FromString(WMS_CRS)
@@ -488,12 +517,12 @@ HMFetcher* UImageDownloader::CreateFetcher(
 
 #endif
 
-	if (bCropCoordinates)
+	if (bCropCoordinates || bCropToGeodeticTile)
 	{
 		if (!IsValid(GlobalCoordinates))
 		{
 			if ((AllowsParametersSelection() && bCropFollowingParametersSelection && ParametersSelection.ParametersSelectionMethod == EParametersSelectionMethod::FromBoundingActor) ||
-				!AllowsParametersSelection() || !bCropFollowingParametersSelection)
+				!AllowsParametersSelection() || !(bCropFollowingParametersSelection || bCropToGeodeticTile))
 			{
 				LCReporter::ShowError(
 					LOCTEXT("UImageDownloader::CreateFetcher::CropActor", "Bounding actor cannot be used to crop coordinates if there is no Level Coordinates.")
@@ -502,7 +531,7 @@ HMFetcher* UImageDownloader::CreateFetcher(
 			}
 		}
 
-		Result = Result->AndThen(new HMDebugFetcher("Crop", new HMCrop(Name, AllowsParametersSelection() && bCropFollowingParametersSelection, ParametersSelection, CroppingActor)));
+		Result = Result->AndThen(new HMDebugFetcher("Crop", new HMCrop(Name, AllowsParametersSelection() && (bCropFollowingParametersSelection || bCropToGeodeticTile), ParametersSelection, CroppingActor, UGlobalCoordinates::GetSphereRadiusCm(GlobalCoordinates))));
 	}
 
 	if (RunBeforePNG)
@@ -717,7 +746,7 @@ bool UImageDownloader::SetSourceParametersBool(bool bDialog)
 
 bool UImageDownloader::SetSourceParametersFromEPSG4326Coordinates(bool bDialog)
 {
-	FVector4d Coordinates = UGlobalCoordinates::GetCoordinatesFromSize(ParametersSelection.Longitude, ParametersSelection.Latitude, ParametersSelection.RealWorldWidth, ParametersSelection.RealWorldHeight);
+	FVector4d Coordinates = UGlobalCoordinates::GetCoordinatesFromSize(ParametersSelection.Longitude, ParametersSelection.Latitude, ParametersSelection.RealWorldWidth, ParametersSelection.RealWorldHeight, UGlobalCoordinates::GetSphereRadiusCm(ALevelCoordinates::GetGlobalCoordinates(GetWorld(), false)));
 	ParametersSelection.MinLong = Coordinates[0];
 	ParametersSelection.MaxLong = Coordinates[1];
 	ParametersSelection.MinLat = Coordinates[2];

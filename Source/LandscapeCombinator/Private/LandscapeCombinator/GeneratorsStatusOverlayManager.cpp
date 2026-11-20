@@ -1,41 +1,58 @@
 // Copyright 2023-2027 LandscapeCombinator. All Rights Reserved.
 
 #include "LandscapeCombinator/GeneratorsStatusOverlayManager.h"
+#include "LandscapeCombinator/SGeneratorsStatus.h"
 #include "HAL/IConsoleManager.h"
+#include "Engine/Engine.h"
+#include "Engine/GameViewportClient.h"
 #include "Engine/World.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SDPIScaler.h"
 
-const TCHAR* FGeneratorsStatusOverlayManager::OverlayClassPath =
-	TEXT("/LandscapeCombinator/UI/W_GeneratorsStatus.W_GeneratorsStatus_C");
+TWeakPtr<SWidget> FGeneratorsStatusOverlayManager::GameViewportOverlay;
 
-TWeakObjectPtr<UUserWidget> FGeneratorsStatusOverlayManager::GameViewportOverlayInstance;
-
-UUserWidget* FGeneratorsStatusOverlayManager::CreateOverlayWidget(UWorld* World)
+TSharedRef<SWidget> FGeneratorsStatusOverlayManager::CreateOverlayWidget(UWorld* World)
 {
-	if (!IsValid(World)) return nullptr;
-
-	UClass* OverlayClass = LoadClass<UUserWidget>(nullptr, OverlayClassPath);
-	if (!IsValid(OverlayClass)) return nullptr;
-
-	return CreateWidget<UUserWidget>(World, OverlayClass);
+	return SNew(SBox)
+	.Visibility(EVisibility::SelfHitTestInvisible)
+	.HAlign(HAlign_Left)
+	.VAlign(VAlign_Top)
+	.Padding(16.f)
+	[
+		SNew(SDPIScaler)
+		.Visibility(EVisibility::SelfHitTestInvisible)
+		.DPIScale_Lambda([]() { return SGeneratorsStatus::GetUIScale(); })
+		[
+			SNew(SBox)
+			.Visibility(EVisibility::Visible)
+			.MinDesiredWidth(280.f)
+			.MaxDesiredHeight(500.f)
+			[
+				SNew(SGeneratorsStatus)
+				.World(World)
+			]
+		]
+	];
 }
 
 void FGeneratorsStatusOverlayManager::ShowInGameViewport(UWorld* World)
 {
 	if (IsVisibleInGameViewport()) return;
+	if (!GEngine || !GEngine->GameViewport) return;
 
-	UUserWidget* Widget = CreateOverlayWidget(World);
-	if (!IsValid(Widget)) return;
-
-	Widget->AddToViewport();
-	GameViewportOverlayInstance = Widget;
+	TSharedRef<SWidget> Overlay = CreateOverlayWidget(World);
+	GEngine->GameViewport->AddViewportWidgetContent(Overlay);
+	GameViewportOverlay = Overlay;
 }
 
 void FGeneratorsStatusOverlayManager::HideFromGameViewport()
 {
-	if (UUserWidget* Widget = GameViewportOverlayInstance.Get())
-		Widget->RemoveFromParent();
-
-	GameViewportOverlayInstance.Reset();
+	TSharedPtr<SWidget> Overlay = GameViewportOverlay.Pin();
+	if (Overlay.IsValid() && GEngine && GEngine->GameViewport)
+	{
+		GEngine->GameViewport->RemoveViewportWidgetContent(Overlay.ToSharedRef());
+	}
+	GameViewportOverlay.Reset();
 }
 
 void FGeneratorsStatusOverlayManager::ToggleInGameViewport(UWorld* World)

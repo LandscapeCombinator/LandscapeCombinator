@@ -18,7 +18,7 @@ class HEIGHTMAPMODIFIER_API UBlendLandscape : public UActorComponent
 public:
 	UBlendLandscape();
 	
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "BlendLandscape",
 		meta = (DisplayPriority = "19")
 	)

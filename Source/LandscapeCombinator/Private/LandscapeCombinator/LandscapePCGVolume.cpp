@@ -4,6 +4,7 @@
 #include "Misc/EngineVersionComparison.h"
 #include "LandscapeCombinator/LogLandscapeCombinator.h"
 #include "LCCommon/LCBlueprintLibrary.h"
+#include "Coordinates/LevelCoordinates.h"
 #include "ConcurrencyHelpers/LCReporter.h"
 #include "ConcurrencyHelpers/Concurrency.h"
 
@@ -26,6 +27,14 @@ void ALandscapePCGVolume::SetPositionAndBounds()
 
 	Position = FVector((MinMaxX[0] + MinMaxX[1]) / 2, (MinMaxY[0] + MinMaxY[1]) / 2, 0);
 	Bounds = FVector((MinMaxX[1] - MinMaxX[0]) / 2, (MinMaxY[1] - MinMaxY[0]) / 2, 10000000);
+
+	UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(GetWorld(), false);
+	if (IsValid(GlobalCoordinates) && GlobalCoordinates->IsSphere())
+	{
+		Position.Z = (MinMaxZ[0] + MinMaxZ[1]) / 2;
+		Bounds.Z = (MinMaxZ[1] - MinMaxZ[0]) / 2 + 10000000;
+	}
+
 	SetActorLocation(Position);
 	SetActorScale3D(Bounds / 100);
 }

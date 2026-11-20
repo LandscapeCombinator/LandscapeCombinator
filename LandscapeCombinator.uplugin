@@ -12,6 +12,12 @@
 	"Installed": false,
 	"Modules": [
 		{
+			"Name": "LCShaders",
+			"Type": "Runtime",
+			"LoadingPhase": "PostConfigInit",
+			"WhitelistPlatforms": [ "Win64", "Linux", "Mac" ]
+		},
+		{
 			"Name": "GDALInterface",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",

@@ -31,7 +31,7 @@ public:
 	virtual bool IsTileOutsideCoverage() override { return IsValid(ImageDownloader) && ImageDownloader->IsTileOutsideCoverage(); }
 	virtual bool ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY) override
 	{
-		if (IsValid(ImageDownloader)) return ImageDownloader->ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY, 2);
+		if (IsValid(ImageDownloader)) return ImageDownloader->ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY, 2, bGeodeticTiles);
 		else
 		{
 			LCReporter::ShowError(LOCTEXT("Error", "ImageDownloader is not set"));
@@ -39,18 +39,18 @@ public:
 		}
 	}
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer",
 		meta = (DisplayPriority = "-1")
 	)
 	/* Folder used to spawn the actors. This setting is unused when generating from a combination or from blueprints. */
 	FName SpawnedActorsPath;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer",
 		meta = (DisplayPriority = "0")
 	)
-	TObjectPtr<UMaterial> DecalMaterial =
+	TObjectPtr<UMaterialInterface> DecalMaterial =
 		Cast<UMaterial>(
 			StaticLoadObject(
 				UMaterial::StaticClass(),
@@ -59,13 +59,13 @@ public:
 			)
 		);
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer",
 		meta = (DisplayPriority = "1")
 	)
 	int DecalsSortOrder = 0;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer",
 		meta = (DisplayPriority = "2")
 	)

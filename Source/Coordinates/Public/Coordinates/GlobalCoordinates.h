@@ -8,6 +8,13 @@
 
 #include "GlobalCoordinates.generated.h"
 
+UENUM(BlueprintType)
+enum class EBodyModel : uint8
+{
+	Flat,
+	Sphere
+};
+
 UCLASS(BlueprintType)
 class COORDINATES_API UGlobalCoordinates : public UActorComponent
 {
@@ -18,21 +25,21 @@ public:
 	/* Coordinate System */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "GlobalCoordinates",
-		meta = (DisplayPriority = "1")
+		meta = (EditCondition = "BodyModel == EBodyModel::Flat", EditConditionHides, DisplayPriority = "1")
 	)
 	FString CRS = "EPSG:4326";
 
 	/* Number of Unreal Engine centimeters per longitude coordinate system unit */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "GlobalCoordinates",
-		meta = (DisplayPriority = "2")
+		meta = (EditCondition = "BodyModel == EBodyModel::Flat", EditConditionHides, DisplayPriority = "2")
 	)
 	double CmPerLongUnit = 11111111;
 	
 	/* Number of Unreal Engine centimeters per latitude coordinate system unit */
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "GlobalCoordinates",
-		meta = (DisplayPriority = "3")
+		meta = (EditCondition = "BodyModel == EBodyModel::Flat", EditConditionHides, DisplayPriority = "3")
 	)
 	double CmPerLatUnit = -11111111;
 	
@@ -50,6 +57,18 @@ public:
 	)
 	double WorldOriginLat = 0;
 	
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "GlobalCoordinates",
+		meta = (DisplayPriority = "0")
+	)
+	EBodyModel BodyModel = EBodyModel::Flat;
+
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "GlobalCoordinates",
+		meta = (EditCondition = "BodyModel == EBodyModel::Sphere", EditConditionHides, DisplayPriority = "8")
+	)
+	double BodyRadiusCm = 637100000;
+
 	/* This function is slow. If you need to call it many times, make a single OGRCoordinateTransformation
 	 * with `GetCRSTransformer`and use this instead. */
 	bool GetUnrealCoordinatesFromCRS(double Longitude, double Latitude, FString FromCRS, FVector2D &XY);
@@ -62,8 +81,31 @@ public:
 	bool GetCRSCoordinatesFromUnrealLocation(FVector2D Location, OGRCoordinateTransformation *CoordinateTransformation, FVector2D& OutCoordinates);
 	void GetCRSCoordinatesFromUnrealLocations(FVector4d Locations, FVector4d& OutCoordinates);
 	bool GetCRSCoordinatesFromUnrealLocations(FVector4d Locations, FString ToCRS, FVector4d& OutCoordinates);
-	bool GetCRSCoordinatesFromFBox(FBox Box, FString ToCRS, FVector4d& OutCoordinates);
-	bool GetCRSCoordinatesFromOriginExtent(FVector Origin, FVector Extent, FString ToCRS, FVector4d& OutCoordinates);
+	bool GetCRSCoordinatesFromFBox(FBox Box, FString ToCRS, FVector4d& OutCoordinates, bool bShowDialog = true);
+	bool GetCRSCoordinatesFromOriginExtent(FVector Origin, FVector Extent, FString ToCRS, FVector4d& OutCoordinates, bool bShowDialog = true);
 
-	static FVector4d GetCoordinatesFromSize(double Longitude, double Latitude, double Width, double Height);
+	bool GetSphereFootprint(const FBox& Box, double& OutLatMin, double& OutLatMax, double& OutLonMin, double& OutLonMax) const;
+
+	FVector ToWorld(double Long, double Lat, double AltCm = 0) const;
+	void FromWorld(const FVector& World, double& OutLong, double& OutLat, double& OutAltCm) const;
+
+	FVector Up(const FVector& World) const;
+	FQuat Alignment(const FVector& World) const;
+
+	void SetSphereMappingParameters(class UMaterialInstanceDynamic* MID, const FVector2D& BoundsMin, const FVector2D& BoundsMax) const;
+
+	static bool IsSphere(const UGlobalCoordinates* G) { return G && G->IsSphere(); }
+	static FVector Up(const UGlobalCoordinates* G, const FVector& World) { return G ? G->Up(World) : FVector::UpVector; }
+	static FQuat Alignment(const UGlobalCoordinates* G, const FVector& World) { return G ? G->Alignment(World) : FQuat::Identity; }
+	static double GetSphereRadiusCm(const UGlobalCoordinates* G) { return (G && G->IsSphere()) ? G->BodyRadiusCm : 0.0; }
+	bool IsSphere() const { return BodyModel == EBodyModel::Sphere; }
+
+	static void ComputeSphereDecalPlacement(const UGlobalCoordinates* G, const FVector2D& BoundsMin, const FVector2D& BoundsMax, FVector& OutCenter, FQuat& OutRotation, FVector& OutSize);
+
+	virtual void PostLoad() override;
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif
+
+	static FVector4d GetCoordinatesFromSize(double Longitude, double Latitude, double Width, double Height, double SphereRadiusCm = 0);
 };

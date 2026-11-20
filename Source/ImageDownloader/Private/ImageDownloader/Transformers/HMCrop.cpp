@@ -52,7 +52,7 @@ bool HMCrop::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 		}
 		else if (ParametersSelection.ParametersSelectionMethod == EParametersSelectionMethod::FromEPSG4326Coordinates)
 		{
-			FVector4d InCoordinates = UGlobalCoordinates::GetCoordinatesFromSize(ParametersSelection.Longitude, ParametersSelection.Latitude, ParametersSelection.RealWorldWidth, ParametersSelection.RealWorldHeight);
+			FVector4d InCoordinates = UGlobalCoordinates::GetCoordinatesFromSize(ParametersSelection.Longitude, ParametersSelection.Latitude, ParametersSelection.RealWorldWidth, ParametersSelection.RealWorldHeight, SphereRadiusCm);
 
 			if (!GDALInterface::ConvertCoordinates(InCoordinates, Coordinates, "EPSG:4326", InputCRS)) return false;
 		}

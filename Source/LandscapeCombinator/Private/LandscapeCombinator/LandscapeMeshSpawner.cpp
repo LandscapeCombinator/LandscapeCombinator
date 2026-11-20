@@ -163,7 +163,7 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World, false);
 	if (IsValid(GlobalCoordinates))
 	{
-		if (bIsUserInitiated && !bReuseExistingMesh && !LCReporter::ShowMessage(
+		if (bIsUserInitiated && !bReuseExistingMesh && !GlobalCoordinates->IsSphere() && !LCReporter::ShowMessage(
 			LOCTEXT(
 				"ALandscapeMeshSpawner::OnGenerate::ExistingGlobal",
 				"There already exists a LevelCoordinates actor. Continue?\n"

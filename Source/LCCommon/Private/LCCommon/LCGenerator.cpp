@@ -13,6 +13,30 @@
 
 #define LOCTEXT_NAMESPACE "FActorGeneratorModule"
 
+static double DistanceToLonLatRect(double Lon, double Lat, double MinLon, double MaxLon, double MinLat, double MaxLat)
+{
+	if (FMath::Fmod(FMath::Fmod(Lon - MinLon, 360.0) + 360.0, 360.0) <= MaxLon - MinLon)
+	{
+		return FMath::Max3(0.0, MinLat - Lat, Lat - MaxLat);
+	}
+
+	const double Phi = FMath::DegreesToRadians(Lat);
+	double Best = 180.0;
+	for (double EdgeLon : { MinLon, MaxLon })
+	{
+		const double DLon = FMath::DegreesToRadians(EdgeLon - Lon);
+		const double Closest = FMath::RadiansToDegrees(FMath::Atan2(FMath::Sin(Phi), FMath::Cos(Phi) * FMath::Cos(DLon)));
+		const double EdgeLats[3] = { MinLat, MaxLat, FMath::Clamp(Closest, MinLat, MaxLat) };
+		for (double EdgeLat : EdgeLats)
+		{
+			const double Psi = FMath::DegreesToRadians(EdgeLat);
+			const double CosDistance = FMath::Sin(Phi) * FMath::Sin(Psi) + FMath::Cos(Phi) * FMath::Cos(Psi) * FMath::Cos(DLon);
+			Best = FMath::Min(Best, FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(CosDistance, -1.0, 1.0))));
+		}
+	}
+	return Best;
+}
+
 bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 {
 	if (IsInGameThread())
@@ -40,6 +64,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 		bGroupFirstTiles = PBG->bGroupFirstTiles;
 		Zoom = PBG->ZoomLevel;
 		TileDist = PBG->GenerateAllTilesAtDistance;
+		bGeodeticTiles = PBG->bGeodeticTiles;
 		AlreadyGenerated = PBG->GeneratedTiles;
 		return true;
 	}))
@@ -65,33 +90,70 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 			return false;
 		}
 
-		if (!GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(Location2D, "EPSG:4326", Coordinates))
+		if (GlobalCoordinates->IsSphere())
+		{
+			double AltCm;
+			GlobalCoordinates->FromWorld(Position, Coordinates.X, Coordinates.Y, AltCm);
+			Coordinates.X = FMath::Fmod(FMath::Fmod(Coordinates.X + 180.0, 360.0) + 360.0, 360.0) - 180.0;
+		}
+		else if (!GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(Location2D, "EPSG:4326", Coordinates))
 		{
 			CurrentStatus = FailedStatus();
 			return false;
 		}
 
 		double n = 1 << Zoom;
+		const int NY = bGeodeticTiles ? FMath::Max(1, (1 << Zoom) / 2) : (1 << Zoom);
 		double LatRad = FMath::DegreesToRadians(Coordinates.Y);
 		int CurrentX = (Coordinates.X + 180) / 360 * n;
-		int CurrentY = (1.0 - asinh(FMath::Tan(LatRad)) / UE_PI) / 2.0 * n;
+		int CurrentY = bGeodeticTiles ? (90.0 - Coordinates.Y) / 360.0 * n : (1.0 - asinh(FMath::Tan(LatRad)) / UE_PI) / 2.0 * n;
 
 		CurrentX = FMath::Clamp(CurrentX, 0, n - 1);
-		CurrentY = FMath::Clamp(CurrentY, 0, n - 1);
+		CurrentY = FMath::Clamp(CurrentY, 0, NY - 1);
 		int MinX = FMath::Clamp(CurrentX - TileDist, 0, n - 1);
 		int MaxX = FMath::Clamp(CurrentX + TileDist, 0, n - 1);
-		int MinY = FMath::Clamp(CurrentY - TileDist, 0, n - 1);
-		int MaxY = FMath::Clamp(CurrentY + TileDist, 0, n - 1);
+		int MinY = FMath::Clamp(CurrentY - TileDist, 0, NY - 1);
+		int MaxY = FMath::Clamp(CurrentY + TileDist, 0, NY - 1);
 
-		UE_LOG(LogLCCommon, Log, TEXT("Zoom = %d, CurrentX = %d, CurrentY = %d"), Zoom, CurrentX, CurrentY);
+		UE_LOG(LogLCCommon, Log, TEXT("Zoom = %d, CurrentX = %d, CurrentY = %d, Lon = %.3f, Lat = %.3f"), Zoom, CurrentX, CurrentY, Coordinates.X, Coordinates.Y);
 
-		TArray<FTile> MissingTiles;
-		for (int X = MinX; X <= MaxX; ++X)
+		const int NT = 1 << Zoom;
+		const bool bWrapX = GlobalCoordinates->IsSphere() && (CurrentX - TileDist < 0 || CurrentX + TileDist > NT - 1);
+		TArray<int> XList;
+		for (int DX = -TileDist; DX <= TileDist; ++DX)
 		{
-			for (int Y = MinY; Y <= MaxY; ++Y)
+			XList.AddUnique(bWrapX ? ((CurrentX + DX) % NT + NT) % NT : FMath::Clamp(CurrentX + DX, 0, NT - 1));
+		}
+		TArray<FTile> MissingTiles;
+		if (bGeodeticTiles)
+		{
+			const double TileDegrees = 360.0 / NT;
+			const double MaxDistance = TileDist * TileDegrees + 1e-9;
+			const int FirstY = MinY, LastY = MaxY;
+			MinX = NT; MaxX = -1; MinY = NY; MaxY = -1;
+			for (int Y = FirstY; Y <= LastY; ++Y)
 			{
-				FTile Tile(Zoom, X, Y);
-				if (!AlreadyGenerated.Contains(Tile)) MissingTiles.Add(Tile);
+				for (int X = 0; X < NT; ++X)
+				{
+					const double TileMinLon = -180.0 + X * TileDegrees;
+					const double TileMaxLat = 90.0 - Y * TileDegrees;
+					if (DistanceToLonLatRect(Coordinates.X, Coordinates.Y, TileMinLon, TileMinLon + TileDegrees, TileMaxLat - TileDegrees, TileMaxLat) > MaxDistance) continue;
+					MinX = FMath::Min(MinX, X); MaxX = FMath::Max(MaxX, X);
+					MinY = FMath::Min(MinY, Y); MaxY = FMath::Max(MaxY, Y);
+					FTile Tile(Zoom, X, Y);
+					if (!AlreadyGenerated.Contains(Tile)) MissingTiles.Add(Tile);
+				}
+			}
+		}
+		else
+		{
+			for (int X : XList)
+			{
+				for (int Y = MinY; Y <= MaxY; ++Y)
+				{
+					FTile Tile(Zoom, X, Y);
+					if (!AlreadyGenerated.Contains(Tile)) MissingTiles.Add(Tile);
+				}
 			}
 		}
 
@@ -119,7 +181,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 		};
 
 		// if all tiles are missing, we regenerate the whole rectangle
-		if (bGroupFirstTiles && MissingTiles.Num() == (MaxX - MinX + 1) * (MaxY - MinY + 1))
+		if (bGroupFirstTiles && !bWrapX && MissingTiles.Num() == (MaxX - MinX + 1) * (MaxY - MinY + 1))
 		{
 			if (!ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY))
 			{

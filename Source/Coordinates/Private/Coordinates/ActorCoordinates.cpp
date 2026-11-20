@@ -12,6 +12,21 @@ void UActorCoordinates::MoveActor()
 	AActor *Owner = GetOwner();
 	if (!Owner) return;
 
+	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(Owner->GetWorld(), false);
+	if (UGlobalCoordinates::IsSphere(GlobalCoordinates))
+	{
+		double Long = Longitude;
+		double Lat = Latitude;
+		double OldLong, OldLat, AltCm;
+		if (!GDALInterface::ConvertCoordinates(&Long, &Lat, CRS, "EPSG:4326")) return;
+		const FVector OldLocation = Owner->GetActorLocation();
+		GlobalCoordinates->FromWorld(OldLocation, OldLong, OldLat, AltCm);
+		const FVector NewLocation = GlobalCoordinates->ToWorld(Long, Lat, AltCm);
+		const FQuat DeltaAlignment = GlobalCoordinates->Alignment(NewLocation) * GlobalCoordinates->Alignment(OldLocation).Inverse();
+		Owner->SetActorLocationAndRotation(NewLocation, DeltaAlignment * Owner->GetActorQuat());
+		return;
+	}
+
 	FVector2D XY;
 	if (!ALevelCoordinates::GetUnrealCoordinatesFromCRS(Owner->GetWorld(), Longitude, Latitude, CRS, XY)) return;
 
@@ -26,6 +41,17 @@ void UActorCoordinates::SetCoordinates()
 {
 	AActor* Owner = GetOwner();
 	if (!Owner) return;
+
+	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(Owner->GetWorld(), false);
+	if (UGlobalCoordinates::IsSphere(GlobalCoordinates))
+	{
+		double Long, Lat, AltCm;
+		GlobalCoordinates->FromWorld(Owner->GetActorLocation(), Long, Lat, AltCm);
+		if (!GDALInterface::ConvertCoordinates(&Long, &Lat, "EPSG:4326", CRS)) return;
+		Longitude = Long;
+		Latitude = Lat;
+		return;
+	}
 
 	FVector2D XY, Coordinates;
 	XY.X = Owner->GetActorLocation().X;
