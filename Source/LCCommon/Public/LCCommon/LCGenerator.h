@@ -47,6 +47,8 @@ public:
 
 	virtual bool IsTileOutsideCoverage() { return false; }
 
+	bool bGeodeticTiles = false;
+
 	virtual bool ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY) {
 		return false;
 	}

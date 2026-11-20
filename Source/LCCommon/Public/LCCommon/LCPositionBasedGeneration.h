@@ -69,6 +69,9 @@ public:
 	// group the first group of tiles as a single rectangle
 	bool bGroupFirstTiles = true;
 
+	UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta = (ToolTip = "Use a longitude/latitude tile grid that reaches the poles, instead of Web Mercator. Supported for WMS, and for XYZ sources with Georeference Slippy Tiles enabled."))
+	bool bGeodeticTiles = false;
+
 	UPROPERTY()
 	TSet<FTile> GeneratedTiles;
 

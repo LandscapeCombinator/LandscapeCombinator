@@ -136,8 +136,8 @@ protected:
 	static void CollectMeshesCroppedBy(const TArray<FRegisteredHeightmap>& Entries, ALandscapeMesh* Skip, TArray<TWeakObjectPtr<ALandscapeMesh>>& OutMeshes);
 	static void RegenerateWithOwnSettings(const TArray<TWeakObjectPtr<ALandscapeMesh>>& Meshes, const FLastMeshSettings& Fallback, bool bAsync);
 	static bool IsCoveredBySiblingHeightmap(const TArray<FLandscapeMeshHeightmap>& Siblings, int32 SelfIndex, const FVector2D& Point);
-	void ComputeCoverage(FLandscapeMeshGrid& Grid, int32 HeightmapIndex, const TArray<FLandscapeMeshHeightmap>& Siblings);
+	void ComputeCoverage(FLandscapeMeshGrid& Grid, int32 HeightmapIndex, const TArray<FLandscapeMeshHeightmap>& Siblings, const UGlobalCoordinates* GlobalCoordinates);
 	static void BuildGridForHeightmap(UE::Geometry::FDynamicMesh3& Mesh, FLandscapeMeshGrid& Grid, const FTransform& WorldToMesh, EGridSplitDirection SplitDirection);
-	static void BuildApronForHeightmap(UE::Geometry::FDynamicMesh3& Mesh, FLandscapeMeshGrid& Grid, const FTransform& WorldToMesh, double ApronWidth, double ApronDepth);
-	void FillGapsWithCDT(UE::Geometry::FDynamicMesh3& Mesh, const FTransform& WorldToMesh, const TArray<FLandscapeMeshHeightmap>& AllHeightmaps);
+	static void BuildApronForHeightmap(UE::Geometry::FDynamicMesh3& Mesh, FLandscapeMeshGrid& Grid, const FTransform& WorldToMesh, double ApronWidth, double ApronDepth, const UGlobalCoordinates* GlobalCoordinates);
+	void FillGapsWithCDT(UE::Geometry::FDynamicMesh3& Mesh, const FTransform& WorldToMesh, const TArray<FLandscapeMeshHeightmap>& AllHeightmaps, const UGlobalCoordinates* GlobalCoordinates);
 };

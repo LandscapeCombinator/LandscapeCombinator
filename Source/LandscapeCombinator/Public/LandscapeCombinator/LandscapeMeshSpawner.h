@@ -33,7 +33,7 @@ public:
 	virtual bool IsTileOutsideCoverage() override { return IsValid(HeightmapDownloader) && HeightmapDownloader->IsTileOutsideCoverage(); }
 	virtual bool ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY) override
 	{
-		if (IsValid(HeightmapDownloader)) return HeightmapDownloader->ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY);
+		if (IsValid(HeightmapDownloader)) return HeightmapDownloader->ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY, 0, bGeodeticTiles);
 		else
 		{
 			LCReporter::ShowError(LOCTEXT("Error", "HeightmapDownloader is not set"));

@@ -82,9 +82,10 @@ class IMAGEDOWNLOADER_API UImageDownloader : public UActorComponent
 public:
 	UImageDownloader();
 
-	bool ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY, int PaddingPx = 0);
+	bool ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY, int PaddingPx = 0, bool bGeodetic = false);
 	bool IsTileOutsideCoverage() const { return bTileOutsideCoverage; }
 	bool bTileOutsideCoverage = false;
+	bool bCropToGeodeticTile = false;
 
 	/**********************
 	 *  Heightmap Source  *

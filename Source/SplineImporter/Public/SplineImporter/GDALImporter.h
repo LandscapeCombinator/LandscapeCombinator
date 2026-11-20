@@ -52,6 +52,7 @@ public:
 	
 	virtual bool ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY) override
 	{
+		bBoundingZoneGeodetic = bGeodeticTiles;
 		BoundingMethod = EBoundingMethod::TileNumbers;
 		BoundingZoneZoom = Zoom;
 		BoundingZoneMinX = MinX;
@@ -137,6 +138,8 @@ public:
 		meta = (EditCondition = "NeedsBoundingMethod() && BoundingMethod == EBoundingMethod::TileNumbers", EditConditionHides, DisplayPriority = "15")
 	)
 	int BoundingZoneMaxY = 0;
+
+	bool bBoundingZoneGeodetic = false;
 
 	UPROPERTY(
 		AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",

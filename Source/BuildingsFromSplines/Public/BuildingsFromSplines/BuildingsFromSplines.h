@@ -13,6 +13,8 @@
 
 #define LOCTEXT_NAMESPACE "FBuildingsFromSplinesModule"
 
+class UGlobalCoordinates;
+
 USTRUCT(BlueprintType)
 struct FWeightedBuildingConfiguration
 {
@@ -134,7 +136,7 @@ public:
 
 protected:
 
-	bool GenerateBuilding(USplineComponent* SplineComponent, FName SpawnedActorsPathOverride, bool bIsUserInitiated);
+	bool GenerateBuilding(USplineComponent* SplineComponent, const UGlobalCoordinates* GlobalCoordinates, FName SpawnedActorsPathOverride, bool bIsUserInitiated);
 	TSet<USplineComponent*> ProcessedSplines;
 };
 

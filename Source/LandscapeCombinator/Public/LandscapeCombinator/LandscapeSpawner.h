@@ -88,7 +88,7 @@ public:
 	virtual bool IsTileOutsideCoverage() override { return IsValid(HeightmapDownloader) && HeightmapDownloader->IsTileOutsideCoverage(); }
 	virtual bool ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY) override
 	{
-		if (IsValid(HeightmapDownloader)) return HeightmapDownloader->ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY);
+		if (IsValid(HeightmapDownloader)) return HeightmapDownloader->ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY, 0, bGeodeticTiles);
 		else
 		{
 			LCReporter::ShowError(LOCTEXT("Error", "HeightmapDownloader is not set"));
@@ -197,7 +197,7 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeSpawner|Decals",
 		meta = (EditCondition = "DecalCreation != EDecalCreation::None", EditConditionHides, DisplayPriority = "-9")
 	)
-	TObjectPtr<UMaterial> DecalMaterial =
+	TObjectPtr<UMaterialInterface> DecalMaterial =
 		Cast<UMaterial>(
 			StaticLoadObject(
 				UMaterial::StaticClass(),

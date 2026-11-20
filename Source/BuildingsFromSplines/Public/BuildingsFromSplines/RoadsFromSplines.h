@@ -7,6 +7,7 @@
 #include "LCCommon/LCGenerator.h"
 #include "LCCommon/ActorSelection.h"
 #include "ConcurrencyHelpers/LCReporter.h"
+#include "Coordinates/GlobalCoordinates.h"
 
 #include "Components/SplineComponent.h"
 #include "Components/SplineMeshComponent.h"
@@ -309,6 +310,8 @@ protected:
 
 	FCollisionQueryParams LandscapeCollisionQueryParams;
 
+	TWeakObjectPtr<UGlobalCoordinates> GlobalCoordinates;
+
 
 	/** Graph & Edge Mesh Building */
 
@@ -349,4 +352,6 @@ protected:
 
 	void PushOverlappingBuildings(UPrimitiveComponent* MeshComponent) const;
 	void DebugDrawGraph();
+
+	FVector LocalUp(const FVector& World) const;
 };

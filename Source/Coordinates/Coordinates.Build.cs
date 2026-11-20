@@ -42,5 +42,22 @@ public class Coordinates : ModuleRules
 				"ConcurrencyHelpers"
 			}
 		);
+
+		if (Target.bBuildEditor)
+		{
+			PrivateDependencyModuleNames.AddRange(
+				new string[]
+				{
+					"UnrealEd",
+					"ToolMenus",
+					"Slate",
+					"SlateCore",
+					"GeometryFramework",
+					"GeometryScriptingCore",
+					"GeometryCore",
+					"ModelingComponentsEditorOnly"
+				}
+			);
+		}
 	}
 }

@@ -31,7 +31,7 @@ public:
 	virtual bool IsTileOutsideCoverage() override { return IsValid(ImageDownloader) && ImageDownloader->IsTileOutsideCoverage(); }
 	virtual bool ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY, int MaxY) override
 	{
-		if (IsValid(ImageDownloader)) return ImageDownloader->ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY, 2);
+		if (IsValid(ImageDownloader)) return ImageDownloader->ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY, 2, bGeodeticTiles);
 		else
 		{
 			LCReporter::ShowError(LOCTEXT("Error", "ImageDownloader is not set"));
@@ -50,7 +50,7 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer",
 		meta = (DisplayPriority = "0")
 	)
-	TObjectPtr<UMaterial> DecalMaterial =
+	TObjectPtr<UMaterialInterface> DecalMaterial =
 		Cast<UMaterial>(
 			StaticLoadObject(
 				UMaterial::StaticClass(),

@@ -1,12 +1,33 @@
 // Copyright 2023-2027 LandscapeCombinator. All Rights Reserved.
 
 #include "Coordinates/LevelCoordinates.h"
+#if WITH_EDITOR
+#include "UDynamicMesh.h"
+#include "GeometryScript/MeshPrimitiveFunctions.h"
+#include "AssetUtils/CreateStaticMeshUtil.h"
+#include "PhysicsEngine/BodySetup.h"
+#endif
+#include "Coordinates/BodyNavigation.h"
+#include "Components/SkyAtmosphereComponent.h"
+#include "Misc/EngineVersionComparison.h"
+#include "EngineUtils.h"
+#if WITH_EDITOR
+#include "Editor.h"
+#include "EditorViewportClient.h"
+#include "LevelEditorViewport.h"
+#include "SceneViewExtension.h"
+#endif
 #include "Coordinates/DecalCoordinates.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "GDALInterface/GDALInterface.h"
+#include "Materials/MaterialParameterCollection.h"
+#include "Materials/MaterialParameterCollectionInstance.h"
 #include "FileDownloader/Download.h"
 #include "ConcurrencyHelpers/Concurrency.h"
 #include "ConcurrencyHelpers/LCReporter.h"
 
 #include "Engine/DecalActor.h"
+#include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/StaticMeshActor.h" 
 #include "Engine/World.h"
@@ -132,6 +153,253 @@ bool ALevelCoordinates::GetCRSCoordinatesFromOriginExtent(UWorld* World, FVector
 	return GlobalCoordinates->GetCRSCoordinatesFromOriginExtent(Origin, Extent, ToCRS, OutCoordinates);
 }
 
+void ALevelCoordinates::MatchSkyAtmosphereToBody()
+{
+	UWorld* World = GetWorld();
+	if (!IsValid(World) || !IsValid(GlobalCoordinates)) return;
+
+	int32 Count = 0;
+
+	for (TActorIterator<AActor> It(World); It; ++It)
+	{
+		USkyAtmosphereComponent* Sky = It->FindComponentByClass<USkyAtmosphereComponent>();
+		if (!IsValid(Sky)) continue;
+
+		Sky->Modify();
+		Sky->TransformMode = ESkyAtmosphereTransformMode::PlanetTopAtAbsoluteWorldOrigin;
+		Sky->BottomRadius = GlobalCoordinates->BodyRadiusCm / 100000.0;
+		Sky->MarkRenderStateDirty();
+		Count++;
+	}
+
+	if (Count == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("MatchSkyAtmosphereToBody: no SkyAtmosphere actor found in the level"));
+	}
+}
+
+#if WITH_EDITOR
+namespace
+{
+	UStaticMesh* CreateSphereStaticMesh(UObject* Outer, int32 Steps, double Radius)
+	{
+		const FString AssetName = FString::Printf(TEXT("SM_Sphere_%d_%lld"), Steps, FMath::RoundToInt64(Radius));
+		const FString AssetPath = FString("/Game/LandscapeCombinator/Generated/Spheres/") + AssetName;
+		if (UStaticMesh* Existing = LoadObject<UStaticMesh>(nullptr, *(AssetPath + "." + AssetName), nullptr, LOAD_NoWarn)) return Existing;
+
+		UDynamicMesh* SphereMesh = NewObject<UDynamicMesh>(Outer);
+		UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSphereBox(
+			SphereMesh, FGeometryScriptPrimitiveOptions(), FTransform(),
+			Radius, Steps, Steps, Steps, EGeometryScriptPrimitiveOriginMode::Center
+		);
+
+		UE::AssetUtils::FStaticMeshAssetOptions Options;
+		Options.NewAssetPath = AssetPath;
+		Options.NumMaterialSlots = 1;
+		Options.SourceMeshes.DynamicMeshes.Add(SphereMesh->GetMeshPtr());
+
+		UE::AssetUtils::FStaticMeshResults Results;
+		if (UE::AssetUtils::CreateStaticMeshAsset(Options, Results) != UE::AssetUtils::ECreateStaticMeshResult::Ok || !IsValid(Results.StaticMesh))
+		{
+			LCReporter::ShowError(LOCTEXT("ALevelCoordinates::SpawnSphere::NoMesh", "Could not create the sphere static mesh, please check log output."));
+			return nullptr;
+		}
+
+		UStaticMesh* Mesh = Results.StaticMesh;
+		Mesh->Modify();
+		if (!Mesh->GetBodySetup()) Mesh->CreateBodySetup();
+		if (UBodySetup* BodySetup = Mesh->GetBodySetup())
+		{
+			BodySetup->Modify();
+			BodySetup->RemoveSimpleCollision();
+			BodySetup->CollisionTraceFlag = ECollisionTraceFlag::CTF_UseComplexAsSimple;
+			BodySetup->InvalidatePhysicsData();
+			BodySetup->CreatePhysicsMeshes();
+		}
+		Mesh->MarkPackageDirty();
+		return Mesh;
+	}
+
+	AStaticMeshActor* FindOrSpawnSphereActor(UWorld* World, const FVector& Center)
+	{
+		static const FName SphereTag("LCBodySphere");
+		for (TActorIterator<AStaticMeshActor> It(World); It; ++It)
+		{
+			if (It->ActorHasTag(SphereTag))
+			{
+				It->Modify();
+				return *It;
+			}
+		}
+
+		AStaticMeshActor* Actor = World->SpawnActor<AStaticMeshActor>(Center, FRotator::ZeroRotator);
+		if (!IsValid(Actor)) return nullptr;
+		Actor->Tags.Add(SphereTag);
+		Actor->SetActorLabel(TEXT("BodySphere"));
+		return Actor;
+	}
+}
+
+bool ALevelCoordinates::SpawnSphere()
+{
+	UWorld* World = GetWorld();
+	if (!IsValid(World)) return false;
+
+	UStaticMesh* Mesh = CreateSphereStaticMesh(this, SphereSteps, GlobalCoordinates->BodyRadiusCm);
+	if (!IsValid(Mesh)) return false;
+
+	const FVector Center(0, 0, -GlobalCoordinates->BodyRadiusCm);
+
+	AStaticMeshActor* SphereActor = FindOrSpawnSphereActor(World, Center);
+	if (!IsValid(SphereActor)) return false;
+
+	UStaticMeshComponent* Component = SphereActor->GetStaticMeshComponent();
+	Component->SetMobility(EComponentMobility::Movable);
+	Component->SetStaticMesh(Mesh);
+	Component->SetCollisionProfileName(TEXT("BlockAll"));
+	Component->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	Component->SetCastShadow(false);
+	SphereActor->SetActorLocation(Center);
+	SphereActor->SetActorScale3D(FVector::OneVector);
+	Component->SetMobility(EComponentMobility::Static);
+	return true;
+}
+#endif
+
+bool ALevelCoordinates::IsSphereModel() const
+{
+	return UGlobalCoordinates::IsSphere(GlobalCoordinates);
+}
+
+void ALevelCoordinates::UpdateBodyParameters()
+{
+	UWorld* World = GetWorld();
+	if (IsTemplate() || !IsValid(World) || !IsValid(GlobalCoordinates)) return;
+
+	UMaterialParameterCollection* Collection = LoadObject<UMaterialParameterCollection>(nullptr, TEXT("/LandscapeCombinator/Materials/MPC_LCBody.MPC_LCBody"), nullptr, LOAD_NoWarn);
+	if (!IsValid(Collection)) return;
+
+	UMaterialParameterCollectionInstance* Instance = World->GetParameterCollectionInstance(Collection);
+	if (!IsValid(Instance)) return;
+
+	const FLinearColor Body(
+		(float) UGlobalCoordinates::GetSphereRadiusCm(GlobalCoordinates),
+		(float) GlobalCoordinates->WorldOriginLat,
+		(float) GlobalCoordinates->WorldOriginLong,
+		GlobalCoordinates->IsSphere() ? 1.f : 0.f
+	);
+	Instance->SetVectorParameterValue(FName("Body"), Body);
+}
+
+void ALevelCoordinates::PostRegisterAllComponents()
+{
+	Super::PostRegisterAllComponents();
+	UpdateViewportTicker();
+	UpdateBodyParameters();
+}
+
+void ALevelCoordinates::BeginDestroy()
+{
+	if (ViewportTickHandle.IsValid()) FTSTicker::GetCoreTicker().RemoveTicker(ViewportTickHandle);
+	Super::BeginDestroy();
+}
+
+#if WITH_EDITOR
+void ALevelCoordinates::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+	UpdateViewportTicker();
+}
+#endif
+
+void ALevelCoordinates::SetSphereViewportNavigation(bool bEnabled)
+{
+	Modify();
+	bSphereViewportNavigation = bEnabled;
+	UpdateViewportTicker();
+}
+
+#if WITH_EDITOR && !UE_VERSION_OLDER_THAN(5, 2, 0)
+#define LC_VIEWPORT_EXTENSION 1
+#else
+#define LC_VIEWPORT_EXTENSION 0
+#endif
+
+#if LC_VIEWPORT_EXTENSION
+class FBodyViewportExtension : public FSceneViewExtensionBase
+{
+public:
+	FBodyViewportExtension(const FAutoRegister& AutoRegister, TFunction<void()> InCallback)
+		: FSceneViewExtensionBase(AutoRegister), Callback(MoveTemp(InCallback)) {}
+
+	virtual void SetupViewFamily(FSceneViewFamily& InViewFamily) override { if (Callback) Callback(); }
+	virtual void SetupView(FSceneViewFamily& InViewFamily, FSceneView& InView) override {}
+	virtual void BeginRenderViewFamily(FSceneViewFamily& InViewFamily) override {}
+	virtual void PreRenderViewFamily_RenderThread(FRDGBuilder& GraphBuilder, FSceneViewFamily& InViewFamily) override {}
+	virtual void PreRenderView_RenderThread(FRDGBuilder& GraphBuilder, FSceneView& InView) override {}
+
+private:
+	TFunction<void()> Callback;
+};
+#endif
+
+void ALevelCoordinates::UpdateViewportTicker()
+{
+#if WITH_EDITOR
+	if (ViewportTickHandle.IsValid())
+	{
+		FTSTicker::GetCoreTicker().RemoveTicker(ViewportTickHandle);
+		ViewportTickHandle.Reset();
+	}
+	ViewportExtension.Reset();
+	ViewportLastLocations.Reset();
+	ViewportLastRotators.Reset();
+	UWorld* ThisWorld = GetWorld();
+	if (!bSphereViewportNavigation || IsTemplate() || !ThisWorld || ThisWorld->WorldType != EWorldType::Editor) return;
+	ViewportTickHandle = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &ALevelCoordinates::TickViewport), 0.0f);
+#if LC_VIEWPORT_EXTENSION
+	TWeakObjectPtr<ALevelCoordinates> WeakThis(this);
+	ViewportExtension = FSceneViewExtensions::NewExtension<FBodyViewportExtension>([WeakThis]()
+	{
+		if (ALevelCoordinates* Self = WeakThis.Get()) Self->TickViewport(0.0f);
+	});
+#endif
+#endif
+}
+
+bool ALevelCoordinates::TickViewport(float DeltaTime)
+{
+#if WITH_EDITOR
+	if (!GEditor || !IsValid(GlobalCoordinates)) return true;
+	if (!GlobalCoordinates->IsSphere())
+	{
+		ViewportLastLocations.Reset();
+		ViewportLastRotators.Reset();
+		return true;
+	}
+	for (FEditorViewportClient* VC : GEditor->GetLevelViewportClients())
+	{
+		if (!VC || !VC->IsPerspective()) continue;
+		void* Key = static_cast<void*>(VC);
+		const FVector CurrentLocation = VC->GetViewLocation();
+		const FRotator CurrentRotation = VC->GetViewRotation();
+		FVector Location = CurrentLocation;
+		FRotator Rotation = CurrentRotation;
+		FBodyNavigation::Apply(*GlobalCoordinates, ViewportLastLocations.Find(Key), ViewportLastRotators.Find(Key), Location, Rotation);
+
+		if (!Location.Equals(CurrentLocation, 0.01) || !Rotation.Equals(CurrentRotation, 0.001))
+		{
+			VC->SetViewLocation(Location);
+			VC->SetViewRotation(Rotation);
+			VC->Invalidate();
+		}
+		ViewportLastLocations.Add(Key, VC->GetViewLocation());
+		ViewportLastRotators.Add(Key, VC->GetViewRotation());
+	}
+#endif
+	return true;
+}
+
 void ALevelCoordinates::CreateWorldMap()
 {
 	if (!GlobalCoordinates)
@@ -139,7 +407,19 @@ void ALevelCoordinates::CreateWorldMap()
 		LCReporter::ShowError(
 			LOCTEXT("ALevelCoordinates::CreateWorldMap::1", "This LevelCoordinates Actor doesn't have GlobalCoordinates.")
 		);
+		return;
 	}
+
+	if (GlobalCoordinates->IsSphere())
+	{
+#if WITH_EDITOR
+		if (!SpawnSphere()) return;
+#endif
+		MatchSkyAtmosphereToBody();
+	}
+
+	if (!IsValid(GlobalCoordinates->IsSphere() ? WorldMapSphereMaterial : WorldMapMaterial)) return;
+
 	if (bUseLocalFile)
 	{
 		CreateWorldMapFromFile(PathToGeoreferencedWorldMap);
@@ -191,19 +471,47 @@ void ALevelCoordinates::CreateWorldMap()
 
 void ALevelCoordinates::CreateWorldMapFromFile(FString Path)
 {
+	UMaterialInterface* Material = GlobalCoordinates->IsSphere() ? WorldMapSphereMaterial : WorldMapMaterial;
+	if (!IsValid(Material)) return;
+
+	if (GlobalCoordinates->IsSphere())
+	{
+		int ImageWidth, ImageHeight;
+		TArray<FColor> Colors;
+		if (!GDALInterface::ReadColorsFromFile(Path, ImageWidth, ImageHeight, Colors))
+		{
+			LCReporter::ShowError(FText::Format(
+				LOCTEXT("ALevelCoordinates::CreateWorldMapFromFile::ReadColors", "Could not read colors from file {0}."),
+				FText::FromString(Path)
+			));
+			return;
+		}
+
+		UTexture2D* NewTexture = UDecalCoordinates::CreateDecalTexture(ImageWidth, ImageHeight, Colors, this, TEXT("T_WorldMapSphere"), true);
+		if (!IsValid(NewTexture)) return;
+
+		static const FName SphereTag("LCBodySphere");
+		UStaticMeshComponent* SphereComponent = nullptr;
+		for (TActorIterator<AStaticMeshActor> It(GetWorld()); It; ++It)
+		{
+			if (It->ActorHasTag(SphereTag)) { SphereComponent = It->GetStaticMeshComponent(); break; }
+		}
+		if (!IsValid(SphereComponent))
+		{
+			LCReporter::ShowError(LOCTEXT("ALevelCoordinates::CreateWorldMapFromFile::NoSphere", "Could not find the body sphere actor."));
+			return;
+		}
+
+		UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(Material, this);
+		MID->SetTextureParameterValue(FName("Texture"), NewTexture);
+		GlobalCoordinates->SetSphereMappingParameters(MID, FVector2D(-180.0, -90.0), FVector2D(180.0, 90.0));
+		SphereComponent->SetMaterial(0, MID);
+		return;
+	}
+
 	FVector4d Coordinates;
-	UDecalCoordinates::CreateDecal(
-		GetWorld(),
-		Cast<UMaterial>(
-			StaticLoadObject(
-				UMaterial::StaticClass(),
-				nullptr,
-				*FString("/Script/Engine.Material'/LandscapeCombinator/Materials/M_GeoDecal.M_GeoDecal'")
-			)
-		),
-		Path,
-		Coordinates
-	);
+	ADecalActor* DecalActor = UDecalCoordinates::CreateDecal(GetWorld(), Material, Path, Coordinates);
+	if (!IsValid(DecalActor)) return;
 	
 	AStaticMeshActor* PlaneActor = GetWorld()->SpawnActor<AStaticMeshActor>();
 #if WITH_EDITOR

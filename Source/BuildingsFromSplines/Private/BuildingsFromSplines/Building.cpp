@@ -11,6 +11,7 @@
 #include "ConcurrencyHelpers/LCReporter.h"
 #include "StraightSkeletonWrapper/StraightSkeletonFunctionLibrary.h"
 #include "LandscapeUtils/LandscapeUtils.h"
+#include "Coordinates/LevelCoordinates.h"
 
 #include "Components/BrushComponent.h"
 #include "Components/ShapeComponent.h"
@@ -2375,17 +2376,19 @@ void ABuilding::ReprojectSplineOnLandscape()
 	}))
 		return;
 
+	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World, false);
+
 	const int NumPoints = SplineComponent->GetNumberOfSplinePoints();
 	for (int i = 0; i < NumPoints; i++)
 	{
 		FVector WorldLocation = SplineComponent->GetLocationAtSplinePoint(i, ESplineCoordinateSpace::World);
 
-		double NewZ;
-		if (LandscapeUtils::GetZ(World, CollisionQueryParams, WorldLocation.X, WorldLocation.Y, NewZ, false))
+		FVector NewLocation;
+		if (LandscapeUtils::GetSurfaceLocation(World, CollisionQueryParams, GlobalCoordinates, WorldLocation, NewLocation, false))
 		{
 			SplineComponent->SetLocationAtSplinePoint(
 				i,
-				FVector(WorldLocation.X, WorldLocation.Y, NewZ),
+				NewLocation,
 				ESplineCoordinateSpace::World,
 				false
 			);
