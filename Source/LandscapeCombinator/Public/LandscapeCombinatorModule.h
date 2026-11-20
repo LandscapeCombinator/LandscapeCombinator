@@ -8,7 +8,9 @@
 
 #if WITH_EDITOR
 class SLevelViewport;
-class UUserWidget;
+class SWidget;
+class SDockTab;
+class FSpawnTabArgs;
 #endif
 
 class FLandscapeCombinatorModule : public IModuleInterface
@@ -27,20 +29,16 @@ private:
 
 	void RegisterMenus();
 
-	void ToggleGeneratorStatusOverlay();
 	void ShowGeneratorStatusOverlay();
 	void HideGeneratorStatusOverlay();
 
-	void OnPIEStateChanged(bool bIsSimulating);
+	void OpenGeneratorsTab();
+	TSharedRef<SDockTab> SpawnGeneratorsTab(const FSpawnTabArgs& Args);
 
 	TSharedPtr<class FUICommandList> PluginCommands;
 
-	TWeakObjectPtr<UUserWidget> GeneratorStatusOverlayInstance;
+	TSharedPtr<SWidget> GeneratorStatusOverlay;
 	TWeakPtr<SLevelViewport> GeneratorStatusOverlayViewport;
-	bool bGeneratorStatusOverlayVisible = false;
-
-	FDelegateHandle BeginPIEHandle;
-	FDelegateHandle EndPIEHandle;
 
 	FDelegateHandle ModifyCookDelegateHandle;
 	void GetPackagesToAlwaysCook(TConstArrayView<const ITargetPlatform*> TargetPlatforms, TArray<FName>& OutPackagesToCook, TArray<FName>& OutPackagesToNeverCook);

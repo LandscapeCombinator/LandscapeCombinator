@@ -20,6 +20,8 @@ public class LandscapeCombinator : ModuleRules
 			PublicDefinitions.Add("UE_ENABLE_INCLUDE_ORDER_DEPRECATED_IN_5_7=1"); // work-around for engine warnings in 5.6
 		}
 
+		RuntimeDependencies.Add("$(PluginDir)/Source/ThirdParty/Lucide/*.png");
+
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
@@ -49,7 +51,8 @@ public class LandscapeCombinator : ModuleRules
 				"Landscape",
 				"PCG",
 				"ApplicationCore",
-				"UMG",
+				"Slate",
+				"SlateCore",
 
 				// Landscape Combinator dependencies
 				"Coordinates",
@@ -74,12 +77,8 @@ public class LandscapeCombinator : ModuleRules
 					"EditorFramework",
 					"PropertyEditor",
 					"UnrealEd",
-					"UMGEditor",
 					"LevelEditor",
-					"ToolMenus",
-					"Blutility",
-					"Slate",
-					"SlateCore"
+					"ToolMenus"
 				}
 			);
 		}
