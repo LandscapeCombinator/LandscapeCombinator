@@ -551,7 +551,7 @@ HMFetcher* UImageDownloader::CreateFetcher(
 
 	if (bScaleResolution)
 	{
-		Result = Result->AndThen(new HMDebugFetcher("PercentResolution", new HMPercentResolution(Name, PrecisionPercent)));
+		Result = Result->AndThen(new HMDebugFetcher("PercentResolution", new HMPercentResolution(Name, PrecisionPercent, ScaleResamplingMethod)));
 	}
 
 	return Result;
