@@ -75,7 +75,7 @@ public:
 	/* The scale in the Z-axis of your heightmap, ZScale = 1 corresponds to real-world size. */
 	double ZScale = 1;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
 		meta = (EditCondition = "!bReuseExistingMesh", EditConditionHides, DisplayPriority = "4")
 	)
@@ -94,50 +94,50 @@ public:
 	)
 	TObjectPtr<ULCPositionBasedGeneration> PositionBasedGeneration = nullptr;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner", meta = (DisplayPriority = "11"))
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner", meta = (DisplayPriority = "11"))
 	double SplitNormalsAngle = 0;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
 		meta = (EditCondition = "!bReuseExistingMesh", EditConditionHides, DisplayPriority = "12")
 	)
 	bool bDeleteExistingMeshesBeforeSpawningMeshes = false;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner", meta = (DisplayPriority = "13"))
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner", meta = (DisplayPriority = "13"))
 	int HeightmapPriority = 0;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner", meta = (DisplayPriority = "14"))
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner", meta = (DisplayPriority = "14"))
 	/* How each grid quad is split into two triangles. */
 	EGridSplitDirection GridSplitDirection = EGridSplitDirection::Checkerboard;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
 		meta = (EditCondition = "!bReuseExistingMesh", EditConditionHides, DisplayPriority = "16")
 	)
 	/* in cm */
 	double ApronWidth = 10000.0;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
 		meta = (EditCondition = "!bReuseExistingMesh", EditConditionHides, DisplayPriority = "17")
 	)
 	/* in cm */
 	double ApronDepth = 10000.0;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
 		meta = (DisplayPriority = "18")
 	)
 	/* Query Only keeps traces (spline importer, reprojection) but removes physical collision. */
 	TEnumAsByte<ECollisionEnabled::Type> CollisionEnabled = ECollisionEnabled::QueryAndPhysics;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
 		meta = (DisplayPriority = "19")
 	)
 	FCollisionProfileName CollisionProfile;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeMeshSpawner",
 		meta = (EditCondition = "!bReuseExistingMesh", EditConditionHides, DisplayPriority = "20")
 	)

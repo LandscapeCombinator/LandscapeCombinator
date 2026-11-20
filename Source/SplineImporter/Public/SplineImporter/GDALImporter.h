@@ -72,7 +72,7 @@ public:
 	)
 	EVectorSource Source = EVectorSource::OSM_Roads;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
 		meta = (EditCondition = "IsOverpass()", EditConditionHides, DisplayPriority = "-9")
 	)
@@ -82,22 +82,22 @@ public:
 	 */
 	FString OverpassServer = "https://overpass-api.de/api/interpreter";
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
 		meta = (EditCondition = "Source == EVectorSource::LocalFile", EditConditionHides, DisplayPriority = "-1")
 	)
 	FString LocalFile;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
 		meta = (EditCondition = "Source == EVectorSource::OverpassQuery", EditConditionHides, DisplayPriority = "-1")
 	)
 	FString OverpassQuery;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
 		meta = (EditCondition = "Source == EVectorSource::OverpassShortQuery", EditConditionHides, DisplayPriority = "-1")
 	)
 	FString OverpassShortQuery;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+	UPROPERTY(AdvancedDisplay, VisibleAnywhere, BlueprintReadWrite, Category = "GDALImporter",
 		meta = (EditCondition = "IsOverpassPreset()", EditConditionHides, DisplayPriority = "-1")
 	)
 	FString OverpassShortQueryPreset;
@@ -139,7 +139,7 @@ public:
 	int BoundingZoneMaxY = 0;
 
 	UPROPERTY(
-		EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+		AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
 		meta = (DisplayPriority = "4")
 	)
 	/* Folder used to spawn the actors. This setting is unused when generating from a combination. */

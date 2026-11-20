@@ -97,7 +97,7 @@ public:
 	/* Please select the source from which to download the images. */
 	EImageSourceKind ImageSourceKind;
 	
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (DisplayPriority = "-18")
 	)
@@ -138,7 +138,7 @@ public:
 	/* The NextZen token can be set in the Editor Preferences, in Plugins -> Landscape Combinator. */
 	FString NextZen_Token;
 	
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition = "IsMapbox()", EditConditionHides, DisplayPriority = "2")
 	)
@@ -196,35 +196,35 @@ public:
 	)
 	int XYZ_MaxY;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::GenericXYZ", EditConditionHides, DisplayPriority = "20")
 	)
 	/* For XYZ or Slippy Tiles, MaxY is usually South, so you can leave this unchecked. */
 	bool bMaxY_IsNorth = false;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::GenericXYZ", EditConditionHides, DisplayPriority = "21")
 	)
 	/* Add georeference to downloaded files using the Slippy Tile / XYZ convention. */
 	bool bGeoreferenceSlippyTiles = true;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::GenericXYZ && !bGeoreferenceSlippyTiles", EditConditionHides, DisplayPriority = "22")
 	)
 	/* The coordinate system used by the downloaded files. */
 	FString XYZ_CRS = "";
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition = "IsXYZ()", EditConditionHides, DisplayPriority = "23")
 	)
 	/* Ignore errors when the XYZ provider has missing tiles */
 	bool bAllowInvalidTiles = true;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition = "IsXYZ()", EditConditionHides, DisplayPriority = "100")
 	)
@@ -246,7 +246,7 @@ public:
 	)
 	FString CapabilitiesURL = "";
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, Category = "Source",
 		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::GenericWMS", EditConditionHides, DisplayPriority = "3")
 	)
@@ -264,7 +264,7 @@ public:
 	UFUNCTION()
 	TArray<FString> GetTitles();
 	
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		VisibleAnywhere, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS() && HasMultipleLayers()",
@@ -273,7 +273,7 @@ public:
 	)
 	FString WMS_Name = "";
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		VisibleAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS() && HasMultipleLayers()",
@@ -291,7 +291,7 @@ public:
 	)
 	FString WMS_Help = "";
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS()",
@@ -303,7 +303,7 @@ public:
 	// case the CRS can be edited to the correct value (as found in the WMS server capabilities).
 	FString WMS_CRS = "";
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		VisibleAnywhere, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS()",
@@ -312,7 +312,7 @@ public:
 	)
 	FString WMS_SearchCRS = "";
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		VisibleAnywhere, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS() && ManualParametersSelection()",
@@ -321,7 +321,7 @@ public:
 	)
 	double WMS_MinAllowedLong;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		VisibleAnywhere, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS() && ManualParametersSelection()",
@@ -330,7 +330,7 @@ public:
 	)
 	double WMS_MaxAllowedLong;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		VisibleAnywhere, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS() && ManualParametersSelection()",
@@ -339,7 +339,7 @@ public:
 	)
 	double WMS_MinAllowedLat;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		VisibleAnywhere, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS() && ManualParametersSelection()",
@@ -388,7 +388,7 @@ public:
 	/* Enter the maximum latitude of the bounding box (top coordinate). Smaller or equal than WMS_MaxAllowedLat. */
 	double WMS_MaxLat;
 	
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		VisibleAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS()",
@@ -398,7 +398,7 @@ public:
 	/* Maximum allowed width from the WMS provider. */
 	int WMS_MaxWidth = 0;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		VisibleAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS()",
@@ -418,7 +418,7 @@ public:
 	/* Use the best resolution when downloading image from WMS */
 	bool bAutoSetResolution = false;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS()",
@@ -432,7 +432,7 @@ public:
 	 */
 	bool bWMSSingleTile = true;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS()",
@@ -442,7 +442,7 @@ public:
 	/* Enter desired width for the downloaded heightmap tiles from the WMS API. Smaller or equal than WMS_MaxWidth. */
 	int WMS_MaxTileWidth = 1000;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
 			EditCondition = "IsWMS()",
@@ -472,7 +472,7 @@ public:
 	/* Enter the number of pixels per units (the higher the number, the higher the resolution). */
 	double WMS_ResolutionPixelsPerUnit = 1;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "100")
 	)
@@ -543,7 +543,7 @@ public:
 	)
 	FString Viewfinder_TilesString;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition =
 			"ImageSourceKind == EImageSourceKind::Viewfinder3 || ImageSourceKind == EImageSourceKind::Viewfinder1",
@@ -552,7 +552,7 @@ public:
 	/* The tiles of Viewfinder Panoramas 1" and 3" contain subtiles, use this option if you want to filter them. */
 	bool bFilterDegrees = false;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition =
 			"bFilterDegrees && (ImageSourceKind == EImageSourceKind::Viewfinder3 || ImageSourceKind == EImageSourceKind::Viewfinder1)",
@@ -560,7 +560,7 @@ public:
 	)
 	int FilterMinLong = 0;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition =
 			"bFilterDegrees && (ImageSourceKind == EImageSourceKind::Viewfinder3 || ImageSourceKind == EImageSourceKind::Viewfinder1)",
@@ -568,7 +568,7 @@ public:
 	)
 	int FilterMaxLong = 0;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition =
 			"bFilterDegrees && (ImageSourceKind == EImageSourceKind::Viewfinder3 || ImageSourceKind == EImageSourceKind::Viewfinder1)",
@@ -576,7 +576,7 @@ public:
 	)
 	int FilterMinLat = 0;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (EditCondition =
 			"bFilterDegrees && (ImageSourceKind == EImageSourceKind::Viewfinder3 || ImageSourceKind == EImageSourceKind::Viewfinder1)",
@@ -622,7 +622,7 @@ public:
 	/* Check this if you prefer to use the less precise 5m data instead of 1m data */
 	bool bUse5mData = false;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 			EditAnywhere, BlueprintReadWrite, Category = "Source",
 			meta = (EditCondition = "ImageSourceKind == EImageSourceKind::Litto3D_Guadeloupe", EditConditionHides, DisplayPriority = "6")
 	)
@@ -721,21 +721,21 @@ public:
 	 * Remap value *
 	 ***************/
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Remap",
 		meta = (DisplayPriority = "1")
 	)
 	/* Some sources use -99999 as no data. Check this option to remap -99999 to -10 (or any other mapping). */
 	bool bRemap = true;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Remap",
 		meta = (DisplayPriority = "2")
 	)
 	/** Remove NoData flag from downloaded images */
 	bool bHideNoDataFlag = true;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Remap",
 		meta = (
 			EditCondition = "bRemap",
@@ -744,7 +744,7 @@ public:
 	)
 	float OriginalValue = -99999;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Remap",
 		meta = (
 			EditCondition = "bRemap",
@@ -758,14 +758,14 @@ public:
 	 * Preprocessing *
 	 *****************/
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Preprocessing",
 		meta = (DisplayPriority = "10")
 	)
 	/* Check this option if you want to run an external binary to prepare the heightmaps right after fetching them. */
 	bool bPreprocess = false;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Preprocessing",
 		meta = (EditCondition = "bPreprocess", EditConditionHides, DisplayPriority = "11")
 	)
@@ -776,14 +776,14 @@ public:
 	 * Resolution *
 	 **************/
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Resolution",
 		meta = (DisplayPriority = "20")
 	)
 	/* Check this if you wish to scale up or down the resolution of your heightmaps. */
 	bool bScaleResolution = false;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Resolution",
 		meta = (EditCondition = "bScaleResolution", EditConditionHides, DisplayPriority = "21")
 	)
@@ -795,14 +795,14 @@ public:
 	 * Adapt to Landscape *
 	 **********************/
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "AdaptToLandscape",
 		meta = (DisplayPriority = "1")
 	)
 	/* Check this if you want to resize the image to match the TargetLandscape's resolution. */
 	bool bAdaptResolution = false;
 	
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "AdaptToLandscape",
 		meta = (EditCondition = "bAdaptResolution", EditConditionHides, DisplayPriority = "2")
 	)
@@ -813,7 +813,7 @@ public:
 	 * Crop to Area *
 	 ****************/
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "CropCoordinates",
 		meta = (DisplayPriority = "1")
 	)
@@ -823,13 +823,13 @@ public:
 	  **/
 	bool bCropCoordinates = false;
 	
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "CropCoordinates",
 		meta = (EditCondition = "bCropCoordinates && AllowsParametersSelection()", EditConditionHides, DisplayPriority = "2")
 	)
 	bool bCropFollowingParametersSelection = true;
 	
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "CropCoordinates",
 		meta = (EditCondition = "bCropCoordinates && (!AllowsParametersSelection() || !bCropFollowingParametersSelection)", EditConditionHides, DisplayPriority = "3")
 	)

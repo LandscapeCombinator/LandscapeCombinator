@@ -1,6 +1,7 @@
 // Copyright 2023-2027 LandscapeCombinator. All Rights Reserved.
 
 #include "LandscapeCombinator/LandscapeSpawnerCustomization.h"
+#include "LandscapeCombinator/AdvancedSubCategoriesCustomization.h"
 
 #if WITH_EDITOR
 
@@ -14,6 +15,7 @@ TSharedRef<IDetailCustomization> FLandscapeSpawnerCustomization::MakeInstance()
 void FLandscapeSpawnerCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
 	DetailBuilder.EditCategory("LandscapeSpawner", FText::GetEmpty(), ECategoryPriority::Important);
+	FAdvancedSubCategoriesCustomization::AddAdvancedGroups(DetailBuilder);
 }
 
 #endif

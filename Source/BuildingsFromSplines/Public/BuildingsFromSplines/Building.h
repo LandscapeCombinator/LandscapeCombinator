@@ -35,26 +35,26 @@ public:
 	double MinHeightWorld = MAX_dbl;
 	double MaxHeightLocal = -MAX_dbl;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "Building")
 	TObjectPtr<USceneComponent> EmptySceneComponent;
 	
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		VisibleAnywhere, BlueprintReadWrite, Category = "Building",
 		meta = (DisplayPriority = "50")
 	)
 	TObjectPtr<USplineComponent> SplineComponent;
 	
-	UPROPERTY(VisibleAnywhere, Category = "Building")
+	UPROPERTY(AdvancedDisplay, VisibleAnywhere, Category = "Building")
 	TObjectPtr<UStaticMeshComponent> StaticMeshComponent;
 	
-	UPROPERTY(VisibleAnywhere, Category = "Building")
+	UPROPERTY(AdvancedDisplay, VisibleAnywhere, Category = "Building")
 	TObjectPtr<UDynamicMeshComponent> DynamicMeshComponent;
 
 	// Scratch mesh reused across AppendAlongSpline calls for wall/hole pieces
 	UPROPERTY(Transient)
 	TObjectPtr<UDynamicMesh> ScratchWallMesh = nullptr;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Building",
 		meta = (DisplayPriority = "-1")
 	)
@@ -68,12 +68,12 @@ public:
 	)
 	bool bGenerateWhenModified = false;
 
-	UPROPERTY(VisibleAnywhere, Category = "Stairs")
+	UPROPERTY(AdvancedDisplay, VisibleAnywhere, Category = "Stairs")
 	TObjectPtr<USceneComponent> StairsHandle;
 
 	void AppendStairs(UDynamicMesh* TargetMesh);
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cutouts")
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "Cutouts")
 	FActorSelection CutoutSelection;
 
 	void ApplyCutouts(UDynamicMesh* TargetMesh);
@@ -145,7 +145,7 @@ public:
 	// and there are subdivisions (depending on the WallSubdivions property of the BuildingConfiguration)
 	// and the points are clockwise (when seen from above in Unreal, which isn't the same as clockwise in TPolygon2
 	// because of inverted Y-axis)
-	UPROPERTY(VisibleAnywhere, Category = "Building")
+	UPROPERTY(AdvancedDisplay, VisibleAnywhere, Category = "Building")
 	TObjectPtr<USplineComponent> BaseClockwiseSplineComponent;
 
 protected:

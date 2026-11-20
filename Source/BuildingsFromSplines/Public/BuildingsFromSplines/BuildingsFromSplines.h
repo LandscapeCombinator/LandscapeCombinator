@@ -37,49 +37,49 @@ public:
 	ABuildingsFromSplines();
 
 	/* Delete previous buildings before generating new ones */
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
 		meta = (DisplayPriority = "-7")
 	)
 	bool bDeleteOldBuildingsWhenCreatingBuildings = true;
 
 	/* Check this to skip splines for which there already exist a building from previous runs */
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
 		meta = (DisplayPriority = "-6")
 	)
 	bool bSkipExistingBuildings = true;
 
 	/* Continue generating buildings even when some have errors */
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
 		meta = (DisplayPriority = "-5")
 	)
 	bool bContinueDespiteErrors = false;
 
 	/* The folder in which to create the buildings.  This setting is unused when generating from a combination or from blueprints. */
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
 		meta = (DisplayPriority = "-4")
 	)
 	FName SpawnedActorsPath = TEXT("BuildingsFromSplines");
 
 	/* The tag of the actors containing spline components to search for. If None, all actors will be used. */
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
 		meta = (DisplayPriority = "-3")
 	)
 	FName SplinesTag;
 	
 	/* The tag of the Spline Components to use to generate buildings. If None, all spline components will be used. */
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
 		meta = (DisplayPriority = "-2")
 	)
 	FName SplineComponentsTag;
 	
 	/* Whether the generated buildings are spatially loaded. */
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Buildings",
 		meta = (DisplayPriority = "0")
 	)

@@ -15,6 +15,7 @@
 #include "LandscapeCombinator/LandscapeTexturerCustomization.h"
 #include "LandscapeCombinator/LandscapeMesh.h"
 #include "LandscapeCombinator/LandscapeMeshCustomization.h"
+#include "LandscapeCombinator/AdvancedSubCategoriesCustomization.h"
 #include "LandscapeCombinator/LogLandscapeCombinator.h"
 #include "LandscapeCombinator/GeneratorWrapper.h"
 #include "LandscapeCombinator/GeneratorsStatus.h"
@@ -58,6 +59,7 @@ void FLandscapeCombinatorModule::StartupModule()
 	PropertyModule.RegisterCustomClassLayout(ALandscapeMesh::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FLandscapeMeshCustomization::MakeInstance));
 	PropertyModule.RegisterCustomClassLayout(ALandscapeSpawner::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FLandscapeSpawnerCustomization::MakeInstance));
 	PropertyModule.RegisterCustomClassLayout(ALandscapeTexturer::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FLandscapeTexturerCustomization::MakeInstance));
+	for (const TCHAR* Name : { TEXT("RoadsFromSplines"), TEXT("OGRGeometry"), TEXT("BuildingConfiguration") }) PropertyModule.RegisterCustomClassLayout(Name, FOnGetDetailCustomizationInstance::CreateStatic(&FAdvancedSubCategoriesCustomization::MakeInstance));
 
 	PropertyModule.RegisterCustomPropertyTypeLayout("GeneratorWrapper", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FGeneratorWrapperCustomization::MakeInstance));
 

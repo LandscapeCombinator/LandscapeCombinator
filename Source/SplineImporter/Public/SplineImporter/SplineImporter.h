@@ -43,28 +43,28 @@ class SPLINEIMPORTER_API ASplineImporter : public AGDALImporter
 public:
 	ASplineImporter() : AGDALImporter() {};
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
 		meta = (DisplayPriority = "-100")
 	)
 	bool bDebugLineTraces = false;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
 		meta = (EditCondition = "Source == EVectorSource::LocalFile", EditConditionHides, DisplayPriority = "0")
 	)
 	bool bSkipCoordinateConversion = false;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
 		meta = (EditCondition = "Source == EVectorSource::LocalFile && bSkipCoordinateConversion", EditConditionHides, DisplayPriority = "0")
 	)
 	double ScaleX = 1;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
 		meta = (EditCondition = "Source == EVectorSource::LocalFile && bSkipCoordinateConversion", EditConditionHides, DisplayPriority = "1")
 	)
 	double ScaleY = 1;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
 		meta = (DisplayPriority = "1000")
 	)
@@ -81,21 +81,21 @@ public:
 	)
 	FName SplinesTag;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
 		meta = (EditCondition = "!bUseLandscapeSplines", EditConditionHides, DisplayPriority = "2000")
 	)
 	// When true, will resample the imported splines at a given internal
 	bool bResamplePointsAtDistance = false;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
 		meta = (EditCondition = "!bUseLandscapeSplines && bResamplePointsAtDistance", EditConditionHides, DisplayPriority = "2001")
 	)
 	// in cm
 	double ResampleDistance = 1500;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
 		meta = (EditCondition = "!bUseLandscapeSplines && bResamplePointsAtDistance", EditConditionHides, DisplayPriority = "2002")
 	)

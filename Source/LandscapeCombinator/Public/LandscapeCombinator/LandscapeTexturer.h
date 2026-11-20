@@ -39,14 +39,14 @@ public:
 		}
 	}
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer",
 		meta = (DisplayPriority = "-1")
 	)
 	/* Folder used to spawn the actors. This setting is unused when generating from a combination or from blueprints. */
 	FName SpawnedActorsPath;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer",
 		meta = (DisplayPriority = "0")
 	)
@@ -59,13 +59,13 @@ public:
 			)
 		);
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer",
 		meta = (DisplayPriority = "1")
 	)
 	int DecalsSortOrder = 0;
 
-	UPROPERTY(
+	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer",
 		meta = (DisplayPriority = "2")
 	)

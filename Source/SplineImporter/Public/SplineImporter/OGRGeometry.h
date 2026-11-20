@@ -22,12 +22,12 @@ public:
 	AOGRGeometry();
 
 	/* Tag to apply to the current actor when importing the area. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
 		meta = (DisplayPriority = "5")
 	)
 	FName AreaTag;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter",
 		meta = (DisplayPriority = "6")
 	)
 	bool bClearGeometryBeforeImporting = true;
@@ -38,7 +38,7 @@ public:
 	)
 	bool bShowGeometryPreview = false;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter|Preview",
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter|Preview",
 		meta = (DisplayPriority = "11")
 	)
 	TObjectPtr<UMaterialInterface> PreviewMaterial;
@@ -46,7 +46,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter|Preview", meta = (DisplayPriority = "12"))
 	int32 PreviewResolution = 256;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter|Preview", meta = (DisplayPriority = "13"))
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter|Preview", meta = (DisplayPriority = "13"))
 	FLinearColor PreviewColor = FLinearColor(1.0f, 1.0f, 1.0f, 0.1f);
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "GDALImporter|Preview",
@@ -61,7 +61,7 @@ public:
 	FString MaskAssetPath;
 
 	/* Size in pixels of the longer side of the mask, for targets other than a landscape (a landscape uses one pixel per vertex). */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter|Mask",
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "GDALImporter|Mask",
 		meta = (DisplayPriority = "22")
 	)
 	int32 MaskResolution = 4096;
