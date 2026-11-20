@@ -8,7 +8,9 @@
 #include "LandscapeUtils/LandscapeUtils.h"
 
 #include "PCGComponent.h"
+#if !UE_VERSION_OLDER_THAN(5, 7, 0)
 #include "PCGGraphExecutionStateInterface.h"
+#endif
 #include "Data/PCGPointData.h"
 #include "Data/PCGSpatialData.h"
 #include "Elements/PCGActorSelector.h"

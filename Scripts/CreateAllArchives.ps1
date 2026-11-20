@@ -1,6 +1,7 @@
 param (
     [string]$PluginVersion,
-    [string[]]$EngineVersions
+    [string[]]$EngineVersions,
+    [switch]$SkipExisting
 )
 
 Set-StrictMode -Version 3
@@ -18,6 +19,7 @@ foreach ($Manifest in $Manifests)
     {
         $EngineVersion = $Matches[1]
         if ($EngineVersions -and $EngineVersions -notcontains $EngineVersion) { continue }
+        if ($SkipExisting -and (Test-Path "*-v$PluginVersion-UE$EngineVersion.zip")) { Write-Output "=== Skipping UE $EngineVersion (archive exists)"; continue }
         Write-Output "=== $PluginVersion for UE $EngineVersion"
 
         $global:LASTEXITCODE = 0

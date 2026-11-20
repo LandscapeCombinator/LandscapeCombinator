@@ -8,6 +8,7 @@
 #include "DetailLayoutBuilder.h"
 #include "IDetailGroup.h"
 #include "PropertyHandle.h"
+#include "UObject/Package.h"
 
 TSharedRef<IDetailCustomization> FAdvancedSubCategoriesCustomization::MakeInstance()
 {

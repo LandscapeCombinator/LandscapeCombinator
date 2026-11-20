@@ -83,6 +83,8 @@ struct FPCGOGRSurfaceSamplerContext : public FPCGContext
 };
 
 class FPCGOGRSurfaceSamplerElement : public IPCGElementWithCustomContext<FPCGOGRSurfaceSamplerContext>
+#elif UE_VERSION_OLDER_THAN(5, 4, 0)
+class FPCGOGRSurfaceSamplerElement : public FSimplePCGElement
 #else
 class FPCGOGRSurfaceSamplerElement : public IPCGElement
 #endif
