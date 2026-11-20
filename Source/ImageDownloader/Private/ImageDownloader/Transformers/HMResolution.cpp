@@ -12,9 +12,31 @@
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
+const TCHAR* HMResolution::GetGDALResamplingName(EGDALResamplingMethod Method)
+{
+	switch (Method)
+	{
+	case EGDALResamplingMethod::Nearest: return TEXT("near");
+	case EGDALResamplingMethod::Bilinear: return TEXT("bilinear");
+	case EGDALResamplingMethod::Cubic: return TEXT("cubic");
+	case EGDALResamplingMethod::CubicSpline: return TEXT("cubicspline");
+	case EGDALResamplingMethod::Lanczos: return TEXT("lanczos");
+	case EGDALResamplingMethod::Average: return TEXT("average");
+	case EGDALResamplingMethod::RMS: return TEXT("rms");
+	case EGDALResamplingMethod::Mode: return TEXT("mode");
+	default: return nullptr;
+	}
+}
+
 bool HMResolution::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 {
 	OutputCRS = InputCRS;
+	const TCHAR* ResamplingName = GetGDALResamplingName(ResamplingMethod);
+	if (!ResamplingName)
+	{
+		UE_LOG(LogImageDownloader, Error, TEXT("Adapt Resolution requires a valid GDAL resampling method."));
+		return false;
+	}
 
 	if (InputFiles.Num() != 1)
 	{
@@ -33,6 +55,8 @@ bool HMResolution::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 	Args.Add(InputCRS);
 	Args.Add("-t_srs");
 	Args.Add(InputCRS);
+	Args.Add("-r");
+	Args.Add(ResamplingName);
 
 	if (Pixels != FIntPoint::ZeroValue)
 	{

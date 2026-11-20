@@ -4,6 +4,7 @@
 
 #include "ImageDownloader/WMSProvider.h"
 #include "ImageDownloader/HMFetcher.h"
+#include "ImageDownloader/Transformers/HMResolution.h"
 #include "ImageDownloader/ParametersSelection.h"
 #include "ConsoleHelpers/ExternalTool.h"
 #include "Coordinates/LevelCoordinates.h"
@@ -802,10 +803,15 @@ public:
 	)
 	/* Check this if you want to resize the image to match the TargetLandscape's resolution. */
 	bool bAdaptResolution = false;
+
+	/** GDAL resampling method used when adapting an image to the target landscape. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AdaptToLandscape",
+		meta = (EditCondition = "bAdaptResolution", EditConditionHides, DisplayPriority = "2"))
+	EGDALResamplingMethod AdaptResamplingMethod = EGDALResamplingMethod::Nearest;
 	
 	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "AdaptToLandscape",
-		meta = (EditCondition = "bAdaptResolution", EditConditionHides, DisplayPriority = "2")
+		meta = (EditCondition = "bAdaptResolution", EditConditionHides, DisplayPriority = "3")
 	)
 	TObjectPtr<ALandscape> TargetLandscape;
 
