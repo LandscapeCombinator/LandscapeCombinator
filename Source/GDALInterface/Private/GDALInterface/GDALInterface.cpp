@@ -614,12 +614,14 @@ bool GDALInterface::ConvertToPNG(FString SourceFile, FString TargetFile, bool bH
 	return bResult;
 }
 
-bool GDALInterface::ChangeResolution(FString SourceFile, FString TargetFile, int PrecisionPercent)
+bool GDALInterface::ChangeResolution(FString SourceFile, FString TargetFile, int PrecisionPercent, FString ResamplingMethod)
 {
 	TArray<FString> Args;
 	Args.Add("-outsize");
 	Args.Add(FString::Format(TEXT("{0}%"), { PrecisionPercent }));
 	Args.Add(FString::Format(TEXT("{0}%"), { PrecisionPercent }));
+	Args.Add("-r");
+	Args.Add(MoveTemp(ResamplingMethod));
 	return Translate(SourceFile, TargetFile, Args);
 }
 
