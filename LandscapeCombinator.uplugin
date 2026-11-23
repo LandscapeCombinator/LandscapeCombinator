@@ -2,7 +2,7 @@
 	"FileVersion": 3,
 	"Version": 9,
 	"VersionName": "0.9.0",
-	"EngineVersion": "5.8.0",
+	"EngineVersion": "5.9.0",
 	"FriendlyName": "LandscapeCombinator",
 	"Category": "Other",
 	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/product/675e54fcb72f42db82125d5573d0667e",
