@@ -1,6 +1,7 @@
 // Copyright 2023-2027 LandscapeCombinator. All Rights Reserved.
 
 #include "LandscapeCombinator/LandscapeTexturer.h"
+#include "Coordinates/LCMaterialBinding.h"
 #include "LandscapeCombinator/LandscapeController.h"
 #include "ImageDownloader/HMDebugFetcher.h"
 #include "ImageDownloader/Transformers/HMCrop.h"
@@ -26,6 +27,19 @@ ALandscapeTexturer::ALandscapeTexturer()
 	ImageDownloader = CreateDefaultSubobject<UImageDownloader>(TEXT("TextureDownloader"));
 	ImageDownloader->bRemap = false;
 	PositionBasedGeneration = CreateDefaultSubobject<ULCPositionBasedGeneration >(TEXT("PositionBasedGeneration"));
+}
+
+void ALandscapeTexturer::RemoveMaterialBindings()
+{
+	Concurrency::RunOnGameThreadAndWait([this]()
+	{
+		const FString KeyPrefix = GetActorInstanceGuid().ToString() + TEXT("_");
+		for (AActor* Target : MaterialTargetSelection.GetAllActors(GetWorld(), false))
+		{
+			ULCMaterialBinding::RemoveSourcesWithPrefix(Target, KeyPrefix);
+		}
+		return true;
+	});
 }
 
 bool ALandscapeTexturer::CreateDecals(TObjectPtr<UGlobalCoordinates> GlobalCoordinates, FName SpawnedActorsPathOverride, bool bIsUserInitiated)
@@ -61,6 +75,16 @@ bool ALandscapeTexturer::CreateDecals(TObjectPtr<UGlobalCoordinates> GlobalCoord
 
 	if (bApplyToBodySphere && UGlobalCoordinates::IsSphere(GlobalCoordinates))
 	{
+		if (!SatelliteLayerName.IsNone() && bIsUserInitiated)
+		{
+			Concurrency::RunOnGameThreadAndWait([]() {
+				LCReporter::ShowError(LOCTEXT(
+					"ALandscapeTexturer::CreateDecals::SphereLayerIgnored",
+					"Satellite Layer Name is ignored when Apply To Body Sphere is enabled: the images are applied to the body sphere only."
+				));
+				return true;
+			});
+		}
 		return ApplyToBodySphere(GlobalCoordinates, DownloadedImages, bIsUserInitiated);
 	}
 
@@ -80,6 +104,37 @@ bool ALandscapeTexturer::CreateDecals(TObjectPtr<UGlobalCoordinates> GlobalCoord
 		}
 		return true;
 	});
+
+	if (!SatelliteLayerName.IsNone())
+	{
+		TArray<AActor*> Targets;
+		Concurrency::RunOnGameThreadAndWait([this, &Targets, bIsUserInitiated](){
+			Targets = MaterialTargetSelection.GetAllActors(GetWorld(), bIsUserInitiated);
+			return true;
+		});
+
+		const FString KeyBase = GetActorInstanceGuid().ToString();
+
+		for (AActor* Target : Targets) ULCMaterialBinding::RemoveSourcesWithPrefix(Target, KeyBase + TEXT("_"));
+
+		for (int32 i = 0; i < NewDecals.Num(); i++)
+		{
+			ADecalActor* DecalActor = NewDecals[i];
+			if (!IsValid(DecalActor)) continue;
+			UDecalCoordinates* DecalCoordinates = DecalActor->FindComponentByClass<UDecalCoordinates>();
+			if (!IsValid(DecalCoordinates) || !IsValid(DecalCoordinates->Texture)) continue;
+
+			const FName LayerName = i == 0 ? SatelliteLayerName : FName(*FString::Printf(TEXT("%s_%d"), *SatelliteLayerName.ToString(), i));
+			const bool bSphere = DecalCoordinates->bSphereDecal;
+			const FVector2D BoundsMin = bSphere ? DecalCoordinates->DecalBoundsMin : DecalCoordinates->DecalWorldBoundsMin;
+			const FVector2D BoundsMax = bSphere ? DecalCoordinates->DecalBoundsMax : DecalCoordinates->DecalWorldBoundsMax;
+
+			for (AActor* Target : Targets)
+			{
+				ULCMaterialBinding::BindTexture(Target, FString::Printf(TEXT("%s_%d"), *KeyBase, i), LayerName, DecalCoordinates->Texture, BoundsMin, BoundsMax);
+			}
+		}
+	}
 
 	if (bIsUserInitiated)
 	{

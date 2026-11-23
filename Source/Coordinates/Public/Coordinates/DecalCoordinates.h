@@ -50,6 +50,12 @@ public:
 	UPROPERTY()
 	FVector2D DecalBoundsMax = FVector2D::ZeroVector;
 
+	UPROPERTY()
+	FVector2D DecalWorldBoundsMin = FVector2D::ZeroVector;
+
+	UPROPERTY()
+	FVector2D DecalWorldBoundsMax = FVector2D::ZeroVector;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DecalCoordinates|Internal")
 	TObjectPtr<UTexture2D> Texture;
 

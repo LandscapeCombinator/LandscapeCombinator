@@ -132,7 +132,6 @@ void FLandscapeCombinatorModule::GetPackagesToAlwaysCook(TConstArrayView<const I
 {
 	OutPackagesToCook.AddUnique(TEXT("/LandscapeCombinator/Materials/M_GeoDecal"));
 	OutPackagesToCook.AddUnique(TEXT("/LandscapeCombinator/Materials/M_GeoSphere"));
-	OutPackagesToCook.AddUnique(TEXT("/LandscapeCombinator/Materials/MPC_LCBody"));
 }
 
 void FLandscapeCombinatorModule::ShowGeneratorStatusOverlay()

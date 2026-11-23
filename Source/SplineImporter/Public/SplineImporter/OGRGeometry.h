@@ -88,6 +88,17 @@ public:
 	)
 	int32 MaskResolution = 4096;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GDALImporter|Mask",
+		meta = (DisplayPriority = "23")
+	)
+	FName MaskLayerName;
+
+	UPROPERTY()
+	FVector2D MaskWorldBoundsMin = FVector2D::ZeroVector;
+
+	UPROPERTY()
+	FVector2D MaskWorldBoundsMax = FVector2D::ZeroVector;
+
 	/* Simple cache, the serialized data is saved in a UPROPERTY */
 	OGRGeometry *Geometry = nullptr;
 
@@ -113,6 +124,9 @@ public:
 
 	/* Rasterizes Geometry on the extent of the Bounding Actor and saves it as a G8 texture asset at MaskAssetPath. */
 	bool ExportMask(bool bIsUserInitiated);
+
+	UFUNCTION(BlueprintCallable, CallInEditor, Category = "GDALImporter|Mask")
+	bool ApplyMaskToMaterial();
 
 protected:
 	virtual void SetOverpassShortQuery() override;

@@ -20,6 +20,7 @@
 #endif
 #include "Coordinates/GlobalCoordinates.h"
 #include "Coordinates/LevelCoordinates.h"
+#include "Coordinates/LCMaterialBinding.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(OGRGeometry)
 
@@ -528,6 +529,14 @@ bool AOGRGeometry::ExportMask(bool bIsUserInitiated)
 		return false;
 	}
 
+	Concurrency::RunOnGameThreadAndWait([&]() {
+		Modify();
+		MaskWorldBoundsMin = FVector2D(WorldMinX, WorldMinY);
+		MaskWorldBoundsMax = FVector2D(WorldMaxX, WorldMaxY);
+		return true;
+	});
+	if (!MaskLayerName.IsNone() && !ApplyMaskToMaterial()) return false;
+
 	UE_LOG(LogSplineImporter, Log, TEXT("Exported mask %s (%dx%d). World extent: X [%f, %f], Y [%f, %f]. Row 0 is the north row of the CRS."),
 		*Path, SizeX, SizeY, WorldMinX, WorldMaxX, WorldMinY, WorldMaxY);
 
@@ -548,6 +557,40 @@ bool AOGRGeometry::ExportMask(bool bIsUserInitiated)
 	return true;
 #else
 	UE_LOG(LogSplineImporter, Warning, TEXT("ExportMask is only supported in the editor"));
+	return false;
+#endif
+}
+
+bool AOGRGeometry::ApplyMaskToMaterial()
+{
+#if WITH_EDITOR
+	return Concurrency::RunOnGameThreadAndWait([this]()
+	{
+		if (MaskLayerName.IsNone())
+		{
+			LCReporter::ShowError(LOCTEXT("AOGRGeometry::ApplyMaskToMaterial::NoLayer", "Please set the Mask Layer Name."));
+			return false;
+		}
+		if (BoundingMethod != EBoundingMethod::BoundingActor)
+		{
+			LCReporter::ShowError(LOCTEXT("AOGRGeometry::ApplyMaskToMaterial::NeedActor", "Applying the mask to a material requires Bounding Method = Bounding Actor."));
+			return false;
+		}
+
+		const FString AssetName = FPackageName::GetLongPackageAssetName(MaskAssetPath);
+		UTexture2D* Texture = LoadObject<UTexture2D>(nullptr, *FString::Printf(TEXT("%s.%s"), *MaskAssetPath, *AssetName), nullptr, LOAD_NoWarn | LOAD_Quiet);
+		if (!IsValid(Texture))
+		{
+			LCReporter::ShowError(LOCTEXT("AOGRGeometry::ApplyMaskToMaterial::NoTexture", "The mask texture does not exist yet, please export the mask first."));
+			return false;
+		}
+
+		AActor* Target = BoundingActorSelection.GetActor(GetWorld());
+		if (!IsValid(Target)) return false;
+
+		return ULCMaterialBinding::BindTexture(Target, GetActorInstanceGuid().ToString(), MaskLayerName, Texture, MaskWorldBoundsMin, MaskWorldBoundsMax);
+	});
+#else
 	return false;
 #endif
 }

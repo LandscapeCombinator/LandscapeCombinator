@@ -62,6 +62,8 @@ public:
 
 	void UpdateBodyParameters();
 
+	static FLinearColor MakeBodyVector(const UGlobalCoordinates* G);
+
 	UFUNCTION()
 	bool IsSphereModel() const;
 

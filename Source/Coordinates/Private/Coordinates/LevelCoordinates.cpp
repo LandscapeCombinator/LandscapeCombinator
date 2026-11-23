@@ -22,8 +22,8 @@
 #include "Coordinates/DecalCoordinates.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "GDALInterface/GDALInterface.h"
-#include "Materials/MaterialParameterCollection.h"
-#include "Materials/MaterialParameterCollectionInstance.h"
+#include "Coordinates/LCMaterialBinding.h"
+#include "UObject/UObjectIterator.h"
 #include "FileDownloader/Download.h"
 #include "ConcurrencyHelpers/Concurrency.h"
 #include "ConcurrencyHelpers/LCReporter.h"
@@ -364,34 +364,26 @@ bool ALevelCoordinates::IsSphereModel() const
 	return UGlobalCoordinates::IsSphere(GlobalCoordinates);
 }
 
+FLinearColor ALevelCoordinates::MakeBodyVector(const UGlobalCoordinates* G)
+{
+	if (!IsValid(G)) return FLinearColor(0.f, 0.f, 0.f, 0.f);
+	return FLinearColor(
+		(float) UGlobalCoordinates::GetSphereRadiusCm(G),
+		(float) G->WorldOriginLat,
+		(float) G->WorldOriginLong,
+		G->IsSphere() ? 1.f : 0.f
+	);
+}
+
 void ALevelCoordinates::UpdateBodyParameters()
 {
 	UWorld* World = GetWorld();
 	if (IsTemplate() || !IsValid(World) || !IsValid(GlobalCoordinates)) return;
 
-	for (TActorIterator<ALevelCoordinates> It(World); It; ++It)
+	for (TObjectIterator<ULCMaterialBinding> It; It; ++It)
 	{
-		if (*It == this || !IsValid(*It) || It->IsHidden() || !IsValid(It->GlobalCoordinates)) continue;
-		if (It->GlobalCoordinates->BodyLocation.SizeSquared() < GlobalCoordinates->BodyLocation.SizeSquared())
-		{
-			It->UpdateBodyParameters();
-			return;
-		}
+		if (IsValid(*It) && It->GetWorld() == World) It->RequestRebuild();
 	}
-
-	UMaterialParameterCollection* Collection = LoadObject<UMaterialParameterCollection>(nullptr, TEXT("/LandscapeCombinator/Materials/MPC_LCBody.MPC_LCBody"), nullptr, LOAD_NoWarn);
-	if (!IsValid(Collection)) return;
-
-	UMaterialParameterCollectionInstance* Instance = World->GetParameterCollectionInstance(Collection);
-	if (!IsValid(Instance)) return;
-
-	const FLinearColor Body(
-		(float) UGlobalCoordinates::GetSphereRadiusCm(GlobalCoordinates),
-		(float) GlobalCoordinates->WorldOriginLat,
-		(float) GlobalCoordinates->WorldOriginLong,
-		GlobalCoordinates->IsSphere() ? 1.f : 0.f
-	);
-	Instance->SetVectorParameterValue(FName("Body"), Body);
 }
 
 void ALevelCoordinates::PostRegisterAllComponents()

@@ -3,6 +3,7 @@
 #include "LandscapeCombinator/LandscapeMeshSpawner.h"
 #include "LandscapeCombinator/LogLandscapeCombinator.h"
 #include "LandscapeCombinator/LandscapeController.h"
+#include "Coordinates/LCMaterialBinding.h"
 
 #include "ImageDownloader/TilesCounter.h"
 #include "LandscapeUtils/LandscapeUtils.h"
@@ -304,7 +305,12 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 				LandscapeMesh->MeshComponent->SetCollisionProfileName(WeakThis->CollisionProfile.Name.IsNone() ? FName(TEXT("BlockAll")) : WeakThis->CollisionProfile.Name);
 				LandscapeMesh->MeshComponent->SetCollisionEnabled(WeakThis->CollisionEnabled);
 				if (!LandscapeMesh->AddHeightmap(WeakThis->HeightmapPriority, ThisFileCoordinates, GlobalCoordinates, OutputFile, OwnerName)) return false;
-				if (IsValid(WeakThis->LandscapeMaterial)) LandscapeMesh->MeshComponent->SetMaterial(0, WeakThis->LandscapeMaterial);
+				if (IsValid(WeakThis->LandscapeMaterial))
+				{
+					LandscapeMesh->MeshComponent->SetMaterial(0, WeakThis->LandscapeMaterial);
+					// SetMaterial replaced the binding's material instance, recreate it
+					if (ULCMaterialBinding* Binding = LandscapeMesh->FindComponentByClass<ULCMaterialBinding>()) Binding->RequestRebuild();
+				}
 				if (!WeakThis->SpawnedLandscapeMeshesTag.IsNone() && !LandscapeMesh->Tags.Contains(WeakThis->SpawnedLandscapeMeshesTag))
 				{
 					LandscapeMesh->Modify();

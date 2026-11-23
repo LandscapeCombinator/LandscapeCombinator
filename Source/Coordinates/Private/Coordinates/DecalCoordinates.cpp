@@ -193,6 +193,8 @@ bool UDecalCoordinates::PlaceDecal(UMaterialInterface *Material, FVector4d &OutC
 		bSphereDecal = bSphere;
 		DecalBoundsMin = FVector2D(West, South);
 		DecalBoundsMax = FVector2D(East, North);
+		DecalWorldBoundsMin = FVector2D(Left, Top);
+		DecalWorldBoundsMax = FVector2D(Right, Bottom);
 		return true;
 	});
 

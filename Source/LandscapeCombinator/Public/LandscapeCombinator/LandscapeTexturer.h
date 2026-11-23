@@ -5,6 +5,7 @@
 #include "Coordinates/LevelCoordinates.h"
 #include "ImageDownloader/ImageDownloader.h"
 #include "LCCommon/LCGenerator.h"
+#include "LCCommon/ActorSelection.h"
 #include "ConcurrencyHelpers/Concurrency.h"
 
 #include "CoreMinimal.h"
@@ -90,6 +91,14 @@ public:
 			)
 		);
 
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer|Material Layer")
+	FActorSelection MaterialTargetSelection;
+
+	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer|Material Layer")
+	FName SatelliteLayerName;
+
+	void RemoveMaterialBindings();
+
 	virtual TArray<UObject*> GetGeneratedObjects() const override
 	{
 		TArray<UObject*> Result;
@@ -113,6 +122,7 @@ public:
 		if (DeleteGeneratedObjects(bSkipPrompt))
 		{
 			DecalActors.Empty();
+			RemoveMaterialBindings();
 			return true;
 		}
 		else return false;
