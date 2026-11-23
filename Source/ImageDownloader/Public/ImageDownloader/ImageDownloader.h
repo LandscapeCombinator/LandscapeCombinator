@@ -793,8 +793,10 @@ public:
 	int PrecisionPercent = 100;
 
 	/** GDAL resampling method used when scaling the heightmap resolution. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resolution",
-		meta = (EditCondition = "bScaleResolution", EditConditionHides, DisplayPriority = "22"))
+	UPROPERTY(AdvancedDisplay,
+		EditAnywhere, BlueprintReadWrite, Category = "Resolution",
+		meta = (EditCondition = "bScaleResolution", EditConditionHides, DisplayPriority = "22")
+	)
 	EGDALResamplingMethod ScaleResamplingMethod = EGDALResamplingMethod::Nearest;
 
 	/**********************
