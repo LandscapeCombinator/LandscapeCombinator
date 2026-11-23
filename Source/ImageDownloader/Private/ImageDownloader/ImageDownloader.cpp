@@ -391,6 +391,15 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(bool bIsUserInitiated, FString
 						return nullptr;
 					}
 				}
+				else if (IsAWSTerrainTiles())
+				{
+					Layer = "AWSTerrainTiles";
+					Format = "png";
+					URL2 = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
+
+					bGeoreferenceSlippyTiles2 = true;
+					bMaxY_IsNorth2 = false;
+				}
 				else if (IsNextZen())
 				{
 					FString NextZenToken2 = GetNextZenToken();
@@ -433,8 +442,10 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(bool bIsUserInitiated, FString
 						bMaxY_IsNorth2, bGeoreferenceSlippyTiles2,
 							ImageSourceKind == EImageSourceKind::MapTiler_Heightmaps ||
 							ImageSourceKind == EImageSourceKind::Mapbox_Heightmaps ||
-							ImageSourceKind == EImageSourceKind::NextZen_Heightmaps,
-							ImageSourceKind == EImageSourceKind::NextZen_Heightmaps,
+							ImageSourceKind == EImageSourceKind::NextZen_Heightmaps ||
+							ImageSourceKind == EImageSourceKind::AWS_TerrainTiles,
+							ImageSourceKind == EImageSourceKind::NextZen_Heightmaps ||
+							ImageSourceKind == EImageSourceKind::AWS_TerrainTiles,
 						XYZ_CRS
 					),
 					true
@@ -663,9 +674,14 @@ bool UImageDownloader::IsNextZen()
 	return ImageSourceKind == EImageSourceKind::NextZen_Heightmaps;
 }
 
+bool UImageDownloader::IsAWSTerrainTiles()
+{
+	return ImageSourceKind == EImageSourceKind::AWS_TerrainTiles;
+}
+
 bool UImageDownloader::IsXYZ()
 {
-	return IsMapbox() || IsMapTiler() || IsNextZen() || ImageSourceKind == EImageSourceKind::GenericXYZ;
+	return IsMapbox() || IsMapTiler() || IsNextZen() || IsAWSTerrainTiles() || ImageSourceKind == EImageSourceKind::GenericXYZ;
 }
 
 bool UImageDownloader::HasMultipleLayers()

@@ -38,6 +38,7 @@ enum class EImageSourceKind : uint8
 	Mapbox_Heightmaps UMETA(DisplayName = "Mapbox Heightmaps"),
 	Mapbox_Satellite UMETA(DisplayName = "Mapbox Satellite"),
 	NextZen_Heightmaps UMETA(DisplayName = "NextZen Heightmaps"),
+	AWS_TerrainTiles UMETA(DisplayName = "AWS Terrain Tiles"),
 	GenericXYZ,
 
 	Napoli,
@@ -925,6 +926,9 @@ public:
 
 	UFUNCTION()
 	bool IsNextZen();
+
+	UFUNCTION()
+	bool IsAWSTerrainTiles();
 
 protected:
 	void OnLayerChanged();
