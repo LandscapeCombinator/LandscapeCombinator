@@ -15,7 +15,7 @@
 #include "ImageDownloader/Downloaders/HMListDownloader.h"
 #include "ImageDownloader/Downloaders/HMXYZ.h"
 #include "ImageDownloader/Downloaders/HMNapoli.h"
-#include "ImageDownloader/Downloaders/HMWMS.h"
+#include "ImageDownloader/Downloaders/HMOGC.h"
 
 #include "ImageDownloader/Transformers/HMSwissALTI3DRenamer.h"
 #include "ImageDownloader/Transformers/HMLitto3DGuadeloupeRenamer.h"
@@ -90,7 +90,7 @@ bool UImageDownloader::ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY,
 		ParametersSelection.ParametersSelectionMethod = EParametersSelectionMethod::Manual;
 		return true;
 	}
-	else if (IsWMS())
+	else if (IsOGC())
 	{
 		const FString GridCRS = bGeodetic ? TEXT("EPSG:4326") : TEXT("EPSG:3857");
 		FVector4d GridCoordinates;
@@ -106,41 +106,41 @@ bool UImageDownloader::ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY,
 			GDALInterface::XYZTileToEPSG3857(MaxX + 1, MaxY + 1, Zoom, MaxLong3857, MinLat3857);
 			GridCoordinates = FVector4d(MinLong3857, MaxLong3857, MinLat3857, MaxLat3857);
 		}
-		FVector4d CoordinatesWMS;
-		const double PaddingUnits = WMS_ResolutionPixelsPerUnit > 0 ? PaddingPx / WMS_ResolutionPixelsPerUnit : 0;
+		FVector4d CoordinatesOGC;
+		const double PaddingUnits = OGC_ResolutionPixelsPerUnit > 0 ? PaddingPx / OGC_ResolutionPixelsPerUnit : 0;
 
-		if (!GDALInterface::ConvertCoordinates(GridCoordinates, /*bCrop=*/false, CoordinatesWMS, GridCRS, WMS_CRS))
+		if (!GDALInterface::ConvertCoordinates(GridCoordinates, /*bCrop=*/false, CoordinatesOGC, GridCRS, OGC_CRS))
 		{
 			LCReporter::ShowError(
 				FText::Format(
 					NSLOCTEXT("FImageDownloaderModule", "ConfigureForTilesWMSConvertFailed",
-						"Failed to convert tile coordinates from the tile grid CRS to the WMS layer's CRS ('{0}'). "
+						"Failed to convert tile coordinates from the tile grid CRS to the CRS of the layer ('{0}'). "
 						"Please check that the layer's CRS is valid."
 					),
-					FText::FromString(WMS_CRS)
+					FText::FromString(OGC_CRS)
 				)
 			);
 			return false;
 		}
 
-		// The 3857 -> WMS CRS conversion can return the antimeridian with the wrong sign (+180 for the west edge, -180 for the east edge)
-		if (CoordinatesWMS[0] > CoordinatesWMS[1] && CoordinatesWMS[0] >= 179.999) CoordinatesWMS[0] -= 360;
-		if (CoordinatesWMS[0] >= CoordinatesWMS[1] && CoordinatesWMS[1] <= -179.999) CoordinatesWMS[1] += 360;
+		// The 3857 -> layer CRS conversion can return the antimeridian with the wrong sign (+180 for the west edge, -180 for the east edge)
+		if (CoordinatesOGC[0] > CoordinatesOGC[1] && CoordinatesOGC[0] >= 179.999) CoordinatesOGC[0] -= 360;
+		if (CoordinatesOGC[0] >= CoordinatesOGC[1] && CoordinatesOGC[1] <= -179.999) CoordinatesOGC[1] += 360;
 
-		WMS_MinLong = CoordinatesWMS[0] - PaddingUnits;
-		WMS_MaxLong = CoordinatesWMS[1] + PaddingUnits;
-		WMS_MinLat  = CoordinatesWMS[2] - PaddingUnits;
-		WMS_MaxLat  = CoordinatesWMS[3] + PaddingUnits;
+		OGC_MinLong = CoordinatesOGC[0] - PaddingUnits;
+		OGC_MaxLong = CoordinatesOGC[1] + PaddingUnits;
+		OGC_MinLat  = CoordinatesOGC[2] - PaddingUnits;
+		OGC_MaxLat  = CoordinatesOGC[3] + PaddingUnits;
 
-		if (WMS_MinAllowedLong != 0 && WMS_MaxAllowedLong != 0 && WMS_MinAllowedLat != 0 && WMS_MaxAllowedLat != 0)
+		if (OGC_MinAllowedLong != 0 && OGC_MaxAllowedLong != 0 && OGC_MinAllowedLat != 0 && OGC_MaxAllowedLat != 0)
 		{
-			WMS_MinLong = FMath::Max(WMS_MinLong, WMS_MinAllowedLong);
-			WMS_MaxLong = FMath::Min(WMS_MaxLong, WMS_MaxAllowedLong);
-			WMS_MinLat  = FMath::Max(WMS_MinLat, WMS_MinAllowedLat);
-			WMS_MaxLat  = FMath::Min(WMS_MaxLat, WMS_MaxAllowedLat);
+			OGC_MinLong = FMath::Max(OGC_MinLong, OGC_MinAllowedLong);
+			OGC_MaxLong = FMath::Min(OGC_MaxLong, OGC_MaxAllowedLong);
+			OGC_MinLat  = FMath::Max(OGC_MinLat, OGC_MinAllowedLat);
+			OGC_MaxLat  = FMath::Min(OGC_MaxLat, OGC_MaxAllowedLat);
 		}
 
-		bTileOutsideCoverage = WMS_MinLong >= WMS_MaxLong || WMS_MinLat >= WMS_MaxLat;
+		bTileOutsideCoverage = OGC_MinLong >= OGC_MaxLong || OGC_MinLat >= OGC_MaxLat;
 
 		ParametersSelection.ParametersSelectionMethod = EParametersSelectionMethod::Manual;
 		return true;
@@ -152,7 +152,7 @@ bool UImageDownloader::ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY,
 		LCReporter::ShowError(
 			FText::Format(
 				NSLOCTEXT("FImageDownloaderModule", "ConfigureForTilesNotSupported",
-					"Position Based Generation requires an XYZ or WMS based image source, but the current source is '{0}'.\n"
+					"Position Based Generation requires an XYZ, WMS or WCS based image source, but the current source is '{0}'.\n"
 					"Either disable Position Based Generation, or change the Image Source Kind."
 				),
 				FText::FromString(SourceName)
@@ -181,7 +181,7 @@ FString RenameCRS(FString CRS)
 
 TArray<FString> UImageDownloader::GetTitles()
 {
-	return WMS_Provider.Titles;
+	return OGC_Provider.Titles;
 }
 
 HMFetcher* UImageDownloader::CreateInitialFetcher(bool bIsUserInitiated, FString Name)
@@ -269,7 +269,7 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(bool bIsUserInitiated, FString
 
 		default:
 		{
-			if (IsWMS())
+			if (IsOGC())
 			{
 				if (!SetSourceParametersBool(true))
 				{
@@ -278,19 +278,19 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(bool bIsUserInitiated, FString
 
 				if (bAutoSetResolution) AutoSetResolution();
 
-				HMFetcher *WMSFetcher = new HMWMS(
-					WMS_Provider, bEnableWMSParallelDownload,
-					WMS_MaxTileWidth, WMS_MaxTileHeight,
-					WMS_Name, WMS_CRS, WMS_X_IsLong,
-					WMS_MinAllowedLong, WMS_MaxAllowedLong, WMS_MinAllowedLat, WMS_MaxAllowedLat,
-					WMS_MinLong, WMS_MaxLong, WMS_MinLat, WMS_MaxLat,
-					bWMSSingleTile, WMS_ResolutionPixelsPerUnit,
-					bWMSSingleTile && bWMS_MaxResolution && (!CanAutoSetResolution() || !bAutoSetResolution)
+				HMFetcher *OGCFetcher = new HMOGC(
+					OGC_Provider, bEnableOGCParallelDownload,
+					OGC_MaxTileWidth, OGC_MaxTileHeight,
+					OGC_Name, OGC_CRS, OGC_X_IsLong,
+					OGC_MinAllowedLong, OGC_MaxAllowedLong, OGC_MinAllowedLat, OGC_MaxAllowedLat,
+					OGC_MinLong, OGC_MaxLong, OGC_MinLat, OGC_MaxLat,
+					bOGCSingleTile, OGC_ResolutionPixelsPerUnit,
+					bOGCSingleTile && bOGC_MaxResolution && (!CanAutoSetResolution() || !bAutoSetResolution)
 				);
 
-				if (!WMSFetcher) return nullptr;
+				if (!OGCFetcher) return nullptr;
 
-				return new HMDebugFetcher("WMS_Download", WMSFetcher, true);
+				return new HMDebugFetcher("OGC_Download", OGCFetcher, true);
 			}
 			else if (IsXYZ())
 			{
@@ -487,7 +487,7 @@ HMFetcher* UImageDownloader::CreateFetcher(
 		Result = Result->AndThen(new HMDebugFetcher("Preprocess", new HMPreprocess(Name, PreprocessingTool)));
 	}
 
-	if (bEnsureOneBand && IsWMS())
+	if (bEnsureOneBand && IsOGC())
 	{
 		Result = Result->AndThen(new HMDebugFetcher("EnsureOneBand", new HMEnsureOneBand()));
 	}
@@ -622,10 +622,27 @@ FString UImageDownloader::GetNextZenToken()
 	}
 }
 
-bool UImageDownloader::IsWMS()
+bool UImageDownloader::IsGenericOGC()
+{
+	return ImageSourceKind == EImageSourceKind::GenericWMS || ImageSourceKind == EImageSourceKind::GenericWCS;
+}
+
+EOGCService UImageDownloader::GetOGCService()
+{
+	return
+		ImageSourceKind == EImageSourceKind::GenericWCS ||
+		ImageSourceKind == EImageSourceKind::Netherlands_AHN4 ||
+		ImageSourceKind == EImageSourceKind::Spain_MDT5
+			? EOGCService::WCS : EOGCService::WMS;
+}
+
+bool UImageDownloader::IsOGC()
 {
 	return
 		ImageSourceKind == EImageSourceKind::GenericWMS ||
+		ImageSourceKind == EImageSourceKind::GenericWCS ||
+		ImageSourceKind == EImageSourceKind::Netherlands_AHN4 ||
+		ImageSourceKind == EImageSourceKind::Spain_MDT5 ||
 		ImageSourceKind == EImageSourceKind::Mars_Elevation ||
 		ImageSourceKind == EImageSourceKind::Mars_Imagery ||
 		ImageSourceKind == EImageSourceKind::Mercury_Elevation ||
@@ -686,15 +703,15 @@ bool UImageDownloader::IsXYZ()
 
 bool UImageDownloader::HasMultipleLayers()
 {
-	return WMS_Provider.Titles.Num() >= 2;
+	return OGC_Provider.Titles.Num() >= 2;
 }
 
 void UImageDownloader::SetLargestPossibleCoordinates()
 {
-	WMS_MinLong = WMS_MinAllowedLong;
-	WMS_MinLat = WMS_MinAllowedLat;
-	WMS_MaxLong = WMS_MaxAllowedLong;
-	WMS_MaxLat = WMS_MaxAllowedLat;
+	OGC_MinLong = OGC_MinAllowedLong;
+	OGC_MinLat = OGC_MinAllowedLat;
+	OGC_MaxLong = OGC_MaxAllowedLong;
+	OGC_MaxLat = OGC_MaxAllowedLat;
 }
 
 void UImageDownloader::SetSourceParameters()
@@ -704,7 +721,7 @@ void UImageDownloader::SetSourceParameters()
 
 bool UImageDownloader::AllowsParametersSelection()
 {
-	return IsWMS() || (IsXYZ() && bGeoreferenceSlippyTiles) || ImageSourceKind == EImageSourceKind::Napoli;
+	return IsOGC() || (IsXYZ() && bGeoreferenceSlippyTiles) || ImageSourceKind == EImageSourceKind::Napoli;
 }
 
 bool UImageDownloader::CanAutoSetResolution()
@@ -716,11 +733,11 @@ void UImageDownloader::AutoSetResolution()
 {
 	if (ImageSourceKind == EImageSourceKind::IGN)
 	{
-		WMS_ResolutionPixelsPerUnit = 1;
-		WMS_MinLat = FMath::RoundToZero(WMS_MinLat);
-		WMS_MaxLat = FMath::RoundToZero(WMS_MaxLat);
-		WMS_MinLong = FMath::RoundToZero(WMS_MinLong);
-		WMS_MaxLong = FMath::RoundToZero(WMS_MaxLong);
+		OGC_ResolutionPixelsPerUnit = 1;
+		OGC_MinLat = FMath::RoundToZero(OGC_MinLat);
+		OGC_MaxLat = FMath::RoundToZero(OGC_MaxLat);
+		OGC_MinLong = FMath::RoundToZero(OGC_MinLong);
+		OGC_MaxLong = FMath::RoundToZero(OGC_MaxLong);
 	}
 }
 
@@ -733,7 +750,7 @@ bool UImageDownloader::SetSourceParametersBool(bool bDialog)
 		if (bDialog)
 		{
 			LCReporter::ShowError(
-				LOCTEXT("UImageDownloader::SetSourceParameters::0", "Custom Parameters Selection is supported only for WMS, XYZ and Napoli.")
+				LOCTEXT("UImageDownloader::SetSourceParameters::0", "Custom Parameters Selection is supported only for WMS, WCS, XYZ and Napoli.")
 			);
 		}
 		return false;
@@ -789,7 +806,7 @@ bool UImageDownloader::SetSourceParametersFromEPSG4326Box(bool bDialog)
 
 		return true;
 	}
-	else if (IsWMS())
+	else if (IsOGC())
 	{
 		FVector4d InCoordinates, OutCoordinates;
 		InCoordinates[0] = ParametersSelection.MinLong;
@@ -797,12 +814,12 @@ bool UImageDownloader::SetSourceParametersFromEPSG4326Box(bool bDialog)
 		InCoordinates[2] = ParametersSelection.MinLat;
 		InCoordinates[3] = ParametersSelection.MaxLat;
 
-		if (!GDALInterface::ConvertCoordinates(InCoordinates, OutCoordinates, "EPSG:4326", WMS_CRS)) return false;
+		if (!GDALInterface::ConvertCoordinates(InCoordinates, OutCoordinates, "EPSG:4326", OGC_CRS)) return false;
 
-		WMS_MinLong = OutCoordinates[0];
-		WMS_MaxLong = OutCoordinates[1];
-		WMS_MinLat = OutCoordinates[2];
-		WMS_MaxLat = OutCoordinates[3];
+		OGC_MinLong = OutCoordinates[0];
+		OGC_MaxLong = OutCoordinates[1];
+		OGC_MinLat = OutCoordinates[2];
+		OGC_MaxLat = OutCoordinates[3];
 
 		return true;
 	}
@@ -847,9 +864,9 @@ bool UImageDownloader::SetSourceParametersFromActor(bool bDialog)
 	{
 		SourceCRS = "EPSG:32633";
 	}
-	else if (IsWMS())
+	else if (IsOGC())
 	{
-		SourceCRS = WMS_CRS;
+		SourceCRS = OGC_CRS;
 	}
 	else if (IsXYZ() && bGeoreferenceSlippyTiles)
 	{
@@ -894,12 +911,12 @@ bool UImageDownloader::SetSourceParametersFromActor(bool bDialog)
 
 		return true;
 	}
-	if (IsWMS())
+	if (IsOGC())
 	{
-		WMS_MinLong = ActorMinLong;
-		WMS_MaxLong = ActorMaxLong;
-		WMS_MinLat = ActorMinLat;
-		WMS_MaxLat = ActorMaxLat;
+		OGC_MinLong = ActorMinLong;
+		OGC_MaxLong = ActorMaxLong;
+		OGC_MinLat = ActorMinLat;
+		OGC_MaxLat = ActorMaxLat;
 
 		return true;
 	}
@@ -934,9 +951,9 @@ void UImageDownloader::PostEditChangeProperty(FPropertyChangedEvent& Event)
 	}
 	else if (PropertyName == GET_MEMBER_NAME_CHECKED(UImageDownloader, CapabilitiesURL))
 	{
-		ResetWMSProvider(TArray<FString>(), nullptr, nullptr);
+		ResetOGCProvider(TArray<FString>(), nullptr, nullptr);
 	}
-	else if (PropertyName == GET_MEMBER_NAME_CHECKED(UImageDownloader, WMS_Title))
+	else if (PropertyName == GET_MEMBER_NAME_CHECKED(UImageDownloader, OGC_Title))
 	{
 		OnLayerChanged();
 	}
@@ -963,39 +980,40 @@ void UImageDownloader::PostEditChangeProperty(FPropertyChangedEvent& Event)
 
 void UImageDownloader::OnLayerChanged()
 {
-	int LayerIndex = WMS_Provider.Titles.Find(WMS_Title);
+	int LayerIndex = OGC_Provider.Titles.Find(OGC_Title);
 	if (LayerIndex == INDEX_NONE)
 	{
-		WMS_Help = FString::Format(TEXT("Could not find Layer {0}"), { WMS_Title });
+		OGC_Help = FString::Format(TEXT("Could not find Layer {0}"), { OGC_Title });
 		return;
 	}
-	WMS_Name = WMS_Provider.Names[LayerIndex];
-	WMS_Help = "Please enter the coordinates using the following CRS:";
-	WMS_CRS = WMS_Provider.CRSs[LayerIndex];
-	if (WMS_X_IsLong)
+	OGC_Name = OGC_Provider.Names[LayerIndex];
+	OGC_Help = "Please enter the coordinates using the following CRS:";
+	OGC_CRS = OGC_Provider.CRSs[LayerIndex];
+	// The WCS provider already orders the bounds as (long, lat)
+	if (OGC_X_IsLong || OGC_Provider.Service == EOGCService::WCS)
 	{
-		WMS_MinAllowedLong = WMS_Provider.MinXs[LayerIndex];
-		WMS_MaxAllowedLong = WMS_Provider.MaxXs[LayerIndex];
-		WMS_MinAllowedLat = WMS_Provider.MinYs[LayerIndex];
-		WMS_MaxAllowedLat = WMS_Provider.MaxYs[LayerIndex];
+		OGC_MinAllowedLong = OGC_Provider.MinXs[LayerIndex];
+		OGC_MaxAllowedLong = OGC_Provider.MaxXs[LayerIndex];
+		OGC_MinAllowedLat = OGC_Provider.MinYs[LayerIndex];
+		OGC_MaxAllowedLat = OGC_Provider.MaxYs[LayerIndex];
 	}
 	else
 	{
-		WMS_MinAllowedLong = WMS_Provider.MinYs[LayerIndex];
-		WMS_MaxAllowedLong = WMS_Provider.MaxYs[LayerIndex];
-		WMS_MinAllowedLat = WMS_Provider.MinXs[LayerIndex];
-		WMS_MaxAllowedLat = WMS_Provider.MaxXs[LayerIndex];
+		OGC_MinAllowedLong = OGC_Provider.MinYs[LayerIndex];
+		OGC_MaxAllowedLong = OGC_Provider.MaxYs[LayerIndex];
+		OGC_MinAllowedLat = OGC_Provider.MinXs[LayerIndex];
+		OGC_MaxAllowedLat = OGC_Provider.MaxXs[LayerIndex];
 	}
 	if (CanAutoSetResolution())
 	{
 		// IGN works with whole units (see AutoSetResolution), so we shrink the allowed extent to whole units
-		WMS_MinAllowedLong = FMath::CeilToDouble(WMS_MinAllowedLong);
-		WMS_MaxAllowedLong = FMath::FloorToDouble(WMS_MaxAllowedLong);
-		WMS_MinAllowedLat = FMath::CeilToDouble(WMS_MinAllowedLat);
-		WMS_MaxAllowedLat = FMath::FloorToDouble(WMS_MaxAllowedLat);
+		OGC_MinAllowedLong = FMath::CeilToDouble(OGC_MinAllowedLong);
+		OGC_MaxAllowedLong = FMath::FloorToDouble(OGC_MaxAllowedLong);
+		OGC_MinAllowedLat = FMath::CeilToDouble(OGC_MinAllowedLat);
+		OGC_MaxAllowedLat = FMath::FloorToDouble(OGC_MaxAllowedLat);
 	}
-	WMS_SearchCRS = FString::Format(TEXT("https://duckduckgo.com/?q={0}+site%3Aepsg.io"), { WMS_CRS });
-	WMS_Abstract = WMS_Provider.Abstracts[LayerIndex];
+	OGC_SearchCRS = FString::Format(TEXT("https://duckduckgo.com/?q={0}+site%3Aepsg.io"), { OGC_CRS });
+	OGC_Abstract = OGC_Provider.Abstracts[LayerIndex];
 }
 
 void UImageDownloader::OnImageSourceChanged(TFunction<void(bool)> OnComplete)
@@ -1003,152 +1021,166 @@ void UImageDownloader::OnImageSourceChanged(TFunction<void(bool)> OnComplete)
 	if (ImageSourceKind == EImageSourceKind::IGN)
 	{
 		CapabilitiesURL = "https://data.geopf.fr/wms-r?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = true;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = true;
 	}
 	else if (ImageSourceKind == EImageSourceKind::Mars_Elevation)
 	{
 		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/mars/mars_simp_cyl_elev.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = false;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = false;
 	}
 	else if (ImageSourceKind == EImageSourceKind::Mars_Imagery)
 	{
 		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/mars/mars_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = false;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = false;
 	}
 	else if (ImageSourceKind == EImageSourceKind::Mercury_Elevation)
 	{
 		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/mercury/mercury_simp_cyl_elev.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = false;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = false;
 	}
 	else if (ImageSourceKind == EImageSourceKind::Mercury_Imagery)
 	{
 		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/mercury/mercury_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = false;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = false;
 	}
 	else if (ImageSourceKind == EImageSourceKind::Venus_Imagery)
 	{
 		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/venus/venus_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = false;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = false;
 	}
 	else if (ImageSourceKind == EImageSourceKind::Io_Imagery)
 	{
 		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/jupiter/io_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = false;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = false;
 	}
 	else if (ImageSourceKind == EImageSourceKind::Europa_Imagery)
 	{
 		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/jupiter/europa_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = false;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = false;
 	}
 	else if (ImageSourceKind == EImageSourceKind::Ganymede_Imagery)
 	{
 		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/jupiter/ganymede_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = false;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = false;
 	}
 	else if (ImageSourceKind == EImageSourceKind::Callisto_Imagery)
 	{
 		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/jupiter/callisto_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = false;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = false;
 	}
 	else if (ImageSourceKind == EImageSourceKind::Titan_Imagery)
 	{
 		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/saturn/titan_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = false;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = false;
 	}
 	else if (ImageSourceKind == EImageSourceKind::Enceladus_Imagery)
 	{
 		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/saturn/enceladus_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = false;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = false;
 	}
 	else if (ImageSourceKind == EImageSourceKind::Pluto_Imagery)
 	{
 		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/pluto/pluto_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = false;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = false;
 	}
 	else if (ImageSourceKind == EImageSourceKind::Charon_Imagery)
 	{
 		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/pluto/charon_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = false;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = false;
 	}
 	else if (ImageSourceKind == EImageSourceKind::Ceres_Imagery)
 	{
 		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/asteroid_belt/ceres_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = false;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = false;
 	}
 	else if (ImageSourceKind == EImageSourceKind::Vesta_Imagery)
 	{
 		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/asteroid_belt/vesta_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = false;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = false;
 	}
 	else if (ImageSourceKind == EImageSourceKind::Triton_Imagery)
 	{
 		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/neptune/triton_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = false;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = false;
 	}
 	else if (ImageSourceKind == EImageSourceKind::Moon_Elevation)
 	{
 		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/earth/moon_simp_cyl_elev.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = false;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = false;
 	}
 	else if (ImageSourceKind == EImageSourceKind::Moon_Imagery)
 	{
 		CapabilitiesURL = "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/earth/moon_simp_cyl.map&SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = false;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = false;
 	}
 	else if (ImageSourceKind == EImageSourceKind::Australia_LiDAR5m)
 	{
 		CapabilitiesURL = "http://gaservices.ga.gov.au/site_9/services/DEM_LiDAR_5m/MapServer/WMSServer?request=GetCapabilities&service=WMS";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = true;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = true;
 	}
 	else if (ImageSourceKind == EImageSourceKind::SHOM)
 	{
 		CapabilitiesURL = "https://services.data.shom.fr/INSPIRE/wms/r?service=WMS&version=1.3.0&request=GetCapabilities";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = true;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = true;
 	}
 	else if (ImageSourceKind == EImageSourceKind::USGS_3DEPElevation)
 	{
 		CapabilitiesURL = "https://elevation.nationalmap.gov/arcgis/services/3DEPElevation/ImageServer/WMSServer?request=GetCapabilities&service=WMS";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = true;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = true;
 	}
 	else if (ImageSourceKind == EImageSourceKind::USGS_Topo)
 	{
 		CapabilitiesURL = "https://basemap.nationalmap.gov/arcgis/services/USGSTopo/MapServer/WMSServer?request=GetCapabilities&service=WMS";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = true;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = true;
 	}
 	else if (ImageSourceKind == EImageSourceKind::EOX_Satellite)
 	{
 		CapabilitiesURL = "https://tiles.maps.eox.at/wms?service=WMS&version=1.1.1&request=GetCapabilities";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = true;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = true;
 	}
 	else if (ImageSourceKind == EImageSourceKind::USGS_Imagery)
 	{
 		CapabilitiesURL = "https://basemap.nationalmap.gov/arcgis/services/USGSImageryOnly/MapServer/WMSServer?request=GetCapabilities&service=WMS";
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
-		WMS_X_IsLong = true;
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = true;
+	}
+	else if (ImageSourceKind == EImageSourceKind::Netherlands_AHN4)
+	{
+		CapabilitiesURL = "https://service.pdok.nl/rws/ahn/wcs/v1_0?SERVICE=WCS&request=GetCapabilities&version=2.0.1";
+		PreferredLayerTitle = "dtm_05m";
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = true;
+	}
+	else if (ImageSourceKind == EImageSourceKind::Spain_MDT5)
+	{
+		CapabilitiesURL = "https://servicios.idee.es/wcs-inspire/mdt?version=2.0.1&request=GetCapabilities&service=WCS";
+		PreferredLayerTitle = "Elevacion25830_5";
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
+		OGC_X_IsLong = true;
 	}
 	else if (IsMapbox())
 	{
@@ -1157,7 +1189,7 @@ void UImageDownloader::OnImageSourceChanged(TFunction<void(bool)> OnComplete)
 			if (OnComplete) OnComplete(false);
 			return;
 		}
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
 	}
 	else if (IsMapTiler())
 	{
@@ -1166,65 +1198,68 @@ void UImageDownloader::OnImageSourceChanged(TFunction<void(bool)> OnComplete)
 			if (OnComplete) OnComplete(false);
 			return;
 		}
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
 	}
 	else
 	{
-		ResetWMSProvider(TArray<FString>(), nullptr, OnComplete);
+		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
 	}
 }
 
-void UImageDownloader::ResetWMSProvider(TArray<FString> ExcludeCRS, TFunction<bool(FString)> LayerFilter, TFunction<void(bool)> OnComplete)
+void UImageDownloader::ResetOGCProvider(TArray<FString> ExcludeCRS, TFunction<bool(FString)> LayerFilter, TFunction<void(bool)> OnComplete)
 {
 	if (CapabilitiesURL.IsEmpty())
 	{
-		WMS_Abstract = "";
-		WMS_Title = "";
-		WMS_Name = "";
-		WMS_Help = "";
-		WMS_CRS = "";
-		WMS_SearchCRS = "";
-		WMS_MinAllowedLong = 0;
-		WMS_MinAllowedLat = 0;
-		WMS_MaxAllowedLat = 0;
-		WMS_MaxAllowedLong = 0;
-		WMS_MaxWidth = 0;
-		WMS_MaxHeight = 0;
+		OGC_Abstract = "";
+		OGC_Title = "";
+		OGC_Name = "";
+		OGC_Help = "";
+		OGC_CRS = "";
+		OGC_SearchCRS = "";
+		OGC_MinAllowedLong = 0;
+		OGC_MinAllowedLat = 0;
+		OGC_MaxAllowedLat = 0;
+		OGC_MaxAllowedLong = 0;
+		OGC_MaxWidth = 0;
+		OGC_MaxHeight = 0;
 	}
 	else
 	{
-		WMS_Provider.SetFromURL(
+		OGC_Provider.SetFromURL(
+			GetOGCService(),
 			CapabilitiesURL,
 			ExcludeCRS,
 			LayerFilter,
 			[this, OnComplete](bool bSuccess)
 			{
-				WMS_Abstract = "";
-				WMS_Title = "";
-				WMS_Name = "";
-				WMS_Help = "";
-				WMS_CRS = "";
-				WMS_SearchCRS = "";
-				WMS_MinAllowedLong = 0;
-				WMS_MinAllowedLat = 0;
-				WMS_MaxAllowedLat = 0;
-				WMS_MaxAllowedLong = 0;
-				WMS_MaxWidth = 0;
-				WMS_MaxHeight = 0;
+				OGC_Abstract = "";
+				OGC_Title = "";
+				OGC_Name = "";
+				OGC_Help = "";
+				OGC_CRS = "";
+				OGC_SearchCRS = "";
+				OGC_MinAllowedLong = 0;
+				OGC_MinAllowedLat = 0;
+				OGC_MaxAllowedLat = 0;
+				OGC_MaxAllowedLong = 0;
+				OGC_MaxWidth = 0;
+				OGC_MaxHeight = 0;
 
 				if (!bSuccess)
 				{
-					WMS_Help = FString::Format(TEXT("There was an error while loading WMS Provider from URL: {0}"), { CapabilitiesURL });
+					OGC_Help = FString::Format(TEXT("There was an error while loading the provider from URL: {0}"), { CapabilitiesURL });
 				}
 				
-				WMS_MaxWidth = WMS_Provider.MaxWidth;
-				WMS_MaxHeight = WMS_Provider.MaxHeight;
+				OGC_MaxWidth = OGC_Provider.MaxWidth;
+				OGC_MaxHeight = OGC_Provider.MaxHeight;
 
-				if (!WMS_Provider.Titles.Contains(WMS_Title) && !WMS_Provider.Titles.IsEmpty())
+				if (!OGC_Provider.Titles.Contains(OGC_Title) && !OGC_Provider.Titles.IsEmpty())
 				{
-					WMS_Title = WMS_Provider.Titles[0];
+					// Presets can ask for a particular layer or coverage
+					OGC_Title = OGC_Provider.Titles.Contains(PreferredLayerTitle) ? PreferredLayerTitle : OGC_Provider.Titles[0];
 					OnLayerChanged();
 				}
+				PreferredLayerTitle = "";
 
 				if (OnComplete) OnComplete(bSuccess);
 			}

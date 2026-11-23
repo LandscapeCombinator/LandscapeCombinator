@@ -30,18 +30,18 @@ public:
 	)
 	void DownloadImages();
 
-	/* Click this to force reloading the WMS Provider from the URL */
+	/* Click this to force reloading the provider (WMS or WCS) from the URL */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "BasicImageDownloader",
-		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "13")
+		meta = (EditCondition = "IsOGC()", EditConditionHides, DisplayPriority = "13")
 	)
-	void ForceReloadWMS()
+	void ForceReloadOGC()
 	{
-		if (ImageDownloader) ImageDownloader->ForceReloadWMS();
+		if (ImageDownloader) ImageDownloader->ForceReloadOGC();
 	}
 
 	/* Click this to set the min and max coordinates to the largest possible bounds */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "BasicImageDownloader",
-		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "14")
+		meta = (EditCondition = "IsOGC()", EditConditionHides, DisplayPriority = "14")
 	)
 	void SetLargestPossibleCoordinates()
 	{

@@ -34,6 +34,7 @@ public class ImageDownloader : ModuleRules
 				"Slate",
 				"SlateCore",
 				"HTTP",
+				"XmlParser",
 				"Projects",
 				"Landscape",
 

@@ -148,16 +148,16 @@ public:
 
 	/* Click this to force reloading the WMS Provider from the URL */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeTexturer",
-		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "13")
+		meta = (EditCondition = "IsOGC()", EditConditionHides, DisplayPriority = "13")
 	)
-	void ForceReloadWMS()
+	void ForceReloadOGC()
 	{
-		if (ImageDownloader) ImageDownloader->ForceReloadWMS();
+		if (ImageDownloader) ImageDownloader->ForceReloadOGC();
 	}
 
 	/* Click this to set the min and max coordinates to the largest possible bounds */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeTexturer",
-		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "14")
+		meta = (EditCondition = "IsOGC()", EditConditionHides, DisplayPriority = "14")
 	)
 	void SetLargestPossibleCoordinates()
 	{
@@ -166,7 +166,7 @@ public:
 
 	/* Click this to set the WMS coordinates from a Cube or any other actor */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeTexturer",
-		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "15")
+		meta = (EditCondition = "IsOGC()", EditConditionHides, DisplayPriority = "15")
 	)
 	void SetSourceParameters()
 	{

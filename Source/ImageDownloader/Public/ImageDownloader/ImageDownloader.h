@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "ImageDownloader/WMSProvider.h"
+#include "ImageDownloader/OGCProvider.h"
 #include "ImageDownloader/HMFetcher.h"
 #include "ImageDownloader/Transformers/HMPercentResolution.h"
 #include "ImageDownloader/ParametersSelection.h"
@@ -32,6 +32,7 @@ enum class EImageSourceKind : uint8
 	SHOM,
 	Australia_LiDAR5m UMETA(DisplayName = "Australia LiDAR 5m"),
 	GenericWMS,
+	GenericWCS UMETA(DisplayName = "Generic WCS"),
 	
 	MapTiler_Heightmaps UMETA(DisplayName = "MapTiler Heightmaps"),
 	MapTiler_Satellite UMETA(DisplayName = "MapTiler Satellite"),
@@ -50,6 +51,8 @@ enum class EImageSourceKind : uint8
 	SwissALTI_3D,
 	USGS_OneThird,
 	Litto3D_Guadeloupe,
+	Netherlands_AHN4 UMETA(DisplayName = "Netherlands AHN4 DTM 0.5m (WCS)"),
+	Spain_MDT5 UMETA(DisplayName = "Spain MDT 5m (IGN, WCS)"),
 
 	LocalFile,
 	LocalFolder,
@@ -236,16 +239,16 @@ public:
 
 
 
-	/*****************
-	 *  Generic WMS  *
-	 *****************/
+	/***********************
+	 *  Generic WMS / WCS  *
+	 ***********************/
 	
 	UPROPERTY()
-	FWMSProvider WMS_Provider;
+	FOGCProvider OGC_Provider;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
-		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::GenericWMS", EditConditionHides, DisplayPriority = "-10")
+		meta = (EditCondition = "IsGenericOGC()", EditConditionHides, DisplayPriority = "-10")
 	)
 	FString CapabilitiesURL = "";
 
@@ -253,16 +256,16 @@ public:
 		EditAnywhere, Category = "Source",
 		meta = (EditCondition = "ImageSourceKind == EImageSourceKind::GenericWMS", EditConditionHides, DisplayPriority = "3")
 	)
-	bool WMS_X_IsLong = true;
+	bool OGC_X_IsLong = true;
 
 	UPROPERTY(
 		EditAnywhere, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS() && HasMultipleLayers()",
+			EditCondition = "IsOGC() && HasMultipleLayers()",
 			EditConditionHides, GetOptions=GetTitles, DisplayPriority = "4"
 		)
 	)
-	FString WMS_Title;
+	FString OGC_Title;
 
 	UFUNCTION()
 	TArray<FString> GetTitles();
@@ -270,146 +273,146 @@ public:
 	UPROPERTY(AdvancedDisplay,
 		VisibleAnywhere, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS() && HasMultipleLayers()",
+			EditCondition = "IsOGC() && HasMultipleLayers()",
 			EditConditionHides, DisplayPriority = "5"
 		)
 	)
-	FString WMS_Name = "";
+	FString OGC_Name = "";
 
 	UPROPERTY(AdvancedDisplay,
 		VisibleAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS() && HasMultipleLayers()",
+			EditCondition = "IsOGC() && HasMultipleLayers()",
 			EditConditionHides, DisplayPriority = "6"
 		)
 	)
-	FString WMS_Abstract;
+	FString OGC_Abstract;
 
 	UPROPERTY(
 		VisibleAnywhere, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS()",
+			EditCondition = "IsOGC()",
 			EditConditionHides, DisplayPriority = "7"
 		)
 	)
-	FString WMS_Help = "";
+	FString OGC_Help = "";
 
 	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS()",
+			EditCondition = "IsOGC()",
 			EditConditionHides, DisplayPriority = "8"
 		)
 	)
-	// This should not (almost never) be modified manually, as the WMS server may not supported
+	// This should not (almost never) be modified manually, as the server may not support it
 	// the given CRS. There are rare cases where the parsed CRS is not correct, and in that
-	// case the CRS can be edited to the correct value (as found in the WMS server capabilities).
-	FString WMS_CRS = "";
+	// case the CRS can be edited to the correct value (as found in the capabilities of the server).
+	FString OGC_CRS = "";
 
 	UPROPERTY(AdvancedDisplay,
 		VisibleAnywhere, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS()",
+			EditCondition = "IsOGC()",
 			EditConditionHides, DisplayPriority = "9"
 		)
 	)
-	FString WMS_SearchCRS = "";
+	FString OGC_SearchCRS = "";
 
 	UPROPERTY(AdvancedDisplay,
 		VisibleAnywhere, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS() && ManualParametersSelection()",
+			EditCondition = "IsOGC() && ManualParametersSelection()",
 			EditConditionHides, DisplayPriority = "12"
 		)
 	)
-	double WMS_MinAllowedLong;
+	double OGC_MinAllowedLong;
 
 	UPROPERTY(AdvancedDisplay,
 		VisibleAnywhere, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS() && ManualParametersSelection()",
+			EditCondition = "IsOGC() && ManualParametersSelection()",
 			EditConditionHides, DisplayPriority = "13"
 		)
 	)
-	double WMS_MaxAllowedLong;
+	double OGC_MaxAllowedLong;
 
 	UPROPERTY(AdvancedDisplay,
 		VisibleAnywhere, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS() && ManualParametersSelection()",
+			EditCondition = "IsOGC() && ManualParametersSelection()",
 			EditConditionHides, DisplayPriority = "14"
 		)
 	)
-	double WMS_MinAllowedLat;
+	double OGC_MinAllowedLat;
 
 	UPROPERTY(AdvancedDisplay,
 		VisibleAnywhere, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS() && ManualParametersSelection()",
+			EditCondition = "IsOGC() && ManualParametersSelection()",
 			EditConditionHides, DisplayPriority = "15"
 		)
 	)
-	double WMS_MaxAllowedLat;
+	double OGC_MaxAllowedLat;
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS() && ManualParametersSelection()",
+			EditCondition = "IsOGC() && ManualParametersSelection()",
 			EditConditionHides, DisplayPriority = "20"
 		)
 	)
-	/* Enter the minimum longitude of the bounding box (left coordinate). Greater or equal than WMS_MinAllowedLong. */
-	double WMS_MinLong;
+	/* Enter the minimum longitude of the bounding box (left coordinate). Greater or equal than OGC_MinAllowedLong. */
+	double OGC_MinLong;
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS() && ManualParametersSelection()",
+			EditCondition = "IsOGC() && ManualParametersSelection()",
 			EditConditionHides, DisplayPriority = "21"
 		)
 	)
-	/* Enter the maximum longitude of the bounding box (right coordinate). Smaller or equal than WMS_MaxAllowedLong. */
-	double WMS_MaxLong;
+	/* Enter the maximum longitude of the bounding box (right coordinate). Smaller or equal than OGC_MaxAllowedLong. */
+	double OGC_MaxLong;
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS() && ManualParametersSelection()",
+			EditCondition = "IsOGC() && ManualParametersSelection()",
 			EditConditionHides, DisplayPriority = "22"
 		)
 	)
-	/* Enter the minimum latitude of the bounding box (bottom coordinate). Greater or equal than WMS_MinAllowedLat. */
-	double WMS_MinLat;
+	/* Enter the minimum latitude of the bounding box (bottom coordinate). Greater or equal than OGC_MinAllowedLat. */
+	double OGC_MinLat;
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS() && ManualParametersSelection()",
+			EditCondition = "IsOGC() && ManualParametersSelection()",
 			EditConditionHides, DisplayPriority = "23"
 		)
 	)
-	/* Enter the maximum latitude of the bounding box (top coordinate). Smaller or equal than WMS_MaxAllowedLat. */
-	double WMS_MaxLat;
+	/* Enter the maximum latitude of the bounding box (top coordinate). Smaller or equal than OGC_MaxAllowedLat. */
+	double OGC_MaxLat;
 	
 	UPROPERTY(AdvancedDisplay,
 		VisibleAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS()",
+			EditCondition = "IsOGC()",
 			EditConditionHides, DisplayPriority = "30"
 		)
 	)
-	/* Maximum allowed width from the WMS provider. */
-	int WMS_MaxWidth = 0;
+	/* Maximum allowed width from the provider (WMS only). */
+	int OGC_MaxWidth = 0;
 
 	UPROPERTY(AdvancedDisplay,
 		VisibleAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS()",
+			EditCondition = "IsOGC()",
 			EditConditionHides, DisplayPriority = "31"
 		)
 	)
-	/* Maximum allowed width from the WMS provider. */
-	int WMS_MaxHeight = 0;
+	/* Maximum allowed width from the provider (WMS only). */
+	int OGC_MaxHeight = 0;
 	
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
@@ -418,68 +421,68 @@ public:
 			EditConditionHides, DisplayPriority = "32"
 		)
 	)
-	/* Use the best resolution when downloading image from WMS */
+	/* Use the best resolution when downloading images from a WMS or WCS */
 	bool bAutoSetResolution = false;
 
 	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS()",
-			EditConditionHides, DisplayPriority = "33", DisplayName = "WMS Single Tile"
+			EditCondition = "IsOGC()",
+			EditConditionHides, DisplayPriority = "33", DisplayName = "Single Tile"
 		)
 	)
 	/**
 	 * If true, a single tile with the required dimensions will be downloaded. If false, multiple
-	 * tiles may be downloaded, each tile having maximum dimensions WMS_MaxTileWidth x WMS_MaxTileHeight.
+	 * tiles may be downloaded, each tile having maximum dimensions OGC_MaxTileWidth x OGC_MaxTileHeight.
 	 * The number of tiles is determined by the user-given resolution.
 	 */
-	bool bWMSSingleTile = true;
+	bool bOGCSingleTile = true;
 
 	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS()",
+			EditCondition = "IsOGC()",
 			EditConditionHides, DisplayPriority = "40"
 		)
 	)
-	/* Enter desired width for the downloaded heightmap tiles from the WMS API. Smaller or equal than WMS_MaxWidth. */
-	int WMS_MaxTileWidth = 1000;
+	/* Enter desired width for the downloaded heightmap tiles from the WMS or WCS. Smaller or equal than OGC_MaxWidth. */
+	int OGC_MaxTileWidth = 1000;
 
 	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS()",
+			EditCondition = "IsOGC()",
 			EditConditionHides, DisplayPriority = "41"
 		)
 	)
-	/* Enter desired height for the downloaded heightmap tiles from the WMS API. Smaller or equal than WMS_MaxHeight. */
-	int WMS_MaxTileHeight = 1000;
+	/* Enter desired height for the downloaded heightmap tiles from the WMS or WCS. Smaller or equal than OGC_MaxHeight. */
+	int OGC_MaxTileHeight = 1000;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS() && bWMSSingleTile && (!CanAutoSetResolution() || !bAutoSetResolution)",
+			EditCondition = "IsOGC() && bOGCSingleTile && (!CanAutoSetResolution() || !bAutoSetResolution)",
 			EditConditionHides, DisplayPriority = "50"
 		)
 	)
 	/* Download at the highest resolution allowed by the maximum tile size. */
-	bool bWMS_MaxResolution = true;
+	bool bOGC_MaxResolution = true;
 
 	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
-			EditCondition = "IsWMS() && (!CanAutoSetResolution() || !bAutoSetResolution) && (!bWMSSingleTile || !bWMS_MaxResolution)",
+			EditCondition = "IsOGC() && (!CanAutoSetResolution() || !bAutoSetResolution) && (!bOGCSingleTile || !bOGC_MaxResolution)",
 			EditConditionHides, DisplayPriority = "51"
 		)
 	)
 	/* Enter the number of pixels per units (the higher the number, the higher the resolution). */
-	double WMS_ResolutionPixelsPerUnit = 1;
+	double OGC_ResolutionPixelsPerUnit = 1;
 
 	UPROPERTY(AdvancedDisplay,
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
-		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "100")
+		meta = (EditCondition = "IsOGC()", EditConditionHides, DisplayPriority = "100")
 	)
-	bool bEnableWMSParallelDownload = false;
+	bool bEnableOGCParallelDownload = false;
 
 
 	/**********
@@ -828,7 +831,7 @@ public:
 	)
 	/**
 	  * Check this if you want to crop the coordinates following the bounds given in the parameters selection or a CroppingActor.
-	  * This is typically not needed for WMS sources where you choose the coordinates upfront.
+	  * This is typically not needed for WMS and WCS sources where you choose the coordinates upfront.
 	  **/
 	bool bCropCoordinates = false;
 	
@@ -851,21 +854,21 @@ public:
 
 	 bool DownloadImages(bool bIsUserInitiated, bool bEnsureOneBand, TObjectPtr<UGlobalCoordinates> GlobalCoordinates, TArray<FString> &OutDownloadedImages, FString &OutImagesCRS);
 
-	/* Click this to force reloading the WMS Provider from the URL */
+	/* Click this to force reloading the provider (WMS or WCS) from the URL */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "ImageDownloader",
-		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "3")
+		meta = (EditCondition = "IsOGC()", EditConditionHides, DisplayPriority = "3")
 	)
-	void ForceReloadWMS() { OnImageSourceChanged(nullptr); }
+	void ForceReloadOGC() { OnImageSourceChanged(nullptr); }
 
-	/* Click this to set the WMS coordinates to the largest possible bounds */
+	/* Click this to set the coordinates to the largest possible bounds */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "ImageDownloader",
-		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "4")
+		meta = (EditCondition = "IsOGC()", EditConditionHides, DisplayPriority = "4")
 	)
 	void SetLargestPossibleCoordinates();
 
-	/* Click this to set the WMS coordinates from a Cube or any other actor */
+	/* Click this to set the coordinates from a Cube or any other actor */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "ImageDownloader",
-		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "5")
+		meta = (EditCondition = "IsOGC()", EditConditionHides, DisplayPriority = "5")
 	)
 	void SetSourceParameters();
 
@@ -901,7 +904,18 @@ public:
 	static bool HasNextZenToken();
 
 	UFUNCTION()
-	bool IsWMS();
+	/** WMS and WCS sources (generic or preset) */
+	bool IsOGC();
+
+	UFUNCTION()
+	/** The generic WMS and WCS sources, where the capabilities URL is entered by the user */
+	bool IsGenericOGC();
+
+	/** WMS or WCS, for the sources where IsOGC() is true */
+	EOGCService GetOGCService();
+
+	/** Layer (or coverage) title selected when the provider of a preset is loaded, instead of the first one */
+	FString PreferredLayerTitle;
 
 	UFUNCTION()
 	bool ManualParametersSelection() { return ParametersSelection.ParametersSelectionMethod == EParametersSelectionMethod::Manual; }
@@ -933,7 +947,7 @@ public:
 protected:
 	void OnLayerChanged();
 	void OnImageSourceChanged(TFunction<void(bool)> OnComplete);
-	void ResetWMSProvider(TArray<FString> ExcludeCRS, TFunction<bool(FString)> LayerFilter, TFunction<void(bool)> OnComplete);
+	void ResetOGCProvider(TArray<FString> ExcludeCRS, TFunction<bool(FString)> LayerFilter, TFunction<void(bool)> OnComplete);
 	
 	HMFetcher* CreateInitialFetcher(bool bIsUserInitiated, FString Name);
 

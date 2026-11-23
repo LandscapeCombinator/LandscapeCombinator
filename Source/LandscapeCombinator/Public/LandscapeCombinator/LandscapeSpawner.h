@@ -351,16 +351,16 @@ public:
 
 	/* Click this to force reloading the WMS Provider from the URL */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeSpawner",
-		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "4")
+		meta = (EditCondition = "IsOGC()", EditConditionHides, DisplayPriority = "4")
 	)
-	void ForceReloadWMS()
+	void ForceReloadOGC()
 	{
-		if (HeightmapDownloader) HeightmapDownloader->ForceReloadWMS();
+		if (HeightmapDownloader) HeightmapDownloader->ForceReloadOGC();
 	}
 
 	/* Click this to set the min and max coordinates to the largest possible bounds */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeSpawner",
-		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "5")
+		meta = (EditCondition = "IsOGC()", EditConditionHides, DisplayPriority = "5")
 	)
 	void SetLargestPossibleCoordinates()
 	{
@@ -369,7 +369,7 @@ public:
 
 	/* Click this to set the WMS coordinates from a Cube or any other actor */
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "LandscapeSpawner",
-		meta = (EditCondition = "IsWMS()", EditConditionHides, DisplayPriority = "6")
+		meta = (EditCondition = "IsOGC()", EditConditionHides, DisplayPriority = "6")
 	)
 	void SetSourceParameters()
 	{
@@ -403,9 +403,9 @@ public:
 protected:
 
 	UFUNCTION()
-	bool IsWMS()
+	bool IsOGC()
 	{
-		return IsValid(HeightmapDownloader) && HeightmapDownloader->IsWMS();
+		return IsValid(HeightmapDownloader) && HeightmapDownloader->IsOGC();
 	}
 
 	UFUNCTION()
