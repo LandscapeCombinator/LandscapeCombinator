@@ -6,6 +6,7 @@
 #include "Coordinates/GlobalCoordinates.h"
 
 #include "Camera/PlayerCameraManager.h"
+#include "EngineUtils.h"
 #include "Components/InputComponent.h"
 #include "GameFramework/FloatingPawnMovement.h"
 #include "GameFramework/PlayerController.h"
@@ -52,9 +53,25 @@ UGlobalCoordinates* ALCPawn::GetSphereCoordinates() const
 	return LC->GlobalCoordinates;
 }
 
+ALevelCoordinates* ALCPawn::FindNearestSphereBody() const
+{
+	for (TActorIterator<ALevelCoordinates> It(GetWorld()); It; ++It)
+	{
+		if (IsValid(*It) && !It->IsHidden() && It->IsNearestSphereBody(GetActorLocation())) return *It;
+	}
+	return LevelCoordinates.Get();
+}
+
 void ALCPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	ALevelCoordinates* Nearest = FindNearestSphereBody();
+	if (Nearest != LevelCoordinates.Get())
+	{
+		LevelCoordinates = Nearest;
+		bHasLast = false;
+	}
 
 	const UGlobalCoordinates* Coordinates = GetSphereCoordinates();
 	if (!IsValid(Controller) || !IsValid(Coordinates))

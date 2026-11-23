@@ -69,6 +69,27 @@ public:
 	)
 	double BodyRadiusCm = 637100000;
 
+	/* World location of the surface point at (WorldOriginLat, WorldOriginLong). It is kept in sync with the location of
+	 * the Level Coordinates actor, so that several bodies can sit at different places of the same level. The default
+	 * (world origin) gives the same results as before. Sphere model only. */
+	UPROPERTY()
+	FVector BodyLocation = FVector::ZeroVector;
+
+	UPROPERTY()
+	FQuat BodyRotation = FQuat::Identity;
+
+	/* World location of the center of the sphere */
+	FVector SphereCenter() const { return BodyLocation + FVector(0, 0, -BodyRadiusCm); }
+
+	/* BodyLocation as a sum of two float vectors (High + Low), which keeps double precision for material parameters
+	 * (floats are only precise to about 7 digits). In the material, subtract both from the absolute world position (with LWC nodes). */
+	void GetBodyLocationHighLow(FLinearColor& OutHigh, FLinearColor& OutLow) const
+	{
+		const float HX = (float) BodyLocation.X, HY = (float) BodyLocation.Y, HZ = (float) BodyLocation.Z;
+		OutHigh = FLinearColor(HX, HY, HZ, 0.f);
+		OutLow = FLinearColor((float) (BodyLocation.X - (double) HX), (float) (BodyLocation.Y - (double) HY), (float) (BodyLocation.Z - (double) HZ), 0.f);
+	}
+
 	/* This function is slow. If you need to call it many times, make a single OGRCoordinateTransformation
 	 * with `GetCRSTransformer`and use this instead. */
 	bool GetUnrealCoordinatesFromCRS(double Longitude, double Latitude, FString FromCRS, FVector2D &XY);

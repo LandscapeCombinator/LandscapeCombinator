@@ -160,7 +160,7 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 		ExistingMesh = FoundMesh;
 	}
 
-	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World, false);
+	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(this, false);
 	if (IsValid(GlobalCoordinates))
 	{
 		if (bIsUserInitiated && !bReuseExistingMesh && !GlobalCoordinates->IsSphere() && !LCReporter::ShowMessage(
@@ -318,6 +318,7 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 			if (!IsValid(LandscapeMesh)) return false;
 
 			WeakThis->SpawnedLandscapeMeshes.Add(LandscapeMesh);
+			ALevelCoordinates::InheritBody(LandscapeMesh, WeakThis.Get());
 
 #if WITH_EDITOR
 			if (!WeakThis->LandscapeMeshLabel.IsEmpty())

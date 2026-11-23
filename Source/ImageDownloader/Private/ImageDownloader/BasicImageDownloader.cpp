@@ -26,7 +26,7 @@ void ABasicImageDownloader::DownloadImages()
 
 	TArray<FString> UnusedImages;
 	FString UnusedCRS;
-	ImageDownloader->DownloadImages(true, false, ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false), UnusedImages, UnusedCRS);
+	ImageDownloader->DownloadImages(true, false, ALevelCoordinates::GetGlobalCoordinatesFor(this, false), UnusedImages, UnusedCRS);
 
 }
 

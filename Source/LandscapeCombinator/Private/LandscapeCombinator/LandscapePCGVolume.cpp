@@ -28,7 +28,7 @@ void ALandscapePCGVolume::SetPositionAndBounds()
 	Position = FVector((MinMaxX[0] + MinMaxX[1]) / 2, (MinMaxY[0] + MinMaxY[1]) / 2, 0);
 	Bounds = FVector((MinMaxX[1] - MinMaxX[0]) / 2, (MinMaxY[1] - MinMaxY[0]) / 2, 10000000);
 
-	UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(GetWorld(), false);
+	UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(this, false);
 	if (IsValid(GlobalCoordinates) && GlobalCoordinates->IsSphere())
 	{
 		Position.Z = (MinMaxZ[0] + MinMaxZ[1]) / 2;
@@ -53,6 +53,9 @@ bool ALandscapePCGVolume::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUs
 		Modify();
 		SetPositionAndBounds();
 		PCGComponent->bActivated = true;
+#if !UE_VERSION_OLDER_THAN(5, 4, 0)
+		if (PCGComponent->GenerationTrigger == EPCGComponentGenerationTrigger::GenerateAtRuntime) return true;
+#endif
 		PCGComponent->Generate(true);
 		return true;
 	});
@@ -75,10 +78,14 @@ bool ALandscapePCGVolume::Cleanup_Implementation(bool bSkipPrompt)
 	
 	if (!IsValid(PCGComponent)) return false;
 
-	PCGComponent->Cleanup();
 #if !UE_VERSION_OLDER_THAN(5, 4, 0)
-	if (PCGComponent->GenerationTrigger == EPCGComponentGenerationTrigger::GenerateAtRuntime) PCGComponent->bActivated = false;
+	if (PCGComponent->GenerationTrigger == EPCGComponentGenerationTrigger::GenerateAtRuntime)
+	{
+		PCGComponent->bActivated = false;
+		return true;
+	}
 #endif
+	PCGComponent->Cleanup();
 	return true;
 }
 

@@ -12,7 +12,7 @@ void UActorCoordinates::MoveActor()
 	AActor *Owner = GetOwner();
 	if (!Owner) return;
 
-	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(Owner->GetWorld(), false);
+	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(Owner, false);
 	if (UGlobalCoordinates::IsSphere(GlobalCoordinates))
 	{
 		double Long = Longitude;
@@ -42,7 +42,7 @@ void UActorCoordinates::SetCoordinates()
 	AActor* Owner = GetOwner();
 	if (!Owner) return;
 
-	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(Owner->GetWorld(), false);
+	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(Owner, false);
 	if (UGlobalCoordinates::IsSphere(GlobalCoordinates))
 	{
 		double Long, Lat, AltCm;

@@ -1,6 +1,7 @@
 // Copyright 2023-2027 LandscapeCombinator. All Rights Reserved.
 
 #include "Coordinates/LevelCoordinates.h"
+#include "Coordinates/LCBodyBinding.h"
 #if WITH_EDITOR
 #include "UDynamicMesh.h"
 #include "GeometryScript/MeshPrimitiveFunctions.h"
@@ -8,6 +9,7 @@
 #include "PhysicsEngine/BodySetup.h"
 #endif
 #include "Coordinates/BodyNavigation.h"
+#include "Components/SceneComponent.h"
 #include "Components/SkyAtmosphereComponent.h"
 #include "Misc/EngineVersionComparison.h"
 #include "EngineUtils.h"
@@ -43,16 +45,79 @@ ALevelCoordinates::ALevelCoordinates()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
+	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 	GlobalCoordinates = CreateDefaultSubobject<UGlobalCoordinates>(TEXT("Global Coordinates"));
+}
+
+namespace
+{
+	ALevelCoordinates* GetOwnBinding(const AActor* Actor)
+	{
+		if (!IsValid(Actor)) return nullptr;
+		const ULCBodyBinding* Binding = Actor->FindComponentByClass<ULCBodyBinding>();
+		return Binding && IsValid(Binding->Body) ? Binding->Body.Get() : nullptr;
+	}
+}
+
+ALevelCoordinates* ALevelCoordinates::GetBoundBody(const AActor* Actor)
+{
+	// Walk attach parents, then owners (bounded, to be safe against cycles).
+	const AActor* Current = Actor;
+	for (int32 Depth = 0; Current && Depth < 16; Depth++)
+	{
+		if (ALevelCoordinates* Body = GetOwnBinding(Current)) return Body;
+		const AActor* Next = Current->GetAttachParentActor();
+		Current = Next ? Next : Current->GetOwner();
+	}
+	return nullptr;
+}
+
+void ALevelCoordinates::InheritBody(AActor* Child, const AActor* Parent)
+{
+	if (!IsValid(Child) || !IsValid(Parent)) return;
+	ALevelCoordinates* Body = GetBoundBody(Parent);
+	if (!Body) return;
+	BindBody(Child, Body);
+}
+
+void ALevelCoordinates::BindBody(AActor* Actor, ALevelCoordinates* Body)
+{
+	if (!IsValid(Actor)) return;
+	ULCBodyBinding* Binding = Actor->FindComponentByClass<ULCBodyBinding>();
+	if (!Binding)
+	{
+		if (!IsValid(Body)) return;
+		Actor->Modify();
+		Binding = NewObject<ULCBodyBinding>(Actor, NAME_None, RF_Transactional);
+		Actor->AddInstanceComponent(Binding);
+		Binding->RegisterComponent();
+	}
+	Binding->Modify();
+	Binding->Body = Body;
 }
 
 TObjectPtr<UGlobalCoordinates> ALevelCoordinates::GetGlobalCoordinates(TWeakObjectPtr<UWorld> World, bool bShowDialog)
 {
+	return GetGlobalCoordinatesImpl(World, nullptr, bShowDialog);
+}
+
+TObjectPtr<UGlobalCoordinates> ALevelCoordinates::GetGlobalCoordinatesFor(const AActor* Context, bool bShowDialog)
+{
+	if (!IsValid(Context)) return nullptr;
+	return GetGlobalCoordinatesImpl(Context->GetWorld(), Context, bShowDialog);
+}
+
+TObjectPtr<UGlobalCoordinates> ALevelCoordinates::GetGlobalCoordinatesImpl(TWeakObjectPtr<UWorld> World, TWeakObjectPtr<const AActor> Context, bool bShowDialog)
+{
+	TWeakObjectPtr<ALevelCoordinates> Bound;
 	TArray<TWeakObjectPtr<AActor>> LevelCoordinatesCandidates0;
 
-	if (!Concurrency::RunOnGameThreadAndWait([World, &LevelCoordinatesCandidates0]()
+	if (!Concurrency::RunOnGameThreadAndWait([World, Context, &Bound, &LevelCoordinatesCandidates0]()
 	{
 		if (!World.IsValid()) return false;
+
+		// An explicitly bound body wins, even if hidden.
+		if (Context.IsValid()) Bound = ALevelCoordinates::GetBoundBody(Context.Get());
 
 		TArray<AActor*> All;
 		UGameplayStatics::GetAllActorsOfClass(World.Get(), ALevelCoordinates::StaticClass(), All);
@@ -68,6 +133,8 @@ TObjectPtr<UGlobalCoordinates> ALevelCoordinates::GetGlobalCoordinates(TWeakObje
 		return nullptr;
 	}
 
+	if (Bound.IsValid()) return Bound->GlobalCoordinates;
+
 	TArray<TWeakObjectPtr<AActor>> LevelCoordinatesCandidates = LevelCoordinatesCandidates0
 		.FilterByPredicate([](const TWeakObjectPtr<AActor>& Actor) { return Actor.IsValid(); });
 
@@ -78,7 +145,7 @@ TObjectPtr<UGlobalCoordinates> ALevelCoordinates::GetGlobalCoordinates(TWeakObje
 	}
 	if (LevelCoordinatesCandidates.Num() > 1)
 	{
-		if (bShowDialog) LCReporter::ShowError(LOCTEXT("MoreThanOneLevelCoordinates", "Found more than one visible Level Coordinates actor in the level. Please keep only one."));
+		if (bShowDialog) LCReporter::ShowError(LOCTEXT("MoreThanOneLevelCoordinates", "Found more than one visible Level Coordinates actor in the level. Please add an LC Body Binding component to the actor you are using, or keep only one visible."));
 		return nullptr;
 	}
 
@@ -86,68 +153,68 @@ TObjectPtr<UGlobalCoordinates> ALevelCoordinates::GetGlobalCoordinates(TWeakObje
 }
 
 
-OGRCoordinateTransformation *ALevelCoordinates::GetCRSTransformer(UWorld* World, FString CRS)
+OGRCoordinateTransformation *ALevelCoordinates::GetCRSTransformer(UWorld* World, FString CRS, const AActor* Context)
 {
-	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World);
+	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesImpl(World, Context, true);
 	if (!GlobalCoordinates) return nullptr;
 	return GlobalCoordinates->GetCRSTransformer(CRS);
 }
 
-bool ALevelCoordinates::GetUnrealCoordinatesFromCRS(UWorld* World, double Longitude, double Latitude, FString CRS, FVector2D& OutXY)
+bool ALevelCoordinates::GetUnrealCoordinatesFromCRS(UWorld* World, double Longitude, double Latitude, FString CRS, FVector2D& OutXY, const AActor* Context)
 {
-	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World);
+	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesImpl(World, Context, true);
 	if (!GlobalCoordinates) return false;
 	if (!GlobalCoordinates->GetUnrealCoordinatesFromCRS(Longitude, Latitude, CRS, OutXY)) return false;
 
 	return true;
 }
 
-bool ALevelCoordinates::GetCRSCoordinatesFromUnrealLocation(UWorld* World, FVector2D Location, FVector2D& OutCoordinates)
+bool ALevelCoordinates::GetCRSCoordinatesFromUnrealLocation(UWorld* World, FVector2D Location, FVector2D& OutCoordinates, const AActor* Context)
 {
-	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World);
+	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesImpl(World, Context, true);
 	if (!GlobalCoordinates) return false;
 	GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(Location, OutCoordinates);
 	return true;
 }
 
-bool ALevelCoordinates::GetCRSCoordinatesFromUnrealLocation(UWorld* World, FVector2D Location, FString CRS, FVector2D &OutCoordinates)
+bool ALevelCoordinates::GetCRSCoordinatesFromUnrealLocation(UWorld* World, FVector2D Location, FString CRS, FVector2D &OutCoordinates, const AActor* Context)
 {
-	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World);
+	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesImpl(World, Context, true);
 	if (!GlobalCoordinates) return false;
 	if (!GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(Location, CRS, OutCoordinates)) return false;
 
 	return true;
 }
 
-bool ALevelCoordinates::GetCRSCoordinatesFromUnrealLocations(UWorld* World, FVector4d Locations, FString CRS, FVector4d &OutCoordinates)
+bool ALevelCoordinates::GetCRSCoordinatesFromUnrealLocations(UWorld* World, FVector4d Locations, FString CRS, FVector4d &OutCoordinates, const AActor* Context)
 {
-	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World);
+	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesImpl(World, Context, true);
 	if (!GlobalCoordinates) return false;
 	if (!GlobalCoordinates->GetCRSCoordinatesFromUnrealLocations(Locations, CRS, OutCoordinates)) return false;
 
 	return true;
 }
 
-bool ALevelCoordinates::GetCRSCoordinatesFromUnrealLocations(UWorld* World, FVector4d Locations, FVector4d& OutCoordinates)
+bool ALevelCoordinates::GetCRSCoordinatesFromUnrealLocations(UWorld* World, FVector4d Locations, FVector4d& OutCoordinates, const AActor* Context)
 {
-	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World);
+	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesImpl(World, Context, true);
 	if (!GlobalCoordinates) return false;
 
 	GlobalCoordinates->GetCRSCoordinatesFromUnrealLocations(Locations, OutCoordinates);
 	return true;
 }
 
-bool ALevelCoordinates::GetCRSCoordinatesFromFBox(UWorld* World, FBox Box, FString ToCRS, FVector4d& OutCoordinates)
+bool ALevelCoordinates::GetCRSCoordinatesFromFBox(UWorld* World, FBox Box, FString ToCRS, FVector4d& OutCoordinates, const AActor* Context)
 {
-	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World);
+	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesImpl(World, Context, true);
 	if (!GlobalCoordinates) return false;
 
 	return GlobalCoordinates->GetCRSCoordinatesFromFBox(Box, ToCRS, OutCoordinates);
 }
 
-bool ALevelCoordinates::GetCRSCoordinatesFromOriginExtent(UWorld* World, FVector Origin, FVector Extent, FString ToCRS, FVector4d& OutCoordinates)
+bool ALevelCoordinates::GetCRSCoordinatesFromOriginExtent(UWorld* World, FVector Origin, FVector Extent, FString ToCRS, FVector4d& OutCoordinates, const AActor* Context)
 {
-	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World);
+	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesImpl(World, Context, true);
 	if (!GlobalCoordinates) return false;
 	
 	return GlobalCoordinates->GetCRSCoordinatesFromOriginExtent(Origin, Extent, ToCRS, OutCoordinates);
@@ -159,14 +226,27 @@ void ALevelCoordinates::MatchSkyAtmosphereToBody()
 	if (!IsValid(World) || !IsValid(GlobalCoordinates)) return;
 
 	int32 Count = 0;
+	SyncBodyLocation();
 
 	for (TActorIterator<AActor> It(World); It; ++It)
 	{
 		USkyAtmosphereComponent* Sky = It->FindComponentByClass<USkyAtmosphereComponent>();
 		if (!IsValid(Sky)) continue;
 
+		// Skies bound to another body belong to that body
+		ALevelCoordinates* SkyBody = GetBoundBody(*It);
+		if (SkyBody && SkyBody != this) continue;
+
 		Sky->Modify();
-		Sky->TransformMode = ESkyAtmosphereTransformMode::PlanetTopAtAbsoluteWorldOrigin;
+		if (GlobalCoordinates->BodyLocation.IsNearlyZero())
+		{
+			Sky->TransformMode = ESkyAtmosphereTransformMode::PlanetTopAtAbsoluteWorldOrigin;
+		}
+		else
+		{
+			Sky->TransformMode = ESkyAtmosphereTransformMode::PlanetCenterAtComponentTransform;
+			Sky->SetWorldLocation(GlobalCoordinates->SphereCenter());
+		}
 		Sky->BottomRadius = GlobalCoordinates->BodyRadiusCm / 100000.0;
 		Sky->MarkRenderStateDirty();
 		Count++;
@@ -220,21 +300,33 @@ namespace
 		return Mesh;
 	}
 
-	AStaticMeshActor* FindOrSpawnSphereActor(UWorld* World, const FVector& Center)
+	AStaticMeshActor* FindOrSpawnSphereActor(UWorld* World, const FVector& Center, ALevelCoordinates* Body)
 	{
 		static const FName SphereTag("LCBodySphere");
+		AStaticMeshActor* Unbound = nullptr;
 		for (TActorIterator<AStaticMeshActor> It(World); It; ++It)
 		{
-			if (It->ActorHasTag(SphereTag))
+			if (!It->ActorHasTag(SphereTag)) continue;
+			ALevelCoordinates* SphereBody = ALevelCoordinates::GetBoundBody(*It);
+			if (SphereBody == Body)
 			{
 				It->Modify();
 				return *It;
 			}
+			if (!SphereBody && !Unbound) Unbound = *It;
+		}
+
+		if (Unbound)
+		{
+			Unbound->Modify();
+			ALevelCoordinates::BindBody(Unbound, Body);
+			return Unbound;
 		}
 
 		AStaticMeshActor* Actor = World->SpawnActor<AStaticMeshActor>(Center, FRotator::ZeroRotator);
 		if (!IsValid(Actor)) return nullptr;
 		Actor->Tags.Add(SphereTag);
+		ALevelCoordinates::BindBody(Actor, Body);
 		Actor->SetActorLabel(TEXT("BodySphere"));
 		return Actor;
 	}
@@ -245,12 +337,13 @@ bool ALevelCoordinates::SpawnSphere()
 	UWorld* World = GetWorld();
 	if (!IsValid(World)) return false;
 
-	UStaticMesh* Mesh = CreateSphereStaticMesh(this, SphereSteps, GlobalCoordinates->BodyRadiusCm);
+	UStaticMesh* Mesh = CreateSphereStaticMesh(this, SphereSteps, FMath::Max(GlobalCoordinates->BodyRadiusCm + SphereRadiusOffsetCm, 1.0));
 	if (!IsValid(Mesh)) return false;
 
-	const FVector Center(0, 0, -GlobalCoordinates->BodyRadiusCm);
+	SyncBodyLocation();
+	const FVector Center = GlobalCoordinates->SphereCenter();
 
-	AStaticMeshActor* SphereActor = FindOrSpawnSphereActor(World, Center);
+	AStaticMeshActor* SphereActor = FindOrSpawnSphereActor(World, Center, this);
 	if (!IsValid(SphereActor)) return false;
 
 	UStaticMeshComponent* Component = SphereActor->GetStaticMeshComponent();
@@ -276,6 +369,16 @@ void ALevelCoordinates::UpdateBodyParameters()
 	UWorld* World = GetWorld();
 	if (IsTemplate() || !IsValid(World) || !IsValid(GlobalCoordinates)) return;
 
+	for (TActorIterator<ALevelCoordinates> It(World); It; ++It)
+	{
+		if (*It == this || !IsValid(*It) || It->IsHidden() || !IsValid(It->GlobalCoordinates)) continue;
+		if (It->GlobalCoordinates->BodyLocation.SizeSquared() < GlobalCoordinates->BodyLocation.SizeSquared())
+		{
+			It->UpdateBodyParameters();
+			return;
+		}
+	}
+
 	UMaterialParameterCollection* Collection = LoadObject<UMaterialParameterCollection>(nullptr, TEXT("/LandscapeCombinator/Materials/MPC_LCBody.MPC_LCBody"), nullptr, LOAD_NoWarn);
 	if (!IsValid(Collection)) return;
 
@@ -295,7 +398,26 @@ void ALevelCoordinates::PostRegisterAllComponents()
 {
 	Super::PostRegisterAllComponents();
 	UpdateViewportTicker();
+	SyncBodyLocation();
 	UpdateBodyParameters();
+}
+
+void ALevelCoordinates::SyncBodyLocation()
+{
+	if (IsValid(GlobalCoordinates)) GlobalCoordinates->BodyLocation = bBodyAtActorLocation ? GetActorLocation() : FVector::ZeroVector;
+}
+
+bool ALevelCoordinates::IsNearestSphereBody(const FVector& Location) const
+{
+	if (!UGlobalCoordinates::IsSphere(GlobalCoordinates)) return false;
+	const double Own = FMath::Abs((Location - GlobalCoordinates->SphereCenter()).Size() - GlobalCoordinates->BodyRadiusCm);
+	for (TActorIterator<ALevelCoordinates> It(GetWorld()); It; ++It)
+	{
+		if (*It == this || !IsValid(*It) || It->IsHidden() || !It->bSphereViewportNavigation || !UGlobalCoordinates::IsSphere(It->GlobalCoordinates)) continue;
+		const double Other = FMath::Abs((Location - It->GlobalCoordinates->SphereCenter()).Size() - It->GlobalCoordinates->BodyRadiusCm);
+		if (Other < Own) return false;
+	}
+	return true;
 }
 
 void ALevelCoordinates::BeginDestroy()
@@ -305,10 +427,38 @@ void ALevelCoordinates::BeginDestroy()
 }
 
 #if WITH_EDITOR
+void ALevelCoordinates::PostEditMove(bool bFinished)
+{
+	Super::PostEditMove(bFinished);
+	if (bFinished) RefreshBodyLocation();
+}
+
+void ALevelCoordinates::RefreshBodyLocation()
+{
+	if (!IsValid(GlobalCoordinates)) return;
+	const FVector OldLocation = GlobalCoordinates->BodyLocation;
+	SyncBodyLocation();
+	UpdateBodyParameters();
+	if (!GlobalCoordinates->IsSphere() || GlobalCoordinates->BodyLocation.Equals(OldLocation)) return;
+
+	static const FName SphereTag("LCBodySphere");
+	for (TActorIterator<AStaticMeshActor> It(GetWorld()); It; ++It)
+	{
+		if (!It->ActorHasTag(SphereTag) || GetBoundBody(*It) != this) continue;
+		UStaticMeshComponent* Component = It->GetStaticMeshComponent();
+		It->Modify();
+		Component->SetMobility(EComponentMobility::Movable);
+		It->SetActorLocation(GlobalCoordinates->SphereCenter());
+		Component->SetMobility(EComponentMobility::Static);
+	}
+	MatchSkyAtmosphereToBody();
+}
+
 void ALevelCoordinates::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 	UpdateViewportTicker();
+	if (PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(ALevelCoordinates, bBodyAtActorLocation)) RefreshBodyLocation();
 }
 #endif
 
@@ -382,6 +532,18 @@ bool ALevelCoordinates::TickViewport(float DeltaTime)
 		if (!VC || !VC->IsPerspective()) continue;
 		void* Key = static_cast<void*>(VC);
 		const FVector CurrentLocation = VC->GetViewLocation();
+		if (VC->GetViewTransform().IsPlaying())
+		{
+			ViewportLastLocations.Add(Key, CurrentLocation);
+			ViewportLastRotators.Add(Key, VC->GetViewRotation());
+			continue;
+		}
+		if (!IsNearestSphereBody(CurrentLocation))
+		{
+			ViewportLastLocations.Remove(Key);
+			ViewportLastRotators.Remove(Key);
+			continue;
+		}
 		const FRotator CurrentRotation = VC->GetViewRotation();
 		FVector Location = CurrentLocation;
 		FRotator Rotation = CurrentRotation;
@@ -416,6 +578,7 @@ void ALevelCoordinates::CreateWorldMap()
 		if (!SpawnSphere()) return;
 #endif
 		MatchSkyAtmosphereToBody();
+		if (!bApplyWorldMapTexture) return;
 	}
 
 	if (!IsValid(GlobalCoordinates->IsSphere() ? WorldMapSphereMaterial : WorldMapMaterial)) return;

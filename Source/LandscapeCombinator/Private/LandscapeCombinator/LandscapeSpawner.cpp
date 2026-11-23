@@ -180,7 +180,7 @@ bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 		return false;
 	}
 
-	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false);
+	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(this, false);
 	if (IsValid(GlobalCoordinates) && GlobalCoordinates->IsSphere())
 	{
 		LCReporter::ShowError(
@@ -397,6 +397,7 @@ bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 			if (!LandscapeLabel.IsEmpty())
 				SpawnedLandscape->SetActorLabel(LandscapeLabel);
 			ULCBlueprintLibrary::SetFolderPath2(SpawnedLandscape.Get(), SpawnedActorsPathOverride, SpawnedActorsPath);
+			ALevelCoordinates::InheritBody(SpawnedLandscape.Get(), this);
 
 			if (!LandscapeTag.IsNone()) SpawnedLandscape->Tags.Add(LandscapeTag);
 
@@ -606,6 +607,7 @@ bool ALandscapeSpawner::SpawnLandscape(FName SpawnedActorsPathOverride, bool bIs
 					if (IsValid(DecalActor) && IsValid(DecalActor->GetDecal()))
 					{
 						ULCBlueprintLibrary::SetFolderPath2(DecalActor, SpawnedActorsPathOverride, SpawnedActorsPath);
+						ALevelCoordinates::InheritBody(DecalActor, this);
 						DecalActor->GetDecal()->Modify();
 						DecalActor->GetDecal()->SetSortOrder(DecalsSortOrder);
 						DecalActor->GetDecal()->MarkRenderStateDirty();

@@ -2376,7 +2376,7 @@ void ABuilding::ReprojectSplineOnLandscape()
 	}))
 		return;
 
-	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World, false);
+	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(this, false);
 
 	const int NumPoints = SplineComponent->GetNumberOfSplinePoints();
 	for (int i = 0; i < NumPoints; i++)

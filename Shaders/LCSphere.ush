@@ -2,6 +2,11 @@
 
 #pragma once
 
+// All the positions P below are relative to the body location, which is the world location of the surface point at the
+// origin latitude and longitude (UGlobalCoordinates::BodyLocation). In the material, compute
+// P = AbsoluteWorldPosition - (BodyLocationHigh + BodyLocationLow) with LWC nodes (double precision), then pass it here:
+// the result is at most planet sized, so it fits in a float. For a body at the world origin, P is just the world position.
+
 float3 LC_WorldToLonLatUV(float3 P, float4 Body, float3 BoundsMin, float3 BoundsMax)
 {
 	float3 V = float3(P.x, -P.y, P.z + Body.x);

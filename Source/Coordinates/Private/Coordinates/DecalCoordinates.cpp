@@ -111,7 +111,7 @@ bool UDecalCoordinates::PlaceDecal(UMaterialInterface *Material, FVector4d &OutC
 	
 	UWorld* World = GetWorld();
 
-	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World, true);
+	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(GetOwner(), true);
 	if (!IsValid(GlobalCoordinates)) return false;
 
 	FString ReprojectedImage = FPaths::GetPath(PathToGeoreferencedImage) / (FPaths::GetBaseFilename(PathToGeoreferencedImage) + "-reprojected.tif");
@@ -239,7 +239,7 @@ bool UDecalCoordinates::ApplyDecalTexture()
 	UMaterialInstanceDynamic* MID = SetDecalTexture(DecalActor->GetDecal(), DecalMaterial, Texture, this);
 	if (bSphereDecal && MID)
 	{
-		const UGlobalCoordinates* G = ALevelCoordinates::GetGlobalCoordinates(GetWorld(), false);
+		const UGlobalCoordinates* G = ALevelCoordinates::GetGlobalCoordinatesFor(GetOwner(), false);
 		if (!G) UE_LOG(LogCoordinates, Warning, TEXT("ApplyDecalTexture: no LevelCoordinates found, the sphere mapping parameters were not set"));
 		Concurrency::RunOnGameThreadAndWait([&]()
 		{
@@ -251,6 +251,15 @@ bool UDecalCoordinates::ApplyDecalTexture()
 	return bTextureApplied;
 }
 
+void UDecalCoordinates::RefreshSphereMapping(const UGlobalCoordinates* GlobalCoordinates)
+{
+	if (!bSphereDecal || !IsValid(GlobalCoordinates)) return;
+	ADecalActor* DecalActor = Cast<ADecalActor>(GetOwner());
+	if (!IsValid(DecalActor) || !IsValid(DecalActor->GetDecal())) return;
+	UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(DecalActor->GetDecal()->GetDecalMaterial());
+	if (IsValid(MID)) GlobalCoordinates->SetSphereMappingParameters(MID, DecalBoundsMin, DecalBoundsMax);
+}
+
 void UDecalCoordinates::OnRegister()
 {
 	Super::OnRegister();
@@ -259,12 +268,13 @@ void UDecalCoordinates::OnRegister()
 	ApplyDecalTexture();
 }
 
-TArray<ADecalActor*> UDecalCoordinates::CreateDecals(UWorld *World, UMaterialInterface *Material, TArray<FString> Paths)
+TArray<ADecalActor*> UDecalCoordinates::CreateDecals(UWorld *World, UMaterialInterface *Material, TArray<FString> Paths, ALevelCoordinates* Body)
 {
 	TArray<ADecalActor*> DecalActors;
 	for (auto &Path : Paths)
 	{
-		TObjectPtr<ADecalActor> DecalActor = UDecalCoordinates::CreateDecal(World, Material, Path);
+		FVector4d UnusedCoordinates;
+		TObjectPtr<ADecalActor> DecalActor = UDecalCoordinates::CreateDecal(World, Material, Path, UnusedCoordinates, Body);
 		if (IsValid(DecalActor))
 		{
 			DecalActors.Add(DecalActor);
@@ -290,16 +300,17 @@ ADecalActor* UDecalCoordinates::CreateDecal(UWorld* World, UMaterialInterface *M
 	return CreateDecal(World, Material, Path, UnusedCoordinates);
 }
 
-ADecalActor* UDecalCoordinates::CreateDecal(UWorld *World, UMaterialInterface *Material, FString Path, FVector4d &OutCoordinates)
+ADecalActor* UDecalCoordinates::CreateDecal(UWorld *World, UMaterialInterface *Material, FString Path, FVector4d &OutCoordinates, ALevelCoordinates* Body)
 {
 	if (!IsValid(World)) return nullptr;
 
 	ADecalActor* DecalActor = nullptr;
 	UDecalCoordinates *DecalCoordinates = nullptr;
-	
-	Concurrency::RunOnGameThreadThrottledAndWait([&DecalActor, &DecalCoordinates, World, Path]{
+
+	Concurrency::RunOnGameThreadThrottledAndWait([&DecalActor, &DecalCoordinates, World, Path, Body]{
 		DecalActor = World->SpawnActor<ADecalActor>();
 		if (!IsValid(DecalActor)) return false;
+		if (IsValid(Body)) ALevelCoordinates::BindBody(DecalActor, Body);
 		FString BaseName = FPaths::GetBaseFilename(Path);
 
 #if WITH_EDITOR

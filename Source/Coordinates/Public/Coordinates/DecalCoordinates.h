@@ -6,6 +6,9 @@
 
 #include "DecalCoordinates.generated.h"
 
+class ALevelCoordinates;
+class UGlobalCoordinates;
+
 #define LOCTEXT_NAMESPACE "FCoordinatesModule"
 
 UCLASS(BlueprintType, meta = (BlueprintSpawnableComponent))
@@ -31,6 +34,7 @@ public:
 
 	virtual void OnRegister() override;
 	bool ApplyDecalTexture();
+	void RefreshSphereMapping(const UGlobalCoordinates* GlobalCoordinates);
 	FString ReprojectedImagePath() const;
 	bool bTextureApplied = false;
 
@@ -50,8 +54,8 @@ public:
 	TObjectPtr<UTexture2D> Texture;
 
 	static ADecalActor* CreateDecal(UWorld *World, UMaterialInterface *Material, FString Path);
-	static TArray<ADecalActor*> CreateDecals(UWorld *World, UMaterialInterface *Material, TArray<FString> Paths);
-	static ADecalActor* CreateDecal(UWorld *World, UMaterialInterface *Material, FString Path, FVector4d &OutCoordinates);
+	static TArray<ADecalActor*> CreateDecals(UWorld *World, UMaterialInterface *Material, TArray<FString> Paths, ALevelCoordinates* Body = nullptr);
+	static ADecalActor* CreateDecal(UWorld *World, UMaterialInterface *Material, FString Path, FVector4d &OutCoordinates, ALevelCoordinates* Body = nullptr);
 
 	static UMaterialInstanceDynamic* SetDecalTextureFromColors(
 		UDecalComponent* Decal, UMaterialInterface* Material,

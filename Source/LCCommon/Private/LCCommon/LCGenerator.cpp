@@ -82,7 +82,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 		Location2D.X = Position.X;
 		Location2D.Y = Position.Y;
 
-		UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(Self->GetWorld(), true);
+		UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(Self.Get(), true);
 		if (!IsValid(GlobalCoordinates))
 		{
 			LCReporter::ShowError(LOCTEXT("NoGlobalCoordinates", "You must add a Level Coordinates actor before using Position Based Generation"));

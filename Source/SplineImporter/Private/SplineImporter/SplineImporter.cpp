@@ -225,7 +225,7 @@ bool ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 		return false;
 	}
 
-	UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), true);
+	UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(this, true);
 	if (!GlobalCoordinates) return false;
 
 	if (GlobalCoordinates->IsSphere())
@@ -338,6 +338,7 @@ bool ASplineImporter::GenerateRegularSplines(
 		{
 			SplineOwner = World->SpawnActor<ASplineCollection>();
 			if (!SplineOwner) return false;
+			ALevelCoordinates::InheritBody(SplineOwner, this);
 
 	#if WITH_EDITOR
 			if (!World->IsGameWorld()) SplineOwner->SetActorLabel("SC_" + this->GetActorNameOrLabel());
@@ -372,6 +373,7 @@ bool ASplineImporter::GenerateRegularSplines(
 			{
 				SplineOwner = World->SpawnActor<ASplineCollection>();
 				if (!IsValid(SplineOwner)) return false;
+				ALevelCoordinates::InheritBody(SplineOwner, this);
 
 #if WITH_EDITOR
 				if (!World->IsGameWorld()) SplineOwner->SetActorLabel("SC_" + this->GetActorNameOrLabel() + FString::FromInt(i));
@@ -409,6 +411,8 @@ bool ASplineImporter::GenerateRegularSplines(
 					));
 					return false;
 				}
+
+				ALevelCoordinates::InheritBody(SplineOwner, this);
 
 #if WITH_EDITOR
 				if (!World->IsGameWorld()) SplineOwner->SetActorLabel(SplineOwner->GetActorNameOrLabel() + "_" + FString::FromInt(i));

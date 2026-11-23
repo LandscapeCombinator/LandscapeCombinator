@@ -445,7 +445,7 @@ bool LandscapeUtils::GetLandscapeCRSBounds(ALandscape *Landscape, FVector4d &Out
 		return false;
 	}
 
-	UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(Landscape->GetWorld());
+	UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(Landscape);
 	if (!IsValid(GlobalCoordinates)) return false;
 
 	return GetLandscapeCRSBounds(Landscape, GlobalCoordinates, GlobalCoordinates->CRS, OutCoordinates);
@@ -461,7 +461,7 @@ bool LandscapeUtils::GetLandscapeCRSBounds(ALandscape *Landscape, FString ToCRS,
 		return false;
 	}
 
-	UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(Landscape->GetWorld());
+	UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(Landscape);
 	if (!IsValid(GlobalCoordinates)) return false;
 
 	return GetLandscapeCRSBounds(Landscape, GlobalCoordinates, ToCRS, OutCoordinates);
@@ -523,7 +523,7 @@ bool LandscapeUtils::GetActorCRSBounds(AActor* Actor, FVector4d &OutCoordinates)
 		return false;
 	}
 
-	UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(Actor->GetWorld());
+	UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(Actor);
 	if (!IsValid(GlobalCoordinates)) return false;
 
 	return GetActorCRSBounds(Actor, GlobalCoordinates, GlobalCoordinates->CRS, OutCoordinates);
@@ -539,7 +539,7 @@ bool LandscapeUtils::GetActorCRSBounds(AActor* Actor, FString ToCRS, FVector4d &
 		return false;
 	}
 
-	UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(Actor->GetWorld());
+	UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(Actor);
 	if (!IsValid(GlobalCoordinates)) return false;
 
 	return GetActorCRSBounds(Actor, GlobalCoordinates, ToCRS, OutCoordinates);
@@ -866,7 +866,7 @@ bool LandscapeUtils::ExtendLandscape(ALandscape *LandscapeToExtend, FString Heig
 		return false;
 	}
 
-	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(LandscapeToExtend->GetWorld(), true);
+	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(LandscapeToExtend, true);
 	if (!IsValid(GlobalCoordinates)) return false;
 
 	ULandscapeInfo *LandscapeInfo = LandscapeToExtend->GetLandscapeInfo();

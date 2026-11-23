@@ -197,7 +197,7 @@ namespace
 		using namespace LCOGRSampler;
 
 		const double R = G->BodyRadiusCm;
-		const FVector PlanetCenter(0.0, 0.0, -R);
+		const FVector PlanetCenter = G->SphereCenter();
 		const double Radius = Settings->ExclusionRadiusCm;
 		const double Step = FMath::Clamp(Radius * 0.5, 50.0, 500.0);
 
@@ -276,7 +276,9 @@ namespace
 			return false;
 		}
 
-		UGlobalCoordinates* G = ALevelCoordinates::GetGlobalCoordinates(World, false);
+		UGlobalCoordinates* G = IsValid(Settings->GeometryActor)
+			? ALevelCoordinates::GetGlobalCoordinatesFor(Settings->GeometryActor, false)
+			: ALevelCoordinates::GetGlobalCoordinates(World, false);
 		if (!IsValid(G))
 		{
 			PCGE_LOG_C(Error, GraphAndLog, Context, LOCTEXT("NoGlobalCoordinates", "Unable to find the LevelCoordinates of this level."));
@@ -348,7 +350,7 @@ namespace
 		Output.Data = OutData;
 
 		const double R = G->BodyRadiusCm;
-		const FVector PlanetCenter(0.0, 0.0, -R);
+		const FVector PlanetCenter = G->SphereCenter();
 		const FVector& Min = S.CellBox.Min;
 		const FVector& Max = S.CellBox.Max;
 		const double MinDistance = FMath::Sqrt(S.CellBox.ComputeSquaredDistanceToPoint(PlanetCenter));

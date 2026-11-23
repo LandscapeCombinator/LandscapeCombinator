@@ -733,7 +733,7 @@ bool ALandscapeMesh::RegenerateMesh(double SplitNormalsAngle, EGridSplitDirectio
 	UGlobalCoordinates* GlobalCoordinates = nullptr;
 	bool bGotTransform = Concurrency::RunOnGameThreadAndWait([&]() {
 		if (!WeakThis.IsValid() || !IsValid(WeakThis->MeshComponent)) return false;
-		GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(WeakThis->GetWorld(), false);
+		GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(WeakThis.Get(), false);
 		if (UGlobalCoordinates::IsSphere(GlobalCoordinates))
 		{
 			FVector2D Center(0, 0);

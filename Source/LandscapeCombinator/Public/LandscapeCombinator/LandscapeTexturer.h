@@ -71,6 +71,25 @@ public:
 	)
 	bool bDeleteOldDecalsWhenCreatingDecals = false;
 
+	UPROPERTY(
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer",
+		meta = (DisplayPriority = "3")
+	)
+	bool bApplyToBodySphere = false;
+
+	UPROPERTY(AdvancedDisplay,
+		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer",
+		meta = (EditCondition = "bApplyToBodySphere", EditConditionHides, DisplayPriority = "4")
+	)
+	TObjectPtr<UMaterialInterface> BodySphereMaterial =
+		Cast<UMaterial>(
+			StaticLoadObject(
+				UMaterial::StaticClass(),
+				nullptr,
+				*FString("/Script/Engine.Material'/LandscapeCombinator/Materials/M_GeoSphere.M_GeoSphere'")
+			)
+		);
+
 	virtual TArray<UObject*> GetGeneratedObjects() const override
 	{
 		TArray<UObject*> Result;
@@ -83,7 +102,7 @@ public:
 
 	virtual bool OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserInitiated) override
 	{
-		return CreateDecals(ALevelCoordinates::GetGlobalCoordinates(this->GetWorld(), false), SpawnedActorsPathOverride, bIsUserInitiated);
+		return CreateDecals(ALevelCoordinates::GetGlobalCoordinatesFor(this, false), SpawnedActorsPathOverride, bIsUserInitiated);
 	}
 
 	virtual bool Cleanup_Implementation(bool bSkipPrompt) override
@@ -163,6 +182,8 @@ public:
 protected:
 
 	HMFetcher* Fetcher = nullptr;
+
+	bool ApplyToBodySphere(TObjectPtr<UGlobalCoordinates> GlobalCoordinates, const TArray<FString>& DownloadedImages, bool bIsUserInitiated);
 
 	UPROPERTY(
 		EditAnywhere, DuplicateTransient, Category = "LandscapeTexturer",

@@ -197,7 +197,7 @@ bool UGlobalCoordinates::GetSphereFootprint(const FBox& Box, double& OutLatMin, 
 
 	const FVector Center = Box.GetCenter();
 	const double Radius = Box.GetExtent().Size();
-	const double Distance = FVector(Center.X, Center.Y, Center.Z + BodyRadiusCm).Size();
+	const double Distance = (Center - SphereCenter()).Size();
 	if (Distance <= Radius) return false;
 
 	const double Theta = FMath::Asin(Radius / Distance);
@@ -235,14 +235,15 @@ FVector UGlobalCoordinates::ToWorld(double Long, double Lat, double AltCm) const
 	const double U = FMath::Sin(P0) * FMath::Sin(P) + FMath::Cos(P0) * FMath::Cos(P) * FMath::Cos(DL);
 
 	const double R = BodyRadiusCm + AltCm;
-	return FVector(R * E, -R * N, R * U - BodyRadiusCm);
+	return SphereCenter() + BodyRotation.RotateVector(FVector(R * E, -R * N, R * U));
 }
 
 void UGlobalCoordinates::FromWorld(const FVector& World, double& OutLong, double& OutLat, double& OutAltCm) const
 {
 	const double P0 = FMath::DegreesToRadians(WorldOriginLat);
 
-	const FVector V(World.X, -World.Y, World.Z + BodyRadiusCm);
+	const FVector Local = BodyRotation.UnrotateVector(World - SphereCenter());
+	const FVector V(Local.X, -Local.Y, Local.Z);
 	const double R = V.Size();
 	OutAltCm = R - BodyRadiusCm;
 
@@ -258,7 +259,8 @@ void UGlobalCoordinates::FromWorld(const FVector& World, double& OutLong, double
 FVector UGlobalCoordinates::Up(const FVector& World) const
 {
 	if (!IsSphere()) return FVector::UpVector;
-	return FVector(World.X, World.Y, World.Z + BodyRadiusCm).GetSafeNormal();
+	const FVector Local = World - BodyLocation;
+	return FVector(Local.X, Local.Y, Local.Z + BodyRadiusCm).GetSafeNormal();
 }
 
 FQuat UGlobalCoordinates::Alignment(const FVector& World) const
@@ -341,7 +343,7 @@ void UGlobalCoordinates::SetSphereMappingParameters(UMaterialInstanceDynamic* MI
 	const FVector East(cD, -sP0 * sD, -cP0 * sD);
 	const FVector North(-sP * sD, -(cP0 * cP + sP0 * sP * cD), sP0 * cP - cP0 * sP * cD);
 	const FVector Up(cP * sD, -(cP0 * sP - sP0 * cP * cD), sP0 * sP + cP0 * cP * cD);
-	auto Color = [](const FVector& V) { return FLinearColor((float) V.X, (float) V.Y, (float) V.Z); };
+	auto Color = [this](const FVector& V) { const FVector W = BodyRotation.RotateVector(V); return FLinearColor((float) W.X, (float) W.Y, (float) W.Z); };
 
 	MID->SetDoubleVectorParameterValue(FName("RefOrigin"), ToWorld(RefLong, RefLat));
 	MID->SetVectorParameterValue(FName("East"), Color(East));

@@ -38,6 +38,7 @@ private:
 	bool bHasLast = false;
 
 	UGlobalCoordinates* GetSphereCoordinates() const;
+	ALevelCoordinates* FindNearestSphereBody() const;
 	void ScaleSpeed(float Factor);
 	void SpeedUp();
 	void SpeedDown();

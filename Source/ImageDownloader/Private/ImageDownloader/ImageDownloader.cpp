@@ -746,7 +746,7 @@ bool UImageDownloader::SetSourceParametersBool(bool bDialog)
 
 bool UImageDownloader::SetSourceParametersFromEPSG4326Coordinates(bool bDialog)
 {
-	FVector4d Coordinates = UGlobalCoordinates::GetCoordinatesFromSize(ParametersSelection.Longitude, ParametersSelection.Latitude, ParametersSelection.RealWorldWidth, ParametersSelection.RealWorldHeight, UGlobalCoordinates::GetSphereRadiusCm(ALevelCoordinates::GetGlobalCoordinates(GetWorld(), false)));
+	FVector4d Coordinates = UGlobalCoordinates::GetCoordinatesFromSize(ParametersSelection.Longitude, ParametersSelection.Latitude, ParametersSelection.RealWorldWidth, ParametersSelection.RealWorldHeight, UGlobalCoordinates::GetSphereRadiusCm(GetTypedOuter<AActor>() ? ALevelCoordinates::GetGlobalCoordinatesFor(GetTypedOuter<AActor>(), false) : ALevelCoordinates::GetGlobalCoordinates(GetWorld(), false)));
 	ParametersSelection.MinLong = Coordinates[0];
 	ParametersSelection.MaxLong = Coordinates[1];
 	ParametersSelection.MinLat = Coordinates[2];

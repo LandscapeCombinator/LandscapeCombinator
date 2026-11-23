@@ -29,7 +29,7 @@ void ULandscapeController::AdjustLandscape()
 	}
 	FString LandscapeLabel = Landscape->GetActorNameOrLabel();
 
-	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(Landscape->GetWorld());
+	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(Landscape);
 	if (!IsValid(GlobalCoordinates)) return;
 
 	if (GlobalCoordinates->IsSphere())

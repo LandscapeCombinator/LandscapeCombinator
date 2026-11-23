@@ -24,12 +24,12 @@ void FBodyNavigation::Apply(const UGlobalCoordinates& G, const FVector* LastLoca
 		const double DeltaSq = Delta.SizeSquared();
 		if (DeltaSq > 1.0 && DeltaSq < 1e14)
 		{
-			const FVector PrevCenter(LastLocation->X, LastLocation->Y, LastLocation->Z + G.BodyRadiusCm);
+			const FVector PrevCenter = *LastLocation - G.SphereCenter(); // from the center of the body
 			const double Vertical = FVector::DotProduct(Delta, Up0);
 			const FVector Tangent = Delta - Up0 * Vertical;
 			const FVector NewDir = (PrevCenter + Tangent).GetSafeNormal();
 			const FVector NewCenter = NewDir * (PrevCenter.Size() + Vertical);
-			Location = NewCenter - FVector(0, 0, G.BodyRadiusCm);
+			Location = G.SphereCenter() + NewCenter;
 			Q = FQuat::FindBetweenNormals(Up0, NewDir) * Q;
 		}
 	}

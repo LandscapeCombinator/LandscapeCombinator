@@ -269,7 +269,7 @@ void AOGRGeometry::UpdateGeometryPreview()
 		return;
 	}
 
-	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(GetWorld());
+	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(this);
 	if (!IsValid(GlobalCoordinates))
 	{
 		UE_LOG(LogSplineImporter, Warning, TEXT("UpdateGeometryPreview: no LevelCoordinates found, hiding preview"));
@@ -387,7 +387,7 @@ void AOGRGeometry::UpdateGeometryPreview()
 
 		if (bSphere)
 		{
-			if (const UGlobalCoordinates* G = ALevelCoordinates::GetGlobalCoordinates(WeakThis->GetWorld(), false)) G->SetSphereMappingParameters(MID, BoundsMin, BoundsMax);
+			if (const UGlobalCoordinates* G = ALevelCoordinates::GetGlobalCoordinatesFor(WeakThis.Get(), false)) G->SetSphereMappingParameters(MID, BoundsMin, BoundsMax);
 		}
 
 		Decal->SetVisibility(true);
@@ -403,7 +403,7 @@ bool AOGRGeometry::ExportMask(bool bIsUserInitiated)
 		return false;
 	}
 
-	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(GetWorld());
+	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(this);
 	if (!IsValid(GlobalCoordinates)) return false;
 
 	if (GlobalCoordinates->IsSphere())
@@ -596,7 +596,7 @@ void AOGRGeometry::ApplyPreviewTexture()
 	UMaterialInstanceDynamic* MID = UDecalCoordinates::SetDecalTexture(PreviewDecal, PreviewMaterial, PreviewTexture, this);
 	if (!IsValid(MID) || !bPreviewSphere) return;
 
-	const UGlobalCoordinates* G = ALevelCoordinates::GetGlobalCoordinates(GetWorld(), false);
+	const UGlobalCoordinates* G = ALevelCoordinates::GetGlobalCoordinatesFor(this, false);
 	if (!G)
 	{
 		UE_LOG(LogSplineImporter, Warning, TEXT("ApplyPreviewTexture: no LevelCoordinates found, the sphere mapping parameters were not set"));

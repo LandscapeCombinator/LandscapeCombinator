@@ -93,7 +93,7 @@ bool ABuildingsFromSplines::GenerateBuildings(FName SpawnedActorsPathOverride, b
 
 	if (!IsValid(GetWorld())) return false; // fail silently because the world has ended
 	
-	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(GetWorld(), false);
+	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(this, false);
 
 	const int NumComponents = SplineComponents.Num();
 	UE_LOG(LogBuildingsFromSplines, Log, TEXT("Found %d spline components to create buildings"), NumComponents);
@@ -166,6 +166,8 @@ bool ABuildingsFromSplines::GenerateBuilding(USplineComponent* SplineComponent, 
 			);
 			return false;
 		}
+
+		ALevelCoordinates::InheritBody(Building, WeakThis.Get());
 
 #if WITH_EDITOR
 		ULCBlueprintLibrary::SetFolderPath2(Building, SpawnedActorsPathOverride, WeakThis->SpawnedActorsPath);

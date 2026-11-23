@@ -56,7 +56,11 @@ bool FPCGOGRFilterElement::PrepareDataInternal(FPCGContext* Context) const
 		}
 #endif
 
-		if (IsValid(World)) ThisContext->GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World, false);
+		const UPCGOGRFilterSettings* FilterSettings = Context->GetInputSettings<UPCGOGRFilterSettings>();
+		if (FilterSettings && IsValid(FilterSettings->GeometryActor))
+			ThisContext->GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(FilterSettings->GeometryActor, false);
+		else if (IsValid(World))
+			ThisContext->GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World, false);
 	}
 
 	return true;

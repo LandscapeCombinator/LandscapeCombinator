@@ -618,7 +618,7 @@ bool ARoadsFromSplines::GenerateRoads(bool bIsUserInitiated)
 		return false;
 	}
 
-	GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(World, false).Get();
+	GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(this, false).Get();
 
 	if (bDeleteOldRoadsWhenCreatingRoads)
 	{
@@ -676,7 +676,7 @@ FVector ARoadsFromSplines::LocalUp(const FVector& World) const
 	const UGlobalCoordinates* CurrentGlobalCoordinates = GlobalCoordinates.Get();
 	if (!CurrentGlobalCoordinates)
 	{
-		if (UWorld* CurrentWorld = GetWorld()) CurrentGlobalCoordinates = ALevelCoordinates::GetGlobalCoordinates(CurrentWorld, false);
+		CurrentGlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(this, false);
 	}
 	if (!UGlobalCoordinates::IsSphere(CurrentGlobalCoordinates)) return FVector::UpVector;
 	return GetActorTransform().InverseTransformVectorNoScale(UGlobalCoordinates::Up(CurrentGlobalCoordinates, World));
