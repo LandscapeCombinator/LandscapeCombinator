@@ -161,8 +161,9 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 		ExistingMesh = FoundMesh;
 	}
 
-	TObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(this, false);
-	if (IsValid(GlobalCoordinates))
+	TWeakObjectPtr<UGlobalCoordinates> GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(this, false).Get();
+	const bool bHadGlobalCoordinates = GlobalCoordinates.IsValid();
+	if (bHadGlobalCoordinates)
 	{
 		if (bIsUserInitiated && !bReuseExistingMesh && !GlobalCoordinates->IsSphere() && !LCReporter::ShowMessage(
 			LOCTEXT(
@@ -180,7 +181,7 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 	}
 
 	FString Name = World->GetName() + "-" + LandscapeMeshLabel;
-	HMFetcher* Fetcher = HeightmapDownloader->CreateFetcher(bIsUserInitiated, Name, true, false, false, false, false, nullptr, GlobalCoordinates);
+	HMFetcher* Fetcher = HeightmapDownloader->CreateFetcher(bIsUserInitiated, Name, true, false, false, false, false, nullptr, GlobalCoordinates.Get());
 
 	if (!Fetcher)
 	{
@@ -210,7 +211,16 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 
 	int CmPerPixel = 0;
 
-	if (!IsValid(GlobalCoordinates))
+	if (bHadGlobalCoordinates && !GlobalCoordinates.IsValid())
+	{
+		LCReporter::ShowError(
+			LOCTEXT("LevelCoordinatesDestroyed", "The Level Coordinates actor was destroyed during the generation.")
+		);
+
+		return false;
+	}
+
+	if (!bHadGlobalCoordinates)
 	{
 		if (ULCBlueprintLibrary::GetCmPerPixelForCRS(FilesCRS, CmPerPixel))
 		{
@@ -219,22 +229,23 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 				UWorld *World = WeakThis->GetWorld();
 				ALevelCoordinates *LevelCoordinates = World->SpawnActor<ALevelCoordinates>();
 				if (!IsValid(LevelCoordinates)) return false;
-				GlobalCoordinates = LevelCoordinates->GlobalCoordinates;
-				if (!IsValid(GlobalCoordinates)) return false;
+				UGlobalCoordinates* NewGlobalCoordinates = LevelCoordinates->GlobalCoordinates;
+				if (!IsValid(NewGlobalCoordinates)) return false;
+				GlobalCoordinates = NewGlobalCoordinates;
 
 				FVector4d Coordinates = FVector4d();
 				if (!GDALInterface::GetCoordinates(Coordinates, Files)) return false;
 
-				GlobalCoordinates->CRS = FilesCRS;
-				GlobalCoordinates->CmPerLongUnit = CmPerPixel;
-				GlobalCoordinates->CmPerLatUnit = -CmPerPixel;
+				NewGlobalCoordinates->CRS = FilesCRS;
+				NewGlobalCoordinates->CmPerLongUnit = CmPerPixel;
+				NewGlobalCoordinates->CmPerLatUnit = -CmPerPixel;
 
 				double MinCoordWidth = Coordinates[0];
 				double MaxCoordWidth = Coordinates[1];
 				double MinCoordHeight = Coordinates[2];
 				double MaxCoordHeight = Coordinates[3];
-				GlobalCoordinates->WorldOriginLong = (MinCoordWidth + MaxCoordWidth) / 2;
-				GlobalCoordinates->WorldOriginLat = (MinCoordHeight + MaxCoordHeight) / 2;
+				NewGlobalCoordinates->WorldOriginLong = (MinCoordWidth + MaxCoordWidth) / 2;
+				NewGlobalCoordinates->WorldOriginLat = (MinCoordHeight + MaxCoordHeight) / 2;
 				return true;
 			});
 
@@ -296,7 +307,7 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 		ALandscapeMesh *LandscapeMesh = nullptr;
 		bool bThreadSuccess = Concurrency::RunOnGameThreadThrottledAndWait([WeakThis, ExistingMesh, OwnerName, &LandscapeMesh, ThisFileCoordinates, GlobalCoordinates, OutputFile, SpawnedActorsPathOverride]()
 		{
-			if (!WeakThis.IsValid() || !IsValid(WeakThis->GetWorld())) return false;
+			if (!WeakThis.IsValid() || !IsValid(WeakThis->GetWorld()) || !GlobalCoordinates.IsValid()) return false;
 
 			if (WeakThis->bReuseExistingMesh)
 			{
@@ -304,7 +315,7 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 				if (!IsValid(LandscapeMesh)) return false;
 				LandscapeMesh->MeshComponent->SetCollisionProfileName(WeakThis->CollisionProfile.Name.IsNone() ? FName(TEXT("BlockAll")) : WeakThis->CollisionProfile.Name);
 				LandscapeMesh->MeshComponent->SetCollisionEnabled(WeakThis->CollisionEnabled);
-				if (!LandscapeMesh->AddHeightmap(WeakThis->HeightmapPriority, ThisFileCoordinates, GlobalCoordinates, OutputFile, OwnerName)) return false;
+				if (!LandscapeMesh->AddHeightmap(WeakThis->HeightmapPriority, ThisFileCoordinates, GlobalCoordinates.Get(), OutputFile, OwnerName)) return false;
 				if (IsValid(WeakThis->LandscapeMaterial))
 				{
 					LandscapeMesh->MeshComponent->SetMaterial(0, WeakThis->LandscapeMaterial);
@@ -335,7 +346,7 @@ bool ALandscapeMeshSpawner::OnGenerate(FName SpawnedActorsPathOverride, bool bIs
 			if (!WeakThis->SpawnedLandscapeMeshesTag.IsNone()) LandscapeMesh->Tags.Add(WeakThis->SpawnedLandscapeMeshesTag);
 			LandscapeMesh->MeshComponent->SetCollisionProfileName(WeakThis->CollisionProfile.Name.IsNone() ? FName(TEXT("BlockAll")) : WeakThis->CollisionProfile.Name);
 			LandscapeMesh->MeshComponent->SetCollisionEnabled(WeakThis->CollisionEnabled);
-			if (!LandscapeMesh->AddHeightmap(WeakThis->HeightmapPriority, ThisFileCoordinates, GlobalCoordinates, OutputFile)) return false;
+			if (!LandscapeMesh->AddHeightmap(WeakThis->HeightmapPriority, ThisFileCoordinates, GlobalCoordinates.Get(), OutputFile)) return false;
 			LandscapeMesh->MeshComponent->SetMaterial(0, WeakThis->LandscapeMaterial);
 			return true;
 		});
