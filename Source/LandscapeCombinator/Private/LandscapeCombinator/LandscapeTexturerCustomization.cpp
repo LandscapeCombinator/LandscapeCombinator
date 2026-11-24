@@ -4,6 +4,8 @@
 
 #if WITH_EDITOR
 
+#include "LandscapeCombinator/AdvancedSubCategoriesCustomization.h"
+
 #include "DetailLayoutBuilder.h"
 
 TSharedRef<IDetailCustomization> FLandscapeTexturerCustomization::MakeInstance()
@@ -14,6 +16,7 @@ TSharedRef<IDetailCustomization> FLandscapeTexturerCustomization::MakeInstance()
 void FLandscapeTexturerCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
 	DetailBuilder.EditCategory("LandscapeTexturer", FText::GetEmpty(), ECategoryPriority::Important);
+	FAdvancedSubCategoriesCustomization::AddAdvancedGroups(DetailBuilder);
 }
 
 #endif

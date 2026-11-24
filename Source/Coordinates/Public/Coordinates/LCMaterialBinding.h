@@ -28,6 +28,10 @@ struct FLCLayerTextureEntry
 	UPROPERTY()
 	TObjectPtr<UTexture> Texture = nullptr;
 
+	/* Masks only go to the blend of the layer (Mask parameters), images go to the layer and its blend (Texture parameters) */
+	UPROPERTY()
+	bool bMask = false;
+
 	UPROPERTY()
 	FVector2D BoundsMin = FVector2D::ZeroVector;
 
@@ -59,13 +63,17 @@ public:
 	static const FName TextureParameterName;
 	static const FName BoundsMinParameterName;
 	static const FName BoundsMaxParameterName;
+	static const FName MaskParameterName;
+	static const FName MaskBoundsMinParameterName;
+	static const FName MaskBoundsMaxParameterName;
+	static const FName UseMaskParameterName;
 	static const FName BodyParameterName;
 	static const FName BodyLocationHighParameterName;
 	static const FName BodyLocationLowParameterName;
 
 	static bool BindTexture(
 		AActor* Target, const FString& SourceKey, FName LayerName,
-		UTexture* Texture, const FVector2D& BoundsMin, const FVector2D& BoundsMax
+		UTexture* Texture, const FVector2D& BoundsMin, const FVector2D& BoundsMax, bool bMask = false
 	);
 
 	static void RemoveSource(AActor* Target, const FString& SourceKey);

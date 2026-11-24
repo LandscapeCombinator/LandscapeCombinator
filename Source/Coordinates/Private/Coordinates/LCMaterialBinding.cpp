@@ -24,6 +24,10 @@
 const FName ULCMaterialBinding::TextureParameterName = TEXT("Texture");
 const FName ULCMaterialBinding::BoundsMinParameterName = TEXT("BoundsMin");
 const FName ULCMaterialBinding::BoundsMaxParameterName = TEXT("BoundsMax");
+const FName ULCMaterialBinding::MaskParameterName = TEXT("Mask");
+const FName ULCMaterialBinding::MaskBoundsMinParameterName = TEXT("MaskBoundsMin");
+const FName ULCMaterialBinding::MaskBoundsMaxParameterName = TEXT("MaskBoundsMax");
+const FName ULCMaterialBinding::UseMaskParameterName = TEXT("UseMask");
 const FName ULCMaterialBinding::BodyParameterName = TEXT("Body");
 const FName ULCMaterialBinding::BodyLocationHighParameterName = TEXT("BodyLocationHigh");
 const FName ULCMaterialBinding::BodyLocationLowParameterName = TEXT("BodyLocationLow");
@@ -40,7 +44,7 @@ namespace
 
 bool ULCMaterialBinding::BindTexture(
 	AActor* Target, const FString& SourceKey, FName LayerName,
-	UTexture* Texture, const FVector2D& BoundsMin, const FVector2D& BoundsMax)
+	UTexture* Texture, const FVector2D& BoundsMin, const FVector2D& BoundsMax, bool bMask)
 {
 	TWeakObjectPtr<AActor> WeakTarget(Target);
 	TWeakObjectPtr<UTexture> WeakTexture(Texture);
@@ -66,6 +70,7 @@ bool ULCMaterialBinding::BindTexture(
 		Entry->LayerName = LayerName;
 		Entry->LayerIndex = INDEX_NONE;
 		Entry->Texture = WeakTexture.Get();
+		Entry->bMask = bMask;
 		Entry->BoundsMin = BoundsMin;
 		Entry->BoundsMax = BoundsMax;
 
@@ -225,6 +230,13 @@ void ULCMaterialBinding::WriteParameters(UMaterialInstance* Instance)
 		else if (MIC) MIC->SetVectorParameterValueEditorOnly(Info, Value);
 #endif
 	};
+	auto SetScalar = [&](const FMaterialParameterInfo& Info, float Value)
+	{
+		if (MID) MID->SetScalarParameterValueByInfo(Info, Value);
+#if WITH_EDITOR
+		else if (MIC) MIC->SetScalarParameterValueEditorOnly(Info, Value);
+#endif
+	};
 	auto SetTexture = [&](const FMaterialParameterInfo& Info, UTexture* Value)
 	{
 		if (MID) MID->SetTextureParameterValueByInfo(Info, Value);
@@ -290,6 +302,25 @@ void ULCMaterialBinding::WriteParameters(UMaterialInstance* Instance)
 
 		const FLinearColor Min((float) Entry.BoundsMin.X, (float) Entry.BoundsMin.Y, 0.f, 0.f);
 		const FLinearColor Max((float) Entry.BoundsMax.X, (float) Entry.BoundsMax.Y, 0.f, 0.f);
+
+		if (Entry.bMask)
+		{
+			// The blend of layer i is at index i - 1, the base layer has no blend
+			if (LayerIndex == 0)
+			{
+				LCReporter::ShowError(FText::Format(
+					LOCTEXT("ULCMaterialBinding::MaskOnBaseLayer", "Layer '{0}' is the base layer of {1}, which has no blend for the mask. Please use another layer."),
+					FText::FromName(Entry.LayerName), FText::FromString(Owner->GetActorNameOrLabel())
+				));
+				continue;
+			}
+			const FMaterialParameterInfo Info(MaskParameterName, EMaterialParameterAssociation::BlendParameter, LayerIndex - 1);
+			SetTexture(Info, Entry.Texture);
+			SetVector(FMaterialParameterInfo(MaskBoundsMinParameterName, EMaterialParameterAssociation::BlendParameter, LayerIndex - 1), Min);
+			SetVector(FMaterialParameterInfo(MaskBoundsMaxParameterName, EMaterialParameterAssociation::BlendParameter, LayerIndex - 1), Max);
+			SetScalar(FMaterialParameterInfo(UseMaskParameterName, EMaterialParameterAssociation::BlendParameter, LayerIndex - 1), 1.f);
+			continue;
+		}
 
 		auto Write = [&](EMaterialParameterAssociation Association, int32 Index)
 		{

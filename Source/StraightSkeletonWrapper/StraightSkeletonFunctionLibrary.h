@@ -14,10 +14,10 @@ struct FSkeletonEdgeResult
 	TArray<FVector2D> Polygon;
 
 	UPROPERTY(BlueprintReadWrite, Category = "Skeleton Edge Result")
-	FVector2D Begin = FVector2D();
+	FVector2D Begin = FVector2D::ZeroVector;
 
 	UPROPERTY(BlueprintReadWrite, Category = "Skeleton Edge Result")
-	FVector2D End = FVector2D();
+	FVector2D End = FVector2D::ZeroVector;
 };
 
 USTRUCT(BlueprintType)

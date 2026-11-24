@@ -35,7 +35,7 @@ bool HMCrop::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 			{
 				LCReporter::ShowError(FText::Format(
 					LOCTEXT("UImageDownloader::CreateFetcher::NoCoordinates", "Could not compute bounding coordinates of Actor {0}"),
-					FText::FromString(CroppingActor->GetActorNameOrLabel())
+					FText::FromString(ParametersSelection.ParametersBoundingActor->GetActorNameOrLabel())
 				));
 				return false;
 			}

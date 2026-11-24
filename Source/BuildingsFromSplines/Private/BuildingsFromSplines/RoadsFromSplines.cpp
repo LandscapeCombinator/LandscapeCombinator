@@ -375,7 +375,10 @@ void ARoadsFromSplines::FillJunctionInterior(int32 JunctionNode, TArray<FVector>
 	UDynamicMeshComponent* FillComponent = JunctionFillMeshComponents[JunctionNode];
 	FillComponent->SetRelativeLocationAndRotation(Pivot, Frame);
 
-	TStrongObjectPtr<UDynamicMesh> ScratchMesh(NewObject<UDynamicMesh>());
+	TSharedPtr<TStrongObjectPtr<UDynamicMesh>, ESPMode::ThreadSafe> ScratchMesh(
+		new TStrongObjectPtr<UDynamicMesh>(NewObject<UDynamicMesh>()),
+		[](TStrongObjectPtr<UDynamicMesh>* Ptr) { Concurrency::RunOnGameThread([Ptr]() { delete Ptr; }); }
+	);
 	const uint32 ThisGeneration = ++JunctionFillGeneration.FindOrAdd(JunctionNode);
 	const double FillHeight = JunctionFillHeight;
 	const double UVScale = DefaultRoadMeshLength * FillJunctionUVScale;
@@ -386,9 +389,10 @@ void ARoadsFromSplines::FillJunctionInterior(int32 JunctionNode, TArray<FVector>
 	Concurrency::RunAsync([WeakThis, WeakFill, ScratchMesh, JunctionNode, ThisGeneration, Boundary2D = MoveTemp(Boundary2D), Heights = MoveTemp(Heights), MinZ, FillHeight, UVScale]()
 	{
 		TRACE_CPUPROFILER_EVENT_SCOPE_STR("ARoadsFromSplines::FillJunctionInterior::Async");
+		UDynamicMesh* Scratch = ScratchMesh->Get();
 
 		UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSimpleExtrudePolygon(
-			ScratchMesh.Get(), FGeometryScriptPrimitiveOptions(), FTransform(FVector(0, 0, MinZ - FillHeight)), Boundary2D, FillHeight);
+			Scratch, FGeometryScriptPrimitiveOptions(), FTransform(FVector(0, 0, MinZ - FillHeight)), Boundary2D, FillHeight);
 
 		FGeometryScriptRemeshOptions RemeshOptions;
 		RemeshOptions.MeshBoundaryConstraint = EGeometryScriptRemeshEdgeConstraintType::Fixed;
@@ -399,7 +403,7 @@ void ARoadsFromSplines::FillJunctionInterior(int32 JunctionNode, TArray<FVector>
 		FGeometryScriptUniformRemeshOptions UniformOptions;
 		UniformOptions.TargetType = EGeometryScriptUniformRemeshTargetType::TargetEdgeLength;
 		UniformOptions.TargetEdgeLength = 200;
-		UGeometryScriptLibrary_RemeshingFunctions::ApplyUniformRemesh(ScratchMesh.Get(), RemeshOptions, UniformOptions);
+		UGeometryScriptLibrary_RemeshingFunctions::ApplyUniformRemesh(Scratch, RemeshOptions, UniformOptions);
 
 		const int32 N = Boundary2D.Num();
 		auto HeightAt = [&](const FVector2D& P)
@@ -417,19 +421,19 @@ void ARoadsFromSplines::FillJunctionInterior(int32 JunctionNode, TArray<FVector>
 			return SumH / SumW;
 		};
 
-		for (int32 VID : ScratchMesh->GetMeshRef().VertexIndicesItr())
+		for (int32 VID : Scratch->GetMeshRef().VertexIndicesItr())
 		{
-			FVector V = ScratchMesh->GetMeshRef().GetVertex(VID);
+			FVector V = Scratch->GetMeshRef().GetVertex(VID);
 			V.Z += HeightAt(FVector2D(V.X, V.Y));
-			ScratchMesh->GetMeshRef().SetVertex(VID, V);
+			Scratch->GetMeshRef().SetVertex(VID, V);
 		}
 
 		FTransform ProjectionTransform = FTransform::Identity;
 		ProjectionTransform.SetScale3D(FVector(UVScale));
 		UGeometryScriptLibrary_MeshUVFunctions::SetMeshUVsFromPlanarProjection(
-			ScratchMesh.Get(), 0, ProjectionTransform, FGeometryScriptMeshSelection());
+			Scratch, 0, ProjectionTransform, FGeometryScriptMeshSelection());
 
-		UGeometryScriptLibrary_MeshNormalsFunctions::RecomputeNormals(ScratchMesh.Get(), FGeometryScriptCalculateNormalsOptions());
+		UGeometryScriptLibrary_MeshNormalsFunctions::RecomputeNormals(Scratch, FGeometryScriptCalculateNormalsOptions());
 
 		Concurrency::RunOnGameThreadThrottled([WeakThis, WeakFill, ScratchMesh, JunctionNode, ThisGeneration]()
 		{
@@ -437,12 +441,12 @@ void ARoadsFromSplines::FillJunctionInterior(int32 JunctionNode, TArray<FVector>
 
 			ARoadsFromSplines* StrongThis = WeakThis.Get();
 			UDynamicMeshComponent* Fill = WeakFill.Get();
-			if (!IsValid(StrongThis) || !IsValid(Fill) || !IsValid(StrongThis->GetWorld()) || !ScratchMesh.IsValid()) return;
+			if (!IsValid(StrongThis) || !IsValid(Fill) || !IsValid(StrongThis->GetWorld()) || !ScratchMesh->IsValid()) return;
 
 			const uint32* CurrentGeneration = StrongThis->JunctionFillGeneration.Find(JunctionNode);
 			if (!CurrentGeneration || *CurrentGeneration != ThisGeneration) return;
 
-			Fill->GetDynamicMesh()->GetMeshRef() = MoveTemp(ScratchMesh->GetMeshRef());
+			Fill->GetDynamicMesh()->GetMeshRef() = MoveTemp((*ScratchMesh)->GetMeshRef());
 
 			if (IsValid(StrongThis->JunctionFillMaterial))
 				Fill->SetMaterial(0, StrongThis->JunctionFillMaterial);

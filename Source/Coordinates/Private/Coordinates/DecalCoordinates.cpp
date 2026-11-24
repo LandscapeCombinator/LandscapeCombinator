@@ -36,11 +36,15 @@ UTexture2D* UDecalCoordinates::CreateDecalTexture(int Width, int Height, TArray<
 			Result->SRGB = true;
 			Result->MipGenSettings = TMGS_NoMipmaps;
 			Result->NeverStream = true;
+			Result->AddressX = TA_Clamp;
+			Result->AddressY = TA_Clamp;
 			Result->PostEditChange();
 			return true;
 		}
 #endif
 		Result = UTexture2D::CreateTransient(Width, Height, PF_B8G8R8A8, MakeUniqueObjectName(GetTransientPackage(), UTexture2D::StaticClass(), FName(*TextureName)));
+		Result->AddressX = TA_Clamp;
+		Result->AddressY = TA_Clamp;
 		FTexture2DMipMap& Mip = Result->GetPlatformData()->Mips[0];
 		void* Data = Mip.BulkData.Lock(LOCK_READ_WRITE);
 		FMemory::Memcpy(Data, Colors.GetData(), (SIZE_T) Width * Height * sizeof(FColor));
@@ -114,14 +118,8 @@ bool UDecalCoordinates::PlaceDecal(UMaterialInterface *Material, FVector4d &OutC
 	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(GetOwner(), true);
 	if (!IsValid(GlobalCoordinates)) return false;
 
-	FString ReprojectedImage = FPaths::GetPath(PathToGeoreferencedImage) / (FPaths::GetBaseFilename(PathToGeoreferencedImage) + "-reprojected.tif");
-	
-	if (!GDALInterface::Warp(PathToGeoreferencedImage, ReprojectedImage, "", GlobalCoordinates->CRS, true, 0)) 
-		return false;
-
-	FVector4d Coordinates;
-	if (!GDALInterface::GetCoordinates(Coordinates, { ReprojectedImage }))
-		return false;
+	FVector4d Coordinates, WorldCoordinates;
+	if (!ReprojectImage(PathToGeoreferencedImage, GlobalCoordinates, Coordinates, WorldCoordinates)) return false;
 
 	// In the image coordinates
 	double West = Coordinates[0];
@@ -134,31 +132,18 @@ bool UDecalCoordinates::PlaceDecal(UMaterialInterface *Material, FVector4d &OutC
 	FQuat SphereRotation = FQuat::Identity;
 	FVector SphereSize = FVector::ZeroVector;
 
-	FVector2D TopLeft, BottomRight;
 	if (bSphere)
 	{
 		UGlobalCoordinates::ComputeSphereDecalPlacement(GlobalCoordinates, FVector2D(West, South), FVector2D(East, North), SphereCenter, SphereRotation, SphereSize);
-		const FVector TL = GlobalCoordinates->ToWorld(West, North);
-		const FVector BR = GlobalCoordinates->ToWorld(East, South);
-		TopLeft = FVector2D(TL.X, TL.Y);
-		BottomRight = FVector2D(BR.X, BR.Y);
-	}
-	else
-	{
-		if (!GlobalCoordinates->GetUnrealCoordinatesFromCRS(West, North, GlobalCoordinates->CRS, TopLeft)) return false;
-		if (!GlobalCoordinates->GetUnrealCoordinatesFromCRS(East, South, GlobalCoordinates->CRS, BottomRight)) return false;
 	}
 
 	// Unreal Coordinates
-	double Left = TopLeft[0];
-	double Top = TopLeft[1];
-	double Right = BottomRight[0];
-	double Bottom = BottomRight[1];
-	
-	OutCoordinates[0] = Left;
-	OutCoordinates[1] = Right;
-	OutCoordinates[2] = Bottom;
-	OutCoordinates[3] = Top;
+	double Left = WorldCoordinates[0];
+	double Right = WorldCoordinates[1];
+	double Bottom = WorldCoordinates[2];
+	double Top = WorldCoordinates[3];
+
+	OutCoordinates = WorldCoordinates;
 
 	double X = (Left + Right) / 2;
 	double Y = (Top + Bottom) / 2;
@@ -203,7 +188,82 @@ bool UDecalCoordinates::PlaceDecal(UMaterialInterface *Material, FVector4d &OutC
 
 FString UDecalCoordinates::ReprojectedImagePath() const
 {
-	return FPaths::GetPath(PathToGeoreferencedImage) / (FPaths::GetBaseFilename(PathToGeoreferencedImage) + "-reprojected.tif");
+	return ReprojectedPath(PathToGeoreferencedImage);
+}
+
+FString UDecalCoordinates::ReprojectedPath(const FString& Image)
+{
+	return FPaths::GetPath(Image) / (FPaths::GetBaseFilename(Image) + "-reprojected.tif");
+}
+
+bool UDecalCoordinates::ReprojectImage(const FString& Image, UGlobalCoordinates* GlobalCoordinates, FVector4d& OutCRSBounds, FVector4d& OutWorldBounds)
+{
+	const FString ReprojectedImage = ReprojectedPath(Image);
+	if (!GDALInterface::Warp(Image, ReprojectedImage, "", GlobalCoordinates->CRS, true, 0)) return false;
+	if (!GDALInterface::GetCoordinates(OutCRSBounds, { ReprojectedImage })) return false;
+
+	const double West = OutCRSBounds[0];
+	const double East = OutCRSBounds[1];
+	const double South = OutCRSBounds[2];
+	const double North = OutCRSBounds[3];
+
+	FVector2D TopLeft, BottomRight;
+	if (GlobalCoordinates->IsSphere())
+	{
+		const FVector TL = GlobalCoordinates->ToWorld(West, North);
+		const FVector BR = GlobalCoordinates->ToWorld(East, South);
+		TopLeft = FVector2D(TL.X, TL.Y);
+		BottomRight = FVector2D(BR.X, BR.Y);
+	}
+	else
+	{
+		if (!GlobalCoordinates->GetUnrealCoordinatesFromCRS(West, North, GlobalCoordinates->CRS, TopLeft)) return false;
+		if (!GlobalCoordinates->GetUnrealCoordinatesFromCRS(East, South, GlobalCoordinates->CRS, BottomRight)) return false;
+	}
+
+	OutWorldBounds = FVector4d(TopLeft.X, BottomRight.X, BottomRight.Y, TopLeft.Y);
+	return true;
+}
+
+UTexture2D* UDecalCoordinates::CreateTextureFromImage(const FString& Image, UObject* Outer, const FString& TextureName)
+{
+	int Width, Height;
+	TArray<FColor> Colors;
+
+	UE_LOG(LogCoordinates, Log, TEXT("Creating texture from file: %s"), *Image);
+
+	if (!GDALInterface::ReadColorsFromFile(Image, Width, Height, Colors))
+	{
+		LCReporter::ShowError(FText::Format(
+			LOCTEXT("UDecalCoordinates::CreateTextureFromImage::ReadColorsFromFile", "Coordinates Internal Error: Could not read colors from file {0}."),
+			FText::FromString(Image)
+		));
+		return nullptr;
+	}
+
+	constexpr int MaxTextureSize = 16384;
+	if (Width > MaxTextureSize || Height > MaxTextureSize)
+	{
+		const double Scale = FMath::Min((double) MaxTextureSize / Width, (double) MaxTextureSize / Height);
+		const int NewWidth = FMath::Max(1, FMath::FloorToInt(Width * Scale));
+		const int NewHeight = FMath::Max(1, FMath::FloorToInt(Height * Scale));
+		TArray<FColor> Resized;
+		Resized.SetNumUninitialized(NewWidth * NewHeight);
+		for (int Y = 0; Y < NewHeight; Y++)
+		{
+			const int64 SourceRow = (int64) Y * Height / NewHeight * Width;
+			for (int X = 0; X < NewWidth; X++)
+			{
+				Resized[Y * NewWidth + X] = Colors[SourceRow + (int64) X * Width / NewWidth];
+			}
+		}
+		UE_LOG(LogCoordinates, Log, TEXT("Downscaling texture from %dx%d to %dx%d"), Width, Height, NewWidth, NewHeight);
+		Colors = MoveTemp(Resized);
+		Width = NewWidth;
+		Height = NewHeight;
+	}
+
+	return CreateDecalTexture(Width, Height, Colors, Outer, TextureName, true);
 }
 
 bool UDecalCoordinates::ApplyDecalTexture()
@@ -213,22 +273,7 @@ bool UDecalCoordinates::ApplyDecalTexture()
 
 	if (!IsValid(Texture))
 	{
-		const FString ReprojectedImage = ReprojectedImagePath();
-		int Width, Height;
-		TArray<FColor> Colors;
-
-		UE_LOG(LogCoordinates, Log, TEXT("Creating decal from file: %s"), *ReprojectedImage);
-
-		if (!GDALInterface::ReadColorsFromFile(ReprojectedImage, Width, Height, Colors))
-		{
-			LCReporter::ShowError(FText::Format(
-				LOCTEXT("UDecalCoordinates::PlaceDecal::ReadColorsFromFile", "Coordinates Internal Error: Could not read colors from file {0}."),
-				FText::FromString(ReprojectedImage)
-			));
-			return false;
-		}
-
-		UTexture2D* NewTexture = CreateDecalTexture(Width, Height, Colors, this, FString("T_GeoDecal_") + DecalActor->GetActorNameOrLabel(), true);
+		UTexture2D* NewTexture = CreateTextureFromImage(ReprojectedImagePath(), this, FString("T_GeoDecal_") + DecalActor->GetActorNameOrLabel());
 		if (!IsValid(NewTexture)) return false;
 		Concurrency::RunOnGameThreadAndWait([&]()
 		{

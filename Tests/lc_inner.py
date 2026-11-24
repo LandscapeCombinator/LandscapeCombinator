@@ -12,7 +12,18 @@ try:
         except Exception:
             pass
     tags = sys.argv[2].split(",")
-    actors = [a for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors() if any(str(t) in tags for t in a.tags)]
+    labels = [l for l in sys.argv[3].split("+") if l] if len(sys.argv) > 3 else []
+    all_actors = unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors()
+    if labels:
+        by_label = {a.get_actor_label(): a for a in all_actors}
+        missing = [l for l in labels if l not in by_label]
+        if missing: unreal.log_error(f"Actors not found: {missing}")
+        sequence = unreal.get_editor_subsystem(unreal.EditorActorSubsystem).spawn_actor_from_class(unreal.LandscapeCombination, unreal.Vector(0, 0, 0))
+        sequence.set_actor_label("LCTest_Sequence")
+        sequence.set_editor_property("generators", [unreal.GeneratorWrapper(generator=by_label[l]) for l in labels if l in by_label])
+        actors = [sequence]
+    else:
+        actors = [a for a in all_actors if any(str(t) in tags for t in a.tags)]
     for a in actors:
         print(f"LCTEST_TRIGGER {a.get_actor_label()}", flush=True)
         a.generate_actors_no_prompt()

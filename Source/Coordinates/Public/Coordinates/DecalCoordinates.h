@@ -68,6 +68,9 @@ public:
 		int Width, int Height, TArray<FColor>& Colors, UObject* Outer, FString TextureName
 	);
 	static UTexture2D* CreateDecalTexture(int Width, int Height, TArray<FColor>& Colors, UObject* Outer, FString TextureName, bool bSaveWithOuter = false);
+	static FString ReprojectedPath(const FString& Image);
+	static bool ReprojectImage(const FString& Image, UGlobalCoordinates* GlobalCoordinates, FVector4d& OutCRSBounds, FVector4d& OutWorldBounds);
+	static UTexture2D* CreateTextureFromImage(const FString& Image, UObject* Outer, const FString& TextureName);
 	static UMaterialInstanceDynamic* SetDecalTexture(UDecalComponent* Decal, UMaterialInterface* Material, UTexture2D* DecalTexture, UObject* Outer);
 };
 

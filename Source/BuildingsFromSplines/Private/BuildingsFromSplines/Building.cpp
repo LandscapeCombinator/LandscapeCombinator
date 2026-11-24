@@ -540,35 +540,41 @@ void ABuilding::AppendAlongSpline(UDynamicMesh* TargetMesh, bool bInternalWall, 
 	}
 }
 
-bool SetPolygroupMaterialID(UDynamicMesh *Mesh, int Index, int MaterialID)
+static bool FindCapPolygroups(UDynamicMesh* Mesh, int& OutBottomID, int& OutTopID)
 {
-	FGeometryScriptIndexList PolygroupIDs0;
-	UGeometryScriptLibrary_MeshPolygroupFunctions::GetPolygroupIDsInMesh(
-		Mesh,
-		FGeometryScriptGroupLayer(),
-		PolygroupIDs0
-	);
-
-	TArray<int> PolygroupIDs = *PolygroupIDs0.List;
-
-	if (Index >= PolygroupIDs.Num())
+	TMap<int, double> AreaWeightedNormalZ;
+	Mesh->ProcessMesh([&AreaWeightedNormalZ](const UE::Geometry::FDynamicMesh3& EditMesh)
 	{
-		UE_LOG(LogBuildingsFromSplines, Error, TEXT("Internal error: something went wrong with the materials"));
-		return false;
-	}
+		for (int TID : EditMesh.TriangleIndicesItr())
+		{
+			FVector3d Normal, Centroid;
+			double Area;
+			EditMesh.GetTriInfo(TID, Normal, Area, Centroid);
+			AreaWeightedNormalZ.FindOrAdd(EditMesh.GetTriangleGroup(TID)) += Normal.Z * Area;
+		}
+	});
 
+	OutBottomID = INDEX_NONE;
+	OutTopID = INDEX_NONE;
+	double MinZ = TNumericLimits<double>::Max();
+	double MaxZ = TNumericLimits<double>::Lowest();
+	for (const TPair<int, double>& Pair : AreaWeightedNormalZ)
+	{
+		if (Pair.Value < MinZ) { MinZ = Pair.Value; OutBottomID = Pair.Key; }
+		if (Pair.Value > MaxZ) { MaxZ = Pair.Value; OutTopID = Pair.Key; }
+	}
+	return OutBottomID != INDEX_NONE && OutTopID != INDEX_NONE && OutBottomID != OutTopID;
+}
+
+static bool SetBottomCapMaterialID(UDynamicMesh* Mesh, int MaterialID)
+{
+	int BottomID, TopID;
+	if (!FindCapPolygroups(Mesh, BottomID, TopID)) return false;
 	bool bIsValidPolygroupID;
 	UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
-		Mesh,
-		FGeometryScriptGroupLayer(),
-		PolygroupIDs[Index],
-		MaterialID,
-		bIsValidPolygroupID,
-		false,
-		nullptr
+		Mesh, FGeometryScriptGroupLayer(), BottomID, MaterialID, bIsValidPolygroupID, false, nullptr
 	);
-
-	return true;
+	return bIsValidPolygroupID;
 }
 
 bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
@@ -622,7 +628,8 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 	UGeometryScriptLibrary_MeshPolygroupFunctions::GetPolygroupIDsInMesh(FloorMesh, FGeometryScriptGroupLayer(), PolygroupIDs0);
 	TArray<int> PolygroupIDs = *PolygroupIDs0.List;
 
-	if (PolygroupIDs.Num() < 3)
+	int CeilingID, FloorID;
+	if (!FindCapPolygroups(FloorMesh, CeilingID, FloorID))
 	{
 		UE_LOGFMT(LogBuildingsFromSplines, Error, "Internal error: something went wrong with the floor tile materials");
 		return false;
@@ -643,7 +650,7 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 			UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
 				FloorMesh,
 				FGeometryScriptGroupLayer(),
-				PolygroupIDs[2], // polygroup ID of the ceiling, is there a way to ensure it?
+				CeilingID,
 				ResolvedBCfg->ResolveMaterial(LevelDescription->UnderFloorMaterialExpr),
 				bIsValidPolygroupID,
 				false,
@@ -652,30 +659,25 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 			UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
 				FloorMesh,
 				FGeometryScriptGroupLayer(),
-				PolygroupIDs[3], // polygroup ID of the floor, is there a way to ensure it?
+				FloorID,
 				ResolvedBCfg->ResolveMaterial(LevelDescription->FloorMaterialExpr),
 				bIsValidPolygroupID,
 				false,
 				nullptr
 			);
-			UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
-				FloorMesh,
-				FGeometryScriptGroupLayer(),
-				PolygroupIDs[0], // maybe the sides of the floor
-				ResolvedBCfg->ResolveMaterial(LevelDescription->FloorMaterialExpr),
-				bIsValidPolygroupID,
-				false,
-				nullptr
-			);
-			UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
-				FloorMesh,
-				FGeometryScriptGroupLayer(),
-				PolygroupIDs[1], // maybe the sides of the floor
-				ResolvedBCfg->ResolveMaterial(LevelDescription->FloorMaterialExpr),
-				bIsValidPolygroupID,
-				false,
-				nullptr
-			);
+			for (int SideID : PolygroupIDs)
+			{
+				if (SideID == CeilingID || SideID == FloorID) continue;
+				UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
+					FloorMesh,
+					FGeometryScriptGroupLayer(),
+					SideID,
+					ResolvedBCfg->ResolveMaterial(LevelDescription->FloorMaterialExpr),
+					bIsValidPolygroupID,
+					false,
+					nullptr
+				);
+			}
 
 			UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(
 				TargetMesh, FloorMesh,
@@ -697,7 +699,13 @@ bool ABuilding::AppendFloors(UDynamicMesh* TargetMesh)
 	if (ResolvedBCfg->RoofKind == ERoofKind::Flat)
 	{
 		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(FloorMesh, 0, ResolvedBCfg->ResolveMaterial(ResolvedBCfg->RoofMaterialExpr));
-		if (!SetPolygroupMaterialID(FloorMesh, 2, ResolvedBCfg->ResolveMaterial(ResolvedBCfg->UnderRoofMaterialExpr))) return false;
+		bool bIsValidPolygroupID;
+		UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
+			FloorMesh, FGeometryScriptGroupLayer(), CeilingID,
+			ResolvedBCfg->ResolveMaterial(ResolvedBCfg->UnderRoofMaterialExpr),
+			bIsValidPolygroupID, false, nullptr
+		);
+		if (!bIsValidPolygroupID) return false;
 	
 		UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(
 			TargetMesh, FloorMesh,
@@ -741,7 +749,8 @@ bool ABuilding::AppendBuildingWithoutInside(UDynamicMesh* TargetMesh)
 
 	TArray<int> PolygroupIDs = *PolygroupIDs0.List;
 
-	if (PolygroupIDs.Num() < 4)
+	int BottomID, TopID;
+	if (!FindCapPolygroups(SimpleBuildingMesh, BottomID, TopID))
 	{
 		UE_LOG(LogBuildingsFromSplines, Error, TEXT("Internal error: something went wrong with the simple building materials"));
 		SimpleBuildingMesh->MarkAsGarbage();
@@ -749,22 +758,26 @@ bool ABuilding::AppendBuildingWithoutInside(UDynamicMesh* TargetMesh)
 	}
 
 	bool bIsValidPolygroupID;
-	UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
-		SimpleBuildingMesh,
-		FGeometryScriptGroupLayer(),
-		PolygroupIDs[0], // TODO: polygroup ID of the sides of the polygon, is there a way to ensure it?
-		ResolvedBCfg->ResolveMaterial(ResolvedBCfg->ExteriorMaterialExpr),
-		bIsValidPolygroupID,
-		false,
-		nullptr
-	);
+	for (int SideID : PolygroupIDs)
+	{
+		if (SideID == BottomID || SideID == TopID) continue;
+		UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
+			SimpleBuildingMesh,
+			FGeometryScriptGroupLayer(),
+			SideID,
+			ResolvedBCfg->ResolveMaterial(ResolvedBCfg->ExteriorMaterialExpr),
+			bIsValidPolygroupID,
+			false,
+			nullptr
+		);
+	}
 
 	if (ResolvedBCfg->RoofKind == ERoofKind::None || ResolvedBCfg->RoofKind == ERoofKind::Flat)
 	{
 		UGeometryScriptLibrary_MeshMaterialFunctions::SetPolygroupMaterialID(
 			SimpleBuildingMesh,
 			FGeometryScriptGroupLayer(),
-			PolygroupIDs[3], // TODO: polygroup ID of the top of the polygon, is there a way to ensure it?
+			TopID,
 			ResolvedBCfg->ResolveMaterial(ResolvedBCfg->RoofMaterialExpr),
 			bIsValidPolygroupID,
 			false,
@@ -1279,7 +1292,7 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 					RoofFace->MarkAsGarbage();
 				}
 				// build roof faces
-				else
+				else if (EdgeResult.Polygon.Num() >= 3)
 				{
 					UGeometryScriptLibrary_MeshPrimitiveFunctions::AppendSimpleExtrudePolygon(
 						RoofFace,
@@ -1291,7 +1304,7 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 						ResolvedBCfg->RoofThickness
 					);
 					UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofFace, 0, RoofMaterialID);
-					if (!SetPolygroupMaterialID(RoofFace, 2, UnderRoofMaterialID)) return;
+					if (!SetBottomCapMaterialID(RoofFace, UnderRoofMaterialID)) return;
 
 					for (int32 VID : RoofFace->GetMeshRef().VertexIndicesItr())
 					{
@@ -1322,7 +1335,7 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 			return;
 		}
 
-		UE_LOG(LogBuildingsFromSplines, Error, TEXT("Failed to compute straight skeleton, falling back to point roof"));
+		UE_LOG(LogBuildingsFromSplines, Warning, TEXT("Failed to compute straight skeleton, falling back to point roof"));
 	}
 
 	// we continue here if we failed for gable or hip roof, or if we're using inner spline or point options
@@ -1342,7 +1355,7 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 		IndexToRoofIndex.SetNum(NumFrames);
 	}
 	
-	if (RoofPolygon.IsEmpty() || ResolvedBCfg->RoofKind == ERoofKind::Point)
+	if (RoofPolygon.Num() < 3 || ResolvedBCfg->RoofKind == ERoofKind::Point)
 	{
 		double MiddleX = 0;
 		double MiddleY = 0;
@@ -1370,7 +1383,7 @@ void ABuilding::AppendRoof(UDynamicMesh* TargetMesh)
 		);
 
 		UGeometryScriptLibrary_MeshMaterialFunctions::RemapMaterialIDs(RoofMesh, 0, RoofMaterialID);
-		if (!SetPolygroupMaterialID(RoofMesh, 2, UnderRoofMaterialID)) return;
+		if (!SetBottomCapMaterialID(RoofMesh, UnderRoofMaterialID)) return;
 	}
 
 

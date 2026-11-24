@@ -6,6 +6,7 @@
 
 #include "Async/Async.h"
 #include "Misc/MessageDialog.h"
+#include "Misc/App.h"
 
 #if WITH_EDITOR
 #include "Dialogs/Dialogs.h"
@@ -35,6 +36,8 @@ bool LCReporter::ShowMessage(
 	UE_LOG(LogConcurrencyHelpers, Log, TEXT("%s: %s"), *Title.ToString(), *Message.ToString());
 
 #if WITH_EDITOR
+
+	if (FApp::IsUnattended()) return true;
 
 	return Concurrency::RunOnGameThreadAndWait([&]() {
 

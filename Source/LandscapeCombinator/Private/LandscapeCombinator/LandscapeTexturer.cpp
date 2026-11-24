@@ -75,7 +75,7 @@ bool ALandscapeTexturer::CreateDecals(TObjectPtr<UGlobalCoordinates> GlobalCoord
 
 	if (bApplyToBodySphere && UGlobalCoordinates::IsSphere(GlobalCoordinates))
 	{
-		if (!SatelliteLayerName.IsNone() && bIsUserInitiated)
+		if (Output == ETexturerOutput::MaterialLayer && bIsUserInitiated)
 		{
 			Concurrency::RunOnGameThreadAndWait([]() {
 				LCReporter::ShowError(LOCTEXT(
@@ -86,6 +86,11 @@ bool ALandscapeTexturer::CreateDecals(TObjectPtr<UGlobalCoordinates> GlobalCoord
 			});
 		}
 		return ApplyToBodySphere(GlobalCoordinates, DownloadedImages, bIsUserInitiated);
+	}
+
+	if (Output == ETexturerOutput::MaterialLayer)
+	{
+		return BindImagesToMaterialLayer(GlobalCoordinates, DownloadedImages, bIsUserInitiated);
 	}
 
 	ALevelCoordinates* Body = nullptr;
@@ -104,37 +109,6 @@ bool ALandscapeTexturer::CreateDecals(TObjectPtr<UGlobalCoordinates> GlobalCoord
 		}
 		return true;
 	});
-
-	if (!SatelliteLayerName.IsNone())
-	{
-		TArray<AActor*> Targets;
-		Concurrency::RunOnGameThreadAndWait([this, &Targets, bIsUserInitiated](){
-			Targets = MaterialTargetSelection.GetAllActors(GetWorld(), bIsUserInitiated);
-			return true;
-		});
-
-		const FString KeyBase = GetActorInstanceGuid().ToString();
-
-		for (AActor* Target : Targets) ULCMaterialBinding::RemoveSourcesWithPrefix(Target, KeyBase + TEXT("_"));
-
-		for (int32 i = 0; i < NewDecals.Num(); i++)
-		{
-			ADecalActor* DecalActor = NewDecals[i];
-			if (!IsValid(DecalActor)) continue;
-			UDecalCoordinates* DecalCoordinates = DecalActor->FindComponentByClass<UDecalCoordinates>();
-			if (!IsValid(DecalCoordinates) || !IsValid(DecalCoordinates->Texture)) continue;
-
-			const FName LayerName = i == 0 ? SatelliteLayerName : FName(*FString::Printf(TEXT("%s_%d"), *SatelliteLayerName.ToString(), i));
-			const bool bSphere = DecalCoordinates->bSphereDecal;
-			const FVector2D BoundsMin = bSphere ? DecalCoordinates->DecalBoundsMin : DecalCoordinates->DecalWorldBoundsMin;
-			const FVector2D BoundsMax = bSphere ? DecalCoordinates->DecalBoundsMax : DecalCoordinates->DecalWorldBoundsMax;
-
-			for (AActor* Target : Targets)
-			{
-				ULCMaterialBinding::BindTexture(Target, FString::Printf(TEXT("%s_%d"), *KeyBase, i), LayerName, DecalCoordinates->Texture, BoundsMin, BoundsMax);
-			}
-		}
-	}
 
 	if (bIsUserInitiated)
 	{
@@ -161,6 +135,61 @@ bool ALandscapeTexturer::CreateDecals(TObjectPtr<UGlobalCoordinates> GlobalCoord
 	}
 
 	return NewDecals.Num() > 0;
+}
+
+bool ALandscapeTexturer::BindImagesToMaterialLayer(TObjectPtr<UGlobalCoordinates> GlobalCoordinates, const TArray<FString>& Images, bool bIsUserInitiated)
+{
+	if (SatelliteLayerName.IsNone() || !IsValid(GlobalCoordinates))
+	{
+		LCReporter::ShowError(LOCTEXT(
+			"ALandscapeTexturer::BindImagesToMaterialLayer::Invalid",
+			"Please set the Satellite Layer Name, and make sure the level has a Level Coordinates actor."
+		));
+		return false;
+	}
+
+	TArray<AActor*> Targets;
+	Concurrency::RunOnGameThreadAndWait([this, &Targets, bIsUserInitiated]() {
+		Targets = MaterialTargetSelection.GetAllActors(GetWorld(), bIsUserInitiated);
+		return true;
+	});
+
+	RemoveMaterialBindings();
+	Concurrency::RunOnGameThreadAndWait([this]() {
+		Modify();
+		LayerTextures.Empty();
+		return true;
+	});
+
+	const bool bSphere = GlobalCoordinates->IsSphere();
+	const FString KeyBase = GetActorInstanceGuid().ToString();
+
+	for (int32 i = 0; i < Images.Num(); i++)
+	{
+		FVector4d Bounds, WorldBounds;
+		if (!UDecalCoordinates::ReprojectImage(Images[i], GlobalCoordinates, Bounds, WorldBounds)) return false;
+
+		UTexture2D* Texture = UDecalCoordinates::CreateTextureFromImage(
+			UDecalCoordinates::ReprojectedPath(Images[i]), this, FString::Printf(TEXT("T_%s_%d"), *GetActorNameOrLabel(), i)
+		);
+		if (!IsValid(Texture)) return false;
+
+		Concurrency::RunOnGameThreadAndWait([this, Texture]() {
+			LayerTextures.Add(Texture);
+			return true;
+		});
+
+		const FVector2D BoundsMin = bSphere ? FVector2D(Bounds[0], Bounds[2]) : FVector2D(WorldBounds[0], WorldBounds[3]);
+		const FVector2D BoundsMax = bSphere ? FVector2D(Bounds[1], Bounds[3]) : FVector2D(WorldBounds[1], WorldBounds[2]);
+		const FName LayerName = i == 0 ? SatelliteLayerName : FName(*FString::Printf(TEXT("%s_%d"), *SatelliteLayerName.ToString(), i));
+
+		for (AActor* Target : Targets)
+		{
+			if (!ULCMaterialBinding::BindTexture(Target, FString::Printf(TEXT("%s_%d"), *KeyBase, i), LayerName, Texture, BoundsMin, BoundsMax)) return false;
+		}
+	}
+
+	return true;
 }
 
 bool ALandscapeTexturer::ApplyToBodySphere(TObjectPtr<UGlobalCoordinates> GlobalCoordinates, const TArray<FString>& DownloadedImages, bool bIsUserInitiated)

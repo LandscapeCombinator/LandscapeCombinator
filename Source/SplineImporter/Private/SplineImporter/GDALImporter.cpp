@@ -89,7 +89,7 @@ GDALDataset* AGDALImporter::LoadGDALDatasetFromShortQuery(FString ShortQuery, bo
 		{
 			FVector Origin, BoxExtent;
 			BoundingActor->GetActorBounds(true, Origin, BoxExtent);
-			if (!ALevelCoordinates::GetCRSCoordinatesFromOriginExtent(BoundingActor->GetWorld(), Origin, BoxExtent, "EPSG:4326", Coordinates))
+			if (!ALevelCoordinates::GetCRSCoordinatesFromOriginExtent(BoundingActor->GetWorld(), Origin, BoxExtent, "EPSG:4326", Coordinates, this))
 			{
 				LCReporter::ShowError(
 					LOCTEXT("LoadGDALDatasetFromShortQuery2", "Internal error while reading coordinates. Make sure that your level coordinates are valid.")

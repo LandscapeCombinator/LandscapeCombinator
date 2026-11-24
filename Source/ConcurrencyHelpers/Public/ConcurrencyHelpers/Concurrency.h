@@ -115,9 +115,8 @@ public:
 			);
 		}
 
-		bool bWaited = WaitForEvent(SyncEvent);
+		if (!WaitForEvent(SyncEvent)) return false;
 		FPlatformProcess::ReturnSynchEventToPool(SyncEvent);
-		if (!bWaited) return false;
 
 		OutResults = *SharedResults;
 		return *SuccessfulTasks == NumberOfTasks;

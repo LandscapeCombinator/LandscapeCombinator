@@ -785,6 +785,7 @@ bool ALandscapeMesh::RegenerateMesh(double SplitNormalsAngle, EGridSplitDirectio
 			ScratchMesh.Get(), FGeometryScriptSplitNormalsOptions(), FGeometryScriptCalculateNormalsOptions()
 		);
 		NewMesh = MoveTemp(ScratchMesh->GetMeshRef());
+		Concurrency::RunOnGameThreadAndWait([&ScratchMesh]() { ScratchMesh.Reset(); return true; });
 	}
 
 	TSharedPtr<FDynamicMesh3, ESPMode::ThreadSafe> NewMeshPtr =

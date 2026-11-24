@@ -27,9 +27,19 @@
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
-// FIXME: implement proper critical section instead of bTriggered
+TMap<FString, int64> ExpectedSizeCache;
+FCriticalSection ExpectedSizeCacheLock;
 
-TMap<FString, int64> ExpectedSizeCache; 
+static bool FindExpectedSize(const FString& URL, int64& OutExpectedSize)
+{
+	FScopeLock Lock(&ExpectedSizeCacheLock);
+	if (const int64* Size = ExpectedSizeCache.Find(URL))
+	{
+		OutExpectedSize = *Size;
+		return true;
+	}
+	return false;
+}
 
 FString Shorten(FString Input)
 {
@@ -55,10 +65,11 @@ bool Download::SynchronousFromURL(FString URL, FString File, bool bProgress)
 
 	UE_LOG(LogFileDownloader, Log, TEXT("Downloading '%s' to '%s'"), *URL, *File);
 
-	if (ExpectedSizeCache.Contains(URL))
+	int64 CachedExpectedSize;
+	if (FindExpectedSize(URL, CachedExpectedSize))
 	{
-		UE_LOG(LogFileDownloader, Log, TEXT("Cache says expected size for '%s' is '%lld'"), *URL, ExpectedSizeCache[URL]);
-		return SynchronousFromURLExpecting(URL, File, bProgress, ExpectedSizeCache[URL]);
+		UE_LOG(LogFileDownloader, Log, TEXT("Cache says expected size for '%s' is '%lld'"), *URL, CachedExpectedSize);
+		return SynchronousFromURLExpecting(URL, File, bProgress, CachedExpectedSize);
 	}
 	else
 	{
@@ -79,16 +90,14 @@ bool Download::SynchronousFromURL(FString URL, FString File, bool bProgress)
 			return false;
 		}
 
-		int64 ExpectedSize = 0;
-
-		bool *bTriggered = new bool(false);
-		Request->OnProcessRequestComplete().BindLambda([URL, File, bTriggered, &ExpectedSize, SyncEvent](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful) {
-			if (*bTriggered) return;
-			*bTriggered = true;
+		TSharedRef<TAtomic<int64>, ESPMode::ThreadSafe> SharedExpectedSize = MakeShared<TAtomic<int64>, ESPMode::ThreadSafe>(0);
+		TSharedRef<TAtomic<bool>, ESPMode::ThreadSafe> bTriggered = MakeShared<TAtomic<bool>, ESPMode::ThreadSafe>(false);
+		Request->OnProcessRequestComplete().BindLambda([SharedExpectedSize, bTriggered, SyncEvent](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful) {
+			if (bTriggered->Exchange(true)) return;
 
 			if (bWasSuccessful && Response.IsValid() && EHttpResponseCodes::IsOk(Response->GetResponseCode()))
 			{
-				ExpectedSize = FCString::Atoi64(*Response->GetHeader("Content-Length"));
+				*SharedExpectedSize = FCString::Atoi64(*Response->GetHeader("Content-Length"));
 			}
 			SyncEvent->Trigger();
 		});
@@ -98,10 +107,9 @@ bool Download::SynchronousFromURL(FString URL, FString File, bool bProgress)
 		UE_LOG(LogFileDownloader, Log, TEXT("Waiting for Content-Length request to complete (%.0fs timeout)"), GetDefault<UConcurrencySettings>()->ContentLengthTimeoutSeconds);
 		SyncEvent->Wait((uint32)(GetDefault<UConcurrencySettings>()->ContentLengthTimeoutSeconds * 1000));
 		UE_LOG(LogFileDownloader, Log, TEXT("Finished waiting for Content-Length request to complete"));
-		Request->OnProcessRequestComplete().Unbind();
 		Request->CancelRequest();
 
-		return SynchronousFromURLExpecting(URL, File, bProgress, ExpectedSize);
+		return SynchronousFromURLExpecting(URL, File, bProgress, SharedExpectedSize->Load());
 	}
 }
 
@@ -122,8 +130,13 @@ bool Download::SynchronousFromURLExpecting(FString URL, FString File, bool bProg
 		return true;
 	}
 
-	bool bDownloadResult = false;
-	bool bIsComplete = false;
+	struct FDownloadState
+	{
+		TAtomic<bool> bTriggered { false };
+		TAtomic<bool> bAbandoned { false };
+		TAtomic<bool> bResult { false };
+	};
+	TSharedRef<FDownloadState, ESPMode::ThreadSafe> State = MakeShared<FDownloadState, ESPMode::ThreadSafe>();
 
 	TSharedRef<IHttpRequest> Request = FHttpModule::Get().CreateRequest();
 	Request->SetURL(URL);
@@ -140,11 +153,10 @@ bool Download::SynchronousFromURLExpecting(FString URL, FString File, bool bProg
 		return false;
 	}
 
-	bool *bTriggered = new bool(false);
-	Request->OnProcessRequestComplete().BindLambda([URL, File, &bDownloadResult, SyncEvent, bTriggered](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
+	Request->OnProcessRequestComplete().BindLambda([URL, File, State, SyncEvent](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
 	{
-		if (*bTriggered) return;
-		*bTriggered = true;
+		if (State->bTriggered.Exchange(true)) return;
+		if (State->bAbandoned) { SyncEvent->Trigger(); return; }
 		
 		IPlatformFile &PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 		bool DownloadSuccess = bWasSuccessful && Response.IsValid() && EHttpResponseCodes::IsOk(Response->GetResponseCode());
@@ -155,12 +167,11 @@ bool Download::SynchronousFromURLExpecting(FString URL, FString File, bool bProg
 			if (SavedFile)
 			{
 				AddExpectedSize(URL, PlatformFile.FileSize(*File));
-				bDownloadResult = true;
+				State->bResult = true;
 				UE_LOG(LogFileDownloader, Log, TEXT("Finished downloading '%s' to '%s'"), *URL, *File);
 			}
 			else
 			{
-				bDownloadResult = false;
 				UE_LOG(LogFileDownloader, Error, TEXT("Error while saving '%s' to '%s'"), *URL, *File);
 			}
 		}
@@ -171,7 +182,6 @@ bool Download::SynchronousFromURLExpecting(FString URL, FString File, bool bProg
 			{
 				UE_LOG(LogFileDownloader, Error, TEXT("Request was not successful. Error %d."), Response->GetResponseCode());
 			}
-			bDownloadResult = false;
 		}
 		SyncEvent->Trigger();
 	});
@@ -181,20 +191,21 @@ bool Download::SynchronousFromURLExpecting(FString URL, FString File, bool bProg
 	UE_LOG(LogFileDownloader, Log, TEXT("Waiting for download to complete (%.0fs timeout)"), GetDefault<UConcurrencySettings>()->DownloadTimeoutSeconds);
 	bool bAborted = false; while (!SyncEvent->Wait(100)) { if (Concurrency::IsCancelRequested() || IsEngineExitRequested() || FPlatformTime::Seconds() - StartTime > GetDefault<UConcurrencySettings>()->DownloadTimeoutSeconds) { bAborted = true; break; } }
 	UE_LOG(LogFileDownloader, Log, TEXT("Finished waiting for download to complete"));
-	Request->OnProcessRequestComplete().Unbind();
+	if (bAborted) State->bAbandoned = true;
 	Request->CancelRequest();
 
-	return !bAborted && bDownloadResult;
+	return !bAborted && State->bResult;
 }
 
 void Download::FromURL(FString URL, FString File, bool bProgress, TFunction<void(bool)> OnComplete)
 {
 	UE_LOG(LogFileDownloader, Log, TEXT("Downloading from URL '%s' to '%s'"), *URL, *File);
 
-	if (ExpectedSizeCache.Contains(URL))
+	int64 CachedExpectedSize;
+	if (FindExpectedSize(URL, CachedExpectedSize))
 	{
-		UE_LOG(LogFileDownloader, Log, TEXT("Cache says expected size for '%s' is '%lld'"), *URL, ExpectedSizeCache[URL]);
-		FromURLExpecting(URL, File, bProgress, ExpectedSizeCache[URL], OnComplete);
+		UE_LOG(LogFileDownloader, Log, TEXT("Cache says expected size for '%s' is '%lld'"), *URL, CachedExpectedSize);
+		FromURLExpecting(URL, File, bProgress, CachedExpectedSize, OnComplete);
 	}
 	else
 	{
@@ -484,6 +495,7 @@ void Download::FromURLExpecting(FString URL, FString File, bool bProgress, int64
 
 void Download::AddExpectedSize(FString URL, int64 ExpectedSize)
 {
+	FScopeLock Lock(&ExpectedSizeCacheLock);
 	if (!ExpectedSizeCache.Contains(URL))
 	{
 		ExpectedSizeCache.Add(URL, ExpectedSize);
@@ -502,9 +514,10 @@ void Download::LoadExpectedSizeCache()
 	FString CacheFile = ExpectedSizeCacheFile();
 	//UE_LOG(LogFileDownloader, Log, TEXT("Loading expected size cache from '%s'"), *CacheFile);
 		
-	FArchive* FileReader = IFileManager::Get().CreateFileReader(*CacheFile);
+	TUniquePtr<FArchive> FileReader(IFileManager::Get().CreateFileReader(*CacheFile));
 	if (FileReader)
 	{
+		FScopeLock Lock(&ExpectedSizeCacheLock);
 		*FileReader << ExpectedSizeCache;
 		FileReader->Close();
 	}
@@ -514,9 +527,10 @@ void Download::SaveExpectedSizeCache()
 {
 	FString CacheFile = ExpectedSizeCacheFile();
 	//UE_LOG(LogFileDownloader, Log, TEXT("Saving expected size cache to '%s'"), *CacheFile);
-	FArchive* FileWriter = IFileManager::Get().CreateFileWriter(*CacheFile);
+	TUniquePtr<FArchive> FileWriter(IFileManager::Get().CreateFileWriter(*CacheFile));
 	if (FileWriter)
 	{
+		FScopeLock Lock(&ExpectedSizeCacheLock);
 		*FileWriter << ExpectedSizeCache;
 		if (FileWriter->Close()) return;
 	}

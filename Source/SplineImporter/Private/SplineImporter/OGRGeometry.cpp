@@ -407,11 +407,8 @@ bool AOGRGeometry::ExportMask(bool bIsUserInitiated)
 	UGlobalCoordinates* GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(this);
 	if (!IsValid(GlobalCoordinates)) return false;
 
-	if (GlobalCoordinates->IsSphere())
-	{
-		LCReporter::ShowError(LOCTEXT("AOGRGeometry::ExportMask::Sphere", "Mask export is not supported in the sphere model."));
-		return false;
-	}
+	// On a sphere, the mask covers the extent of the geometry and its bounds are in the CRS of the body, like sphere decals
+	const bool bSphere = GlobalCoordinates->IsSphere();
 
 	double WorldMinX = 0, WorldMaxX = 0, WorldMinY = 0, WorldMaxY = 0;
 	int32 SizeX = 0, SizeY = 0;
@@ -426,6 +423,8 @@ bool AOGRGeometry::ExportMask(bool bIsUserInitiated)
 	if (!Concurrency::RunOnGameThreadAndWait([&]() {
 		AActor* Target = Selection.GetActor(GetWorld());
 		if (!IsValid(Target)) return false;
+
+		if (bSphere) return true;
 
 		if (ALandscape* Landscape = Cast<ALandscape>(Target))
 		{
@@ -461,14 +460,17 @@ bool AOGRGeometry::ExportMask(bool bIsUserInitiated)
 	}
 
 	double MinCX = DBL_MAX, MaxCX = -DBL_MAX, MinCY = DBL_MAX, MaxCY = -DBL_MAX;
-	for (const double X : { WorldMinX, WorldMaxX })
+	if (!bSphere)
 	{
-		for (const double Y : { WorldMinY, WorldMaxY })
+		for (const double X : { WorldMinX, WorldMaxX })
 		{
-			FVector2D C;
-			GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(FVector2D(X, Y), C);
-			MinCX = FMath::Min(MinCX, C.X); MaxCX = FMath::Max(MaxCX, C.X);
-			MinCY = FMath::Min(MinCY, C.Y); MaxCY = FMath::Max(MaxCY, C.Y);
+			for (const double Y : { WorldMinY, WorldMaxY })
+			{
+				FVector2D C;
+				GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(FVector2D(X, Y), C);
+				MinCX = FMath::Min(MinCX, C.X); MaxCX = FMath::Max(MaxCX, C.X);
+				MinCY = FMath::Min(MinCY, C.Y); MaxCY = FMath::Max(MaxCY, C.Y);
+			}
 		}
 	}
 
@@ -488,6 +490,25 @@ bool AOGRGeometry::ExportMask(bool bIsUserInitiated)
 	{
 		LCReporter::ShowError(LOCTEXT("AOGRGeometry::ExportMask::Reproject", "Could not reproject the geometry to the coordinate system of the GlobalCoordinates."));
 		return false;
+	}
+
+	if (bSphere)
+	{
+		OGREnvelope Envelope;
+		Projected->getEnvelope(&Envelope);
+		MinCX = Envelope.MinX; MaxCX = Envelope.MaxX;
+		MinCY = Envelope.MinY; MaxCY = Envelope.MaxY;
+		const double DX = MaxCX - MinCX;
+		const double DY = MaxCY - MinCY;
+		if (DX <= 0 || DY <= 0)
+		{
+			LCReporter::ShowError(LOCTEXT("AOGRGeometry::ExportMask::EmptyExtent", "The geometry has an empty extent."));
+			return false;
+		}
+		SizeX = DX >= DY ? Resolution : FMath::Max(2, FMath::RoundToInt(Resolution * DX / DY));
+		SizeY = DX >= DY ? FMath::Max(2, FMath::RoundToInt(Resolution * DY / DX)) : Resolution;
+		WorldMinX = MinCX; WorldMaxX = MaxCX;
+		WorldMinY = MinCY; WorldMaxY = MaxCY;
 	}
 
 	TArray<uint8> Mask;
@@ -511,12 +532,12 @@ bool AOGRGeometry::ExportMask(bool bIsUserInitiated)
 		if (!IsValid(Texture)) return false;
 
 		Texture->Modify();
+		Texture->PreEditChange(nullptr);
 		Texture->Source.Init(SizeX, SizeY, 1, 1, TSF_G8, Mask.GetData());
 		Texture->SRGB = false;
 		Texture->CompressionSettings = TC_Grayscale;
 		Texture->MipGenSettings = TMGS_FromTextureGroup;
 		Texture->LODGroup = TEXTUREGROUP_World;
-		Texture->UpdateResource();
 		Texture->PostEditChange();
 		Texture->MarkPackageDirty();
 		if (bNew) FAssetRegistryModule::AssetCreated(Texture);
@@ -588,7 +609,7 @@ bool AOGRGeometry::ApplyMaskToMaterial()
 		AActor* Target = BoundingActorSelection.GetActor(GetWorld());
 		if (!IsValid(Target)) return false;
 
-		return ULCMaterialBinding::BindTexture(Target, GetActorInstanceGuid().ToString(), MaskLayerName, Texture, MaskWorldBoundsMin, MaskWorldBoundsMax);
+		return ULCMaterialBinding::BindTexture(Target, GetActorInstanceGuid().ToString(), MaskLayerName, Texture, MaskWorldBoundsMin, MaskWorldBoundsMax, /*bMask=*/true);
 	});
 #else
 	return false;
@@ -602,6 +623,16 @@ void AOGRGeometry::HideGeometryPreview()
 	{
 		if (!WeakThis.IsValid() || !IsValid(WeakThis->PreviewDecal)) return;
 		WeakThis->PreviewDecal->SetVisibility(false);
+	});
+}
+
+void AOGRGeometry::RemoveMaskBinding()
+{
+	Concurrency::RunOnGameThreadAndWait([this]()
+	{
+		AActor* Target = BoundingActorSelection.GetActor(GetWorld());
+		if (IsValid(Target)) ULCMaterialBinding::RemoveSource(Target, GetActorInstanceGuid().ToString());
+		return true;
 	});
 }
 
@@ -624,6 +655,7 @@ bool AOGRGeometry::Cleanup_Implementation(bool bSkipPrompt)
 	{
 		SetGeometry(nullptr);
 		AlreadyHandledFeatures.Empty();
+		RemoveMaskBinding();
 		return true;
 	}
 	else

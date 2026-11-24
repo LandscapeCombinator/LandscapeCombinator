@@ -51,6 +51,32 @@
 
 #define LOCTEXT_NAMESPACE "FImageDownloaderModule"
 
+static void AllowedBoundsInLayerCRS(
+	const FOGCProvider& Provider, const FString& LayerName, const FString& LayerCRS,
+	double& MinLong, double& MaxLong, double& MinLat, double& MaxLat
+)
+{
+	if (MinLong == 0 || MaxLong == 0 || MinLat == 0 || MaxLat == 0) return;
+	const int32 LayerIndex = Provider.Names.Find(LayerName);
+	if (!Provider.CRSs.IsValidIndex(LayerIndex)) return;
+	const FString& BoundsCRS = Provider.CRSs[LayerIndex];
+	if (BoundsCRS.IsEmpty() || BoundsCRS == LayerCRS) return;
+
+	FVector4d Bounds(MinLong, MaxLong, MinLat, MaxLat);
+	FVector4d Converted;
+	if (GDALInterface::ConvertCoordinates(Bounds, /*bCrop=*/false, Converted, BoundsCRS, LayerCRS))
+	{
+		MinLong = FMath::Min(Converted[0], Converted[1]);
+		MaxLong = FMath::Max(Converted[0], Converted[1]);
+		MinLat = FMath::Min(Converted[2], Converted[3]);
+		MaxLat = FMath::Max(Converted[2], Converted[3]);
+	}
+	else
+	{
+		MinLong = MaxLong = MinLat = MaxLat = 0;
+	}
+}
+
 
 UImageDownloader::UImageDownloader()
 {
@@ -132,12 +158,14 @@ bool UImageDownloader::ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY,
 		OGC_MinLat  = CoordinatesOGC[2] - PaddingUnits;
 		OGC_MaxLat  = CoordinatesOGC[3] + PaddingUnits;
 
-		if (OGC_MinAllowedLong != 0 && OGC_MaxAllowedLong != 0 && OGC_MinAllowedLat != 0 && OGC_MaxAllowedLat != 0)
+		double AllowedMinLong = OGC_MinAllowedLong, AllowedMaxLong = OGC_MaxAllowedLong, AllowedMinLat = OGC_MinAllowedLat, AllowedMaxLat = OGC_MaxAllowedLat;
+		AllowedBoundsInLayerCRS(OGC_Provider, OGC_Name, OGC_CRS, AllowedMinLong, AllowedMaxLong, AllowedMinLat, AllowedMaxLat);
+		if (AllowedMinLong != 0 && AllowedMaxLong != 0 && AllowedMinLat != 0 && AllowedMaxLat != 0)
 		{
-			OGC_MinLong = FMath::Max(OGC_MinLong, OGC_MinAllowedLong);
-			OGC_MaxLong = FMath::Min(OGC_MaxLong, OGC_MaxAllowedLong);
-			OGC_MinLat  = FMath::Max(OGC_MinLat, OGC_MinAllowedLat);
-			OGC_MaxLat  = FMath::Min(OGC_MaxLat, OGC_MaxAllowedLat);
+			OGC_MinLong = FMath::Max(OGC_MinLong, AllowedMinLong);
+			OGC_MaxLong = FMath::Min(OGC_MaxLong, AllowedMaxLong);
+			OGC_MinLat  = FMath::Max(OGC_MinLat, AllowedMinLat);
+			OGC_MaxLat  = FMath::Min(OGC_MaxLat, AllowedMaxLat);
 		}
 
 		bTileOutsideCoverage = OGC_MinLong >= OGC_MaxLong || OGC_MinLat >= OGC_MaxLat;
@@ -278,11 +306,14 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(bool bIsUserInitiated, FString
 
 				if (bAutoSetResolution) AutoSetResolution();
 
+				double AllowedMinLong = OGC_MinAllowedLong, AllowedMaxLong = OGC_MaxAllowedLong, AllowedMinLat = OGC_MinAllowedLat, AllowedMaxLat = OGC_MaxAllowedLat;
+				AllowedBoundsInLayerCRS(OGC_Provider, OGC_Name, OGC_CRS, AllowedMinLong, AllowedMaxLong, AllowedMinLat, AllowedMaxLat);
+
 				HMFetcher *OGCFetcher = new HMOGC(
 					OGC_Provider, bEnableOGCParallelDownload,
 					OGC_MaxTileWidth, OGC_MaxTileHeight,
 					OGC_Name, OGC_CRS, OGC_X_IsLong,
-					OGC_MinAllowedLong, OGC_MaxAllowedLong, OGC_MinAllowedLat, OGC_MaxAllowedLat,
+					AllowedMinLong, AllowedMaxLong, AllowedMinLat, AllowedMaxLat,
 					OGC_MinLong, OGC_MaxLong, OGC_MinLat, OGC_MaxLat,
 					bOGCSingleTile, OGC_ResolutionPixelsPerUnit,
 					bOGCSingleTile && bOGC_MaxResolution && (!CanAutoSetResolution() || !bAutoSetResolution)

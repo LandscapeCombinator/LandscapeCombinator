@@ -15,6 +15,13 @@
 #include "Materials/Material.h"
 #include "LandscapeTexturer.generated.h"
 
+UENUM(BlueprintType)
+enum class ETexturerOutput : uint8
+{
+	Decal,
+	MaterialLayer UMETA(DisplayName = "Material Layer")
+};
+
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
 UCLASS(BlueprintType)
@@ -47,9 +54,9 @@ public:
 	/* Folder used to spawn the actors. This setting is unused when generating from a combination or from blueprints. */
 	FName SpawnedActorsPath;
 
-	UPROPERTY(AdvancedDisplay,
+	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer",
-		meta = (DisplayPriority = "0")
+		meta = (EditCondition = "Output == ETexturerOutput::Decal", EditConditionHides, DisplayPriority = "0")
 	)
 	TObjectPtr<UMaterialInterface> DecalMaterial =
 		Cast<UMaterial>(
@@ -60,15 +67,15 @@ public:
 			)
 		);
 
-	UPROPERTY(AdvancedDisplay,
+	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer",
-		meta = (DisplayPriority = "1")
+		meta = (EditCondition = "Output == ETexturerOutput::Decal", EditConditionHides, DisplayPriority = "1")
 	)
 	int DecalsSortOrder = 0;
 
-	UPROPERTY(AdvancedDisplay,
+	UPROPERTY(
 		EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer",
-		meta = (DisplayPriority = "2")
+		meta = (EditCondition = "Output == ETexturerOutput::Decal", EditConditionHides, DisplayPriority = "2")
 	)
 	bool bDeleteOldDecalsWhenCreatingDecals = false;
 
@@ -91,13 +98,17 @@ public:
 			)
 		);
 
-	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer|Material Layer")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer")
+	ETexturerOutput Output = ETexturerOutput::Decal;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer|MaterialLayer", meta = (EditCondition = "Output == ETexturerOutput::MaterialLayer", EditConditionHides))
 	FActorSelection MaterialTargetSelection;
 
-	UPROPERTY(AdvancedDisplay, EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer|Material Layer")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LandscapeTexturer|MaterialLayer", meta = (EditCondition = "Output == ETexturerOutput::MaterialLayer", EditConditionHides))
 	FName SatelliteLayerName;
 
 	void RemoveMaterialBindings();
+	bool BindImagesToMaterialLayer(TObjectPtr<UGlobalCoordinates> GlobalCoordinates, const TArray<FString>& Images, bool bIsUserInitiated);
 
 	virtual TArray<UObject*> GetGeneratedObjects() const override
 	{
@@ -122,6 +133,7 @@ public:
 		if (DeleteGeneratedObjects(bSkipPrompt))
 		{
 			DecalActors.Empty();
+			LayerTextures.Empty();
 			RemoveMaterialBindings();
 			return true;
 		}
@@ -200,6 +212,9 @@ protected:
 		meta = (EditCondition = "false", EditConditionHides, DisplayPriority = "1000")
 	)
 	TArray<TSoftObjectPtr<ADecalActor>> DecalActors;
+
+	UPROPERTY(DuplicateTransient)
+	TArray<TObjectPtr<UTexture2D>> LayerTextures;
 };
 
 #undef LOCTEXT_NAMESPACE

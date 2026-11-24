@@ -124,6 +124,7 @@ public:
 
 	/* Rasterizes Geometry on the extent of the Bounding Actor and saves it as a G8 texture asset at MaskAssetPath. */
 	bool ExportMask(bool bIsUserInitiated);
+	void RemoveMaskBinding();
 
 	UFUNCTION(BlueprintCallable, CallInEditor, Category = "GDALImporter|Mask")
 	bool ApplyMaskToMaterial();

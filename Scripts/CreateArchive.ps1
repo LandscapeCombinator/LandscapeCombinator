@@ -42,9 +42,18 @@ function New-Archive {
     $NewUPlugin = $NewUPlugin -replace
         "`"MarketplaceURL`": `".*`"",
         "`"MarketplaceURL`": `"com.epicgames.launcher://ue/marketplace/product/$($MarketplaceURLs[$Plugin])`""
-    $NewUPlugin = $NewUPlugin -replace
-        "`"EngineVersion`": `".*`"",
-        "`"EngineVersion`": `"$EngineVersion`""
+    if ($NewUPlugin -match "`"EngineVersion`"")
+    {
+        $NewUPlugin = $NewUPlugin -replace
+            "`"EngineVersion`": `".*`"",
+            "`"EngineVersion`": `"$EngineVersion`""
+    }
+    else
+    {
+        $NewUPlugin = $NewUPlugin -replace
+            "(?m)^(\s*)(`"VersionName`": `".*`",)",
+            "`$1`$2`n`$1`"EngineVersion`": `"$EngineVersion`","
+    }
     $NewUPlugin = $NewUPlugin -replace
         "`"VersionName`": `".*`"",
         "`"VersionName`": `"$PluginVersion`""

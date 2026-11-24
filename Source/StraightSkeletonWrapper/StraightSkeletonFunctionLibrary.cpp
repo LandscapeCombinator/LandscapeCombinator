@@ -53,10 +53,10 @@ bool UStraightSkeletonFunctionLibrary::ComputeStraightSkeleton(const TArray<FVec
 		return true;
 	}
 	catch (...) {
-		UE_LOG(LogTemp, Error, TEXT("StraightSkeleton library threw an exception on Polygon"));
+		UE_LOG(LogTemp, Warning, TEXT("StraightSkeleton library threw an exception on Polygon"));
 		for (auto &P: Polygon)
 		{
-			UE_LOG(LogTemp, Error, TEXT("%s"), *P.ToString());
+			UE_LOG(LogTemp, Warning, TEXT("%s"), *P.ToString());
 		}
 		return false;
 	}

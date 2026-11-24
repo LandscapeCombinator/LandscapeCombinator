@@ -42,6 +42,7 @@ namespace
 
 	const TCHAR* ScaleSection = TEXT("LandscapeCombinator");
 	const TCHAR* ScaleKey = TEXT("UIScale");
+	const TCHAR* SelectedCombinationKey = TEXT("SelectedCombination");
 	float SavedScale = 0.f;
 
 	const FString& ScaleIni()
@@ -549,6 +550,13 @@ void SGeneratorsStatus::Rebuild()
 
 	for (const FTab& Tab : Tabs) TabLabels.Add(MakeShared<FString>(Tab.Label));
 
+	FString SavedCombination;
+	if (GConfig && GConfig->GetString(ScaleSection, SelectedCombinationKey, SavedCombination, ScaleIni()))
+	{
+		const int32 SavedTab = Tabs.IndexOfByPredicate([&](const FTab& Tab) { return Tab.TabActor.IsValid() && Tab.TabActor->GetPathName() == SavedCombination; });
+		if (SavedTab != INDEX_NONE) ActiveTab = SavedTab;
+	}
+
 	ActiveTab = FMath::Clamp(ActiveTab, 0, FMath::Max(0, Tabs.Num() - 1));
 	if (TabCombo.IsValid())
 	{
@@ -583,6 +591,11 @@ void SGeneratorsStatus::SelectTab(int32 Index)
 	if (!Tabs.IsValidIndex(Index)) return;
 
 	ActiveTab = Index;
+	if (GConfig && Tabs[Index].TabActor.IsValid())
+	{
+		GConfig->SetString(ScaleSection, SelectedCombinationKey, *Tabs[Index].TabActor->GetPathName(), ScaleIni());
+		GConfig->Flush(false, ScaleIni());
+	}
 	RebuildRows();
 	OnGeneratorPicked.ExecuteIfBound(Tabs[Index].TabActor.Get());
 }
