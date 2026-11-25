@@ -22,6 +22,46 @@ namespace
 	TQueue<TFunction<void()>, EQueueMode::Mpsc> GThrottledActions;
 	FTSTicker::FDelegateHandle GThrottleTickerHandle;
 
+	TQueue<TFunction<void()>, EQueueMode::Mpsc> GMainTickActions;
+	FTSTicker::FDelegateHandle GMainTickHandle;
+
+	bool ProcessMainTickActions(float DeltaTime)
+	{
+		if (IsEngineExitRequested()) return false;
+
+		TFunction<void()> Action;
+		while (GMainTickActions.Dequeue(Action))
+		{
+			Action();
+		}
+		return true;
+	}
+
+	void EnqueueMainTick(TFunction<void()> Action)
+	{
+		if (IsEngineExitRequested()) return;
+
+		{
+			static FCriticalSection MainTickInitLock;
+			FScopeLock Lock(&MainTickInitLock);
+
+			if (!GMainTickHandle.IsValid())
+			{
+				GMainTickHandle = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateStatic(&ProcessMainTickActions), 0.0f);
+
+				FCoreDelegates::OnEnginePreExit.AddLambda([]()
+				{
+					FScopeLock ExitLock(&MainTickInitLock);
+					FTSTicker::GetCoreTicker().RemoveTicker(GMainTickHandle);
+					GMainTickHandle.Reset();
+					GMainTickActions.Empty();
+				});
+			}
+		}
+
+		GMainTickActions.Enqueue(MoveTemp(Action));
+	}
+
 	bool ProcessThrottledActions(float DeltaTime)
 	{
 		if (IsEngineExitRequested()) return false;
@@ -126,7 +166,7 @@ void Concurrency::RunOnGameThread(TFunction<void()> Action)
 	#if UE_VERSION_OLDER_THAN(5, 6, 0)
 		Async(EAsyncExecution::TaskGraphMainThread, MakeExitSafe(MoveTemp(Action)));
 	#else
-		Async(EAsyncExecution::TaskGraphMainTick, MakeExitSafe(MoveTemp(Action)));
+		EnqueueMainTick(MakeExitSafe(MoveTemp(Action)));
 	#endif
 }
 
@@ -196,7 +236,7 @@ bool Concurrency::RunOnThreadAndWait(bool bRunOnGameThread, TFunction<bool()> Ac
 #if UE_VERSION_OLDER_THAN(5, 6, 0)
 		Async(EAsyncExecution::TaskGraphMainThread, [SafeAction = MoveTemp(SafeAction), bSuccess, SyncEvent]()
 #else
-		Async(EAsyncExecution::TaskGraphMainTick, [SafeAction = MoveTemp(SafeAction), bSuccess, SyncEvent]()
+		EnqueueMainTick([SafeAction = MoveTemp(SafeAction), bSuccess, SyncEvent]()
 #endif
 		{
 			*bSuccess = SafeAction();
