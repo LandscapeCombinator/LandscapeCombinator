@@ -18,20 +18,20 @@ public class LCCommon : ModuleRules
 			new string[]
 			{
 				"Core",
-				"DeveloperSettings"
+				"CoreUObject",
+				"Engine",
+				"DeveloperSettings",
+				"ConcurrencyHelpers"
 			}
 		);
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"CoreUObject",
-				"Engine",
 				"SlateCore",
 
 				// Landscape Combinator Dependencies
 				"GDALInterface",
-				"ConcurrencyHelpers",
 				"Coordinates"
 			}
 		);

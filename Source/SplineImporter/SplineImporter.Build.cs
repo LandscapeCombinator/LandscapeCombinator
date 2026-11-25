@@ -21,7 +21,17 @@ public class SplineImporter : ModuleRules
 			new string[]
 			{
 				// Unreal Engine Dependencies
-				"Core"
+				"Core",
+				"CoreUObject",
+				"Engine",
+				"Landscape",
+				"PCG",
+
+				// Landscape Combinator dependencies
+				"ConcurrencyHelpers",
+				"Coordinates",
+				"GDALInterface",
+				"LCCommon"
 			}
 		);
 
@@ -29,22 +39,14 @@ public class SplineImporter : ModuleRules
 			new string[]
 			{
 				// Unreal Engine Dependencies
-				"CoreUObject",
-				"Engine",
-				"PCG",
 				"Foliage",
-				"Landscape",
 				"SlateCore",
 
 				// Landscape Combinator Dependencies
 				"AssetRegistry",
 				"LandscapeUtils",
-				"Coordinates",
-				"GDALInterface",
 				"FileDownloader",
 				"OSMUserData",
-				"LCCommon",
-				"ConcurrencyHelpers"
 			}
 		);
 

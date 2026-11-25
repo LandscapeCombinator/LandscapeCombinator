@@ -22,6 +22,11 @@ public class ImageDownloader : ModuleRules
 			new string[]
 			{
 				"Core",
+				"CoreUObject",
+				"Engine",
+				"Landscape",
+				"ConsoleHelpers",
+				"Coordinates"
 			}
 		);
 
@@ -29,21 +34,16 @@ public class ImageDownloader : ModuleRules
 			new string[]
 			{
 				// Unreal Engine Dependencies
-				"CoreUObject",
-				"Engine",
 				"Slate",
 				"SlateCore",
 				"HTTP",
 				"XmlParser",
 				"Projects",
-				"Landscape",
 
 				// Landscape Combinator Dependencies
-				"Coordinates",
 				"GDALInterface",
 				"FileDownloader",
 				"ConcurrencyHelpers",
-				"ConsoleHelpers",
 				"LandscapeUtils",
 				"MapboxHelpers",
 				"LCCommon"

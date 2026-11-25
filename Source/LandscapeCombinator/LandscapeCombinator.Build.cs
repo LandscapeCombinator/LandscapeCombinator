@@ -25,8 +25,27 @@ public class LandscapeCombinator : ModuleRules
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
-				// Unreal Engine dependencies
-				"Core"
+				// Unreal Engine dependencies (included by the public headers)
+				"Core",
+				"CoreUObject",
+				"Engine",
+				"Landscape",
+				"PCG",
+				"Slate",
+				"SlateCore",
+				"GeometryCore",
+				"GeometryFramework",
+
+				// Landscape Combinator dependencies (included by the public headers)
+				"BuildingsFromSplines",
+				"ConcurrencyHelpers",
+				"ConsoleHelpers",
+				"Coordinates",
+				"HeightmapModifier",
+				"ImageDownloader",
+				"LCCommon",
+				"LandscapeUtils",
+				"SplineImporter"
 			}
 		);
 
@@ -42,29 +61,12 @@ public class LandscapeCombinator : ModuleRules
 				"Projects",
 				"InputCore",
 				"GeometryAlgorithms",
-				"GeometryCore",
-				"GeometryFramework",
 				"GeometryScriptingCore",
-				"CoreUObject",
-				"Engine",
 				"Foliage",
-				"Landscape",
-				"PCG",
 				"ApplicationCore",
-				"Slate",
-				"SlateCore",
 
 				// Landscape Combinator dependencies
-				"Coordinates",
-				"ConsoleHelpers",
-				"ConcurrencyHelpers",
 				"GDALInterface",
-				"LandscapeUtils",
-				"HeightmapModifier",
-				"ImageDownloader",
-				"SplineImporter",
-				"BuildingsFromSplines",
-				"LCCommon"
 			}
 		);
 

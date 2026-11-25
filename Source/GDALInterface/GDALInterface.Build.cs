@@ -53,6 +53,9 @@ public class GDALInterface : ModuleRules
 			new string[]
 			{
 				"Core",
+				"CoreUObject",
+				"Engine",
+				"GeometryCore"
 			}
 		);
 
@@ -61,8 +64,6 @@ public class GDALInterface : ModuleRules
 			{
 				// Unreal Dependencies
 				"InputCore",
-				"CoreUObject",
-				"Engine",
 				"HTTP",
 				"Projects",
 

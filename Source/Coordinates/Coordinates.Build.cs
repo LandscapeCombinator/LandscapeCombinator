@@ -21,6 +21,8 @@ public class Coordinates : ModuleRules
 			new string[]
 			{
 				"Core",
+				"CoreUObject",
+				"Engine",
 				"GDALInterface",
 				"Landscape"
 			}
@@ -33,11 +35,8 @@ public class Coordinates : ModuleRules
 				// Unreal Dependencies
 				"Projects",
 				"InputCore",
-				"CoreUObject",
-				"Engine",
 
 				// Landscape Combinator Dependencies
-				"GDALInterface",
 				"FileDownloader",
 				"ConcurrencyHelpers"
 			}

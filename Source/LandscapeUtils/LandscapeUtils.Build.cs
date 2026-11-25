@@ -18,6 +18,10 @@ public class LandscapeUtils : ModuleRules
 			new string[]
 			{
 				"Core",
+				"CoreUObject",
+				"Engine",
+				"Landscape",
+				"GeometryCore",
 				"Coordinates",
 				"LCCommon"
 			}
@@ -26,12 +30,8 @@ public class LandscapeUtils : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"CoreUObject",
-				"Engine",
 				"Foliage",
-				"Landscape",
 				"Slate",
-				"GeometryCore",
 				"GeometryFramework",
 				"GeometryScriptingCore",
 

@@ -18,26 +18,26 @@ public class BuildingsFromSplines : ModuleRules
 			new string[]
 			{
 				"Core",
-				"GeometryFramework"
+				"CoreUObject",
+				"Engine",
+				"GeometryCore",
+				"GeometryFramework",
+				"ConcurrencyHelpers",
+				"Coordinates",
+				"LCCommon"
 			}
 		);
-			
+
 		
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
 				// Unreal Engine Dependencies
-				"CoreUObject",
-				"Engine",
-				"GeometryCore",
 				"GeometryScriptingCore",
 				"SlateCore",
 
 				// Landscape Combinator Dependencies
 				"OSMUserData",
-				"Coordinates",
-				"LCCommon",
-				"ConcurrencyHelpers",
 				"StraightSkeletonWrapper",
 				"LandscapeUtils"
 			}

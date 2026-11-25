@@ -19,6 +19,8 @@ public class ConcurrencyHelpers : ModuleRules
 			{
 				"Core",
 				"CoreUObject",
+				"Engine",
+				"SlateCore",
 				"DeveloperSettings"
 			}
 		);
@@ -26,9 +28,7 @@ public class ConcurrencyHelpers : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"Engine",
 				"Slate",
-				"SlateCore",
 				"HTTP",
 			}
 		);

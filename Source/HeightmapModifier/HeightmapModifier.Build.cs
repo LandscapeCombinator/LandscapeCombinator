@@ -18,9 +18,14 @@ public class HeightmapModifier : ModuleRules
 			new string[]
 			{
 				"Core",
+				"CoreUObject",
+				"Engine",
+				"Landscape",
+				"ConsoleHelpers",
+				"LCCommon"
 			}
 		);
-			
+
 		
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
@@ -28,17 +33,12 @@ public class HeightmapModifier : ModuleRules
 				// Unreal Dependencies
 				"Projects",
 				"InputCore",
-				"CoreUObject",
 				"Foliage",
-				"Engine",
-				"Landscape",
 				"SlateCore",
 				
 				// Landscape Combinator Dependencies
 				"GDALInterface",
 				"LandscapeUtils",
-				"ConsoleHelpers",
-				"LCCommon",
 				"ConcurrencyHelpers"
 			}
 		);
