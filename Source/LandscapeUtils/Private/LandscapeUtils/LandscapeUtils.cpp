@@ -263,6 +263,7 @@ bool LandscapeUtils::CustomCollisionQueryParams(const UWorld *World, const FActo
 
 bool LandscapeUtils::GetSurfaceLocation(UWorld* World, FCollisionQueryParams CollisionQueryParams, const UGlobalCoordinates* G, const FVector& Location, FVector &OutLocation, bool bDrawDebugLine)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("LandscapeUtils::GetSurfaceLocation");
 	const bool bSphere = UGlobalCoordinates::IsSphere(G);
 	const FVector Up = UGlobalCoordinates::Up(G, Location);
 	const FVector Base = bSphere ? Location : FVector(Location.X, Location.Y, 0);
@@ -270,23 +271,29 @@ bool LandscapeUtils::GetSurfaceLocation(UWorld* World, FCollisionQueryParams Col
 	const FVector StartLocation = Base + Up * RayHalfLength;
 	const FVector EndLocation = Base - Up * RayHalfLength;
 
-	// ignore BSPs
-	for (ULevel* Level : World->GetLevels())
 	{
-		for (UModelComponent* ModelComponent : Level->ModelComponents)
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("GetSurfaceLocation::IgnoreBSP");
+		for (ULevel* Level : World->GetLevels())
 		{
-			CollisionQueryParams.AddIgnoredComponent(ModelComponent);
+			for (UModelComponent* ModelComponent : Level->ModelComponents)
+			{
+				CollisionQueryParams.AddIgnoredComponent(ModelComponent);
+			}
 		}
 	}
 
 	FHitResult HitResult;
-	bool bLineTrace = World->LineTraceSingleByChannel(
-		OUT HitResult,
-		StartLocation,
-		EndLocation,
-		ECollisionChannel::ECC_Visibility,
-		CollisionQueryParams
-	);
+	bool bLineTrace;
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("GetSurfaceLocation::LineTrace");
+		bLineTrace = World->LineTraceSingleByChannel(
+			OUT HitResult,
+			StartLocation,
+			EndLocation,
+			ECollisionChannel::ECC_Visibility,
+			CollisionQueryParams
+		);
+	}
 	bool bValidActor = IsValid(HitResult.GetActor());
 	if (bLineTrace && !bValidActor)
 	{

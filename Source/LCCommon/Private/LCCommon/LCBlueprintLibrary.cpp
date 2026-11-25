@@ -184,7 +184,10 @@ bool ULCBlueprintLibrary::FindPushOffset(TWeakObjectPtr<AActor> Actor, UPrimitiv
 	auto HasOverlap = [&](const FVector& TestLocation) -> bool
 	{
 		TArray<FOverlapResult> Overlaps;
-		World->OverlapMultiByChannel(Overlaps, TestLocation + Rotation.RotateVector(LocalBounds.Origin), Rotation, ECC_Visibility, Shape, QueryParams);
+		{
+			TRACE_CPUPROFILER_EVENT_SCOPE_STR("FindPushOffset::Overlap");
+			World->OverlapMultiByChannel(Overlaps, TestLocation + Rotation.RotateVector(LocalBounds.Origin), Rotation, ECC_Visibility, Shape, QueryParams);
+		}
 
 		if (RequiredPusherTag.IsNone())
 			return Overlaps.Num() > 0;

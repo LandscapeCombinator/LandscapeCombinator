@@ -955,8 +955,12 @@ bool ARoadsFromSplines::ComputeLandscapeRoll(const FVector& LocationWorld, const
 	const FVector TraceEnd = TraceBase - Up * RayHalfLength;
 
 	FHitResult HitResult;
-	if (!World->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECollisionChannel::ECC_Visibility, LandscapeCollisionQueryParams))
-		return false;
+	bool bHit;
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE_STR("ComputeLandscapeRoll::LineTrace");
+		bHit = World->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECollisionChannel::ECC_Visibility, LandscapeCollisionQueryParams);
+	}
+	if (!bHit) return false;
 
 	if (HitResult.Normal.IsZero()) return false;
 
