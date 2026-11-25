@@ -35,12 +35,14 @@ void ALandscapePCGVolume::SetPositionAndBounds()
 		Bounds.Z = (MinMaxZ[1] - MinMaxZ[0]) / 2 + 10000000;
 	}
 
+	if (GetRootComponent()) GetRootComponent()->SetMobility(EComponentMobility::Movable);
 	SetActorLocation(Position);
 	SetActorScale3D(Bounds / 100);
 }
 
 void ALandscapePCGVolume::SetHugeBounds()
 {
+	if (GetRootComponent()) GetRootComponent()->SetMobility(EComponentMobility::Movable);
 	SetActorLocation(FVector::ZeroVector);
 	SetActorScale3D(FVector(HALF_WORLD_MAX / 200.0)); // half-extent ~ HALF_WORLD_MAX / 2, centered on the origin
 }
@@ -49,7 +51,9 @@ bool ALandscapePCGVolume::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUs
 {
 	if (!IsValid(PCGComponent)) return false;
 
-	return Concurrency::RunOnGameThreadAndWait([this]() {
+	TWeakObjectPtr<ALandscapePCGVolume> WeakThis(this);
+	return Concurrency::RunOnGameThreadAndWait([this, WeakThis]() {
+		if (!WeakThis.IsValid() || !IsValid(PCGComponent)) return false;
 		Modify();
 		SetPositionAndBounds();
 		PCGComponent->bActivated = true;

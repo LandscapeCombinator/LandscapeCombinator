@@ -5,4 +5,12 @@
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
 
-class FConcurrencyHelpersModule : public IModuleInterface {};
+class FConcurrencyHelpersModule : public IModuleInterface
+{
+public:
+	virtual void StartupModule() override;
+	virtual void ShutdownModule() override;
+
+private:
+	FDelegateHandle WorldTearDownHandle;
+};

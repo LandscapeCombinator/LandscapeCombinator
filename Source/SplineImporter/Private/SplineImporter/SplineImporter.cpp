@@ -606,14 +606,14 @@ bool ASplineImporter::AddRegularSpline(
 		}
 		else
 		{
-			UE_LOG(LogSplineImporter, Warning, TEXT("No collision for point %f, %f"), UEPoint.X, UEPoint.Y);
+			UE_LOG(LogSplineImporter, Log, TEXT("No collision for point %f, %f"), UEPoint.X, UEPoint.Y);
 		}
 	}
 
 	int NumSplinePoints = SplinePoints.Num();
 	if (NumSplinePoints < ExpectedNumPoints)
 	{
-		UE_LOG(LogSplineImporter, Warning, TEXT("Got only %d/%d spline points"), SplinePoints.Num(), ExpectedNumPoints);
+		UE_LOG(LogSplineImporter, Log, TEXT("Got only %d/%d spline points"), SplinePoints.Num(), ExpectedNumPoints);
 	}
 	if (SplinePoints.IsEmpty()) return false;
 	if (bIsLoop && SplinePoints.Num() < 3)

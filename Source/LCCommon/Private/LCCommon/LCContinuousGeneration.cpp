@@ -26,7 +26,7 @@ void ULCContinuousGeneration::StartContinuousGeneration()
 			{
 				if (WeakThis->bIsCurrentlyGenerating)
 				{
-					UE_LOG(LogLCCommon, Warning, TEXT("Skipping generation as it already in progress. Consider increasing the continuous generation delay."));
+					UE_LOG(LogLCCommon, Verbose, TEXT("Skipping generation as it already in progress."));
 					return;
 				}
 				WeakThis->bIsCurrentlyGenerating = true;
