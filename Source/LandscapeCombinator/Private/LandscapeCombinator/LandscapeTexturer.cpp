@@ -20,6 +20,15 @@
 
 #define LOCTEXT_NAMESPACE "FLandscapeCombinatorModule"
 
+static bool IsStillAlive(TWeakObjectPtr<ALandscapeTexturer> WeakThis, TWeakObjectPtr<UGlobalCoordinates> WeakCoordinates, bool bHasCoordinates)
+{
+	return Concurrency::RunOnGameThreadAndWait([WeakThis, WeakCoordinates, bHasCoordinates]() {
+		if (!WeakThis.IsValid() || (bHasCoordinates && !WeakCoordinates.IsValid())) return false;
+		const UWorld* World = WeakThis->GetWorld();
+		return IsValid(World) && !World->bIsTearingDown;
+	});
+}
+
 ALandscapeTexturer::ALandscapeTexturer()
 {
 	PrimaryActorTick.bCanEverTick = false;
@@ -46,9 +55,13 @@ bool ALandscapeTexturer::CreateDecals(TObjectPtr<UGlobalCoordinates> GlobalCoord
 {
 	Modify();
 
+	TWeakObjectPtr<ALandscapeTexturer> WeakThis(this);
+	const TWeakObjectPtr<UGlobalCoordinates> WeakCoordinates(GlobalCoordinates.Get());
+	const bool bHasCoordinates = GlobalCoordinates != nullptr;
+
 	if (bDeleteOldDecalsWhenCreatingDecals)
 	{
-		if (!Concurrency::RunOnGameThreadAndWait([this, bIsUserInitiated]() { return Execute_Cleanup(this, !bIsUserInitiated); }))
+		if (!Concurrency::RunOnGameThreadAndWait([WeakThis, bIsUserInitiated]() { return WeakThis.IsValid() && Execute_Cleanup(WeakThis.Get(), !bIsUserInitiated); }))
 		{
 			return false;
 		}
@@ -72,6 +85,7 @@ bool ALandscapeTexturer::CreateDecals(TObjectPtr<UGlobalCoordinates> GlobalCoord
 	TArray<FString> DownloadedImages;
 	FString ImageCRS;
 	if (!ImageDownloader->DownloadImages(bIsUserInitiated, false, GlobalCoordinates, DownloadedImages, ImageCRS)) return false;
+	if (!IsStillAlive(WeakThis, WeakCoordinates, bHasCoordinates)) return false;
 
 	if (bApplyToBodySphere && UGlobalCoordinates::IsSphere(GlobalCoordinates))
 	{
@@ -94,21 +108,33 @@ bool ALandscapeTexturer::CreateDecals(TObjectPtr<UGlobalCoordinates> GlobalCoord
 	}
 
 	ALevelCoordinates* Body = nullptr;
-	Concurrency::RunOnGameThreadAndWait([this, &Body]() { Body = ALevelCoordinates::GetBoundBody(this); return true; });
+	if (!Concurrency::RunOnGameThreadAndWait([WeakThis, &Body]() {
+		if (!WeakThis.IsValid()) return false;
+		Body = ALevelCoordinates::GetBoundBody(WeakThis.Get());
+		return true;
+	}))
+	{
+		return false;
+	}
 	TArray<ADecalActor*> NewDecals = UDecalCoordinates::CreateDecals(GetWorld(), DecalMaterial, DownloadedImages, Body);
 	DecalActors.Append(NewDecals);
 
-	Concurrency::RunOnGameThreadAndWait([this, &NewDecals, SpawnedActorsPathOverride](){
+	if (!Concurrency::RunOnGameThreadAndWait([WeakThis, &NewDecals, SpawnedActorsPathOverride](){
+		ALandscapeTexturer* Self = WeakThis.Get();
+		if (!IsValid(Self)) return false;
 		for (auto &DecalActor : NewDecals)
 		{
-			ALevelCoordinates::InheritBody(DecalActor, this);
+			ALevelCoordinates::InheritBody(DecalActor, Self);
 #if WITH_EDITOR
-			ULCBlueprintLibrary::SetFolderPath2(DecalActor, SpawnedActorsPathOverride, SpawnedActorsPath);
+			ULCBlueprintLibrary::SetFolderPath2(DecalActor, SpawnedActorsPathOverride, Self->SpawnedActorsPath);
 #endif
-			DecalActor->GetDecal()->SetSortOrder(DecalsSortOrder);
+			DecalActor->GetDecal()->SetSortOrder(Self->DecalsSortOrder);
 		}
 		return true;
-	});
+	}))
+	{
+		return false;
+	}
 
 	if (bIsUserInitiated)
 	{
@@ -164,8 +190,13 @@ bool ALandscapeTexturer::BindImagesToMaterialLayer(TObjectPtr<UGlobalCoordinates
 	const bool bSphere = GlobalCoordinates->IsSphere();
 	const FString KeyBase = GetActorInstanceGuid().ToString();
 
+	const TWeakObjectPtr<ALandscapeTexturer> WeakThis(this);
+	const TWeakObjectPtr<UGlobalCoordinates> WeakCoordinates(GlobalCoordinates.Get());
+
 	for (int32 i = 0; i < Images.Num(); i++)
 	{
+		if (!IsStillAlive(WeakThis, WeakCoordinates, true)) return false;
+
 		FVector4d Bounds, WorldBounds;
 		if (!UDecalCoordinates::ReprojectImage(Images[i], GlobalCoordinates, Bounds, WorldBounds)) return false;
 
