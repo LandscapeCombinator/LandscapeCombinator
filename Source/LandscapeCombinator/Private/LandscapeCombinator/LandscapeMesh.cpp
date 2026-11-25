@@ -743,6 +743,7 @@ bool ALandscapeMesh::RegenerateMesh(double SplitNormalsAngle, EGridSplitDirectio
 			}
 			Center /= LocalHeightmaps.Num();
 			const FVector NewLocation = GlobalCoordinates->ToWorld(Center.X, Center.Y);
+			if (WeakThis->GetWorld()->IsGameWorld()) WeakThis->MeshComponent->SetMobility(EComponentMobility::Movable);
 			WeakThis->SetActorLocationAndRotation(NewLocation, GlobalCoordinates->Alignment(NewLocation));
 		}
 		WorldToMesh = WeakThis->MeshComponent->GetComponentTransform().Inverse();

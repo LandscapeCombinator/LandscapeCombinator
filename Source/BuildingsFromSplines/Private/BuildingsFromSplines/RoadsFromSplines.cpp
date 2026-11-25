@@ -367,13 +367,18 @@ void ARoadsFromSplines::FillJunctionInterior(int32 JunctionNode, TArray<FVector>
 		FillComponent->bEnableComplexCollision = true;
 		FillComponent->SetComplexAsSimpleCollisionEnabled(true);
 		FillComponent->SetTangentsType(EDynamicMeshComponentTangentsMode::AutoCalculated);
+		FillComponent->SetRelativeLocationAndRotation(Pivot, Frame);
 		FillComponent->RegisterComponent();
 		AddInstanceComponent(FillComponent);
 		JunctionFillMeshComponents.Add(JunctionNode, FillComponent);
 	}
 
 	UDynamicMeshComponent* FillComponent = JunctionFillMeshComponents[JunctionNode];
-	FillComponent->SetRelativeLocationAndRotation(Pivot, Frame);
+	if (!FillComponent->GetRelativeLocation().Equals(Pivot) || !FillComponent->GetRelativeTransform().GetRotation().Equals(Frame))
+	{
+		if (GetWorld()->IsGameWorld()) FillComponent->SetMobility(EComponentMobility::Movable);
+		FillComponent->SetRelativeLocationAndRotation(Pivot, Frame);
+	}
 
 	TSharedPtr<TStrongObjectPtr<UDynamicMesh>, ESPMode::ThreadSafe> ScratchMesh(
 		new TStrongObjectPtr<UDynamicMesh>(NewObject<UDynamicMesh>()),

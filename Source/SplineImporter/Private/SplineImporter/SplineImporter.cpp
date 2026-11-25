@@ -123,13 +123,10 @@ bool ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 
 	for (auto &ActorOrLandscapeToPlaceSplines: ActorsOrLandscapesToPlaceSplines)
 	{
-		if (
-			!ActorOrLandscapeToPlaceSplines->GetRootComponent() ||
-			ActorOrLandscapeToPlaceSplines->GetRootComponent()->Mobility != EComponentMobility::Static
-		)
+		if (!ActorOrLandscapeToPlaceSplines->GetRootComponent())
 		{
 			LCReporter::ShowError(FText::Format(
-				LOCTEXT("ASplineImporter::GenerateSplines::NoStatic", "Please make sure that {0}'s mobility is set to static."),
+				LOCTEXT("ASplineImporter::GenerateSplines::NoRoot", "{0} has no root component."),
 				FText::FromString(ActorOrLandscapeToPlaceSplines->GetActorNameOrLabel())
 			));
 			
