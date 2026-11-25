@@ -431,6 +431,14 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(bool bIsUserInitiated, FString
 					bGeoreferenceSlippyTiles2 = true;
 					bMaxY_IsNorth2 = false;
 				}
+				else if (IsArcGISWorldElevationTiles())
+				{
+					Layer = TEXT("ArcGISWorldElevation3D");
+					Format = TEXT("lerc");
+					URL2 = TEXT("https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer/tile/{z}/{y}/{x}?blankTile=false");
+					bGeoreferenceSlippyTiles2 = true;
+					bMaxY_IsNorth2 = false;
+				}
 				else if (IsNextZen())
 				{
 					FString NextZenToken2 = GetNextZenToken();
@@ -477,6 +485,7 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(bool bIsUserInitiated, FString
 							ImageSourceKind == EImageSourceKind::AWS_TerrainTiles,
 							ImageSourceKind == EImageSourceKind::NextZen_Heightmaps ||
 							ImageSourceKind == EImageSourceKind::AWS_TerrainTiles,
+							ImageSourceKind == EImageSourceKind::ArcGIS_WorldElevationTiles,
 						XYZ_CRS
 					),
 					true
@@ -727,9 +736,14 @@ bool UImageDownloader::IsAWSTerrainTiles()
 	return ImageSourceKind == EImageSourceKind::AWS_TerrainTiles;
 }
 
+bool UImageDownloader::IsArcGISWorldElevationTiles() const
+{
+	return ImageSourceKind == EImageSourceKind::ArcGIS_WorldElevationTiles;
+}
+
 bool UImageDownloader::IsXYZ()
 {
-	return IsMapbox() || IsMapTiler() || IsNextZen() || IsAWSTerrainTiles() || ImageSourceKind == EImageSourceKind::GenericXYZ;
+	return IsMapbox() || IsMapTiler() || IsNextZen() || IsAWSTerrainTiles() || IsArcGISWorldElevationTiles()|| ImageSourceKind == EImageSourceKind::GenericXYZ;
 }
 
 bool UImageDownloader::HasMultipleLayers()
@@ -1220,6 +1234,7 @@ void UImageDownloader::OnImageSourceChanged(TFunction<void(bool)> OnComplete)
 			if (OnComplete) OnComplete(false);
 			return;
 		}
+		CapabilitiesURL.Empty();
 		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
 	}
 	else if (IsMapTiler())
@@ -1229,10 +1244,12 @@ void UImageDownloader::OnImageSourceChanged(TFunction<void(bool)> OnComplete)
 			if (OnComplete) OnComplete(false);
 			return;
 		}
+		CapabilitiesURL.Empty();
 		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
 	}
 	else
 	{
+		CapabilitiesURL.Empty();
 		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
 	}
 }

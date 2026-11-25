@@ -40,6 +40,7 @@ enum class EImageSourceKind : uint8
 	Mapbox_Satellite UMETA(DisplayName = "Mapbox Satellite"),
 	NextZen_Heightmaps UMETA(DisplayName = "NextZen Heightmaps"),
 	AWS_TerrainTiles UMETA(DisplayName = "AWS Terrain Tiles"),
+	ArcGIS_WorldElevationTiles UMETA(DisplayName = "ArcGIS World Elevation Tiles"),
 	GenericXYZ,
 
 	Napoli,
@@ -943,6 +944,9 @@ public:
 
 	UFUNCTION()
 	bool IsAWSTerrainTiles();
+
+	UFUNCTION()
+	bool IsArcGISWorldElevationTiles() const;
 
 protected:
 	void OnLayerChanged();

@@ -9,4 +9,5 @@ class MAPBOXHELPERS_API MapboxHelpers
 public:
 	static bool DecodeMapboxOneBand(FString InputFile, FString OutputFile, bool bUseTerrariumFormula, bool *bShowedDialog);
 	static bool DecodeMapboxThreeBands(FString InputFile, FString OutputFile, bool bUseTerrariumFormula, bool *bShowedDialog);
+	static bool DecodeLERC(const FString& InputFile, const FString& OutputFile, bool bAllowInvalidTiles, bool* bShowedDialog);
 };

@@ -14,6 +14,7 @@ public:
 		int Zoom0, int MinX0, int MaxX0, int MinY0, int MaxY0,
 		bool bMaxY_IsNorth0, bool bGeoreferenceSlippyTiles0, bool bDecodeMapbox0,
 		bool bUseTerrariumFormula0,
+		bool bDecodeLERC0,
 		FString CRS0)
 	{
 		Name = Name0;
@@ -30,6 +31,7 @@ public:
 		CRS = CRS0;
 		bDecodeMapbox = bDecodeMapbox0;
 		bUseTerrariumFormula = bUseTerrariumFormula0;
+		bDecodeLERC = bDecodeLERC0;
 		bAllowInvalidTiles = bAllowInvalidTiles0;
 		bEnableParallelDownload = bEnableParallelDownload0;
 	};
@@ -56,5 +58,6 @@ protected:
 	bool bGeoreferenceSlippyTiles;
 	bool bDecodeMapbox;
 	bool bUseTerrariumFormula;
+	bool bDecodeLERC;
 	FString CRS;
 };

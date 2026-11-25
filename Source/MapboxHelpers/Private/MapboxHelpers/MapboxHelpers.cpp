@@ -7,6 +7,14 @@
 #include "ConcurrencyHelpers/LCReporter.h"
 
 #include "Misc/MessageDialog.h"
+#include "Misc/FileHelper.h"
+#include "Misc/ScopeExit.h"
+#include "HAL/PlatformProcess.h"
+#if PLATFORM_WINDOWS
+#include "Windows/WindowsHWrapper.h"
+#elif PLATFORM_LINUX
+#include <dlfcn.h>
+#endif
 
 #define LOCTEXT_NAMESPACE "FMapboxHelpersModule"
 
@@ -414,6 +422,80 @@ bool MapboxHelpers::DecodeMapboxThreeBands(FString InputFile, FString OutputFile
 	}
 	
 	GDALClose(TIFDataset);
+	return true;
+}
+
+bool MapboxHelpers::DecodeLERC(const FString& InputFile, const FString& OutputFile, bool bAllowInvalidTiles, bool* BShowedDialog)
+{
+	const auto fail = [&](const FString& Message)
+	{
+		UE_LOG(LogMapboxHelpers, Error, TEXT("%s: %s"), *InputFile, *Message);
+		if (!bAllowInvalidTiles) LCReporter::ShowOneError(FText::FromString(Message), BShowedDialog);
+		return false;
+	};
+	TArray<uint8> Blob;
+	if (!FFileHelper::LoadFileToArray(Blob, *InputFile) || Blob.IsEmpty())
+	{
+		return fail(TEXT("Could not read the LERC tile."));
+	}
+	using FGetBlobInfo = unsigned int (*)(const unsigned char*, unsigned int, unsigned int*, double*, int, int);
+	using FDecode = unsigned int (*)(const unsigned char*, unsigned int, int, unsigned char*, int, int, int, int, unsigned int, void*);
+#if PLATFORM_WINDOWS
+	const HMODULE Library = ::GetModuleHandleW(L"Lerc.dll");
+	if (!Library) return fail(TEXT("Lerc.dll is not loaded by the plugin."));
+	const FGetBlobInfo GetBlobInfo = reinterpret_cast<FGetBlobInfo>(FPlatformProcess::GetDllExport(Library, TEXT("lerc_getBlobInfo")));
+	const FDecode Decode = reinterpret_cast<FDecode>(FPlatformProcess::GetDllExport(Library, TEXT("lerc_decode")));
+#elif PLATFORM_LINUX
+	const FGetBlobInfo GetBlobInfo = reinterpret_cast<FGetBlobInfo>(dlsym(RTLD_DEFAULT, "lerc_getBlobInfo"));
+	const FDecode Decode = reinterpret_cast<FDecode>(dlsym(RTLD_DEFAULT, "lerc_decode"));
+#else
+	return fail(TEXT("LERC decoding is not supported on this platform."));
+#endif
+	if (!GetBlobInfo || !Decode) return fail(TEXT("The loaded LERC library is missing decoder entry points."));
+
+	unsigned int Info[11] = {};
+	double Ranges[3] = {};
+	if (GetBlobInfo(Blob.GetData(), Blob.Num(), Info, Ranges, 11, 3) != 0)
+	{
+		return fail(TEXT("Invalid or truncated LERC tile."));
+	}
+	// Terrain3D stores 257 vertex samples over 256 cells, in one Float32 band.
+	if (Info[1] != 6 || Info[2] != 1 || Info[3] != 257 || Info[4] != 257 || Info[5] != 1 || Info[8] > 1 || Info[10] != 0)
+	{
+		return fail(TEXT("Expected a single-band 257 x 257 Float32 Terrain3D tile."));
+	}
+	if (Info[6] == 0) return fail(TEXT("The elevation tile contains only NoData."));
+	constexpr int Size = 257;
+	TArray<float> Heights;
+	Heights.SetNumUninitialized(Size * Size);
+	TArray<uint8> Valid;
+	Valid.Init(1, Size * Size);
+	if (Decode(Blob.GetData(), Blob.Num(), Info[8], Info[8] ? Valid.GetData() : nullptr,
+		1, Size, Size, 1, 6, Heights.GetData()) != 0)
+	{
+		return fail(TEXT("LERC elevation decoding failed."));
+	}
+	constexpr float NoData = -3.402823466e+38F;
+	int ValidCount = 0;
+	for (int Index = 0; Index < Heights.Num(); ++Index)
+	{
+		if (!Valid[Index] || !FMath::IsFinite(Heights[Index])) Heights[Index] = NoData;
+		else ++ValidCount;
+	}
+	if (ValidCount == 0) return fail(TEXT("The tile contains no finite valid elevation values."));
+
+	GDALDriver* Driver = GetGDALDriverManager()->GetDriverByName("GTiff");
+	GDALDataset* Dataset = Driver ? Driver->Create(TCHAR_TO_UTF8(*OutputFile), Size, Size, 1, GDT_Float32, nullptr) : nullptr;
+	if (!Dataset) return fail(TEXT("Could not create the decoded Float32 TIFF."));
+	ON_SCOPE_EXIT { GDALClose(Dataset); };
+	GDALRasterBand* Band = Dataset->GetRasterBand(1);
+	// A separate NoData value keeps valid sea-level zero samples intact.
+	if (Band->SetNoDataValue(NoData) != CE_None ||
+		Band->RasterIO(GF_Write, 0, 0, Size, Size, Heights.GetData(), Size, Size, GDT_Float32, 0, 0) != CE_None ||
+		Dataset->FlushCache() != CE_None)
+	{
+		return fail(TEXT("Could not write the decoded elevation TIFF."));
+	}
 	return true;
 }
 
