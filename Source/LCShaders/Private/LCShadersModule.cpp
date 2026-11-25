@@ -2,12 +2,15 @@
 
 #include "LCShadersModule.h"
 
+#include "HAL/PlatformProperties.h"
 #include "Interfaces/IPluginManager.h"
 #include "Misc/Paths.h"
 #include "ShaderCore.h"
 
 void FLCShadersModule::StartupModule()
 {
+	if (FPlatformProperties::RequiresCookedData()) return;
+
 	TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(TEXT("LandscapeCombinator"));
 	if (!Plugin.IsValid()) return;
 
