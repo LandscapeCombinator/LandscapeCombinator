@@ -1213,22 +1213,25 @@ void UImageDownloader::OnImageSourceChanged(TFunction<void(bool)> OnComplete)
 		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
 		OGC_X_IsLong = true;
 	}
-	else if (IsMapbox())
+	else if (IsXYZ())
 	{
-		if (!ShowMapboxFreeTierWarning())
+		if (IsMapbox())
 		{
-			if (OnComplete) OnComplete(false);
-			return;
+			if (!ShowMapboxFreeTierWarning())
+			{
+				if (OnComplete) OnComplete(false);
+				return;
+			}
 		}
-		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
-	}
-	else if (IsMapTiler())
-	{
-		if (!ShowMapTilerFreeTierWarning())
+		else if (IsMapTiler())
 		{
-			if (OnComplete) OnComplete(false);
-			return;
+			if (!ShowMapTilerFreeTierWarning())
+			{
+				if (OnComplete) OnComplete(false);
+				return;
+			}
 		}
+		CapabilitiesURL.Empty();
 		ResetOGCProvider(TArray<FString>(), nullptr, OnComplete);
 	}
 	else
