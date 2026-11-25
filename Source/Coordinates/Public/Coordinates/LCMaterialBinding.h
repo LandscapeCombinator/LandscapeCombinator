@@ -76,6 +76,10 @@ public:
 		UTexture* Texture, const FVector2D& BoundsMin, const FVector2D& BoundsMax, bool bMask = false
 	);
 
+	/* Key identifying Owner as a binding source: its instance GUID in the editor, its name in builds without actor GUIDs
+	 * (AActor::GetActorInstanceGuid only exists in the editor) */
+	static FString GetSourceKeyOf(const AActor* Owner);
+
 	static void RemoveSource(AActor* Target, const FString& SourceKey);
 
 	static void RemoveSourcesWithPrefix(AActor* Target, const FString& KeyPrefix);

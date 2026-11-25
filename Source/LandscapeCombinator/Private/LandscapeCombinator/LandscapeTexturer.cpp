@@ -42,7 +42,7 @@ void ALandscapeTexturer::RemoveMaterialBindings()
 {
 	Concurrency::RunOnGameThreadAndWait([this]()
 	{
-		const FString KeyPrefix = GetActorInstanceGuid().ToString() + TEXT("_");
+		const FString KeyPrefix = ULCMaterialBinding::GetSourceKeyOf(this) + TEXT("_");
 		for (AActor* Target : MaterialTargetSelection.GetAllActors(GetWorld(), false))
 		{
 			ULCMaterialBinding::RemoveSourcesWithPrefix(Target, KeyPrefix);
@@ -188,7 +188,7 @@ bool ALandscapeTexturer::BindImagesToMaterialLayer(TObjectPtr<UGlobalCoordinates
 	});
 
 	const bool bSphere = GlobalCoordinates->IsSphere();
-	const FString KeyBase = GetActorInstanceGuid().ToString();
+	const FString KeyBase = ULCMaterialBinding::GetSourceKeyOf(this);
 
 	const TWeakObjectPtr<ALandscapeTexturer> WeakThis(this);
 	const TWeakObjectPtr<UGlobalCoordinates> WeakCoordinates(GlobalCoordinates.Get());

@@ -609,7 +609,7 @@ bool AOGRGeometry::ApplyMaskToMaterial()
 		AActor* Target = BoundingActorSelection.GetActor(GetWorld());
 		if (!IsValid(Target)) return false;
 
-		return ULCMaterialBinding::BindTexture(Target, GetActorInstanceGuid().ToString(), MaskLayerName, Texture, MaskWorldBoundsMin, MaskWorldBoundsMax, /*bMask=*/true);
+		return ULCMaterialBinding::BindTexture(Target, ULCMaterialBinding::GetSourceKeyOf(this), MaskLayerName, Texture, MaskWorldBoundsMin, MaskWorldBoundsMax, /*bMask=*/true);
 	});
 #else
 	return false;
@@ -631,7 +631,7 @@ void AOGRGeometry::RemoveMaskBinding()
 	Concurrency::RunOnGameThreadAndWait([this]()
 	{
 		AActor* Target = BoundingActorSelection.GetActor(GetWorld());
-		if (IsValid(Target)) ULCMaterialBinding::RemoveSource(Target, GetActorInstanceGuid().ToString());
+		if (IsValid(Target)) ULCMaterialBinding::RemoveSource(Target, ULCMaterialBinding::GetSourceKeyOf(this));
 		return true;
 	});
 }

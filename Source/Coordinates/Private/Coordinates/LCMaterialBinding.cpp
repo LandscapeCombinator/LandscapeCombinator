@@ -82,6 +82,16 @@ bool ULCMaterialBinding::BindTexture(
 	return bResult;
 }
 
+FString ULCMaterialBinding::GetSourceKeyOf(const AActor* Owner)
+{
+	if (!IsValid(Owner)) return FString();
+#if WITH_EDITOR
+	return Owner->GetActorInstanceGuid().ToString();
+#else
+	return Owner->GetName();
+#endif
+}
+
 void ULCMaterialBinding::RemoveSource(AActor* Target, const FString& SourceKey)
 {
 	TWeakObjectPtr<AActor> WeakTarget(Target);
