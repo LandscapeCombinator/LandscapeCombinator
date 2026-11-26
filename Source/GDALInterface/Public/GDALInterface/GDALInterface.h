@@ -50,12 +50,12 @@ public:
 	static bool ConvertToPNG(FString SourceFile, FString TargetFile, int MinAltitude, int MaxAltitude, int PrecisionPercent, bool bHideNoDataFlag);
 	static bool ConvertToPNG(FString SourceFile, FString TargetFile, bool bHideNoDataFlag);
 	static bool ChangeResolution(FString SourceFile, FString TargetFile, int PrecisionPercent, FString ResamplingMethod);
-	static bool Translate(FString SourceFile, FString TargetFile, TArray<FString> Args);
+	static bool Translate(FString SourceFile, FString TargetFile, TArray<FString> Args, TArray<FString> OpenOptions = {});
 	static bool Warp(FString SourceFile, FString TargetFile, FString InCRS, FString OutCRS, bool bCrop, int NoData);
 	static bool Warp(TArray<FString> SourceFiles, FString TargetFolder, FString InCRS, FString OutCRS, bool bCrop, int NoData);
 	static bool Warp(FString SourceFile, FString TargetFile, TArray<FString> Args);
 	static bool Merge(TArray<FString> SourceFiles, FString TargetFile);
-	static bool AddGeoreference(FString InputFile, FString OutputFile, FString CRS, double MinLong, double MaxLong, double MinLat, double MaxLat);
+	static bool AddGeoreference(FString InputFile, FString OutputFile, FString CRS, double MinLong, double MaxLong, double MinLat, double MaxLat, TArray<FString> OpenOptions = {});
 	static FString GetColorInterpretation(const FString &File);
 
 	static bool ReadColorsFromFile(FString File, int &OutWidth, int &OutHeight, TArray<FColor> &OutColors);

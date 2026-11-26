@@ -102,7 +102,7 @@ bool GDALInterface::SetCRSFromDataset(OGRSpatialReference& InRs, GDALDataset* Da
 	return true;
 }
 
-bool GDALInterface::AddGeoreference(FString InputFile, FString OutputFile, FString CRS, double MinLong, double MaxLong, double MinLat, double MaxLat)
+bool GDALInterface::AddGeoreference(FString InputFile, FString OutputFile, FString CRS, double MinLong, double MaxLong, double MinLat, double MaxLat, TArray<FString> OpenOptions)
 {
 	FString TempFile = FPaths::Combine(FPaths::GetPath(InputFile), FPaths::GetBaseFilename(InputFile) + "-Temp.tif");
 
@@ -123,7 +123,7 @@ bool GDALInterface::AddGeoreference(FString InputFile, FString OutputFile, FStri
 			FString::SanitizeFloat(MaxLat),
 			FString::SanitizeFloat(MaxLong),
 			FString::SanitizeFloat(MinLat)
-		});
+		}, OpenOptions);
 
 	if (!bTranslateSuccess)
 	{
@@ -625,10 +625,16 @@ bool GDALInterface::ChangeResolution(FString SourceFile, FString TargetFile, int
 	return Translate(SourceFile, TargetFile, Args);
 }
 
-bool GDALInterface::Translate(FString SourceFile, FString TargetFile, TArray<FString> Args)
+bool GDALInterface::Translate(FString SourceFile, FString TargetFile, TArray<FString> Args, TArray<FString> OpenOptions)
 {
 	UE_LOG(LogGDALInterface, Log, TEXT("Opening SourceFile: '%s'"), *SourceFile);
-	GDALDatasetH SourceDataset = GDALOpen(TCHAR_TO_ANSI(*SourceFile), (GDALAccess) 0);
+	char** OpenOptionsArgv = nullptr;
+	for (const FString& OpenOption : OpenOptions)
+	{
+		OpenOptionsArgv = CSLAddString(OpenOptionsArgv, TCHAR_TO_UTF8(*OpenOption));
+	}
+	GDALDatasetH SourceDataset = GDALOpenEx(TCHAR_TO_UTF8(*SourceFile), GDAL_OF_RASTER | GDAL_OF_READONLY, nullptr, OpenOptionsArgv, nullptr);
+	CSLDestroy(OpenOptionsArgv);
 
 	if (!SourceDataset)
 	{
