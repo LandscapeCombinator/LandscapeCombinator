@@ -139,6 +139,12 @@ public:
 	UFUNCTION(CallInEditor, BlueprintCallable, Category = "LevelCoordinates")
 	void CreateWorldMap();
 
+	UPROPERTY(EditAnywhere, Category = "LevelCoordinates | Sun", meta = (EditCondition = "IsSphereModel()", EditConditionHides))
+	FDateTime SunTimeUtc = FDateTime(2026, 6, 21, 12);
+
+	UFUNCTION(CallInEditor, BlueprintCallable, Category = "LevelCoordinates")
+	void MatchSunToTime();
+
 protected:
 	FTSTicker::FDelegateHandle ViewportTickHandle;
 	TMap<void*, FVector> ViewportLastLocations;

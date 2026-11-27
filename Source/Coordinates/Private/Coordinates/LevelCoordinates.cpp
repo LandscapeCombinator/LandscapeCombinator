@@ -11,6 +11,8 @@
 #include "Coordinates/BodyNavigation.h"
 #include "Components/SceneComponent.h"
 #include "Components/SkyAtmosphereComponent.h"
+#include "Components/LightComponent.h"
+#include "Engine/DirectionalLight.h"
 #include "Misc/EngineVersionComparison.h"
 #include "EngineUtils.h"
 #if WITH_EDITOR
@@ -218,6 +220,33 @@ bool ALevelCoordinates::GetCRSCoordinatesFromOriginExtent(UWorld* World, FVector
 	if (!GlobalCoordinates) return false;
 	
 	return GlobalCoordinates->GetCRSCoordinatesFromOriginExtent(Origin, Extent, ToCRS, OutCoordinates);
+}
+
+void ALevelCoordinates::MatchSunToTime()
+{
+	UWorld* World = GetWorld();
+	if (!IsValid(World) || !IsValid(GlobalCoordinates) || !GlobalCoordinates->IsSphere()) return;
+
+	const double N = SunTimeUtc.GetJulianDay() - 2451545.0;
+	const double G = FMath::DegreesToRadians(357.528 + 0.9856003 * N);
+	const double Lambda = FMath::DegreesToRadians(280.460 + 0.9856474 * N + 1.915 * FMath::Sin(G));
+	const double Epsilon = FMath::DegreesToRadians(23.439);
+	const double Latitude = FMath::RadiansToDegrees(FMath::Asin(FMath::Sin(Epsilon) * FMath::Sin(Lambda)));
+	const double RightAscension = FMath::RadiansToDegrees(FMath::Atan2(FMath::Cos(Epsilon) * FMath::Sin(Lambda), FMath::Cos(Lambda)));
+	const double Longitude = FRotator::NormalizeAxis(RightAscension - (280.46061837 + 360.98564736629 * N));
+	const FVector Direction = (GlobalCoordinates->ToWorld(Longitude, Latitude) - GlobalCoordinates->SphereCenter()).GetSafeNormal();
+
+	for (TActorIterator<ADirectionalLight> It(World); It; ++It)
+	{
+		const ULightComponent* Light = It->GetLightComponent();
+		if (!IsValid(Light) || !Light->IsUsedAsAtmosphereSunLight() || Light->GetAtmosphereSunLightIndex() != 0) continue;
+
+		ALevelCoordinates* LightBody = GetBoundBody(*It);
+		if (LightBody && LightBody != this) continue;
+
+		It->Modify();
+		It->SetActorRotation((-Direction).Rotation());
+	}
 }
 
 void ALevelCoordinates::MatchSkyAtmosphereToBody()
