@@ -120,6 +120,8 @@ void ALCPawn::ScaleSpeed(float Factor)
 	UFloatingPawnMovement* Movement = Cast<UFloatingPawnMovement>(GetMovementComponent());
 	if (!Movement) return;
 	Movement->MaxSpeed *= Factor;
+	Movement->Acceleration *= Factor;
+	Movement->Deceleration *= Factor;
 }
 
 void ALCPawn::SpeedUp() { ScaleSpeed(1.4f); }
