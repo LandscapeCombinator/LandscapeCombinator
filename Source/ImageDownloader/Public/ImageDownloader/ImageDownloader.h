@@ -939,6 +939,9 @@ public:
 	UFUNCTION()
 	bool CanAutoSetResolution();
 
+	/** True if the WMS or WCS download uses the highest resolution allowed by the maximum tile size */
+	bool UsesMaxOGCResolution();
+
 	UFUNCTION()
 	void AutoSetResolution();
 

@@ -133,7 +133,6 @@ bool UImageDownloader::ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY,
 			GridCoordinates = FVector4d(MinLong3857, MaxLong3857, MinLat3857, MaxLat3857);
 		}
 		FVector4d CoordinatesOGC;
-		const double PaddingUnits = OGC_ResolutionPixelsPerUnit > 0 ? PaddingPx / OGC_ResolutionPixelsPerUnit : 0;
 
 		if (!GDALInterface::ConvertCoordinates(GridCoordinates, /*bCrop=*/false, CoordinatesOGC, GridCRS, OGC_CRS))
 		{
@@ -152,6 +151,14 @@ bool UImageDownloader::ConfigureForTiles(int Zoom, int MinX, int MaxX, int MinY,
 		// The 3857 -> layer CRS conversion can return the antimeridian with the wrong sign (+180 for the west edge, -180 for the east edge)
 		if (CoordinatesOGC[0] > CoordinatesOGC[1] && CoordinatesOGC[0] >= 179.999) CoordinatesOGC[0] -= 360;
 		if (CoordinatesOGC[0] >= CoordinatesOGC[1] && CoordinatesOGC[1] <= -179.999) CoordinatesOGC[1] += 360;
+
+		// With the max resolution, the padded tile fills the max tile size: the padding is taken out of it
+		const double ExtentLong = CoordinatesOGC[1] - CoordinatesOGC[0];
+		const double ExtentLat = CoordinatesOGC[3] - CoordinatesOGC[2];
+		const double Resolution = UsesMaxOGCResolution() ?
+			FMath::Min((OGC_MaxTileWidth - 2 * PaddingPx) / ExtentLong, (OGC_MaxTileHeight - 2 * PaddingPx) / ExtentLat) :
+			OGC_ResolutionPixelsPerUnit;
+		const double PaddingUnits = Resolution > 0 ? PaddingPx / Resolution : 0;
 
 		OGC_MinLong = CoordinatesOGC[0] - PaddingUnits;
 		OGC_MaxLong = CoordinatesOGC[1] + PaddingUnits;
@@ -317,7 +324,7 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(bool bIsUserInitiated, FString
 					AllowedMinLong, AllowedMaxLong, AllowedMinLat, AllowedMaxLat,
 					OGC_MinLong, OGC_MaxLong, OGC_MinLat, OGC_MaxLat,
 					bOGCSingleTile, OGC_ResolutionPixelsPerUnit,
-					bOGCSingleTile && bOGC_MaxResolution && (!CanAutoSetResolution() || !bAutoSetResolution)
+					UsesMaxOGCResolution()
 				);
 
 				if (!OGCFetcher) return nullptr;
@@ -759,6 +766,11 @@ bool UImageDownloader::AllowsParametersSelection()
 bool UImageDownloader::CanAutoSetResolution()
 {
 	return ImageSourceKind == EImageSourceKind::IGN;
+}
+
+bool UImageDownloader::UsesMaxOGCResolution()
+{
+	return bOGCSingleTile && bOGC_MaxResolution && (!CanAutoSetResolution() || !bAutoSetResolution);
 }
 
 void UImageDownloader::AutoSetResolution()
