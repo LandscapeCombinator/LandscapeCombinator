@@ -309,6 +309,7 @@ HMFetcher* UImageDownloader::CreateInitialFetcher(bool bIsUserInitiated, FString
 				double AllowedMinLong = OGC_MinAllowedLong, AllowedMaxLong = OGC_MaxAllowedLong, AllowedMinLat = OGC_MinAllowedLat, AllowedMaxLat = OGC_MaxAllowedLat;
 				AllowedBoundsInLayerCRS(OGC_Provider, OGC_Name, OGC_CRS, AllowedMinLong, AllowedMaxLong, AllowedMinLat, AllowedMaxLat);
 
+				OGC_Provider.bTransparent = bOGCTransparent;
 				HMFetcher *OGCFetcher = new HMOGC(
 					OGC_Provider, bEnableOGCParallelDownload,
 					OGC_MaxTileWidth, OGC_MaxTileHeight,

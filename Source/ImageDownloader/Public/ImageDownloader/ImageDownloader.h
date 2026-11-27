@@ -442,6 +442,16 @@ public:
 		EditAnywhere, BlueprintReadWrite, Category = "Source",
 		meta = (
 			EditCondition = "IsOGC()",
+			EditConditionHides, DisplayPriority = "34"
+		)
+	)
+	/* WMS only: ask for transparent pixels where the layer has no data (adds TRANSPARENT=TRUE to the GetMap request). */
+	bool bOGCTransparent = false;
+
+	UPROPERTY(AdvancedDisplay,
+		EditAnywhere, BlueprintReadWrite, Category = "Source",
+		meta = (
+			EditCondition = "IsOGC()",
 			EditConditionHides, DisplayPriority = "40"
 		)
 	)

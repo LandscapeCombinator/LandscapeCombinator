@@ -35,7 +35,7 @@ bool HMOGC::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 	int NumTilesY = FMath::CeilToInt((OGC_MaxLat - OGC_MinLat) / (OGC_MaxTileHeight / OGC_ResolutionPixelsPerUnit));
 
 	const uint32 Hash = FTextLocalizationResource::HashString(
-		OGC_Name + OGC_CRS +
+		OGC_Name + OGC_CRS + (OGC_Provider.bTransparent ? TEXT("T") : TEXT("")) +
 		FString::SanitizeFloat(OGC_MinLong) + FString::SanitizeFloat(OGC_MaxLong) +
 		FString::SanitizeFloat(OGC_MinLat) + FString::SanitizeFloat(OGC_MaxLat) +
 		FString::SanitizeFloat(OGC_ResolutionPixelsPerUnit) +

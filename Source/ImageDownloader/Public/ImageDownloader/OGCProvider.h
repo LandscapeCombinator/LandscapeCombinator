@@ -33,6 +33,9 @@ public:
 	/** "WMS" or "WCS" */
 	FString ServiceName() const;
 
+	/** WMS only: adds TRANSPARENT=TRUE to the GetMap requests, so pixels without data are transparent (set by the downloader) */
+	bool bTransparent = false;
+
 	bool CreateURL(
 		int Width, int Height, FString Name, FString CRS, bool XIsLong,
 		double MinAllowedLong, double MaxAllowedLong, double MinAllowedLat, double MaxAllowedLat,

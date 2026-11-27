@@ -502,6 +502,8 @@ bool FOGCProvider::CreateURL(
 		);
 	}
 
+	if (bTransparent) URL += TEXT("&TRANSPARENT=TRUE");
+
 	return true;
 }
 
