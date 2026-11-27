@@ -13,4 +13,5 @@ public:
 
 private:
 	FDelegateHandle WorldTearDownHandle;
+	FDelegateHandle WorldInitHandle;
 };

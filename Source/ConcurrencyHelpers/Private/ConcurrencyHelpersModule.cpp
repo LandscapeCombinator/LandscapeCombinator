@@ -13,11 +13,20 @@ void FConcurrencyHelpersModule::StartupModule()
 			Concurrency::SetCancelRequested(true);
 		}
 	});
+
+	WorldInitHandle = FWorldDelegates::OnPostWorldInitialization.AddLambda([](UWorld* World, const UWorld::InitializationValues)
+	{
+		if (IsValid(World) && (World->IsGameWorld() || World->WorldType == EWorldType::Editor))
+		{
+			Concurrency::SetCancelRequested(false);
+		}
+	});
 }
 
 void FConcurrencyHelpersModule::ShutdownModule()
 {
 	FWorldDelegates::OnWorldBeginTearDown.Remove(WorldTearDownHandle);
+	FWorldDelegates::OnPostWorldInitialization.Remove(WorldInitHandle);
 }
 
 IMPLEMENT_MODULE(FConcurrencyHelpersModule, ConcurrencyHelpers)
