@@ -72,7 +72,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta = (ToolTip = "Use a longitude/latitude tile grid that reaches the poles, instead of Web Mercator. Supported for WMS, and for XYZ sources with Georeference Slippy Tiles enabled."))
 	bool bGeodeticTiles = false;
 
-	UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta = (ClampMin = "0", ToolTip = "With the Sphere body model, skip the generation while the player is higher than this above the body, in km. 0 means no limit."))
+	UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta = (ClampMin = "0", ToolTip = "Skip the generation while the player is lower than this altitude, in km."))
+	double MinGenerationAltitudeKm = 0;
+
+	UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta = (ClampMin = "0", ToolTip = "Skip the generation while the player is higher than this altitude, in km."))
 	double MaxGenerationAltitudeKm = 0;
 
 	UPROPERTY()

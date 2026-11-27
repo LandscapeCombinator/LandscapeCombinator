@@ -55,7 +55,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 	TWeakObjectPtr<ULCPositionBasedGeneration> WeakPBG;
 	bool bGroupFirstTiles = false;
 	int Zoom = 0, TileDist = 0;
-	double MaxAltitudeCm = 0;
+	double MinAltitudeCm = 0, MaxAltitudeCm = 0;
 	TSet<FTile> AlreadyGenerated;
 
 	if (Concurrency::RunOnGameThreadAndWait([&]() {
@@ -66,6 +66,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 		Zoom = PBG->ZoomLevel;
 		TileDist = PBG->GenerateAllTilesAtDistance;
 		MaxAltitudeCm = PBG->MaxGenerationAltitudeKm * 100000.0;
+		MinAltitudeCm = PBG->MinGenerationAltitudeKm * 100000.0;
 		bGeodeticTiles = PBG->bGeodeticTiles;
 		AlreadyGenerated = PBG->GeneratedTiles;
 		return true;
@@ -92,21 +93,22 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 			return false;
 		}
 
+		double AltCm = Position.Z;
 		if (GlobalCoordinates->IsSphere())
 		{
-			double AltCm;
 			GlobalCoordinates->FromWorld(Position, Coordinates.X, Coordinates.Y, AltCm);
-			if (MaxAltitudeCm > 0 && AltCm > MaxAltitudeCm)
-			{
-				CurrentStatus = EGeneratorStatus::Idle;
-				return true;
-			}
 			Coordinates.X = FMath::Fmod(FMath::Fmod(Coordinates.X + 180.0, 360.0) + 360.0, 360.0) - 180.0;
 		}
 		else if (!GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(Location2D, "EPSG:4326", Coordinates))
 		{
 			CurrentStatus = FailedStatus();
 			return false;
+		}
+
+		if ((MaxAltitudeCm > 0 && AltCm > MaxAltitudeCm) || (MinAltitudeCm > 0 && AltCm < MinAltitudeCm))
+		{
+			CurrentStatus = EGeneratorStatus::Idle;
+			return true;
 		}
 
 		double n = 1 << Zoom;
