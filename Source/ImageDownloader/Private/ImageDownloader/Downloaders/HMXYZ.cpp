@@ -166,7 +166,12 @@ bool HMXYZ::OnFetch(FString InputCRS, TArray<FString> InputFiles)
 				GDALInterface::XYZTileToEPSG3857(X+1, Y+1, Zoom, MaxLong, MinLat);
 
 				FString OutputFile = FPaths::Combine(OutputDir, FileName + ".tif");
-				if (!GDALInterface::AddGeoreference(DecodedFile, OutputFile, "EPSG:3857", MinLong, MaxLong, MinLat, MaxLat)) return bAllowInvalidTiles;
+				TArray<FString> OpenOptions;
+				if (Format.Equals(TEXT("lerc1"), ESearchCase::IgnoreCase))
+				{
+					OpenOptions.Add(TEXT("DATATYPE=FLOAT32"));
+				}
+				if (!GDALInterface::AddGeoreference(DecodedFile, OutputFile, "EPSG:3857", MinLong, MaxLong, MinLat, MaxLat, OpenOptions)) return bAllowInvalidTiles;
 
 				UE_LOG(LogImageDownloader, Log, TEXT("Adding file: %s"), *OutputFile);
 				OutputFilesQueue.Enqueue(OutputFile);
