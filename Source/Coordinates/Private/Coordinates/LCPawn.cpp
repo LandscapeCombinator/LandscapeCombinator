@@ -12,6 +12,12 @@
 #include "GameFramework/PlayerController.h"
 #include "InputCoreTypes.h"
 #include "Kismet/GameplayStatics.h"
+#include "Engine/LocalPlayer.h"
+#include "EnhancedInputComponent.h"
+#include "EnhancedInputSubsystems.h"
+#include "InputAction.h"
+#include "InputMappingContext.h"
+#include "InputModifiers.h"
 
 ALCPawn::ALCPawn(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -102,17 +108,53 @@ void ALCPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-	PlayerInputComponent->BindAxisKey(EKeys::W, this, &ADefaultPawn::MoveForward);
-	PlayerInputComponent->BindAxisKey(EKeys::Z, this, &ADefaultPawn::MoveForward);
-	PlayerInputComponent->BindAxisKey(EKeys::S, this, &ALCPawn::MoveBack);
-	PlayerInputComponent->BindAxisKey(EKeys::D, this, &ADefaultPawn::MoveRight);
-	PlayerInputComponent->BindAxisKey(EKeys::A, this, &ALCPawn::KeyA);
-	PlayerInputComponent->BindAxisKey(EKeys::Q, this, &ALCPawn::KeyQ);
-	PlayerInputComponent->BindAxisKey(EKeys::E, this, &ALCPawn::MoveUp_World);
-	PlayerInputComponent->BindAxisKey(EKeys::MouseX, this, &APawn::AddControllerYawInput);
-	PlayerInputComponent->BindAxisKey(EKeys::MouseY, this, &ALCPawn::LookUp);
 	PlayerInputComponent->BindKey(EKeys::MouseScrollUp, IE_Pressed, this, &ALCPawn::SpeedUp);
 	PlayerInputComponent->BindKey(EKeys::MouseScrollDown, IE_Pressed, this, &ALCPawn::SpeedDown);
+
+	UEnhancedInputComponent* Input = Cast<UEnhancedInputComponent>(PlayerInputComponent);
+	const APlayerController* PC = Cast<APlayerController>(GetController());
+	if (!Input || !PC) return;
+
+	UInputMappingContext* Context = NewObject<UInputMappingContext>(this);
+
+	auto MakeAxis = [&](TFunction<void(float)> Handler)
+	{
+		UInputAction* Action = NewObject<UInputAction>(this);
+		Action->ValueType = EInputActionValueType::Axis1D;
+		Input->BindActionValueLambda(Action, ETriggerEvent::Triggered, [Handler](const FInputActionValue& Value) { Handler(Value.Get<float>()); });
+		return Action;
+	};
+
+	auto Map = [Context](UInputAction* Action, FKey Key, bool bNegate)
+	{
+		FEnhancedActionKeyMapping& Mapping = Context->MapKey(Action, Key);
+		if (bNegate) Mapping.Modifiers.Add(NewObject<UInputModifierNegate>(Context));
+	};
+
+	UInputAction* Forward = MakeAxis([this](float Value) { MoveForward(Value); });
+	UInputAction* Right = MakeAxis([this](float Value) { MoveRight(Value); });
+	UInputAction* Up = MakeAxis([this](float Value) { MoveUp_World(Value); });
+
+	const FKey Left = bAzerty ? EKeys::Q : EKeys::A;
+	const FKey Down = bAzerty ? EKeys::A : EKeys::Q;
+	Map(Forward, bAzerty ? EKeys::Z : EKeys::W, false);
+	Map(Forward, EKeys::S, true);
+	Map(Right, EKeys::D, false);
+	Map(Right, Left, true);
+	Map(Up, EKeys::E, false);
+	Map(Up, Down, true);
+
+	UInputAction* Look = NewObject<UInputAction>(this);
+	Look->ValueType = EInputActionValueType::Axis2D;
+	Context->MapKey(Look, EKeys::Mouse2D);
+	Input->BindActionValueLambda(Look, ETriggerEvent::Triggered, [this](const FInputActionValue& Value)
+	{
+		const FVector2D Delta = Value.Get<FVector2D>();
+		AddControllerYawInput(Delta.X);
+		AddControllerPitchInput(-Delta.Y);
+	});
+
+	ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer())->AddMappingContext(Context, 0);
 }
 
 void ALCPawn::ScaleSpeed(float Factor)
@@ -126,17 +168,3 @@ void ALCPawn::ScaleSpeed(float Factor)
 
 void ALCPawn::SpeedUp() { ScaleSpeed(1.4f); }
 void ALCPawn::SpeedDown() { ScaleSpeed(1.f / 1.4f); }
-void ALCPawn::LookUp(float Value) { AddControllerPitchInput(-Value); }
-void ALCPawn::MoveBack(float Value) { MoveForward(-Value); }
-
-void ALCPawn::KeyA(float Value)
-{
-	if (bAzerty) MoveUp_World(-Value);
-	else MoveRight(-Value);
-}
-
-void ALCPawn::KeyQ(float Value)
-{
-	if (bAzerty) MoveRight(-Value);
-	else MoveUp_World(-Value);
-}

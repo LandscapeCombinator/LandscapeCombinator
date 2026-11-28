@@ -6,6 +6,7 @@ public class Coordinates : ModuleRules
 {
 	public Coordinates(ReadOnlyTargetRules Target) : base(Target)
 	{
+		PrivateDependencyModuleNames.Add("EnhancedInput");
 		CppStandard = CppStandardVersion.Cpp20;
 #if UE_5_8_OR_LATER
 		CppCompileWarningSettings.UnreachableCodeWarningLevel = WarningLevel.Error;

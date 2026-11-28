@@ -42,8 +42,4 @@ private:
 	void ScaleSpeed(float Factor);
 	void SpeedUp();
 	void SpeedDown();
-	void LookUp(float Value);
-	void MoveBack(float Value);
-	void KeyA(float Value);
-	void KeyQ(float Value);
 };
