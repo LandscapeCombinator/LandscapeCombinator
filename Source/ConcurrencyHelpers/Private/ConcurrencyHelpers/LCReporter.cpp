@@ -10,15 +10,25 @@
 
 #if WITH_EDITOR
 #include "Dialogs/Dialogs.h"
+#include "Editor.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "FConcurrencyHelpersModule"
+
+static bool CanShowDialogs()
+{
+#if WITH_EDITOR
+	return GEditor && !GEditor->IsPlaySessionInProgress() && !FApp::IsUnattended();
+#else
+	return false;
+#endif
+}
 
 void LCReporter::ShowError(const FText& Message, const FText& Title)
 {
 	UE_LOG(LogConcurrencyHelpers, Error, TEXT("%s: %s"), *Title.ToString(), *Message.ToString());
 
-	if (Concurrency::IsCancelRequested()) return;
+	if (!CanShowDialogs() || Concurrency::IsCancelRequested()) return;
 
 	FMessageDialog::Open(
 		EAppMsgCategory::Error,
@@ -37,7 +47,7 @@ bool LCReporter::ShowMessage(
 
 #if WITH_EDITOR
 
-	if (FApp::IsUnattended()) return true;
+	if (!CanShowDialogs()) return true;
 
 	return Concurrency::RunOnGameThreadAndWait([&]() {
 
