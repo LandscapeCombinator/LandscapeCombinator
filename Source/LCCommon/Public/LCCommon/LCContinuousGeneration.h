@@ -12,7 +12,7 @@ class LCCOMMON_API ULCContinuousGeneration : public UActorComponent
 
 public:
 	UPROPERTY(AdvancedDisplay, EditAnywhere, Category = "ContinuousGeneration", meta=(DisplayPriority=100))
-	double ContinuousGenerationSeconds = 10;
+	double PauseBetweenGenerationsSeconds = 10;
 
 	UPROPERTY(AdvancedDisplay, EditAnywhere, Category = "ContinuousGeneration", meta=(DisplayPriority=101))
 	bool bStartContinuousGenerationOnBeginPlay = false;
@@ -22,7 +22,7 @@ public:
 	double StartupDelay = 2;
 
 	UPROPERTY(AdvancedDisplay, EditAnywhere, Category = "ContinuousGeneration", meta=(DisplayPriority=103))
-	bool bStopOnError = true;
+	bool bContinueOnError = true;
 
 	UFUNCTION(CallInEditor, BlueprintCallable, Category = "ContinuousGeneration")
 	void StartContinuousGeneration();
@@ -34,7 +34,9 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
-	bool bIsCurrentlyGenerating = false;
+	void GenerateAndRearm();
+
+	bool bRunning = false;
 	FTimerHandle ContinuousGenerationTimer;
 	FTimerHandle StartupDelayTimer;
 };

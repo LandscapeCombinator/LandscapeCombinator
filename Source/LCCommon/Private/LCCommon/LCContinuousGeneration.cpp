@@ -15,39 +15,11 @@ void ULCContinuousGeneration::StartContinuousGeneration()
 	AActor *Owner = GetOwner();
 	if (IsValid(Owner) && IsValid(GetWorld()))
 	{
-		TWeakObjectPtr<ULCContinuousGeneration> WeakThis(this);
-		TWeakObjectPtr<AActor> WeakOwner(Owner);
+		bRunning = true;
+		UE_LOG(LogLCCommon, Log, TEXT("Starting Continuous Generation (pause of %f seconds between generations)"), PauseBetweenGenerationsSeconds);
 
-		auto Generate = [WeakThis, WeakOwner]()
-		{
-			if (!WeakThis.IsValid() || !WeakOwner.IsValid()) return;
-
-			if (ILCGenerator *Generator = Cast<ILCGenerator>(WeakOwner.Get()))
-			{
-				if (WeakThis->bIsCurrentlyGenerating)
-				{
-					UE_LOG(LogLCCommon, Verbose, TEXT("Skipping generation as it already in progress."));
-					return;
-				}
-				WeakThis->bIsCurrentlyGenerating = true;
-				UE_LOG(LogLCCommon, Log, TEXT("Continuous Generation Calling Generate"));
-				Generator->GenerateFromGameThread(FName(), false, [WeakThis](bool bSuccess) {
-					if (!WeakThis.IsValid()) return;
-					WeakThis->bIsCurrentlyGenerating = false;
-					if (!bSuccess && WeakThis->bStopOnError) WeakThis->StopContinuousGeneration();
-				});
-			}
-		};
-
-		auto StartTimer = [WeakThis, Generate]()
-		{
-			if (!WeakThis.IsValid()) return;
-			UE_LOG(LogLCCommon, Log, TEXT("Starting Continuous Generation Timer (generate every %f seconds)"), WeakThis->ContinuousGenerationSeconds);
-			WeakThis->GetWorld()->GetTimerManager().SetTimer(WeakThis->ContinuousGenerationTimer, Generate, WeakThis->ContinuousGenerationSeconds, true, 0);
-		};
-
-		if (StartupDelay <= 0) StartTimer();
-		else GetWorld()->GetTimerManager().SetTimer(StartupDelayTimer, StartTimer, StartupDelay, false);
+		if (StartupDelay <= 0) GenerateAndRearm();
+		else GetWorld()->GetTimerManager().SetTimer(StartupDelayTimer, FTimerDelegate::CreateUObject(this, &ULCContinuousGeneration::GenerateAndRearm), StartupDelay, false);
 	}
 	else
 	{
@@ -57,12 +29,44 @@ void ULCContinuousGeneration::StartContinuousGeneration()
 	}
 }
 
+void ULCContinuousGeneration::GenerateAndRearm()
+{
+	ILCGenerator *Generator = Cast<ILCGenerator>(GetOwner());
+	if (!bRunning || !Generator) return;
+
+	UE_LOG(LogLCCommon, Log, TEXT("Continuous Generation Calling Generate"));
+	TWeakObjectPtr<ULCContinuousGeneration> WeakThis(this);
+	Generator->GenerateFromGameThread(FName(), false, [WeakThis](bool bSuccess) {
+		const bool bCancelled = Concurrency::IsCancelRequested();
+		Concurrency::RunOnGameThread([WeakThis, bSuccess, bCancelled]() {
+			if (!WeakThis.IsValid() || !WeakThis->bRunning || !IsValid(WeakThis->GetWorld())) return;
+
+			if (bCancelled || (!bSuccess && !WeakThis->bContinueOnError))
+			{
+				WeakThis->StopContinuousGeneration();
+				return;
+			}
+
+			WeakThis->GetWorld()->GetTimerManager().SetTimer(
+				WeakThis->ContinuousGenerationTimer,
+				FTimerDelegate::CreateUObject(WeakThis.Get(), &ULCContinuousGeneration::GenerateAndRearm),
+				WeakThis->PauseBetweenGenerationsSeconds, false
+			);
+		});
+	});
+}
+
 void ULCContinuousGeneration::StopContinuousGeneration()
 {
 	TWeakObjectPtr<ULCContinuousGeneration> WeakThis(this);
 	Concurrency::RunOnGameThread([WeakThis]() {
-		if (WeakThis.IsValid() && IsValid(WeakThis->GetWorld()))
+		if (!WeakThis.IsValid()) return;
+		WeakThis->bRunning = false;
+		if (IsValid(WeakThis->GetWorld()))
+		{
 			WeakThis->GetWorld()->GetTimerManager().ClearTimer(WeakThis->ContinuousGenerationTimer);
+			WeakThis->GetWorld()->GetTimerManager().ClearTimer(WeakThis->StartupDelayTimer);
+		}
 	});
 }
 

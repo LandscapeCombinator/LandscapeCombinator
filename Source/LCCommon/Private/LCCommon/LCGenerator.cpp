@@ -238,6 +238,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 				UE_LOG(LogLCCommon, Log, TEXT("Missing Tile (%d, %d, %d)"), Tile.Zoom, Tile.X, Tile.Y);
 			}
 
+			bool bAnyTileFailed = false;
 			for (FTile& Tile : MissingTiles)
 			{
 				if (Concurrency::IsCancelRequested())
@@ -249,8 +250,9 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 				UE_LOG(LogLCCommon, Log, TEXT("Generating Tile (%d, %d, %d)"), Tile.Zoom, Tile.X, Tile.Y);
 				if (!ConfigureForTiles(Tile.Zoom, Tile.X, Tile.X, Tile.Y, Tile.Y))
 				{
-					CurrentStatus = FailedStatus();
-					return false;
+					UE_LOG(LogLCCommon, Error, TEXT("Failed to configure for Tile (%d, %d, %d)"), Tile.Zoom, Tile.X, Tile.Y);
+					bAnyTileFailed = true;
+					continue;
 				}
 
 				if (!bIsUserInitiated && IsTileOutsideCoverage())
@@ -271,15 +273,13 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 				else
 				{
 					UE_LOG(LogLCCommon, Error, TEXT("Failed to generate Tile (%d, %d, %d)"), Tile.Zoom, Tile.X, Tile.Y);
-					CurrentStatus = FailedStatus();
-					GenerationFinished(false);
-					return false;
+					bAnyTileFailed = true;
 				}
 			}
 
-			CurrentStatus = EGeneratorStatus::Success;
-			GenerationFinished(true);
-			return true;
+			CurrentStatus = bAnyTileFailed ? FailedStatus() : EGeneratorStatus::Success;
+			GenerationFinished(!bAnyTileFailed);
+			return !bAnyTileFailed;
 		}
 		else
 		{
