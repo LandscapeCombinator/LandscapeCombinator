@@ -5,14 +5,14 @@
 #include "Components/ActorComponent.h"
 #include "LCContinuousGeneration.generated.h"
 
-UCLASS(BlueprintType)
+UCLASS(BlueprintType, meta=(BlueprintSpawnableComponent))
 class LCCOMMON_API ULCContinuousGeneration : public UActorComponent
 {
 	GENERATED_BODY()
 
 public:
 	UPROPERTY(AdvancedDisplay, EditAnywhere, Category = "ContinuousGeneration", meta=(DisplayPriority=100))
-	double PauseBetweenGenerationsSeconds = 10;
+	double PauseBetweenGenerationsSeconds = 0.1;
 
 	UPROPERTY(AdvancedDisplay, EditAnywhere, Category = "ContinuousGeneration", meta=(DisplayPriority=101))
 	bool bStartContinuousGenerationOnBeginPlay = false;

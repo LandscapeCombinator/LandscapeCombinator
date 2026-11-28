@@ -50,7 +50,7 @@ void ULCContinuousGeneration::GenerateAndRearm()
 			WeakThis->GetWorld()->GetTimerManager().SetTimer(
 				WeakThis->ContinuousGenerationTimer,
 				FTimerDelegate::CreateUObject(WeakThis.Get(), &ULCContinuousGeneration::GenerateAndRearm),
-				WeakThis->PauseBetweenGenerationsSeconds, false
+				FMath::Max(WeakThis->PauseBetweenGenerationsSeconds, 0.001), false
 			);
 		});
 	});
