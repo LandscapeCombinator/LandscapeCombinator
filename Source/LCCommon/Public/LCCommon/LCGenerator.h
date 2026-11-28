@@ -80,6 +80,7 @@ public:
 
 	bool DeleteGeneratedObjects(bool bSkipPrompt);
 	bool DeleteGeneratedObjects_GameThread(bool bSkipPrompt);
+	static void DestroyObjects(const TArray<UObject*>& Objects);
 
 #if WITH_EDITOR
 

@@ -62,7 +62,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 		ULCPositionBasedGeneration* PBG = Self.IsValid() ? Self->FindComponentByClass<ULCPositionBasedGeneration>() : nullptr;
 		if (!IsValid(PBG) || !PBG->bEnablePositionBasedGeneration) return false;
 		WeakPBG = PBG;
-		bGroupFirstTiles = PBG->bGroupFirstTiles;
+		bGroupFirstTiles = PBG->bGroupFirstTiles && PBG->MaxTiles <= 0;
 		Zoom = PBG->ZoomLevel;
 		TileDist = PBG->GenerateAllTilesAtDistance;
 		MaxAltitudeCm = PBG->MaxGenerationAltitudeKm * 100000.0;
@@ -134,6 +134,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 			XList.AddUnique(bWrapX ? ((CurrentX + DX) % NT + NT) % NT : FMath::Clamp(CurrentX + DX, 0, NT - 1));
 		}
 		TArray<FTile> MissingTiles;
+		TSet<FTile> WantedTiles;
 		if (bGeodeticTiles)
 		{
 			const double TileDegrees = 360.0 / NT;
@@ -150,6 +151,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 					MinX = FMath::Min(MinX, X); MaxX = FMath::Max(MaxX, X);
 					MinY = FMath::Min(MinY, Y); MaxY = FMath::Max(MaxY, Y);
 					FTile Tile(Zoom, X, Y);
+					WantedTiles.Add(Tile);
 					if (!AlreadyGenerated.Contains(Tile)) MissingTiles.Add(Tile);
 				}
 			}
@@ -161,15 +163,17 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 				for (int Y = MinY; Y <= MaxY; ++Y)
 				{
 					FTile Tile(Zoom, X, Y);
+					WantedTiles.Add(Tile);
 					if (!AlreadyGenerated.Contains(Tile)) MissingTiles.Add(Tile);
 				}
 			}
 		}
 
 		TArray<FTile> PendingSnapshot = MissingTiles;
-		Concurrency::RunOnGameThreadAndWait([WeakPBG, PendingSnapshot]() {
+		Concurrency::RunOnGameThreadAndWait([WeakPBG, PendingSnapshot, WantedTiles]() {
 			if (!WeakPBG.IsValid()) return false;
 			WeakPBG->PendingTiles = TSet<FTile>(PendingSnapshot);
+			DestroyObjects(WeakPBG->EvictTiles(WantedTiles, PendingSnapshot.Num()));
 			return true;
 		});
 
@@ -182,7 +186,9 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 				WeakPBG->Modify();
 				for (const FTile& Tile : Tiles)
 				{
-					WeakPBG->GeneratedTiles.FindOrAdd(Tile).Objects = Objects;
+					FTileRecord& Record = WeakPBG->GeneratedTiles.FindOrAdd(Tile);
+					Record.Objects = Objects;
+					Record.LastUsedPass = WeakPBG->CurrentPass;
 					WeakPBG->PendingTiles.Remove(Tile);
 				}
 				return true;
@@ -386,18 +392,26 @@ bool ILCGenerator::DeleteGeneratedObjects_GameThread(bool bSkipPrompt)
 		}
 	}
 
-	for (UObject* Object: GeneratedObjects)
+	DestroyObjects(GeneratedObjects);
+
+	if (CurrentStatus != EGeneratorStatus::Generating) CurrentStatus = EGeneratorStatus::Idle;
+	return true;
+}
+
+void ILCGenerator::DestroyObjects(const TArray<UObject*>& Objects)
+{
+	for (UObject* Object: Objects)
 	{
 		if (AActor *Actor = Cast<AActor>(Object))
 		{
-			UE_LOG(LogLCCommon, Log, TEXT("DeleteGeneratedObjects_GameThread: destroying %s (%s)"),
+			UE_LOG(LogLCCommon, Log, TEXT("DestroyObjects: destroying %s (%s)"),
 				*Actor->GetActorNameOrLabel(), *Actor->GetClass()->GetName());
 	#if WITH_EDITOR
 			UWorld *World = Actor->GetWorld();
 			FFolder Folder = Actor->GetFolder();
 	#endif
 			bool bDestroyed = Actor->Destroy();
-			UE_LOG(LogLCCommon, Log, TEXT("DeleteGeneratedObjects_GameThread: Destroy() returned %s for %s"),
+			UE_LOG(LogLCCommon, Log, TEXT("DestroyObjects: Destroy() returned %s for %s"),
 				bDestroyed ? TEXT("true") : TEXT("false"), *Actor->GetActorNameOrLabel());
 	#if WITH_EDITOR
 			if (World) ULCBlueprintLibrary::DeleteFolder(*World, Folder);
@@ -405,7 +419,7 @@ bool ILCGenerator::DeleteGeneratedObjects_GameThread(bool bSkipPrompt)
 		}
 		else if (UActorComponent *Component = Cast<UActorComponent>(Object))
 		{
-			UE_LOG(LogLCCommon, Log, TEXT("DeleteGeneratedObjects_GameThread: destroying component %s"), *Component->GetName());
+			UE_LOG(LogLCCommon, Log, TEXT("DestroyObjects: destroying component %s"), *Component->GetName());
 			Component->DestroyComponent();
 		}
 		else if (IsValid(Object))
@@ -414,12 +428,9 @@ bool ILCGenerator::DeleteGeneratedObjects_GameThread(bool bSkipPrompt)
 		}
 		else
 		{
-			UE_LOG(LogLCCommon, Warning, TEXT("DeleteGeneratedObjects_GameThread: skipped a null/invalid entry in GeneratedObjects"));
+			UE_LOG(LogLCCommon, Warning, TEXT("DestroyObjects: skipped a null/invalid entry in GeneratedObjects"));
 		}
 	}
-
-	if (CurrentStatus != EGeneratorStatus::Generating) CurrentStatus = EGeneratorStatus::Idle;
-	return true;
 }
 
 #if WITH_EDITOR

@@ -53,6 +53,9 @@ struct LCCOMMON_API FTileRecord
 
 	UPROPERTY()
 	TArray<TSoftObjectPtr<UObject>> Objects;
+
+	UPROPERTY(Transient)
+	int LastUsedPass = 0;
 };
 
 UCLASS(BlueprintType)
@@ -87,12 +90,20 @@ public:
 	UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta = (ClampMin = "0", ToolTip = "Skip the generation while the player is higher than this altitude, in km."))
 	double MaxGenerationAltitudeKm = 0;
 
+	UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta = (ClampMin = "0", ToolTip = "Maximum number of tiles kept generated, 0 for no limit. Above it, the least recently used tiles outside the generation range are destroyed. Tiles are generated one by one when this is set."))
+	int MaxTiles = 0;
+
 	UPROPERTY()
 	TMap<FTile, FTileRecord> GeneratedTiles;
 
 	UPROPERTY(Transient)
 	TSet<FTile> PendingTiles;
 
+	UPROPERTY(Transient)
+	int CurrentPass = 0;
+
 	UFUNCTION(CallInEditor, BlueprintCallable, Category = "PositionBasedGeneration")
 	void ClearGeneratedTilesCache();
+
+	TArray<UObject*> EvictTiles(const TSet<FTile>& WantedTiles, int NumNewTiles);
 };
