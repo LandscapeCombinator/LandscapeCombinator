@@ -46,6 +46,15 @@ struct LCCOMMON_API FTile
 	}
 };
 
+USTRUCT(BlueprintType)
+struct LCCOMMON_API FTileRecord
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	TArray<TSoftObjectPtr<UObject>> Objects;
+};
+
 UCLASS(BlueprintType)
 class LCCOMMON_API ULCPositionBasedGeneration : public UActorComponent
 {
@@ -79,7 +88,7 @@ public:
 	double MaxGenerationAltitudeKm = 0;
 
 	UPROPERTY()
-	TSet<FTile> GeneratedTiles;
+	TMap<FTile, FTileRecord> GeneratedTiles;
 
 	UPROPERTY(Transient)
 	TSet<FTile> PendingTiles;

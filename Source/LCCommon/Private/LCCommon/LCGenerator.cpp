@@ -68,7 +68,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 		MaxAltitudeCm = PBG->MaxGenerationAltitudeKm * 100000.0;
 		MinAltitudeCm = PBG->MinGenerationAltitudeKm * 100000.0;
 		bGeodeticTiles = PBG->bGeodeticTiles;
-		AlreadyGenerated = PBG->GeneratedTiles;
+		PBG->GeneratedTiles.GetKeys(AlreadyGenerated);
 		return true;
 	}))
 	{
@@ -174,19 +174,43 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 		});
 
 		TWeakObjectPtr<AActor> WeakSelf = Self;
-		auto MarkTilesGenerated = [WeakSelf, WeakPBG](const TArray<FTile>& Tiles) -> bool
+		auto MarkTilesGenerated = [WeakSelf, WeakPBG](const TArray<FTile>& Tiles, const TArray<TSoftObjectPtr<UObject>>& Objects = {}) -> bool
 		{
-			return Concurrency::RunOnGameThreadAndWait([WeakSelf, WeakPBG, Tiles]() {
+			return Concurrency::RunOnGameThreadAndWait([WeakSelf, WeakPBG, Tiles, Objects]() {
 				if (!WeakSelf.IsValid() || !WeakPBG.IsValid()) return false;
 				WeakSelf->Modify();
 				WeakPBG->Modify();
-				WeakPBG->GeneratedTiles.Append(Tiles);
 				for (const FTile& Tile : Tiles)
 				{
+					WeakPBG->GeneratedTiles.FindOrAdd(Tile).Objects = Objects;
 					WeakPBG->PendingTiles.Remove(Tile);
 				}
 				return true;
 			});
+		};
+
+		auto GenerateTracked = [this, SpawnedActorsPath, bIsUserInitiated](TArray<TSoftObjectPtr<UObject>>& NewObjects) -> bool
+		{
+			auto Snapshot = [this]()
+			{
+				TSet<TSoftObjectPtr<UObject>> Result;
+				Concurrency::RunOnGameThreadAndWait([this, &Result]() {
+					for (UObject* Object : GetGeneratedObjects())
+					{
+						if (IsValid(Object)) Result.Add(TSoftObjectPtr<UObject>(Object));
+					}
+					return true;
+				});
+				return Result;
+			};
+
+			const TSet<TSoftObjectPtr<UObject>> Before = Snapshot();
+			const bool bSuccess = OnGenerate(SpawnedActorsPath, bIsUserInitiated);
+			for (const TSoftObjectPtr<UObject>& Object : Snapshot())
+			{
+				if (!Before.Contains(Object)) NewObjects.Add(Object);
+			}
+			return bSuccess;
 		};
 
 		// if all tiles are missing, we regenerate the whole rectangle
@@ -212,9 +236,10 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 				Zoom, MaxX, MaxY
 			);
 
-			if (OnGenerate(SpawnedActorsPath, bIsUserInitiated))
+			TArray<TSoftObjectPtr<UObject>> NewObjects;
+			if (GenerateTracked(NewObjects))
 			{
-				if (!MarkTilesGenerated(MissingTiles))
+				if (!MarkTilesGenerated(MissingTiles, NewObjects))
 				{
 					UE_LOG(LogLCCommon, Warning, TEXT("Generated tiles, but failed to persist GeneratedTiles cache (actor/component no longer valid)."));
 				}
@@ -262,10 +287,11 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 					continue;
 				}
 
-				if (OnGenerate(SpawnedActorsPath, bIsUserInitiated))
+				TArray<TSoftObjectPtr<UObject>> NewObjects;
+				if (GenerateTracked(NewObjects))
 				{
 					UE_LOG(LogLCCommon, Log, TEXT("Finished generating Tile (%d, %d, %d)"), Tile.Zoom, Tile.X, Tile.Y);
-					if (!MarkTilesGenerated({ Tile }))
+					if (!MarkTilesGenerated({ Tile }, NewObjects))
 					{
 						UE_LOG(LogLCCommon, Warning, TEXT("Generated Tile (%d, %d, %d), but failed to persist it to the cache."), Tile.Zoom, Tile.X, Tile.Y);
 					}
