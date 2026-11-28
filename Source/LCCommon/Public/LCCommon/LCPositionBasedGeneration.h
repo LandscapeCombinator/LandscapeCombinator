@@ -58,6 +58,9 @@ struct LCCOMMON_API FTileRecord
 	int LastUsedPass = 0;
 };
 
+DECLARE_MULTICAST_DELEGATE_OneParam(FLCOnTilesGenerated, const TArray<TSoftObjectPtr<UObject>>&);
+DECLARE_MULTICAST_DELEGATE_OneParam(FLCOnTilesDestroyed, const TArray<TSoftObjectPtr<UObject>>&);
+
 UCLASS(BlueprintType)
 class LCCOMMON_API ULCPositionBasedGeneration : public UActorComponent
 {
@@ -107,6 +110,9 @@ public:
 
 	UPROPERTY(Transient)
 	int CurrentPass = 0;
+
+	FLCOnTilesGenerated OnTilesGenerated;
+	FLCOnTilesDestroyed OnTilesDestroyed;
 
 	UFUNCTION(CallInEditor, BlueprintCallable, Category = "PositionBasedGeneration")
 	void ClearGeneratedTilesCache();

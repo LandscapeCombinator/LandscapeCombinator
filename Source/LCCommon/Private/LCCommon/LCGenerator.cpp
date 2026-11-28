@@ -215,6 +215,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 					Record.LastUsedPass = WeakPBG->CurrentPass;
 					WeakPBG->PendingTiles.Remove(Tile);
 				}
+				if (!Objects.IsEmpty()) WeakPBG->OnTilesGenerated.Broadcast(Objects);
 				return true;
 			});
 		};
@@ -415,6 +416,13 @@ bool ILCGenerator::DeleteGeneratedObjects_GameThread(bool bSkipPrompt)
 			}
 		}
 	}
+
+	TArray<TSoftObjectPtr<UObject>> Destroyed;
+	for (UObject* Object : GeneratedObjects)
+	{
+		if (IsValid(Object)) Destroyed.Add(TSoftObjectPtr<UObject>(Object));
+	}
+	if (IsValid(PositionBasedGeneration) && !Destroyed.IsEmpty()) PositionBasedGeneration->OnTilesDestroyed.Broadcast(Destroyed);
 
 	DestroyObjects(GeneratedObjects);
 

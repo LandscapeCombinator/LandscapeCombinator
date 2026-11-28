@@ -32,13 +32,16 @@ TArray<UObject*> ULCPositionBasedGeneration::EvictTiles(const TSet<FTile>& Wante
 	if (NumToEvict <= 0) return Objects;
 
 	Modify();
+	TArray<TSoftObjectPtr<UObject>> Destroyed;
 	for (int I = 0; I < NumToEvict; ++I)
 	{
-		for (const TSoftObjectPtr<UObject>& Object : GeneratedTiles[Candidates[I]].Objects)
-		{
-			if (UObject* Resolved = Object.Get()) Objects.Add(Resolved);
-		}
+		Destroyed.Append(GeneratedTiles[Candidates[I]].Objects);
 		GeneratedTiles.Remove(Candidates[I]);
 	}
+	for (const TSoftObjectPtr<UObject>& Object : Destroyed)
+	{
+		if (UObject* Resolved = Object.Get()) Objects.Add(Resolved);
+	}
+	if (!Destroyed.IsEmpty()) OnTilesDestroyed.Broadcast(Destroyed);
 	return Objects;
 }
