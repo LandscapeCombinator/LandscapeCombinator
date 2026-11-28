@@ -106,6 +106,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 	TWeakObjectPtr<ULCPositionBasedGeneration> WeakPBG;
 	bool bGroupFirstTiles = false;
 	bool bUsePlayerPosition = true;
+	bool bUseRegisteredSources = true;
 	int Zoom = 0, TileDist = 0;
 	double MinAltitudeCm = 0, MaxAltitudeCm = 0;
 	TSet<FTile> AlreadyGenerated;
@@ -116,6 +117,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 		WeakPBG = PBG;
 		bGroupFirstTiles = PBG->bGroupFirstTiles && PBG->MaxTiles <= 0;
 		bUsePlayerPosition = PBG->bUsePlayerPosition;
+		bUseRegisteredSources = PBG->bUseRegisteredSources;
 		Zoom = PBG->ZoomLevel;
 		TileDist = PBG->GenerateAllTilesAtDistance;
 		MaxAltitudeCm = PBG->MaxGenerationAltitudeKm * 100000.0;
@@ -140,27 +142,16 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 			ULCBlueprintLibrary::GetEditorViewClientPosition(Position)))
 		{
 			FLCGenerationPosition PlayerPosition;
-			PlayerPosition.AltitudeCm = Position.Z;
-			if (GlobalCoordinates->IsSphere())
+			if (!GlobalCoordinates->GetLonLatAltFromWorld(Position, PlayerPosition.Longitude, PlayerPosition.Latitude, PlayerPosition.AltitudeCm))
 			{
-				GlobalCoordinates->FromWorld(Position, PlayerPosition.Longitude, PlayerPosition.Latitude, PlayerPosition.AltitudeCm);
-			}
-			else
-			{
-				FVector2D Location2D(Position.X, Position.Y), Coordinates;
-				if (!GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(Location2D, "EPSG:4326", Coordinates))
-				{
-					CurrentStatus = FailedStatus();
-					return false;
-				}
-				PlayerPosition.Longitude = Coordinates.X;
-				PlayerPosition.Latitude = Coordinates.Y;
+				CurrentStatus = FailedStatus();
+				return false;
 			}
 			Positions.Add(PlayerPosition);
 		}
 
 		Concurrency::RunOnGameThreadAndWait([&]() {
-			UWorld* World = Self.IsValid() ? Self->GetWorld() : nullptr;
+			UWorld* World = bUseRegisteredSources && Self.IsValid() ? Self->GetWorld() : nullptr;
 			if (const ULCGenerationSourceRegistry* Registry = World ? World->GetSubsystem<ULCGenerationSourceRegistry>() : nullptr)
 			{
 				Positions.Append(Registry->GetPositions());
@@ -168,7 +159,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 			return true;
 		});
 
-		if (Positions.IsEmpty())
+		if (Positions.IsEmpty() && bUsePlayerPosition)
 		{
 			LCReporter::ShowError(LOCTEXT("NoPosition", "Could not get a generation position (player or registered source)"));
 			CurrentStatus = FailedStatus();

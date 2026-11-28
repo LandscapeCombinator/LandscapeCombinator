@@ -110,6 +110,8 @@ public:
 	FVector ToWorld(double Long, double Lat, double AltCm = 0) const;
 	void FromWorld(const FVector& World, double& OutLong, double& OutLat, double& OutAltCm) const;
 
+	bool GetLonLatAltFromWorld(const FVector& World, double& OutLong, double& OutLat, double& OutAltCm);
+
 	FVector Up(const FVector& World) const;
 	FQuat Alignment(const FVector& World) const;
 

@@ -96,6 +96,9 @@ public:
 	UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta = (ToolTip = "Also generate around the player (or the editor viewport), in addition to the registered generation sources."))
 	bool bUsePlayerPosition = true;
 
+	UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta = (ToolTip = "Also generate around the registered generation sources (the world map)."))
+	bool bUseRegisteredSources = true;
+
 	UPROPERTY()
 	TMap<FTile, FTileRecord> GeneratedTiles;
 

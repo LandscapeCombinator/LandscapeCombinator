@@ -238,6 +238,24 @@ FVector UGlobalCoordinates::ToWorld(double Long, double Lat, double AltCm) const
 	return SphereCenter() + BodyRotation.RotateVector(FVector(R * E, -R * N, R * U));
 }
 
+bool UGlobalCoordinates::GetLonLatAltFromWorld(const FVector& World, double& OutLong, double& OutLat, double& OutAltCm)
+{
+	if (IsSphere())
+	{
+		FromWorld(World, OutLong, OutLat, OutAltCm);
+	}
+	else
+	{
+		FVector2D Coordinates;
+		if (!GetCRSCoordinatesFromUnrealLocation(FVector2D(World.X, World.Y), TEXT("EPSG:4326"), Coordinates)) return false;
+		OutLong = Coordinates.X;
+		OutLat = Coordinates.Y;
+		OutAltCm = World.Z;
+	}
+	OutLong = FMath::Fmod(FMath::Fmod(OutLong + 180.0, 360.0) + 360.0, 360.0) - 180.0;
+	return true;
+}
+
 void UGlobalCoordinates::FromWorld(const FVector& World, double& OutLong, double& OutLat, double& OutAltCm) const
 {
 	const double P0 = FMath::DegreesToRadians(WorldOriginLat);
