@@ -93,6 +93,9 @@ public:
 	UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta = (ClampMin = "0", ToolTip = "Maximum number of tiles kept generated, 0 for no limit. Above it, the least recently used tiles outside the generation range are destroyed. Tiles are generated one by one when this is set."))
 	int MaxTiles = 0;
 
+	UPROPERTY(EditAnywhere, Category = "PositionBasedGeneration", meta = (ToolTip = "Also generate around the player (or the editor viewport), in addition to the registered generation sources."))
+	bool bUsePlayerPosition = true;
+
 	UPROPERTY()
 	TMap<FTile, FTileRecord> GeneratedTiles;
 

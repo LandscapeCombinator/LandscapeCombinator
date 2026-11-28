@@ -2,6 +2,7 @@
 
 #include "LCCommon/LCGenerator.h"
 #include "LCCommon/LCBlueprintLibrary.h"
+#include "LCCommon/LCGenerationSource.h"
 #include "LCCommon/LogLCCommon.h"
 #include "Coordinates/LevelCoordinates.h"
 #include "ConcurrencyHelpers/Concurrency.h"
@@ -37,6 +38,56 @@ static double DistanceToLonLatRect(double Lon, double Lat, double MinLon, double
 	return Best;
 }
 
+static TArray<FTile> EnumerateTiles(double Longitude, double Latitude, int Zoom, int TileDist, bool bGeodeticTiles, bool bIsSphere)
+{
+	const int NT = 1 << Zoom;
+	const int NY = bGeodeticTiles ? FMath::Max(1, NT / 2) : NT;
+	if (bIsSphere) Longitude = FMath::Fmod(FMath::Fmod(Longitude + 180.0, 360.0) + 360.0, 360.0) - 180.0;
+
+	const double LatRad = FMath::DegreesToRadians(Latitude);
+	int CurrentX = (Longitude + 180) / 360 * NT;
+	int CurrentY = bGeodeticTiles ? (90.0 - Latitude) / 360.0 * NT : (1.0 - asinh(FMath::Tan(LatRad)) / UE_PI) / 2.0 * NT;
+	CurrentX = FMath::Clamp(CurrentX, 0, NT - 1);
+	CurrentY = FMath::Clamp(CurrentY, 0, NY - 1);
+	const int MinY = FMath::Clamp(CurrentY - TileDist, 0, NY - 1);
+	const int MaxY = FMath::Clamp(CurrentY + TileDist, 0, NY - 1);
+
+	UE_LOG(LogLCCommon, Log, TEXT("Zoom = %d, CurrentX = %d, CurrentY = %d, Lon = %.3f, Lat = %.3f"), Zoom, CurrentX, CurrentY, Longitude, Latitude);
+
+	TArray<FTile> Tiles;
+	if (bGeodeticTiles)
+	{
+		const double TileDegrees = 360.0 / NT;
+		const double MaxDistance = TileDist * TileDegrees + 1e-9;
+		for (int Y = MinY; Y <= MaxY; ++Y)
+		{
+			for (int X = 0; X < NT; ++X)
+			{
+				const double TileMinLon = -180.0 + X * TileDegrees;
+				const double TileMaxLat = 90.0 - Y * TileDegrees;
+				if (DistanceToLonLatRect(Longitude, Latitude, TileMinLon, TileMinLon + TileDegrees, TileMaxLat - TileDegrees, TileMaxLat) > MaxDistance) continue;
+				Tiles.Add(FTile(Zoom, X, Y));
+			}
+		}
+	}
+	else
+	{
+		TArray<int> XList;
+		for (int DX = -TileDist; DX <= TileDist; ++DX)
+		{
+			XList.AddUnique(bIsSphere ? ((CurrentX + DX) % NT + NT) % NT : FMath::Clamp(CurrentX + DX, 0, NT - 1));
+		}
+		for (int X : XList)
+		{
+			for (int Y = MinY; Y <= MaxY; ++Y)
+			{
+				Tiles.Add(FTile(Zoom, X, Y));
+			}
+		}
+	}
+	return Tiles;
+}
+
 bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 {
 	if (IsInGameThread())
@@ -54,6 +105,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 	// Read everything we need from the component on the game thread, then only use these copies
 	TWeakObjectPtr<ULCPositionBasedGeneration> WeakPBG;
 	bool bGroupFirstTiles = false;
+	bool bUsePlayerPosition = true;
 	int Zoom = 0, TileDist = 0;
 	double MinAltitudeCm = 0, MaxAltitudeCm = 0;
 	TSet<FTile> AlreadyGenerated;
@@ -63,6 +115,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 		if (!IsValid(PBG) || !PBG->bEnablePositionBasedGeneration) return false;
 		WeakPBG = PBG;
 		bGroupFirstTiles = PBG->bGroupFirstTiles && PBG->MaxTiles <= 0;
+		bUsePlayerPosition = PBG->bUsePlayerPosition;
 		Zoom = PBG->ZoomLevel;
 		TileDist = PBG->GenerateAllTilesAtDistance;
 		MaxAltitudeCm = PBG->MaxGenerationAltitudeKm * 100000.0;
@@ -72,19 +125,6 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 		return true;
 	}))
 	{
-		FVector Position(0, 0, 0);
-		if (!ULCBlueprintLibrary::GetFirstPlayerPosition(Self->GetWorld(), Position) &&
-			!ULCBlueprintLibrary::GetEditorViewClientPosition(Position))
-		{
-			LCReporter::ShowError(LOCTEXT("NoPosition", "Could not get the first player position"));
-			CurrentStatus = FailedStatus();
-			return false;
-		}
-
-		FVector2D Location2D, Coordinates;
-		Location2D.X = Position.X;
-		Location2D.Y = Position.Y;
-
 		UGlobalCoordinates *GlobalCoordinates = ALevelCoordinates::GetGlobalCoordinatesFor(Self.Get(), true);
 		if (!IsValid(GlobalCoordinates))
 		{
@@ -93,80 +133,73 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 			return false;
 		}
 
-		double AltCm = Position.Z;
-		if (GlobalCoordinates->IsSphere())
+		TArray<FLCGenerationPosition> Positions;
+		FVector Position(0, 0, 0);
+		if (bUsePlayerPosition &&
+			(ULCBlueprintLibrary::GetFirstPlayerPosition(Self->GetWorld(), Position) ||
+			ULCBlueprintLibrary::GetEditorViewClientPosition(Position)))
 		{
-			GlobalCoordinates->FromWorld(Position, Coordinates.X, Coordinates.Y, AltCm);
-			Coordinates.X = FMath::Fmod(FMath::Fmod(Coordinates.X + 180.0, 360.0) + 360.0, 360.0) - 180.0;
+			FLCGenerationPosition PlayerPosition;
+			PlayerPosition.AltitudeCm = Position.Z;
+			if (GlobalCoordinates->IsSphere())
+			{
+				GlobalCoordinates->FromWorld(Position, PlayerPosition.Longitude, PlayerPosition.Latitude, PlayerPosition.AltitudeCm);
+			}
+			else
+			{
+				FVector2D Location2D(Position.X, Position.Y), Coordinates;
+				if (!GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(Location2D, "EPSG:4326", Coordinates))
+				{
+					CurrentStatus = FailedStatus();
+					return false;
+				}
+				PlayerPosition.Longitude = Coordinates.X;
+				PlayerPosition.Latitude = Coordinates.Y;
+			}
+			Positions.Add(PlayerPosition);
 		}
-		else if (!GlobalCoordinates->GetCRSCoordinatesFromUnrealLocation(Location2D, "EPSG:4326", Coordinates))
+
+		Concurrency::RunOnGameThreadAndWait([&]() {
+			UWorld* World = Self.IsValid() ? Self->GetWorld() : nullptr;
+			if (const ULCGenerationSourceRegistry* Registry = World ? World->GetSubsystem<ULCGenerationSourceRegistry>() : nullptr)
+			{
+				Positions.Append(Registry->GetPositions());
+			}
+			return true;
+		});
+
+		if (Positions.IsEmpty())
 		{
+			LCReporter::ShowError(LOCTEXT("NoPosition", "Could not get a generation position (player or registered source)"));
 			CurrentStatus = FailedStatus();
 			return false;
 		}
 
-		if ((MaxAltitudeCm > 0 && AltCm > MaxAltitudeCm) || (MinAltitudeCm > 0 && AltCm < MinAltitudeCm))
+		TSet<FTile> WantedTiles;
+		TArray<FTile> MissingTiles;
+		for (const FLCGenerationPosition& SourcePosition : Positions)
+		{
+			if ((MaxAltitudeCm > 0 && SourcePosition.AltitudeCm > MaxAltitudeCm) || (MinAltitudeCm > 0 && SourcePosition.AltitudeCm < MinAltitudeCm)) continue;
+
+			for (const FTile& Tile : EnumerateTiles(SourcePosition.Longitude, SourcePosition.Latitude, Zoom, TileDist, bGeodeticTiles, GlobalCoordinates->IsSphere()))
+			{
+				bool bAlreadyWanted = false;
+				WantedTiles.Add(Tile, &bAlreadyWanted);
+				if (!bAlreadyWanted && !AlreadyGenerated.Contains(Tile)) MissingTiles.Add(Tile);
+			}
+		}
+
+		if (WantedTiles.IsEmpty())
 		{
 			CurrentStatus = EGeneratorStatus::Idle;
 			return true;
 		}
 
-		double n = 1 << Zoom;
-		const int NY = bGeodeticTiles ? FMath::Max(1, (1 << Zoom) / 2) : (1 << Zoom);
-		double LatRad = FMath::DegreesToRadians(Coordinates.Y);
-		int CurrentX = (Coordinates.X + 180) / 360 * n;
-		int CurrentY = bGeodeticTiles ? (90.0 - Coordinates.Y) / 360.0 * n : (1.0 - asinh(FMath::Tan(LatRad)) / UE_PI) / 2.0 * n;
-
-		CurrentX = FMath::Clamp(CurrentX, 0, n - 1);
-		CurrentY = FMath::Clamp(CurrentY, 0, NY - 1);
-		int MinX = FMath::Clamp(CurrentX - TileDist, 0, n - 1);
-		int MaxX = FMath::Clamp(CurrentX + TileDist, 0, n - 1);
-		int MinY = FMath::Clamp(CurrentY - TileDist, 0, NY - 1);
-		int MaxY = FMath::Clamp(CurrentY + TileDist, 0, NY - 1);
-
-		UE_LOG(LogLCCommon, Log, TEXT("Zoom = %d, CurrentX = %d, CurrentY = %d, Lon = %.3f, Lat = %.3f"), Zoom, CurrentX, CurrentY, Coordinates.X, Coordinates.Y);
-
-		const int NT = 1 << Zoom;
-		const bool bWrapX = GlobalCoordinates->IsSphere() && (CurrentX - TileDist < 0 || CurrentX + TileDist > NT - 1);
-		TArray<int> XList;
-		for (int DX = -TileDist; DX <= TileDist; ++DX)
+		int MinX = MAX_int32, MaxX = MIN_int32, MinY = MAX_int32, MaxY = MIN_int32;
+		for (const FTile& Tile : WantedTiles)
 		{
-			XList.AddUnique(bWrapX ? ((CurrentX + DX) % NT + NT) % NT : FMath::Clamp(CurrentX + DX, 0, NT - 1));
-		}
-		TArray<FTile> MissingTiles;
-		TSet<FTile> WantedTiles;
-		if (bGeodeticTiles)
-		{
-			const double TileDegrees = 360.0 / NT;
-			const double MaxDistance = TileDist * TileDegrees + 1e-9;
-			const int FirstY = MinY, LastY = MaxY;
-			MinX = NT; MaxX = -1; MinY = NY; MaxY = -1;
-			for (int Y = FirstY; Y <= LastY; ++Y)
-			{
-				for (int X = 0; X < NT; ++X)
-				{
-					const double TileMinLon = -180.0 + X * TileDegrees;
-					const double TileMaxLat = 90.0 - Y * TileDegrees;
-					if (DistanceToLonLatRect(Coordinates.X, Coordinates.Y, TileMinLon, TileMinLon + TileDegrees, TileMaxLat - TileDegrees, TileMaxLat) > MaxDistance) continue;
-					MinX = FMath::Min(MinX, X); MaxX = FMath::Max(MaxX, X);
-					MinY = FMath::Min(MinY, Y); MaxY = FMath::Max(MaxY, Y);
-					FTile Tile(Zoom, X, Y);
-					WantedTiles.Add(Tile);
-					if (!AlreadyGenerated.Contains(Tile)) MissingTiles.Add(Tile);
-				}
-			}
-		}
-		else
-		{
-			for (int X : XList)
-			{
-				for (int Y = MinY; Y <= MaxY; ++Y)
-				{
-					FTile Tile(Zoom, X, Y);
-					WantedTiles.Add(Tile);
-					if (!AlreadyGenerated.Contains(Tile)) MissingTiles.Add(Tile);
-				}
-			}
+			MinX = FMath::Min(MinX, Tile.X); MaxX = FMath::Max(MaxX, Tile.X);
+			MinY = FMath::Min(MinY, Tile.Y); MaxY = FMath::Max(MaxY, Tile.Y);
 		}
 
 		TArray<FTile> PendingSnapshot = MissingTiles;
@@ -220,7 +253,7 @@ bool ILCGenerator::Generate(FName SpawnedActorsPath, bool bIsUserInitiated)
 		};
 
 		// if all tiles are missing, we regenerate the whole rectangle
-		if (bGroupFirstTiles && !bWrapX && MissingTiles.Num() == (MaxX - MinX + 1) * (MaxY - MinY + 1))
+		if (bGroupFirstTiles && MissingTiles.Num() == (MaxX - MinX + 1) * (MaxY - MinY + 1))
 		{
 			if (!ConfigureForTiles(Zoom, MinX, MaxX, MinY, MaxY))
 			{
