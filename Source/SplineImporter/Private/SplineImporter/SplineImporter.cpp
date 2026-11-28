@@ -26,7 +26,6 @@
 #include "Stats/StatsMisc.h"
 #include "ObjectEditorUtils.h"
 #include "Engine/World.h"
-#include "Misc/MessageDialog.h"
 #include "Polygon2.h"
 #include "Algo/Reverse.h"
 #include "Styling/AppStyle.h"
@@ -142,14 +141,10 @@ bool ASplineImporter::OnGenerate(FName SpawnedActorsPathOverride, bool bIsUserIn
 	{
 		if (!ActorsOrLandscapesToPlaceSplines[0]->IsA<ALandscape>())
 		{
-			FMessageDialog::Open(
-				EAppMsgCategory::Error,
-				EAppMsgType::Ok,
-				FText::Format(
-					LOCTEXT("ASplineImporter::GenerateSplines::2", "Actor {0} is not a landscape"),
-					FText::FromString(ActorOrLandscapeToPlaceSplinesLabel)
-				)
-			);
+			LCReporter::ShowError(FText::Format(
+				LOCTEXT("ASplineImporter::GenerateSplines::2", "Actor {0} is not a landscape"),
+				FText::FromString(ActorOrLandscapeToPlaceSplinesLabel)
+			));
 			return false;
 		}
 		Landscape = Cast<ALandscape>(ActorsOrLandscapesToPlaceSplines[0]);
